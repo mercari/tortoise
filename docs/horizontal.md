@@ -249,7 +249,7 @@ After a while, the target workload looks like:
 The resource request reaches the `.spec.ResourcePolicy[*].MinAllocatedResources.CPU`.
 But, the num of replicas has already reached "the minumum number of replicas".
 
-So, Tortoise won't change anything further. 
+So, Tortoise won't change anything further.
 
 ### Sample
 

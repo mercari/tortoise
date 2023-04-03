@@ -36,6 +36,22 @@ func New(c client.Client) (*Service, error) {
 	}, nil
 }
 
+func (s *Service) CheckIfTortoiseFinishedGatheringData(tortoise *v1alpha1.Tortoise) *v1alpha1.Tortoise {
+	for _, r := range tortoise.Status.Recommendations.Horizontal.MinReplicas {
+		if r.Value == 0 {
+			return tortoise
+		}
+	}
+	for _, r := range tortoise.Status.Recommendations.Horizontal.MaxReplicas {
+		if r.Value == 0 {
+			return tortoise
+		}
+	}
+
+	tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseWorking
+	return tortoise
+}
+
 func (s *Service) InitializeTortoise(tortoise *v1alpha1.Tortoise) *v1alpha1.Tortoise {
 	recommendations := []v1alpha1.ReplicasRecommendation{}
 	from := 0
