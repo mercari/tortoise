@@ -130,3 +130,17 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+## Install tools
+.PHONY: dependencies
+dependencies:
+	@./scripts/dependencies.sh
+
+.PHONY: lint
+lint:
+	golangci-lint run $(args) ./...
+
+.PHONY: lint-fix
+lint-fix:
+	# Note: gci's autofix on golangci-lint was disabled. We can remove this if that is enabled again.
+	@make lint args='--fix -v' cons_args='-v'
