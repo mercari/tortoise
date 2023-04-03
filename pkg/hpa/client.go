@@ -26,12 +26,6 @@ func New(c client.Client) *Client {
 	return &Client{c: c}
 }
 
-const TortoiseHPANamePrefix = "tortoise-hpa-"
-
-func TortoiseVPAName(tortoiseName string) string {
-	return TortoiseHPANamePrefix + tortoiseName
-}
-
 func (c *Client) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
 	hpa := &v2.HorizontalPodAutoscaler{}
 	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName}, hpa); err != nil {
@@ -62,7 +56,7 @@ func (c *Client) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoi
 
 	// when emergency mode, we set the same value on minReplicas.
 	min := max
-	if tortoise.Spec.UpdateMode != autoscalingv1alpha1.EmergencyMode {
+	if tortoise.Spec.UpdateMode != autoscalingv1alpha1.UpdateModeEmergency {
 		min, err = getReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
 		if err != nil {
 			return nil, fmt.Errorf("get minReplicas recommendation: %w", err)

@@ -42,15 +42,15 @@ func TestUpdateRecommendation(t *testing.T) {
 							{
 								ContainerName: "app",
 								AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-									corev1.ResourceMemory: v1alpha1.HorizontalAutoscalingType,
-									corev1.ResourceCPU:    v1alpha1.VerticalAutoscalingType,
+									corev1.ResourceMemory: v1alpha1.AutoscalingTypeHorizontal,
+									corev1.ResourceCPU:    v1alpha1.AutoscalingTypeVertical,
 								},
 							},
 							{
 								ContainerName: "istio-proxy",
 								AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-									corev1.ResourceMemory: v1alpha1.VerticalAutoscalingType,
-									corev1.ResourceCPU:    v1alpha1.HorizontalAutoscalingType,
+									corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+									corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
 								},
 							},
 						},
@@ -180,15 +180,15 @@ func TestUpdateRecommendation(t *testing.T) {
 						{
 							ContainerName: "app",
 							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceMemory: v1alpha1.HorizontalAutoscalingType,
-								corev1.ResourceCPU:    v1alpha1.VerticalAutoscalingType,
+								corev1.ResourceMemory: v1alpha1.AutoscalingTypeHorizontal,
+								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeVertical,
 							},
 						},
 						{
 							ContainerName: "istio-proxy",
 							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceMemory: v1alpha1.VerticalAutoscalingType,
-								corev1.ResourceCPU:    v1alpha1.HorizontalAutoscalingType,
+								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
 							},
 						},
 					},
@@ -252,15 +252,15 @@ func TestUpdateRecommendation(t *testing.T) {
 							{
 								ContainerName: "app",
 								AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-									corev1.ResourceMemory: v1alpha1.HorizontalAutoscalingType,
-									corev1.ResourceCPU:    v1alpha1.VerticalAutoscalingType,
+									corev1.ResourceMemory: v1alpha1.AutoscalingTypeHorizontal,
+									corev1.ResourceCPU:    v1alpha1.AutoscalingTypeVertical,
 								},
 							},
 							{
 								ContainerName: "istio-proxy",
 								AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-									corev1.ResourceMemory: v1alpha1.VerticalAutoscalingType,
-									corev1.ResourceCPU:    v1alpha1.HorizontalAutoscalingType,
+									corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+									corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
 								},
 							},
 						},
@@ -370,15 +370,15 @@ func TestUpdateRecommendation(t *testing.T) {
 						{
 							ContainerName: "app",
 							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceMemory: v1alpha1.HorizontalAutoscalingType,
-								corev1.ResourceCPU:    v1alpha1.VerticalAutoscalingType,
+								corev1.ResourceMemory: v1alpha1.AutoscalingTypeHorizontal,
+								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeVertical,
 							},
 						},
 						{
 							ContainerName: "istio-proxy",
 							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceMemory: v1alpha1.VerticalAutoscalingType,
-								corev1.ResourceCPU:    v1alpha1.HorizontalAutoscalingType,
+								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
 							},
 						},
 					},
@@ -843,8 +843,8 @@ func createVerticalTortoise() *v1alpha1.Tortoise {
 				{
 					ContainerName: "test-container",
 					AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-						corev1.ResourceCPU:    v1alpha1.VerticalAutoscalingType,
-						corev1.ResourceMemory: v1alpha1.VerticalAutoscalingType,
+						corev1.ResourceCPU:    v1alpha1.AutoscalingTypeVertical,
+						corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
 					},
 					MinAllocatedResources: createResourceList("100m", "100Mi"),
 				},
@@ -869,8 +869,8 @@ func createTortoise() *v1alpha1.Tortoise {
 				{
 					ContainerName: "test-container",
 					AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-						corev1.ResourceCPU:    v1alpha1.HorizontalAutoscalingType,
-						corev1.ResourceMemory: v1alpha1.HorizontalAutoscalingType,
+						corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1alpha1.AutoscalingTypeHorizontal,
 					},
 					MinAllocatedResources: createResourceList("100m", "100Mi"),
 				},
