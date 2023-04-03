@@ -72,6 +72,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if apierrors.IsNotFound(err) {
 			// Probably deleted.
 			logger.Info("tortoise is not found", "tortoise", req.NamespacedName)
+			// TODO: delete VPA and HPA created by the Tortoise?
 			return ctrl.Result{}, nil
 		}
 

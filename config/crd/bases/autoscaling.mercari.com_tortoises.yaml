@@ -71,16 +71,17 @@ spec:
                         - Horizontal
                         - Vertical
                         type: string
-                      description: 'AutoscalingPolicy specifies how each resource
-                        is scaled. If "Horizontal", the resource is horizontally scaled.
-                        If "Vertical", the resource is vertically scaled. TODO: Now,
-                        at least one container in Pod should be Horizontal'
+                      description: "AutoscalingPolicy specifies how each resource
+                        is scaled. If \"Horizontal\", the resource is horizontally
+                        scaled. If \"Vertical\", the resource is vertically scaled.
+                        Now, at least one container in Pod should be Horizontal. \n
+                        The default value is \"Horizontal\" for cpu, and \"Vertical\"
+                        for memory."
                       type: object
                     containerName:
                       description: ContainerName is the name of target container.
                       type: string
                   required:
-                  - autoscalingPolicy
                   - containerName
                   type: object
                 type: array
