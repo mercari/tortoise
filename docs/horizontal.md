@@ -84,8 +84,8 @@ metadata:
   name: example-hpa
   namespace: example-prod
   annotations:
-    tortoises.autoscaling.sanposhiho.com/container-based-cpu-metric-prefix: "datadogmetric@example-prod:example-workload-cpu-"
-    tortoises.autoscaling.sanposhiho.com/container-based-memory-metric-prefix: "datadogmetric@example-prod:example-workload-memory-"
+    tortoises.autoscaling.mercari.com/container-based-cpu-metric-prefix: "datadogmetric@example-prod:example-workload-cpu-"
+    tortoises.autoscaling.mercari.com/container-based-memory-metric-prefix: "datadogmetric@example-prod:example-workload-memory-"
 spec:
   metrics:
     - type: External

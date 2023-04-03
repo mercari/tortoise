@@ -6,7 +6,7 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - autoscaling.sanposhiho.com
+  - autoscaling.mercari.com
   resources:
   - tortoises
   verbs:
@@ -18,13 +18,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - autoscaling.sanposhiho.com
+  - autoscaling.mercari.com
   resources:
   - tortoises/finalizers
   verbs:
   - update
 - apiGroups:
-  - autoscaling.sanposhiho.com
+  - autoscaling.mercari.com
   resources:
   - tortoises/status
   verbs:

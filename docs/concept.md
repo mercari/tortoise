@@ -38,7 +38,7 @@ See the document for more detail: [The emergency mode](./emergency.md)
 
 ## Side Notes
 
-It's implemented based on our experience in Mercari.
+It's implemented based on our experience in mercari.com
 
 - Our workloads are mostly Golang HTTP/GRPC server.
 - Our workloads mostly get traffic from people in the same timezone, and the demand of resources is usually very similar to the same time one week ago.
