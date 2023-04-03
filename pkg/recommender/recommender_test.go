@@ -708,7 +708,6 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 	type args struct {
 		tortoise   *v1alpha1.Tortoise
 		deployment *v1.Deployment
-		now        time.Time
 	}
 	tests := []struct {
 		name    string
