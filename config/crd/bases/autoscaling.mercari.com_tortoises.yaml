@@ -45,6 +45,26 @@ spec:
                   is updated.
                 items:
                   properties:
+                    MinAllocatedResources:
+                      additionalProperties:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      description: "MinAllocatedResources is the minimum amount of
+                        resources which is given to the container. Tortoise never
+                        set the resources request on the container than MinAllocatedResources.
+                        \n If empty, tortoise may reduce the resource request to the
+                        value which is suggested from VPA. Leaving this field empty
+                        is basically safe, but you may consider using MinAllocatedResources
+                        when maybe your application will consume resources more than
+                        usual, given the VPA suggests values based on the historical
+                        resource usage. For example, your application will soon have
+                        new feature which leads to increase in the resource usage,
+                        it is expected that your application will soon get more requests
+                        than usual, etc."
+                      type: object
                     autoscalingPolicy:
                       additionalProperties:
                         enum:
@@ -59,26 +79,6 @@ spec:
                     containerName:
                       description: ContainerName is the name of target container.
                       type: string
-                    MinAllocatedResources:
-                      additionalProperties:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      description: "MinAllocatedResources is the minimum amount of resources
-                        which is given to the container. Tortoise never set the resources
-                        request on the container than MinAllocatedResources. \n If empty,
-                        tortoise may reduce the resource request to the value which
-                        is suggested from VPA. Leaving this field empty is basically
-                        safe, but you may consider using MinAllocatedResources when
-                        maybe your application will consume resources more than usual,
-                        given the VPA suggests values based on the historical resource
-                        usage. For example, your application will soon have new feature
-                        which leads to increase in the resource usage, it is expected
-                        that your application will soon get more requests than usual,
-                        etc."
-                      type: object
                   required:
                   - autoscalingPolicy
                   - containerName
@@ -92,13 +92,18 @@ spec:
                       It should be the same as the target of HPA.
                     type: string
                   horizontalPodAutoscalerName:
-                    description: HorizontalPodAutoscalerName is the name of the target
+                    description: "HorizontalPodAutoscalerName is the name of the target
                       HPA. The target of this HPA should be the same as the DeploymentName
-                      above.
+                      above. The target HPA should have the ContainerResource type
+                      metric or the external metric refers to the container resource
+                      utilization. Please check out the document for more detail:
+                      https://github.com/sanposhiho/tortoise/blob/master/docs/horizontal.md#supported-metrics-in-hpa
+                      \n If nothing specified, the Tortoise will create the HPA named
+                      \"{Tortoise name} + -hpa\" with needed ContainerResource type
+                      metric."
                     type: string
                 required:
                 - deploymentName
-                - horizontalPodAutoscalerName
                 type: object
               updateMode:
                 description: "UpdateMode is how tortoise update resources. If \"Off\",
@@ -186,11 +191,13 @@ spec:
                         items:
                           properties:
                             from:
-                              format: date-time
+                              description: From represented in hour.
+                              type: integer
+                            timeZone:
                               type: string
                             to:
-                              format: date-time
-                              type: string
+                              description: To represented in hour.
+                              type: integer
                             updatedAt:
                               format: date-time
                               type: string
@@ -198,11 +205,17 @@ spec:
                               description: Value is the recommendation value.
                               format: int32
                               type: integer
+                            weekDay:
+                              description: A Weekday specifies a day of the week (Sunday
+                                = 0, ...).
+                              type: integer
                           required:
                           - from
+                          - timeZone
                           - to
                           - updatedAt
                           - value
+                          - weekDay
                           type: object
                         type: array
                       minReplicas:
@@ -211,11 +224,13 @@ spec:
                         items:
                           properties:
                             from:
-                              format: date-time
+                              description: From represented in hour.
+                              type: integer
+                            timeZone:
                               type: string
                             to:
-                              format: date-time
-                              type: string
+                              description: To represented in hour.
+                              type: integer
                             updatedAt:
                               format: date-time
                               type: string
@@ -223,11 +238,17 @@ spec:
                               description: Value is the recommendation value.
                               format: int32
                               type: integer
+                            weekDay:
+                              description: A Weekday specifies a day of the week (Sunday
+                                = 0, ...).
+                              type: integer
                           required:
                           - from
+                          - timeZone
                           - to
                           - updatedAt
                           - value
+                          - weekDay
                           type: object
                         type: array
                       targetUtilizations:
@@ -290,11 +311,38 @@ spec:
                 - horizontal
                 - vertical
                 type: object
+              targets:
+                properties:
+                  deployment:
+                    type: string
+                  horizontalPodAutoscaler:
+                    type: string
+                  verticalPodAutoscalers:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        role:
+                          enum:
+                          - Updater
+                          - Monitor
+                          type: string
+                      required:
+                      - name
+                      - role
+                      type: object
+                    type: array
+                required:
+                - deployment
+                - horizontalPodAutoscaler
+                - verticalPodAutoscalers
+                type: object
               tortoisePhase:
                 type: string
             required:
             - conditions
             - recommendations
+            - targets
             - tortoisePhase
             type: object
         type: object
