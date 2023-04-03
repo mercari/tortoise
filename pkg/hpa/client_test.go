@@ -22,7 +22,7 @@ import (
 )
 
 func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
-	now := metav1.Now()
+	now := metav1.NewTime(time.Date(2022, 1, 1, 1, 1, 1, 1, time.UTC))
 
 	type args struct {
 		ctx      context.Context
@@ -41,6 +41,11 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1alpha1.Tortoise{
+					Spec: autoscalingv1alpha1.TortoiseSpec{
+						TargetRefs: autoscalingv1alpha1.TargetRefs{
+							HorizontalPodAutoscalerName: pointer.String("hpa"),
+						},
+					},
 					Status: autoscalingv1alpha1.TortoiseStatus{
 						Recommendations: autoscalingv1alpha1.Recommendations{
 							Horizontal: autoscalingv1alpha1.HorizontalRecommendations{
@@ -61,17 +66,19 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 								MaxReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
 									{
 										From:      0,
-										To:        1,
+										To:        2,
 										Value:     6,
 										UpdatedAt: now,
+										WeekDay:   now.Weekday(),
 									},
 								},
 								MinReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
 									{
 										From:      0,
-										To:        1,
+										To:        2,
 										Value:     3,
 										UpdatedAt: now,
+										WeekDay:   now.Weekday(),
 									},
 								},
 							},
@@ -82,6 +89,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			},
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
 					Annotations: map[string]string{
 						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
 						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
@@ -122,6 +130,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			},
 			want: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
 					Annotations: map[string]string{
 						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
 						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
@@ -167,6 +176,11 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1alpha1.Tortoise{
+					Spec: autoscalingv1alpha1.TortoiseSpec{
+						TargetRefs: autoscalingv1alpha1.TargetRefs{
+							HorizontalPodAutoscalerName: pointer.String("hpa"),
+						},
+					},
 					Status: autoscalingv1alpha1.TortoiseStatus{
 						Recommendations: autoscalingv1alpha1.Recommendations{
 							Horizontal: autoscalingv1alpha1.HorizontalRecommendations{
@@ -187,17 +201,19 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 								MaxReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
 									{
 										From:      0,
-										To:        1,
+										To:        2,
 										Value:     6,
 										UpdatedAt: now,
+										WeekDay:   now.Weekday(),
 									},
 								},
 								MinReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
 									{
 										From:      0,
-										To:        1,
+										To:        2,
 										Value:     3,
 										UpdatedAt: now,
+										WeekDay:   now.Weekday(),
 									},
 								},
 							},
@@ -208,6 +224,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			},
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
 					Annotations: map[string]string{
 						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
 						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
@@ -246,6 +263,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			},
 			want: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
 					Annotations: map[string]string{
 						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
 						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
