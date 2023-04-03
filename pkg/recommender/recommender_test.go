@@ -726,7 +726,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				tortoise:   createTortoise(),
 				deployment: createDeployment(2, "500m", "500Mi"),
 			},
-			want:    createTortoise(),
+			want:    createTortoiseWithVPARecommendation("500m", "500Mi"),
 			wantErr: false,
 		},
 		{

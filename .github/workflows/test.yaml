@@ -26,8 +26,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - name: Get dependencies
-        run: |
-          go mod download
+        run: make dependencies
       - name: Build
         run: make build
       - name: Test
