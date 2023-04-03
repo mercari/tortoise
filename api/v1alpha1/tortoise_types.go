@@ -99,7 +99,9 @@ type TargetRefs struct {
 	// The target HPA should have the ContainerResource type metric or the external metric refers to the container resource utilization.
 	// Please check out the document for more detail: https://github.com/mercari/tortoise/blob/master/docs/horizontal.md#supported-metrics-in-hpa
 	//
-	// If nothing specified, the Tortoise will create the HPA named "{Tortoise name} + -hpa" with needed ContainerResource type metric.
+	// You can specify either of existing HPA or non existing HPA.
+	// If non existing HPA is specified, tortoise will create HPA with the given name.
+	// The default value is "{Tortoise name} + -hpa".
 	// +optional
 	HorizontalPodAutoscalerName *string `json:"horizontalPodAutoscalerName,omitempty" protobuf:"bytes,2,opt,name=horizontalPodAutoscalerName"`
 }
@@ -177,6 +179,8 @@ type ReplicasRecommendation struct {
 type TortoisePhase string
 
 const (
+	// TortoisePhaseInitializing means tortoise is just created and initializing some components.
+	TortoisePhaseInitializing TortoisePhase = "Initializing"
 	// TortoisePhaseGatheringData means tortoise is now gathering data and cannot make the accurate recommendations.
 	TortoisePhaseGatheringData TortoisePhase = "GatheringData"
 	// TortoisePhaseWorking means tortoise is making the recommendations,

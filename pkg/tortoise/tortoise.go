@@ -40,7 +40,9 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1alpha1.Tortoise) *v1alpha1.Tor
 	switch tortoise.Status.TortoisePhase {
 	case "":
 		tortoise = s.initializeTortoise(tortoise)
-		// TODO: create VPA, HPA
+	case v1alpha1.TortoisePhaseInitializing:
+		// TODO: check initializing finished. (if VPA/HPA are working well etc)
+		tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseGatheringData
 	case v1alpha1.TortoisePhaseGatheringData:
 		tortoise = s.checkIfTortoiseFinishedGatheringData(tortoise)
 	}
@@ -93,7 +95,7 @@ func (s *Service) initializeTortoise(tortoise *v1alpha1.Tortoise) *v1alpha1.Tort
 	}
 	tortoise.Status.Recommendations.Horizontal.MinReplicas = recommendations
 	tortoise.Status.Recommendations.Horizontal.MaxReplicas = recommendations
-	tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseGatheringData
+	tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseInitializing
 	return tortoise.DeepCopy()
 }
 

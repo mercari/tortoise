@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	v1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"math"
 	"time"
 
@@ -30,6 +34,75 @@ func New(c client.Client) *Client {
 		c:                      c,
 		replicaReductionFactor: 0.95,
 	}
+}
+
+func (c *Client) CreateHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*autoscalingv1alpha1.Tortoise, error) {
+	// TODO: make this default HPA spec configurable.
+	hpa := &v2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName,
+			Namespace: tortoise.Namespace,
+		},
+		Spec: v2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: v2.CrossVersionObjectReference{
+				Kind:       "Deployment",
+				Name:       tortoise.Spec.TargetRefs.DeploymentName,
+				APIVersion: "apps/v1",
+			},
+			MinReplicas: pointer.Int32(dm.Status.Replicas / 2),
+			MaxReplicas: dm.Status.Replicas * 2,
+			Behavior: &v2.HorizontalPodAutoscalerBehavior{
+				ScaleUp: &v2.HPAScalingRules{
+					Policies: []v2.HPAScalingPolicy{
+						{
+							Type:          v2.PercentScalingPolicy,
+							Value:         100,
+							PeriodSeconds: 60,
+						},
+					},
+				},
+				ScaleDown: &v2.HPAScalingRules{
+					Policies: []v2.HPAScalingPolicy{
+						{
+							Type:          v2.PercentScalingPolicy,
+							Value:         2,
+							PeriodSeconds: 90,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	m := make([]v2.MetricSpec, 0, len(tortoise.Spec.ResourcePolicy))
+	for _, c := range tortoise.Spec.ResourcePolicy {
+		for r, p := range c.AutoscalingPolicy {
+			if p != autoscalingv1alpha1.AutoscalingTypeHorizontal {
+				continue
+			}
+			m = append(m, v2.MetricSpec{
+				Type: v2.ContainerResourceMetricSourceType,
+				ContainerResource: &v2.ContainerResourceMetricSource{
+					Name: r,
+					Target: v2.MetricTarget{
+						AverageUtilization: pointer.Int32(50),
+					},
+					Container: c.ContainerName,
+				},
+			})
+		}
+	}
+	hpa.Spec.Metrics = m
+
+	tortoise.Status.Targets.HorizontalPodAutoscaler = hpa.Name
+
+	err := c.c.Create(ctx, hpa)
+	if apierrors.IsAlreadyExists(err) {
+		// A user specified the existing HPA.
+		return tortoise, nil
+	}
+
+	return tortoise, err
 }
 
 func (c *Client) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v2.HorizontalPodAutoscaler, error) {

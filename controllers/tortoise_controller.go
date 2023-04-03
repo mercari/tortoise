@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	v1 "k8s.io/api/apps/v1"
 	"time"
 
 	"github.com/mercari/tortoise/pkg/deployment"
@@ -54,15 +55,6 @@ type TortoiseReconciler struct {
 //+kubebuilder:rbac:groups=autoscaling.mercari.com,resources=tortoises/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=autoscaling.mercari.com,resources=tortoises/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Tortoise object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	now := time.Now()
@@ -71,7 +63,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// Probably deleted.
-			logger.Info("tortoise is not found", "tortoise", req.NamespacedName)
+			logger.V(4).Info("tortoise is not found", "tortoise", req.NamespacedName)
 			// TODO: delete VPA and HPA created by the Tortoise?
 			return ctrl.Result{}, nil
 		}
@@ -80,8 +72,23 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	// need to initialize
+	dm, err := r.DeploymentClient.GetDeploymentOnTortoise(ctx, tortoise)
+	if err != nil {
+		logger.Error(err, "failed to get deployment", "tortoise", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+
 	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise)
+	if tortoise.Status.TortoisePhase == autoscalingv1alpha1.TortoisePhaseInitializing {
+		// need to initialize HPA and VPA.
+		if err := r.initializeVPAAndHPA(ctx, tortoise, dm); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// VPA and HPA are just created, and they won't start working soon.
+		// So, return here and wait a few min for them to start to work.
+		return ctrl.Result{RequeueAfter: 2 * time.Minute}, nil
+	}
 
 	vpa, err := r.VpaClient.GetTortoiseMonitorVPA(ctx, tortoise)
 	if err != nil {
@@ -96,12 +103,6 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	tortoise = r.TortoiseService.UpdateUpperRecommendation(tortoise, vpa)
-
-	dm, err := r.DeploymentClient.GetDeploymentOnTortoise(ctx, tortoise)
-	if err != nil {
-		logger.Error(err, "failed to get deployment", "tortoise", req.NamespacedName)
-		return ctrl.Result{}, err
-	}
 
 	tortoise, err = r.RecommenderService.UpdateRecommendations(tortoise, hpa, dm, now)
 	if err != nil {
@@ -128,6 +129,28 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	return ctrl.Result{RequeueAfter: r.Interval}, nil
+}
+
+func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) error {
+	var err error
+	// need to initialize HPA and VPA.
+	tortoise, err = r.HpaClient.CreateHPAOnTortoise(ctx, tortoise, dm)
+	if err != nil {
+		return err
+	}
+	tortoise, err = r.VpaClient.CreateTortoiseMonitorVPA(ctx, tortoise)
+	if err != nil {
+		return err
+	}
+	tortoise, err = r.VpaClient.CreateTortoiseUpdaterVPA(ctx, tortoise)
+	if err != nil {
+		return err
+	}
+	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
