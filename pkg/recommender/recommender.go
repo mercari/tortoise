@@ -6,7 +6,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/sanposhiho/tortoise/pkg/annotation"
+	"github.com/mercari/tortoise/pkg/annotation"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -16,7 +16,7 @@ import (
 
 	v1 "k8s.io/api/apps/v1"
 
-	"github.com/sanposhiho/tortoise/api/v1alpha1"
+	"github.com/mercari/tortoise/api/v1alpha1"
 	v2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/api/resource"
 )

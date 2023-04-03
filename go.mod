@@ -1,4 +1,4 @@
-module github.com/sanposhiho/tortoise
+module github.com/mercari/tortoise
 
 go 1.18
 

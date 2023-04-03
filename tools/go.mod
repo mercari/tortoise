@@ -1,4 +1,4 @@
-module github.com/sanposhiho/tortoise/tools
+module github.com/mercari/tortoise/tools
 
 go 1.20
 

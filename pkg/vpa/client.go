@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	autoscalingv1alpha1 "github.com/sanposhiho/tortoise/api/v1alpha1"
+	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 	autoscaling "k8s.io/api/autoscaling/v1"
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"

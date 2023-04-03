@@ -2,7 +2,7 @@ domain: mercari.com
 layout:
 - go.kubebuilder.io/v3
 projectName: tortoise
-repo: github.com/sanposhiho/tortoise
+repo: github.com/mercari/tortoise
 resources:
 - api:
     crdVersion: v1
@@ -11,7 +11,7 @@ resources:
   domain: mercari.com
   group: autoscaling
   kind: Tortoise
-  path: github.com/sanposhiho/tortoise/api/v1alpha1
+  path: github.com/mercari/tortoise/api/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true

@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/sanposhiho/tortoise/pkg/annotation"
+	"github.com/mercari/tortoise/pkg/annotation"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -17,7 +17,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	autoscalingv1alpha1 "github.com/sanposhiho/tortoise/api/v1alpha1"
+	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 	v2 "k8s.io/api/autoscaling/v2"
 )
 

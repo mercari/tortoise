@@ -21,13 +21,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/sanposhiho/tortoise/pkg/tortoise"
+	"github.com/mercari/tortoise/pkg/tortoise"
 
-	"github.com/sanposhiho/tortoise/pkg/deployment"
-	"github.com/sanposhiho/tortoise/pkg/recommender"
+	"github.com/mercari/tortoise/pkg/deployment"
+	"github.com/mercari/tortoise/pkg/recommender"
 
-	"github.com/sanposhiho/tortoise/pkg/hpa"
-	"github.com/sanposhiho/tortoise/pkg/vpa"
+	"github.com/mercari/tortoise/pkg/hpa"
+	"github.com/mercari/tortoise/pkg/vpa"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -40,8 +40,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	autoscalingv1alpha1 "github.com/sanposhiho/tortoise/api/v1alpha1"
-	"github.com/sanposhiho/tortoise/controllers"
+	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
+	"github.com/mercari/tortoise/controllers"
 	//+kubebuilder:scaffold:imports
 )
 

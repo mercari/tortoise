@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sanposhiho/tortoise/pkg/annotation"
+	"github.com/mercari/tortoise/pkg/annotation"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
@@ -14,7 +14,7 @@ import (
 	v2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/types"
 
-	autoscalingv1alpha1 "github.com/sanposhiho/tortoise/api/v1alpha1"
+	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
