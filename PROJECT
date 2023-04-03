@@ -1,4 +1,4 @@
-domain: sanposhiho.com
+domain: mercari.com
 layout:
 - go.kubebuilder.io/v3
 projectName: tortoise
@@ -8,7 +8,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: sanposhiho.com
+  domain: mercari.com
   group: autoscaling
   kind: Tortoise
   path: github.com/sanposhiho/tortoise/api/v1alpha1
