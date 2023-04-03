@@ -33,7 +33,7 @@ func TortoiseUpdaterVPAName(tortoiseName string) string {
 	return TortoiseUpdaterVPANamePrefix + tortoiseName
 }
 
-func (c *Client) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
+func (c *Client) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*autoscalingv1alpha1.Tortoise, error) {
 	auto := v1.UpdateModeAuto
 	vpa := &v1.VerticalPodAutoscaler{
 		TypeMeta: metav1.TypeMeta{},
@@ -67,10 +67,15 @@ func (c *Client) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosca
 	}
 	vpa.Spec.ResourcePolicy.ContainerPolicies = crp
 
-	return vpa, c.c.Create(ctx, vpa)
+	tortoise.Status.Targets.VerticalPodAutoscalers = append(tortoise.Status.Targets.VerticalPodAutoscalers, autoscalingv1alpha1.TargetStatusVerticalPodAutoscaler{
+		Name: vpa.Name,
+		Role: autoscalingv1alpha1.VerticalPodAutoscalerRoleUpdater,
+	})
+
+	return tortoise, c.c.Create(ctx, vpa)
 }
 
-func (c *Client) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
+func (c *Client) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*autoscalingv1alpha1.Tortoise, error) {
 	off := v1.UpdateModeOff
 	vpa := &v1.VerticalPodAutoscaler{
 		TypeMeta: metav1.TypeMeta{},
@@ -99,7 +104,12 @@ func (c *Client) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosca
 	}
 	vpa.Spec.ResourcePolicy.ContainerPolicies = crp
 
-	return vpa, c.c.Create(ctx, vpa)
+	tortoise.Status.Targets.VerticalPodAutoscalers = append(tortoise.Status.Targets.VerticalPodAutoscalers, autoscalingv1alpha1.TargetStatusVerticalPodAutoscaler{
+		Name: vpa.Name,
+		Role: autoscalingv1alpha1.VerticalPodAutoscalerRoleMonitor,
+	})
+
+	return tortoise, c.c.Create(ctx, vpa)
 }
 
 func (c *Client) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {

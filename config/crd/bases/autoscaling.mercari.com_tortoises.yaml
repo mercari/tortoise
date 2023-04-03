@@ -99,9 +99,9 @@ spec:
                       metric or the external metric refers to the container resource
                       utilization. Please check out the document for more detail:
                       https://github.com/mercari/tortoise/blob/master/docs/horizontal.md#supported-metrics-in-hpa
-                      \n If nothing specified, the Tortoise will create the HPA named
-                      \"{Tortoise name} + -hpa\" with needed ContainerResource type
-                      metric."
+                      \n You can specify either of existing HPA or non existing HPA.
+                      If non existing HPA is specified, tortoise will create HPA with
+                      the given name. The default value is \"{Tortoise name} + -hpa\"."
                     type: string
                 required:
                 - deploymentName
