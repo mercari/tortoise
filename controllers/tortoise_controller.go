@@ -23,6 +23,7 @@ import (
 	"github.com/sanposhiho/tortoise/pkg/deployment"
 
 	"github.com/sanposhiho/tortoise/pkg/recommender"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/sanposhiho/tortoise/pkg/tortoise"
 
@@ -31,7 +32,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	autoscalingv1alpha1 "github.com/sanposhiho/tortoise/api/v1alpha1"
@@ -39,13 +39,14 @@ import (
 
 // TortoiseReconciler reconciles a Tortoise object
 type TortoiseReconciler struct {
-	client.Client
 	Scheme *runtime.Scheme
 
-	HpaClient          hpa.Client
-	VpaClient          vpa.Client
-	DeploymentClient   deployment.Client
-	TortoiseService    tortoise.Service
+	Interval time.Duration
+
+	HpaClient          *hpa.Client
+	VpaClient          *vpa.Client
+	DeploymentClient   *deployment.Client
+	TortoiseService    *tortoise.Service
 	RecommenderService *recommender.Service
 }
 
@@ -66,11 +67,21 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	logger := log.FromContext(ctx)
 	now := time.Now()
 
-	tortoise := &autoscalingv1alpha1.Tortoise{}
-	if err := r.Get(ctx, req.NamespacedName, tortoise); err != nil {
-		// TODO: handle delete ?
+	tortoise, err := r.TortoiseService.GetTortoise(ctx, req.NamespacedName)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// Probably deleted.
+			logger.Info("tortoise is not found", "tortoise", req.NamespacedName)
+			return ctrl.Result{}, nil
+		}
+
 		logger.Error(err, "failed to get tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
+	}
+
+	// need to initialize
+	if tortoise.Status.TortoisePhase == "" {
+		tortoise = r.TortoiseService.InitializeTortoise(tortoise)
 	}
 
 	vpa, err := r.VpaClient.GetTortoiseMonitorVPA(ctx, tortoise)
@@ -111,8 +122,13 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	// TODO: Use queue to periodically check.
-	return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise)
+	if err != nil {
+		logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{RequeueAfter: r.Interval}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

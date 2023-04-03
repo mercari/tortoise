@@ -2,6 +2,7 @@ package tortoise
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -187,6 +188,311 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 			got := s.UpdateUpperRecommendation(tt.tortoise, tt.vpa)
 			if !cmp.Equal(got, tt.want, cmpopts.IgnoreTypes(metav1.Time{})) {
 				t.Errorf("updateUpperRecommendation() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestService_InitializeTortoise(t *testing.T) {
+	timeZone := "Asia/Tokyo"
+	jst, err := time.LoadLocation(timeZone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type fields struct {
+		rangeOfMinMaxReplicasRecommendationHour int
+		timeZone                                *time.Location
+	}
+	tests := []struct {
+		name     string
+		fields   fields
+		tortoise *v1alpha1.Tortoise
+		want     *v1alpha1.Tortoise
+	}{
+		{
+			fields: fields{
+				rangeOfMinMaxReplicasRecommendationHour: 8,
+				timeZone:                                jst,
+			},
+			tortoise: &v1alpha1.Tortoise{
+				Status: v1alpha1.TortoiseStatus{},
+			},
+			want: &v1alpha1.Tortoise{
+				Status: v1alpha1.TortoiseStatus{
+					TortoisePhase: v1alpha1.TortoisePhaseGatheringData,
+					Recommendations: v1alpha1.Recommendations{
+						Horizontal: v1alpha1.HorizontalRecommendations{
+							MinReplicas: []v1alpha1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Sunday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Sunday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Sunday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Monday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Monday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Monday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Tuesday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Tuesday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Tuesday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Wednesday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Wednesday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Wednesday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Thursday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Thursday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Thursday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Friday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Friday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Friday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Saturday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Saturday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Saturday,
+									TimeZone: timeZone,
+								},
+							},
+							MaxReplicas: []v1alpha1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Sunday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Sunday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Sunday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Monday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Monday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Monday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Tuesday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Tuesday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Tuesday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Wednesday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Wednesday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Wednesday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Thursday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Thursday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Thursday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Friday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Friday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Friday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  time.Saturday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  time.Saturday,
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  time.Saturday,
+									TimeZone: timeZone,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Service{
+				rangeOfMinMaxReplicasRecommendationHour: tt.fields.rangeOfMinMaxReplicasRecommendationHour,
+				timeZone:                                tt.fields.timeZone,
+			}
+			got := s.InitializeTortoise(tt.tortoise)
+			if d := cmp.Diff(got, tt.want); d != "" {
+				t.Errorf("InitializeTortoise() diff = %v", d)
 			}
 		})
 	}

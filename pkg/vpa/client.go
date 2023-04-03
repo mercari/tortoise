@@ -17,8 +17,8 @@ type Client struct {
 	c client.Client
 }
 
-func New(c client.Client) Client {
-	return Client{c: c}
+func New(c client.Client) *Client {
+	return &Client{c: c}
 }
 
 const TortoiseMonitorVPANamePrefix = "tortoise-monitor-"
@@ -49,7 +49,7 @@ func (c *Client) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosca
 			},
 			TargetRef: &autoscaling.CrossVersionObjectReference{
 				Kind:       "Deployment",
-				Name:       tortoise.Spec.TargetRefs.DeploymentRef,
+				Name:       tortoise.Spec.TargetRefs.DeploymentName,
 				APIVersion: "apps/v1",
 			},
 			UpdatePolicy: &v1.PodUpdatePolicy{
@@ -62,7 +62,7 @@ func (c *Client) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosca
 	for _, c := range tortoise.Spec.ResourcePolicy {
 		crp = append(crp, v1.ContainerResourcePolicy{
 			ContainerName: c.ContainerName,
-			MinAllowed:    c.MinAllowedResources,
+			MinAllowed:    c.MinAllocatedResources,
 		})
 	}
 	vpa.Spec.ResourcePolicy.ContainerPolicies = crp
@@ -81,7 +81,7 @@ func (c *Client) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosca
 		Spec: v1.VerticalPodAutoscalerSpec{
 			TargetRef: &autoscaling.CrossVersionObjectReference{
 				Kind:       "Deployment",
-				Name:       tortoise.Spec.TargetRefs.DeploymentRef,
+				Name:       tortoise.Spec.TargetRefs.DeploymentName,
 				APIVersion: "apps/v1",
 			},
 			UpdatePolicy: &v1.PodUpdatePolicy{
@@ -94,7 +94,7 @@ func (c *Client) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosca
 	for _, c := range tortoise.Spec.ResourcePolicy {
 		crp = append(crp, v1.ContainerResourcePolicy{
 			ContainerName: c.ContainerName,
-			MinAllowed:    c.MinAllowedResources,
+			MinAllowed:    c.MinAllocatedResources,
 		})
 	}
 	vpa.Spec.ResourcePolicy.ContainerPolicies = crp
@@ -107,14 +107,14 @@ func (c *Client) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoi
 	if err != nil {
 		return nil, fmt.Errorf("get tortoise VPA: %w", err)
 	}
-	newRecommendations := make([]v1.RecommendedContainerResources, 0, len(tortoise.Status.Recommendations.VPA.ContainerResourceRecommendation))
-	for _, r := range tortoise.Status.Recommendations.VPA.ContainerResourceRecommendation {
+	newRecommendations := make([]v1.RecommendedContainerResources, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
+	for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
 		newRecommendations = append(newRecommendations, v1.RecommendedContainerResources{
 			ContainerName:  r.ContainerName,
-			Target:         r.Resource,
-			LowerBound:     r.Resource,
-			UpperBound:     r.Resource,
-			UncappedTarget: r.Resource,
+			Target:         r.RecommendedResource,
+			LowerBound:     r.RecommendedResource,
+			UpperBound:     r.RecommendedResource,
+			UncappedTarget: r.RecommendedResource,
 		})
 	}
 	vpa.Status.Recommendation.ContainerRecommendations = newRecommendations

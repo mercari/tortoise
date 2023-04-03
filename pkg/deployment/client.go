@@ -16,13 +16,13 @@ type Client struct {
 	c client.Client
 }
 
-func New(c client.Client) Client {
-	return Client{c: c}
+func New(c client.Client) *Client {
+	return &Client{c: c}
 }
 
 func (c *Client) GetDeploymentOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.Deployment, error) {
 	d := &v1.Deployment{}
-	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Spec.TargetRefs.DeploymentRef}, d); err != nil {
+	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Spec.TargetRefs.DeploymentName}, d); err != nil {
 		return nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
 	}
 	return d, nil

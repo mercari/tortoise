@@ -195,7 +195,7 @@ func TestUpdateRecommendation(t *testing.T) {
 				},
 				Status: v1alpha1.TortoiseStatus{
 					Recommendations: v1alpha1.Recommendations{
-						HPA: v1alpha1.HPARecommendations{
+						Horizontal: v1alpha1.HorizontalRecommendations{
 							TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
 								{
 									ContainerName: "app",
@@ -385,7 +385,7 @@ func TestUpdateRecommendation(t *testing.T) {
 				},
 				Status: v1alpha1.TortoiseStatus{
 					Recommendations: v1alpha1.Recommendations{
-						HPA: v1alpha1.HPARecommendations{
+						Horizontal: v1alpha1.HorizontalRecommendations{
 							TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
 								{
 									ContainerName: "app",
@@ -453,6 +453,11 @@ func resourceQuantityPtr(quantity resource.Quantity) *resource.Quantity {
 }
 
 func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
+	timeZone := "Asia/Tokyo"
+	jst, err := time.LoadLocation(timeZone)
+	if err != nil {
+		t.Fatal(err)
+	}
 	type args struct {
 		tortoise   *v1alpha1.Tortoise
 		deployment *v1.Deployment
@@ -470,20 +475,20 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				tortoise: &v1alpha1.Tortoise{
 					Status: v1alpha1.TortoiseStatus{
 						Recommendations: v1alpha1.Recommendations{
-							HPA: v1alpha1.HPARecommendations{
+							Horizontal: v1alpha1.HorizontalRecommendations{
 								MinReplicas: []v1alpha1.ReplicasRecommendation{
 									{
-										From:      metav1.NewTime(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)),
-										To:        metav1.NewTime(time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)),
-										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 22, 0, 0, 0, 0, time.UTC)),
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										Value:     1,
 									},
 								},
 								MaxReplicas: []v1alpha1.ReplicasRecommendation{
 									{
-										From:      metav1.NewTime(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)),
-										To:        metav1.NewTime(time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)),
-										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 22, 0, 0, 0, 0, time.UTC)),
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										Value:     7,
 									},
 								},
@@ -496,25 +501,25 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 						Replicas: 4,
 					},
 				},
-				now: time.Date(2023, 3, 23, 0, 0, 0, 0, time.UTC),
+				now: time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
 			},
 			want: &v1alpha1.Tortoise{
 				Status: v1alpha1.TortoiseStatus{
 					Recommendations: v1alpha1.Recommendations{
-						HPA: v1alpha1.HPARecommendations{
+						Horizontal: v1alpha1.HorizontalRecommendations{
 							MinReplicas: []v1alpha1.ReplicasRecommendation{
 								{
-									From:      metav1.NewTime(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)),
-									To:        metav1.NewTime(time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)),
-									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 23, 0, 0, 0, 0, time.UTC)),
-									Value:     2,
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
+									Value:     3,
 								},
 							},
 							MaxReplicas: []v1alpha1.ReplicasRecommendation{
 								{
-									From:      metav1.NewTime(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)),
-									To:        metav1.NewTime(time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)),
-									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 23, 0, 0, 0, 0, time.UTC)),
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									Value:     8,
 								},
 							},
@@ -530,7 +535,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				tortoise: &v1alpha1.Tortoise{
 					Status: v1alpha1.TortoiseStatus{
 						Recommendations: v1alpha1.Recommendations{
-							HPA: v1alpha1.HPARecommendations{
+							Horizontal: v1alpha1.HorizontalRecommendations{
 								MinReplicas: []v1alpha1.ReplicasRecommendation{},
 								MaxReplicas: []v1alpha1.ReplicasRecommendation{},
 							},
@@ -542,12 +547,12 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 						Replicas: 5,
 					},
 				},
-				now: time.Date(2023, 3, 23, 0, 0, 0, 0, time.UTC),
+				now: time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
 			},
 			want: &v1alpha1.Tortoise{
 				Status: v1alpha1.TortoiseStatus{
 					Recommendations: v1alpha1.Recommendations{
-						HPA: v1alpha1.HPARecommendations{
+						Horizontal: v1alpha1.HorizontalRecommendations{
 							MinReplicas: []v1alpha1.ReplicasRecommendation{},
 							MaxReplicas: []v1alpha1.ReplicasRecommendation{},
 						},
@@ -562,20 +567,20 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				tortoise: &v1alpha1.Tortoise{
 					Status: v1alpha1.TortoiseStatus{
 						Recommendations: v1alpha1.Recommendations{
-							HPA: v1alpha1.HPARecommendations{
+							Horizontal: v1alpha1.HorizontalRecommendations{
 								MinReplicas: []v1alpha1.ReplicasRecommendation{
 									{
-										From:      metav1.NewTime(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)),
-										To:        metav1.NewTime(time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)),
-										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 22, 0, 0, 0, 0, time.UTC)),
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										Value:     10,
 									},
 								},
 								MaxReplicas: []v1alpha1.ReplicasRecommendation{
 									{
-										From:      metav1.NewTime(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)),
-										To:        metav1.NewTime(time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)),
-										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 22, 0, 0, 0, 0, time.UTC)),
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										Value:     25,
 									},
 								},
@@ -588,27 +593,27 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 						Replicas: 5,
 					},
 				},
-				now: time.Date(2023, 3, 23, 0, 0, 0, 0, time.UTC),
+				now: time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
 			},
 			want: &v1alpha1.Tortoise{
 				Status: v1alpha1.TortoiseStatus{
 					Recommendations: v1alpha1.Recommendations{
-						HPA: v1alpha1.HPARecommendations{
+						Horizontal: v1alpha1.HorizontalRecommendations{
 							MinReplicas: []v1alpha1.ReplicasRecommendation{
 								{
-									From: metav1.NewTime(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)),
-									To:   metav1.NewTime(time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)),
+									From: 0,
+									To:   1,
 									// UpdatedAt is updated.
-									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 22, 0, 0, 0, 0, time.UTC)),
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									Value:     10,
 								},
 							},
 							MaxReplicas: []v1alpha1.ReplicasRecommendation{
 								{
-									From: metav1.NewTime(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)),
-									To:   metav1.NewTime(time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)),
+									From: 0,
+									To:   1,
 									// UpdatedAt is updated.
-									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 22, 0, 0, 0, 0, time.UTC)),
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									Value:     25,
 								},
 							},
@@ -624,20 +629,20 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				tortoise: &v1alpha1.Tortoise{
 					Status: v1alpha1.TortoiseStatus{
 						Recommendations: v1alpha1.Recommendations{
-							HPA: v1alpha1.HPARecommendations{
+							Horizontal: v1alpha1.HorizontalRecommendations{
 								MinReplicas: []v1alpha1.ReplicasRecommendation{
 									{
-										From:      metav1.NewTime(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)),
-										To:        metav1.NewTime(time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)),
-										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 22, 0, 0, 0, 0, time.UTC)),
-										Value:     2,
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										Value:     3,
 									},
 								},
 								MaxReplicas: []v1alpha1.ReplicasRecommendation{
 									{
-										From:      metav1.NewTime(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)),
-										To:        metav1.NewTime(time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)),
-										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 22, 0, 0, 0, 0, time.UTC)),
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										Value:     8,
 									},
 								},
@@ -650,25 +655,25 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 						Replicas: 4,
 					},
 				},
-				now: time.Date(2023, 3, 23, 0, 0, 0, 0, time.UTC),
+				now: time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
 			},
 			want: &v1alpha1.Tortoise{
 				Status: v1alpha1.TortoiseStatus{
 					Recommendations: v1alpha1.Recommendations{
-						HPA: v1alpha1.HPARecommendations{
+						Horizontal: v1alpha1.HorizontalRecommendations{
 							MinReplicas: []v1alpha1.ReplicasRecommendation{
 								{
-									From:      metav1.NewTime(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)),
-									To:        metav1.NewTime(time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)),
-									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 23, 0, 0, 0, 0, time.UTC)),
-									Value:     2,
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
+									Value:     3,
 								},
 							},
 							MaxReplicas: []v1alpha1.ReplicasRecommendation{
 								{
-									From:      metav1.NewTime(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)),
-									To:        metav1.NewTime(time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)),
-									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 23, 0, 0, 0, 0, time.UTC)),
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									Value:     8,
 								},
 							},
@@ -842,7 +847,7 @@ func createVerticalTortoise() *v1alpha1.Tortoise {
 						corev1.ResourceCPU:    v1alpha1.VerticalAutoscalingType,
 						corev1.ResourceMemory: v1alpha1.VerticalAutoscalingType,
 					},
-					MinAllowedResources: createResourceList("100m", "100Mi"),
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
 				},
 			},
 		},
@@ -868,7 +873,7 @@ func createTortoise() *v1alpha1.Tortoise {
 						corev1.ResourceCPU:    v1alpha1.HorizontalAutoscalingType,
 						corev1.ResourceMemory: v1alpha1.HorizontalAutoscalingType,
 					},
-					MinAllowedResources: createResourceList("100m", "100Mi"),
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
 				},
 			},
 		},
@@ -910,11 +915,11 @@ func createTortoiseWithCondition(vpaRecommendation map[corev1.ResourceName]v1alp
 func createTortoiseWithVPARecommendation(cpu, memory string) *v1alpha1.Tortoise {
 	tortoise := createTortoise()
 	tortoise.Status.Recommendations = v1alpha1.Recommendations{
-		VPA: v1alpha1.VPARecommendations{
+		Vertical: v1alpha1.VerticalRecommendations{
 			ContainerResourceRecommendation: []v1alpha1.RecommendedContainerResources{
 				{
-					ContainerName: "test-container",
-					Resource:      createResourceList(cpu, memory),
+					ContainerName:       "test-container",
+					RecommendedResource: createResourceList(cpu, memory),
 				},
 			},
 		},
@@ -925,11 +930,11 @@ func createTortoiseWithVPARecommendation(cpu, memory string) *v1alpha1.Tortoise 
 func createVerticalTortoiseWithVPARecommendation(cpu, memory string) *v1alpha1.Tortoise {
 	tortoise := createVerticalTortoise()
 	tortoise.Status.Recommendations = v1alpha1.Recommendations{
-		VPA: v1alpha1.VPARecommendations{
+		Vertical: v1alpha1.VerticalRecommendations{
 			ContainerResourceRecommendation: []v1alpha1.RecommendedContainerResources{
 				{
-					ContainerName: "test-container",
-					Resource:      createResourceList(cpu, memory),
+					ContainerName:       "test-container",
+					RecommendedResource: createResourceList(cpu, memory),
 				},
 			},
 		},

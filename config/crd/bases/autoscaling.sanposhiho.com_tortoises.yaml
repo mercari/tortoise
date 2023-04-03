@@ -1,0 +1,304 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.9.2
+  creationTimestamp: null
+  name: tortoises.autoscaling.sanposhiho.com
+spec:
+  group: autoscaling.sanposhiho.com
+  names:
+    kind: Tortoise
+    listKind: TortoiseList
+    plural: tortoises
+    singular: tortoise
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Tortoise is the Schema for the tortoises API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: TortoiseSpec defines the desired state of Tortoise
+            properties:
+              featureGates:
+                description: FeatureGates allows to list the alpha feature names.
+                items:
+                  type: string
+                type: array
+              resourcePolicy:
+                description: ResourcePolicy contains the policy how each resource
+                  is updated.
+                items:
+                  properties:
+                    autoscalingPolicy:
+                      additionalProperties:
+                        enum:
+                        - Horizontal
+                        - Vertical
+                        type: string
+                      description: 'AutoscalingPolicy specifies how each resource
+                        is scaled. If "Horizontal", the resource is horizontally scaled.
+                        If "Vertical", the resource is vertically scaled. TODO: Now,
+                        at least one container in Pod should be Horizontal'
+                      type: object
+                    containerName:
+                      description: ContainerName is the name of target container.
+                      type: string
+                    MinAllocatedResources:
+                      additionalProperties:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      description: "MinAllocatedResources is the minimum amount of resources
+                        which is given to the container. Tortoise never set the resources
+                        request on the container than MinAllocatedResources. \n If empty,
+                        tortoise may reduce the resource request to the value which
+                        is suggested from VPA. Leaving this field empty is basically
+                        safe, but you may consider using MinAllocatedResources when
+                        maybe your application will consume resources more than usual,
+                        given the VPA suggests values based on the historical resource
+                        usage. For example, your application will soon have new feature
+                        which leads to increase in the resource usage, it is expected
+                        that your application will soon get more requests than usual,
+                        etc."
+                      type: object
+                  required:
+                  - autoscalingPolicy
+                  - containerName
+                  type: object
+                type: array
+              targetRefs:
+                description: TargetRefs has reference to involved resources.
+                properties:
+                  deploymentName:
+                    description: DeploymentName is the name of target deployment.
+                      It should be the same as the target of HPA.
+                    type: string
+                  horizontalPodAutoscalerName:
+                    description: HorizontalPodAutoscalerName is the name of the target
+                      HPA. The target of this HPA should be the same as the DeploymentName
+                      above.
+                    type: string
+                required:
+                - deploymentName
+                - horizontalPodAutoscalerName
+                type: object
+              updateMode:
+                description: "UpdateMode is how tortoise update resources. If \"Off\",
+                  tortoise generates the recommendations in .Status, but doesn't apply
+                  it actually. If \"Auto\", tortoise generates the recommendations
+                  in .Status, and apply it to resources. If \"Emergency\", tortoise
+                  generates the recommendations in .Status as usual, but increase
+                  replica number high enough value. \"Emergency\" is useful when something
+                  unexpected happens in workloads. \n \"Off\" is the default value."
+                enum:
+                - "Off"
+                - Auto
+                - Emergency
+                type: string
+            required:
+            - resourcePolicy
+            - targetRefs
+            type: object
+          status:
+            description: TortoiseStatus defines the observed state of Tortoise
+            properties:
+              conditions:
+                properties:
+                  containerRecommendationFromVPA:
+                    items:
+                      properties:
+                        containerName:
+                          description: ContainerName is the name of target container.
+                          type: string
+                        maxRecommendation:
+                          additionalProperties:
+                            properties:
+                              quantity:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              updatedAt:
+                                format: date-time
+                                type: string
+                            required:
+                            - quantity
+                            - updatedAt
+                            type: object
+                          description: MaxRecommendation is the max recommendation
+                            value from VPA among certain period (1 week). Tortoise
+                            generates all recommendation based on this MaxRecommendation.
+                          type: object
+                        recommendation:
+                          additionalProperties:
+                            properties:
+                              quantity:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              updatedAt:
+                                format: date-time
+                                type: string
+                            required:
+                            - quantity
+                            - updatedAt
+                            type: object
+                          description: Recommendation is the latest recommendation
+                            value from VPA.
+                          type: object
+                      required:
+                      - containerName
+                      - maxRecommendation
+                      - recommendation
+                      type: object
+                    type: array
+                required:
+                - containerRecommendationFromVPA
+                type: object
+              recommendations:
+                properties:
+                  horizontal:
+                    properties:
+                      maxReplicas:
+                        description: MaxReplicas has the recommendation of maxReplicas.
+                          It contains the recommendations for each time slot.
+                        items:
+                          properties:
+                            from:
+                              format: date-time
+                              type: string
+                            to:
+                              format: date-time
+                              type: string
+                            updatedAt:
+                              format: date-time
+                              type: string
+                            value:
+                              description: Value is the recommendation value.
+                              format: int32
+                              type: integer
+                          required:
+                          - from
+                          - to
+                          - updatedAt
+                          - value
+                          type: object
+                        type: array
+                      minReplicas:
+                        description: MinReplicas has the recommendation of minReplicas.
+                          It contains the recommendations for each time slot.
+                        items:
+                          properties:
+                            from:
+                              format: date-time
+                              type: string
+                            to:
+                              format: date-time
+                              type: string
+                            updatedAt:
+                              format: date-time
+                              type: string
+                            value:
+                              description: Value is the recommendation value.
+                              format: int32
+                              type: integer
+                          required:
+                          - from
+                          - to
+                          - updatedAt
+                          - value
+                          type: object
+                        type: array
+                      targetUtilizations:
+                        items:
+                          properties:
+                            containerName:
+                              description: ContainerName is the name of target container.
+                              type: string
+                            targetUtilization:
+                              additionalProperties:
+                                format: int32
+                                type: integer
+                              description: TargetUtilization is the recommendation
+                                of targetUtilization of HPA.
+                              type: object
+                          required:
+                          - containerName
+                          - targetUtilization
+                          type: object
+                        type: array
+                    required:
+                    - maxReplicas
+                    - minReplicas
+                    - targetUtilizations
+                    type: object
+                  vertical:
+                    properties:
+                      containerResourceRecommendation:
+                        items:
+                          properties:
+                            RecommendedResource:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              description: RecommendedResource is the recommendation
+                                calculated by the tortoise. If AutoscalingPolicy is
+                                vertical, it's the same value as the VPA suggests.
+                                If AutoscalingPolicy is horizontal, it's basically
+                                the same value as the current resource request. But,
+                                when the number of replicas are too small or too large,
+                                tortoise may try to increase/decrease the amount of
+                                resources given to the container, so that the number
+                                of replicas won't be very small or very large.
+                              type: object
+                            containerName:
+                              description: ContainerName is the name of target container.
+                              type: string
+                          required:
+                          - RecommendedResource
+                          - containerName
+                          type: object
+                        type: array
+                    required:
+                    - containerResourceRecommendation
+                    type: object
+                required:
+                - horizontal
+                - vertical
+                type: object
+              tortoisePhase:
+                type: string
+            required:
+            - conditions
+            - recommendations
+            - tortoisePhase
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

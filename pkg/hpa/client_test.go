@@ -22,8 +22,7 @@ import (
 )
 
 func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
-	now := time.Now()
-	oneHourLater := now.Add(1 * time.Hour)
+	now := metav1.Now()
 
 	type args struct {
 		ctx      context.Context
@@ -44,7 +43,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 				tortoise: &autoscalingv1alpha1.Tortoise{
 					Status: autoscalingv1alpha1.TortoiseStatus{
 						Recommendations: autoscalingv1alpha1.Recommendations{
-							HPA: autoscalingv1alpha1.HPARecommendations{
+							Horizontal: autoscalingv1alpha1.HorizontalRecommendations{
 								TargetUtilizations: []autoscalingv1alpha1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
@@ -61,25 +60,25 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 								},
 								MaxReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
 									{
-										From:      metav1.Time{Time: now},
-										To:        metav1.Time{Time: oneHourLater},
+										From:      0,
+										To:        1,
 										Value:     6,
-										UpdatedAt: metav1.Time{Time: now},
+										UpdatedAt: now,
 									},
 								},
 								MinReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
 									{
-										From:      metav1.Time{Time: now},
-										To:        metav1.Time{Time: oneHourLater},
+										From:      0,
+										To:        1,
 										Value:     3,
-										UpdatedAt: metav1.Time{Time: now},
+										UpdatedAt: now,
 									},
 								},
 							},
 						},
 					},
 				},
-				now: now,
+				now: now.Time,
 			},
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
@@ -170,7 +169,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 				tortoise: &autoscalingv1alpha1.Tortoise{
 					Status: autoscalingv1alpha1.TortoiseStatus{
 						Recommendations: autoscalingv1alpha1.Recommendations{
-							HPA: autoscalingv1alpha1.HPARecommendations{
+							Horizontal: autoscalingv1alpha1.HorizontalRecommendations{
 								TargetUtilizations: []autoscalingv1alpha1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
@@ -187,25 +186,25 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 								},
 								MaxReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
 									{
-										From:      metav1.Time{Time: now},
-										To:        metav1.Time{Time: oneHourLater},
+										From:      0,
+										To:        1,
 										Value:     6,
-										UpdatedAt: metav1.Time{Time: now},
+										UpdatedAt: now,
 									},
 								},
 								MinReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
 									{
-										From:      metav1.Time{Time: now},
-										To:        metav1.Time{Time: oneHourLater},
+										From:      0,
+										To:        1,
 										Value:     3,
-										UpdatedAt: metav1.Time{Time: now},
+										UpdatedAt: now,
 									},
 								},
 							},
 						},
 					},
 				},
-				now: now,
+				now: now.Time,
 			},
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{

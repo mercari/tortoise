@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"os"
+	"time"
 
 	"github.com/sanposhiho/tortoise/pkg/tortoise"
 
@@ -96,15 +97,19 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-
+	tortoiseService, err := tortoise.New(mgr.GetClient())
+	if err != nil {
+		setupLog.Error(err, "unable to start tortoise service")
+		os.Exit(1)
+	}
 	if err = (&controllers.TortoiseReconciler{
-		Client:             mgr.GetClient(),
 		Scheme:             mgr.GetScheme(),
 		HpaClient:          hpa.New(mgr.GetClient()),
 		VpaClient:          vpa.New(mgr.GetClient()),
 		DeploymentClient:   deployment.New(mgr.GetClient()),
 		RecommenderService: recommender.New(),
-		TortoiseService:    tortoise.New(mgr.GetClient()),
+		TortoiseService:    tortoiseService,
+		Interval:           30 * time.Second,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Tortoise")
 		os.Exit(1)

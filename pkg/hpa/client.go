@@ -22,8 +22,8 @@ type Client struct {
 	c client.Client
 }
 
-func New(c client.Client) Client {
-	return Client{c: c}
+func New(c client.Client) *Client {
+	return &Client{c: c}
 }
 
 const TortoiseHPANamePrefix = "tortoise-hpa-"
@@ -34,7 +34,7 @@ func TortoiseVPAName(tortoiseName string) string {
 
 func (c *Client) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
 	hpa := &v2.HorizontalPodAutoscaler{}
-	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Spec.TargetRefs.HorizontalPodAutoscalerRef}, hpa); err != nil {
+	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName}, hpa); err != nil {
 		return nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
 	}
 	return hpa, nil
@@ -42,11 +42,11 @@ func (c *Client) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1al
 
 func (c *Client) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, now time.Time) (*v2.HorizontalPodAutoscaler, error) {
 	hpa := &v2.HorizontalPodAutoscaler{}
-	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Spec.TargetRefs.HorizontalPodAutoscalerRef}, hpa); err != nil {
+	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName}, hpa); err != nil {
 		return nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
 	}
 
-	for _, t := range tortoise.Status.Recommendations.HPA.TargetUtilizations {
+	for _, t := range tortoise.Status.Recommendations.Horizontal.TargetUtilizations {
 		for k, r := range t.TargetUtilization {
 			if err := updateHPATargetValue(hpa, t.ContainerName, k, r); err != nil {
 				return nil, fmt.Errorf("update HPA from the recommendation from tortoise")
@@ -54,17 +54,21 @@ func (c *Client) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoi
 		}
 	}
 
-	min, err := getReplicasRecommendation(tortoise.Status.Recommendations.HPA.MinReplicas, now)
-	if err != nil {
-		return nil, fmt.Errorf("get minReplicas recommendation: %w", err)
-	}
-	hpa.Spec.MinReplicas = &min
-
-	max, err := getReplicasRecommendation(tortoise.Status.Recommendations.HPA.MaxReplicas, now)
+	max, err := getReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MaxReplicas, now)
 	if err != nil {
 		return nil, fmt.Errorf("get maxReplicas recommendation: %w", err)
 	}
 	hpa.Spec.MaxReplicas = max
+
+	// when emergency mode, we set the same value on minReplicas.
+	min := max
+	if tortoise.Spec.UpdateMode != autoscalingv1alpha1.EmergencyMode {
+		min, err = getReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
+		if err != nil {
+			return nil, fmt.Errorf("get minReplicas recommendation: %w", err)
+		}
+	}
+	hpa.Spec.MinReplicas = &min
 
 	return hpa, c.c.Update(ctx, hpa)
 }
@@ -72,7 +76,7 @@ func (c *Client) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoi
 // getReplicasRecommendation finds the corresponding recommendations.
 func getReplicasRecommendation(recommendations []autoscalingv1alpha1.ReplicasRecommendation, now time.Time) (int32, error) {
 	for _, r := range recommendations {
-		if now.Compare(r.From.Time) >= 0 && now.Compare(r.To.Time) < 0 {
+		if now.Hour() < r.To && now.Hour() >= r.From && now.Weekday() == r.WeekDay {
 			return r.Value, nil
 		}
 	}

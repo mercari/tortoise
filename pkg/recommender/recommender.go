@@ -38,7 +38,7 @@ func New() *Service {
 	return &Service{
 		// TODO: make them configurable via flag
 		rangeOfMinMaxReplicasRecommendation:   1 * time.Hour,
-		TTLHourOfMinMaxReplicasRecommendation: 24 * 7, // 1 week
+		TTLHourOfMinMaxReplicasRecommendation: 24 * 7 * 4, // 1 month
 		maxReplicasFactor:                     2,
 		minReplicasFactor:                     0.5,
 		upperTargetResourceUtilization:        90,
@@ -67,8 +67,8 @@ func (s *Service) updateVPARecommendation(tortoise *v1alpha1.Tortoise, deploymen
 	newRecommendations := []v1alpha1.RecommendedContainerResources{}
 	for _, r := range tortoise.Spec.ResourcePolicy {
 		recommendation := v1alpha1.RecommendedContainerResources{
-			ContainerName: r.ContainerName,
-			Resource:      map[corev1.ResourceName]resource.Quantity{},
+			ContainerName:       r.ContainerName,
+			RecommendedResource: map[corev1.ResourceName]resource.Quantity{},
 		}
 		for k, p := range r.AutoscalingPolicy {
 			reqmap, ok := requestMap[r.ContainerName]
@@ -100,21 +100,21 @@ func (s *Service) updateVPARecommendation(tortoise *v1alpha1.Tortoise, deploymen
 				newSize = int64(float64(req.MilliValue()) * 1.1)
 			}
 
-			newSize = s.justifyNewSizeByMaxMin(newSize, k, req, r.MinAllowedResources)
+			newSize = s.justifyNewSizeByMaxMin(newSize, k, req, r.MinAllocatedResources)
 			q := resource.NewMilliQuantity(newSize, req.Format)
-			recommendation.Resource[k] = *q
+			recommendation.RecommendedResource[k] = *q
 		}
 		newRecommendations = append(newRecommendations, recommendation)
 	}
 
-	tortoise.Status.Recommendations.VPA.ContainerResourceRecommendation = newRecommendations
+	tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation = newRecommendations
 
 	return tortoise, nil
 }
 
-func (s *Service) justifyNewSizeByMaxMin(newSize int64, k corev1.ResourceName, req resource.Quantity, minAllowedResources corev1.ResourceList) int64 {
+func (s *Service) justifyNewSizeByMaxMin(newSize int64, k corev1.ResourceName, req resource.Quantity, MinAllocatedResources corev1.ResourceList) int64 {
 	max := s.suggestedResourceSizeAtMax[k]
-	min := minAllowedResources[k]
+	min := MinAllocatedResources[k]
 
 	if req.MilliValue() > max.MilliValue() {
 		return req.MilliValue()
@@ -168,16 +168,16 @@ func (s *Service) UpdateRecommendations(tortoise *v1alpha1.Tortoise, hpa *v2.Hor
 
 func (s *Service) updateHPAMinMaxReplicasRecommendations(tortoise *v1alpha1.Tortoise, deployment *v1.Deployment, now time.Time) (*v1alpha1.Tortoise, error) {
 	currentReplicaNum := float64(deployment.Status.Replicas)
-	min, err := s.updateMaxMinReplicasRecommendation(int32(math.Ceil(currentReplicaNum*s.minReplicasFactor)), tortoise.Status.Recommendations.HPA.MinReplicas, now, s.minimumMinReplicas)
+	min, err := s.updateMaxMinReplicasRecommendation(int32(math.Ceil(currentReplicaNum*s.minReplicasFactor)), tortoise.Status.Recommendations.Horizontal.MinReplicas, now, s.minimumMinReplicas)
 	if err != nil {
 		return tortoise, fmt.Errorf("update MinReplicas recommendation: %w", err)
 	}
-	tortoise.Status.Recommendations.HPA.MinReplicas = min
-	max, err := s.updateMaxMinReplicasRecommendation(int32(math.Ceil(currentReplicaNum*s.maxReplicasFactor)), tortoise.Status.Recommendations.HPA.MaxReplicas, now, 0)
+	tortoise.Status.Recommendations.Horizontal.MinReplicas = min
+	max, err := s.updateMaxMinReplicasRecommendation(int32(math.Ceil(currentReplicaNum*s.maxReplicasFactor)), tortoise.Status.Recommendations.Horizontal.MaxReplicas, now, 0)
 	if err != nil {
 		return tortoise, fmt.Errorf("update MaxReplicas recommendation: %w", err)
 	}
-	tortoise.Status.Recommendations.HPA.MaxReplicas = max
+	tortoise.Status.Recommendations.Horizontal.MaxReplicas = max
 
 	return tortoise, nil
 }
@@ -187,20 +187,19 @@ func (s *Service) updateMaxMinReplicasRecommendation(value int32, recommendation
 	// find the corresponding recommendations.
 	index := -1
 	for i, r := range recommendations {
-		if now.Compare(r.From.Time) >= 0 && now.Compare(r.To.Time) < 0 {
+		if now.Hour() < r.To && now.Hour() >= r.From && now.Weekday() == r.WeekDay {
 			index = i
 			break
 		}
 	}
 	if index == -1 {
-		// TODO: where to initialize recommendation slots?
 		return nil, errors.New("no recommendation slot")
+	}
+	if value <= minimum {
+		value = minimum
 	}
 	if now.Sub(recommendations[index].UpdatedAt.Time).Hours() < s.TTLHourOfMinMaxReplicasRecommendation && value < recommendations[index].Value {
 		return recommendations, nil
-	}
-	if value < minimum {
-		value = minimum
 	}
 
 	recommendations[index].UpdatedAt = metav1.NewTime(now)
@@ -267,7 +266,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(tortoise *v1alpha1.T
 		})
 	}
 
-	tortoise.Status.Recommendations.HPA.TargetUtilizations = newHPATargetUtilizationRecommendationPerContainer
+	tortoise.Status.Recommendations.Horizontal.TargetUtilizations = newHPATargetUtilizationRecommendationPerContainer
 
 	return tortoise, nil
 }
@@ -327,6 +326,8 @@ func getHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k 
 }
 
 func updateRecommendedContainerBasedMetric(currentResourceReq resource.Quantity, currentTarget int32, recommendationFromVPA resource.Quantity) int32 {
+	// TODO: what happens if the resource request get changed?
+	// Should we change the phase to GatheringData
 	upperUsage := math.Ceil((float64(recommendationFromVPA.MilliValue()) / float64(currentResourceReq.MilliValue())) * 100)
 	additionalResource := int32(upperUsage) - currentTarget
 	return 100 - additionalResource
