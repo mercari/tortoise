@@ -81,12 +81,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// need to initialize
-	if tortoise.Status.TortoisePhase == "" {
-		tortoise = r.TortoiseService.InitializeTortoise(tortoise)
-	}
-	if tortoise.Status.TortoisePhase == autoscalingv1alpha1.TortoisePhaseGatheringData {
-		tortoise = r.TortoiseService.CheckIfTortoiseFinishedGatheringData(tortoise)
-	}
+	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise)
 
 	vpa, err := r.VpaClient.GetTortoiseMonitorVPA(ctx, tortoise)
 	if err != nil {
@@ -114,7 +109,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.HpaClient.UpdateHPAFromTortoiseRecommendation(ctx, tortoise, now)
+	_, tortoise, err = r.HpaClient.UpdateHPAFromTortoiseRecommendation(ctx, tortoise, now)
 	if err != nil {
 		logger.Error(err, "update HPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
