@@ -25,6 +25,8 @@ Tortoise, you don't need a rearing cage, but need VPA in your Kubernetes cluster
 
 ## Documentations 
 
+(Note that the feature described in the doc may not have been implemented yet.)
+
 - [Concept](./docs/concept.md): describes a brief overview of tortoise.
 - [Horizontal scaling](./docs/horizontal.md): describes how the Tortoise does the horizontal autoscaling.
 - [Vertical scaling](./docs/vertical.md): describes how the Tortoise does the vertical autoscaling.
