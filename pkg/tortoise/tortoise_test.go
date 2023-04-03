@@ -490,9 +490,9 @@ func TestService_InitializeTortoise(t *testing.T) {
 				rangeOfMinMaxReplicasRecommendationHour: tt.fields.rangeOfMinMaxReplicasRecommendationHour,
 				timeZone:                                tt.fields.timeZone,
 			}
-			got := s.InitializeTortoise(tt.tortoise)
+			got := s.initializeTortoise(tt.tortoise)
 			if d := cmp.Diff(got, tt.want); d != "" {
-				t.Errorf("InitializeTortoise() diff = %v", d)
+				t.Errorf("initializeTortoise() diff = %v", d)
 			}
 		})
 	}

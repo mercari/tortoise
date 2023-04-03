@@ -179,12 +179,14 @@ type TortoisePhase string
 const (
 	// TortoisePhaseGatheringData means tortoise is now gathering data and cannot make the accurate recommendations.
 	TortoisePhaseGatheringData TortoisePhase = "GatheringData"
-	// TortoisePhaseWorking means tortoise is making the recommendations.
+	// TortoisePhaseWorking means tortoise is making the recommendations,
+	// and applying the recommendation values.
 	TortoisePhaseWorking TortoisePhase = "Working"
-	// TortoiseBackToNormal means tortoise was in the emergency mode, and now it's coming back to the normal operation.
-	// During TortoiseBackToNormal, the number of replicas of workloads are gradually reduced to the usual value.
-	// TODO: implement this.
-	TortoiseBackToNormal TortoisePhase = "Working"
+	// TortoisePhaseEmergency means tortoise is in the emergency mode.
+	TortoisePhaseEmergency TortoisePhase = "Emergency"
+	// TortoisePhaseBackToNormal means tortoise was in the emergency mode, and now it's coming back to the normal operation.
+	// During TortoisePhaseBackToNormal, the number of replicas of workloads are gradually reduced to the usual value.
+	TortoisePhaseBackToNormal TortoisePhase = "BackToNormal"
 )
 
 type HPATargetUtilizationRecommendationPerContainer struct {

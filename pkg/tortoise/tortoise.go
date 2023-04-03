@@ -36,7 +36,22 @@ func New(c client.Client) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) CheckIfTortoiseFinishedGatheringData(tortoise *v1alpha1.Tortoise) *v1alpha1.Tortoise {
+func (s *Service) UpdateTortoisePhase(tortoise *v1alpha1.Tortoise) *v1alpha1.Tortoise {
+	switch tortoise.Status.TortoisePhase {
+	case "":
+		tortoise = s.initializeTortoise(tortoise)
+		// TODO: create VPA, HPA
+	case v1alpha1.TortoisePhaseGatheringData:
+		tortoise = s.checkIfTortoiseFinishedGatheringData(tortoise)
+	}
+
+	if tortoise.Spec.UpdateMode == v1alpha1.UpdateModeEmergency {
+		tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseEmergency
+	}
+	return tortoise
+}
+
+func (s *Service) checkIfTortoiseFinishedGatheringData(tortoise *v1alpha1.Tortoise) *v1alpha1.Tortoise {
 	for _, r := range tortoise.Status.Recommendations.Horizontal.MinReplicas {
 		if r.Value == 0 {
 			return tortoise
@@ -52,7 +67,7 @@ func (s *Service) CheckIfTortoiseFinishedGatheringData(tortoise *v1alpha1.Tortoi
 	return tortoise
 }
 
-func (s *Service) InitializeTortoise(tortoise *v1alpha1.Tortoise) *v1alpha1.Tortoise {
+func (s *Service) initializeTortoise(tortoise *v1alpha1.Tortoise) *v1alpha1.Tortoise {
 	recommendations := []v1alpha1.ReplicasRecommendation{}
 	from := 0
 	to := s.rangeOfMinMaxReplicasRecommendationHour
