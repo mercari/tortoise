@@ -1,0 +1,16 @@
+domain: sanposhiho.com
+layout:
+- go.kubebuilder.io/v3
+projectName: tortoise
+repo: github.com/sanposhiho/tortoise
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: sanposhiho.com
+  group: autoscaling
+  kind: Tortoise
+  path: github.com/sanposhiho/tortoise/api/v1alpha1
+  version: v1alpha1
+version: "3"
