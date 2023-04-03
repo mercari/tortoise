@@ -20,21 +20,21 @@ import (
 	"context"
 	"time"
 
-	"github.com/sanposhiho/tortoise/pkg/deployment"
+	"github.com/mercari/tortoise/pkg/deployment"
 
-	"github.com/sanposhiho/tortoise/pkg/recommender"
+	"github.com/mercari/tortoise/pkg/recommender"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/sanposhiho/tortoise/pkg/tortoise"
+	"github.com/mercari/tortoise/pkg/tortoise"
 
-	"github.com/sanposhiho/tortoise/pkg/hpa"
-	"github.com/sanposhiho/tortoise/pkg/vpa"
+	"github.com/mercari/tortoise/pkg/hpa"
+	"github.com/mercari/tortoise/pkg/vpa"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	autoscalingv1alpha1 "github.com/sanposhiho/tortoise/api/v1alpha1"
+	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 )
 
 // TortoiseReconciler reconciles a Tortoise object
@@ -72,6 +72,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if apierrors.IsNotFound(err) {
 			// Probably deleted.
 			logger.Info("tortoise is not found", "tortoise", req.NamespacedName)
+			// TODO: delete VPA and HPA created by the Tortoise?
 			return ctrl.Result{}, nil
 		}
 

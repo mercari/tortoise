@@ -8,7 +8,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	autoscalingv1alpha1 "github.com/sanposhiho/tortoise/api/v1alpha1"
+	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
