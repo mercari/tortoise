@@ -219,7 +219,7 @@ func TestService_InitializeTortoise(t *testing.T) {
 			},
 			want: &v1alpha1.Tortoise{
 				Status: v1alpha1.TortoiseStatus{
-					TortoisePhase: v1alpha1.TortoisePhaseGatheringData,
+					TortoisePhase: v1alpha1.TortoisePhaseInitializing,
 					Recommendations: v1alpha1.Recommendations{
 						Horizontal: v1alpha1.HorizontalRecommendations{
 							MinReplicas: []v1alpha1.ReplicasRecommendation{
