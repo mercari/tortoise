@@ -84,6 +84,9 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if tortoise.Status.TortoisePhase == "" {
 		tortoise = r.TortoiseService.InitializeTortoise(tortoise)
 	}
+	if tortoise.Status.TortoisePhase == autoscalingv1alpha1.TortoisePhaseGatheringData {
+		tortoise = r.TortoiseService.CheckIfTortoiseFinishedGatheringData(tortoise)
+	}
 
 	vpa, err := r.VpaClient.GetTortoiseMonitorVPA(ctx, tortoise)
 	if err != nil {
