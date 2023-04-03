@@ -84,7 +84,7 @@ func (s *Service) updateVPARecommendation(tortoise *v1alpha1.Tortoise, deploymen
 			}
 
 			newSize := req.MilliValue()
-			if deployment.Status.Replicas <= s.minimumMinReplicas || p == v1alpha1.VerticalAutoscalingType {
+			if deployment.Status.Replicas <= s.minimumMinReplicas || p == v1alpha1.AutoscalingTypeVertical {
 				recomMap, ok := recommendationMap[r.ContainerName]
 				if !ok {
 					return nil, fmt.Errorf("no resource recommendation from VPA for the container %s", r.ContainerName)
@@ -128,7 +128,7 @@ func (s *Service) justifyNewSizeByMaxMin(newSize int64, k corev1.ResourceName, r
 }
 
 func (s *Service) updateHPARecommendation(tortoise *v1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, deployment *v1.Deployment, now time.Time) (*v1alpha1.Tortoise, error) {
-	if tortoise.Spec.UpdateMode == v1alpha1.OffUpdateMode {
+	if tortoise.Spec.UpdateMode == v1alpha1.UpdateModeOff {
 		// dry-run
 		klog.Info("tortoise is dry-run mode", "tortoise", klog.KObj(tortoise))
 		return tortoise, nil
@@ -228,7 +228,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(tortoise *v1alpha1.T
 	for _, r := range tortoise.Spec.ResourcePolicy {
 		targetMap := map[corev1.ResourceName]int32{}
 		for k, p := range r.AutoscalingPolicy {
-			if p == v1alpha1.VerticalAutoscalingType {
+			if p == v1alpha1.AutoscalingTypeVertical {
 				targetMap[k] = s.upperTargetResourceUtilization
 				continue
 			}

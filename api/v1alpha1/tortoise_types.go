@@ -66,25 +66,28 @@ type ContainerResourcePolicy struct {
 	// AutoscalingPolicy specifies how each resource is scaled.
 	// If "Horizontal", the resource is horizontally scaled.
 	// If "Vertical", the resource is vertically scaled.
-	// TODO: Now, at least one container in Pod should be Horizontal
-	AutoscalingPolicy map[v1.ResourceName]AutoscalingType `json:"autoscalingPolicy" protobuf:"bytes,3,name=autoscalingPolicy"`
+	// Now, at least one container in Pod should be Horizontal.
+	//
+	// The default value is "Horizontal" for cpu, and "Vertical" for memory.
+	// +optional
+	AutoscalingPolicy map[v1.ResourceName]AutoscalingType `json:"autoscalingPolicy,omitempty" protobuf:"bytes,3,opt,name=autoscalingPolicy"`
 }
 
 // +kubebuilder:validation:Enum=Off;Auto;Emergency
 type UpdateMode string
 
 const (
-	OffUpdateMode  UpdateMode = "Off"
-	EmergencyMode  UpdateMode = "Emergency"
-	AutoUpdateMode UpdateMode = "Auto"
+	UpdateModeOff       UpdateMode = "Off"
+	UpdateModeEmergency UpdateMode = "Emergency"
+	AutoUpdateMode      UpdateMode = "Auto"
 )
 
 // +kubebuilder:validation:Enum=Horizontal;Vertical
 type AutoscalingType string
 
 const (
-	HorizontalAutoscalingType AutoscalingType = "Horizontal"
-	VerticalAutoscalingType   AutoscalingType = "Vertical"
+	AutoscalingTypeHorizontal AutoscalingType = "Horizontal"
+	AutoscalingTypeVertical   AutoscalingType = "Vertical"
 )
 
 type TargetRefs struct {
