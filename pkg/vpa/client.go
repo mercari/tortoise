@@ -26,7 +26,7 @@ func New(c *rest.Config) (*Client, error) {
 
 const TortoiseMonitorVPANamePrefix = "tortoise-monitor-"
 const TortoiseUpdaterVPANamePrefix = "tortoise-updater-"
-const TortoiseVPARecommenderName = "tortoise"
+const TortoiseVPARecommenderName = "tortoise-controller"
 
 func TortoiseMonitorVPAName(tortoiseName string) string {
 	return TortoiseMonitorVPANamePrefix + tortoiseName
