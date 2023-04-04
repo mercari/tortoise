@@ -146,9 +146,6 @@ spec:
                               updatedAt:
                                 format: date-time
                                 type: string
-                            required:
-                            - quantity
-                            - updatedAt
                             type: object
                           description: MaxRecommendation is the max recommendation
                             value from VPA among certain period (1 week). Tortoise
@@ -166,9 +163,6 @@ spec:
                               updatedAt:
                                 format: date-time
                                 type: string
-                            required:
-                            - quantity
-                            - updatedAt
                             type: object
                           description: Recommendation is the latest recommendation
                             value from VPA.
@@ -179,8 +173,6 @@ spec:
                       - recommendation
                       type: object
                     type: array
-                required:
-                - containerRecommendationFromVPA
                 type: object
               recommendations:
                 properties:
@@ -270,10 +262,6 @@ spec:
                           - targetUtilization
                           type: object
                         type: array
-                    required:
-                    - maxReplicas
-                    - minReplicas
-                    - targetUtilizations
                     type: object
                   vertical:
                     properties:
@@ -308,9 +296,6 @@ spec:
                     required:
                     - containerResourceRecommendation
                     type: object
-                required:
-                - horizontal
-                - vertical
                 type: object
               targets:
                 properties:

@@ -195,7 +195,7 @@ func TestUpdateRecommendation(t *testing.T) {
 				},
 				Status: v1alpha1.TortoiseStatus{
 					Recommendations: v1alpha1.Recommendations{
-						Horizontal: v1alpha1.HorizontalRecommendations{
+						Horizontal: &v1alpha1.HorizontalRecommendations{
 							TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
 								{
 									ContainerName: "app",
@@ -385,7 +385,7 @@ func TestUpdateRecommendation(t *testing.T) {
 				},
 				Status: v1alpha1.TortoiseStatus{
 					Recommendations: v1alpha1.Recommendations{
-						Horizontal: v1alpha1.HorizontalRecommendations{
+						Horizontal: &v1alpha1.HorizontalRecommendations{
 							TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
 								{
 									ContainerName: "app",
@@ -475,7 +475,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				tortoise: &v1alpha1.Tortoise{
 					Status: v1alpha1.TortoiseStatus{
 						Recommendations: v1alpha1.Recommendations{
-							Horizontal: v1alpha1.HorizontalRecommendations{
+							Horizontal: &v1alpha1.HorizontalRecommendations{
 								MinReplicas: []v1alpha1.ReplicasRecommendation{
 									{
 										From:      0,
@@ -506,7 +506,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 			want: &v1alpha1.Tortoise{
 				Status: v1alpha1.TortoiseStatus{
 					Recommendations: v1alpha1.Recommendations{
-						Horizontal: v1alpha1.HorizontalRecommendations{
+						Horizontal: &v1alpha1.HorizontalRecommendations{
 							MinReplicas: []v1alpha1.ReplicasRecommendation{
 								{
 									From:      0,
@@ -535,7 +535,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				tortoise: &v1alpha1.Tortoise{
 					Status: v1alpha1.TortoiseStatus{
 						Recommendations: v1alpha1.Recommendations{
-							Horizontal: v1alpha1.HorizontalRecommendations{
+							Horizontal: &v1alpha1.HorizontalRecommendations{
 								MinReplicas: []v1alpha1.ReplicasRecommendation{},
 								MaxReplicas: []v1alpha1.ReplicasRecommendation{},
 							},
@@ -552,7 +552,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 			want: &v1alpha1.Tortoise{
 				Status: v1alpha1.TortoiseStatus{
 					Recommendations: v1alpha1.Recommendations{
-						Horizontal: v1alpha1.HorizontalRecommendations{
+						Horizontal: &v1alpha1.HorizontalRecommendations{
 							MinReplicas: []v1alpha1.ReplicasRecommendation{},
 							MaxReplicas: []v1alpha1.ReplicasRecommendation{},
 						},
@@ -567,7 +567,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				tortoise: &v1alpha1.Tortoise{
 					Status: v1alpha1.TortoiseStatus{
 						Recommendations: v1alpha1.Recommendations{
-							Horizontal: v1alpha1.HorizontalRecommendations{
+							Horizontal: &v1alpha1.HorizontalRecommendations{
 								MinReplicas: []v1alpha1.ReplicasRecommendation{
 									{
 										From:      0,
@@ -598,7 +598,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 			want: &v1alpha1.Tortoise{
 				Status: v1alpha1.TortoiseStatus{
 					Recommendations: v1alpha1.Recommendations{
-						Horizontal: v1alpha1.HorizontalRecommendations{
+						Horizontal: &v1alpha1.HorizontalRecommendations{
 							MinReplicas: []v1alpha1.ReplicasRecommendation{
 								{
 									From: 0,
@@ -629,7 +629,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				tortoise: &v1alpha1.Tortoise{
 					Status: v1alpha1.TortoiseStatus{
 						Recommendations: v1alpha1.Recommendations{
-							Horizontal: v1alpha1.HorizontalRecommendations{
+							Horizontal: &v1alpha1.HorizontalRecommendations{
 								MinReplicas: []v1alpha1.ReplicasRecommendation{
 									{
 										From:      0,
@@ -660,7 +660,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 			want: &v1alpha1.Tortoise{
 				Status: v1alpha1.TortoiseStatus{
 					Recommendations: v1alpha1.Recommendations{
-						Horizontal: v1alpha1.HorizontalRecommendations{
+						Horizontal: &v1alpha1.HorizontalRecommendations{
 							MinReplicas: []v1alpha1.ReplicasRecommendation{
 								{
 									From:      0,
@@ -717,7 +717,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "replica count below preferredReplicaNumAtPeak",
+			name: "replica count below preferredMaxReplicaNum",
 			fields: fields{
 				preferredReplicaNumAtPeak:  3,
 				suggestedResourceSizeAtMax: createResourceList("1000m", "1Gi"),
@@ -730,7 +730,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "replica count equals preferredReplicaNumAtPeak",
+			name: "replica count equals preferredMaxReplicaNum",
 			fields: fields{
 				preferredReplicaNumAtPeak:  3,
 				suggestedResourceSizeAtMax: createResourceList("1000m", "1Gi"),
@@ -743,7 +743,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "replica count above preferredReplicaNumAtPeak",
+			name: "replica count above preferredMaxReplicaNum",
 			fields: fields{
 				preferredReplicaNumAtPeak:  3,
 				suggestedResourceSizeAtMax: createResourceList("1000m", "1Gi"),
@@ -756,7 +756,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "requested resources exceed suggestedResourceSizeAtMax",
+			name: "requested resources exceed maxResourceSize",
 			fields: fields{
 				preferredReplicaNumAtPeak:  3,
 				suggestedResourceSizeAtMax: createResourceList("1000m", "1Gi"),
@@ -813,9 +813,9 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Service{
-				minimumMinReplicas:         tt.fields.minimumMinReplicas,
-				preferredReplicaNumAtPeak:  tt.fields.preferredReplicaNumAtPeak,
-				suggestedResourceSizeAtMax: tt.fields.suggestedResourceSizeAtMax,
+				minimumMinReplicas:     tt.fields.minimumMinReplicas,
+				preferredMaxReplicaNum: tt.fields.preferredReplicaNumAtPeak,
+				maxResourceSize:        tt.fields.suggestedResourceSizeAtMax,
 			}
 			got, err := s.updateVPARecommendation(tt.args.tortoise, tt.args.deployment)
 			if (err != nil) != tt.wantErr {
@@ -914,7 +914,7 @@ func createTortoiseWithCondition(vpaRecommendation map[corev1.ResourceName]v1alp
 func createTortoiseWithVPARecommendation(cpu, memory string) *v1alpha1.Tortoise {
 	tortoise := createTortoise()
 	tortoise.Status.Recommendations = v1alpha1.Recommendations{
-		Vertical: v1alpha1.VerticalRecommendations{
+		Vertical: &v1alpha1.VerticalRecommendations{
 			ContainerResourceRecommendation: []v1alpha1.RecommendedContainerResources{
 				{
 					ContainerName:       "test-container",
@@ -929,7 +929,7 @@ func createTortoiseWithVPARecommendation(cpu, memory string) *v1alpha1.Tortoise 
 func createVerticalTortoiseWithVPARecommendation(cpu, memory string) *v1alpha1.Tortoise {
 	tortoise := createVerticalTortoise()
 	tortoise.Status.Recommendations = v1alpha1.Recommendations{
-		Vertical: v1alpha1.VerticalRecommendations{
+		Vertical: &v1alpha1.VerticalRecommendations{
 			ContainerResourceRecommendation: []v1alpha1.RecommendedContainerResources{
 				{
 					ContainerName:       "test-container",
@@ -939,4 +939,34 @@ func createVerticalTortoiseWithVPARecommendation(cpu, memory string) *v1alpha1.T
 		},
 	}
 	return tortoise
+}
+
+func Test_updateRecommendedContainerBasedMetric(t *testing.T) {
+	type args struct {
+		currentResourceReq    resource.Quantity
+		currentTarget         int32
+		recommendationFromVPA resource.Quantity
+	}
+	tests := []struct {
+		name string
+		args args
+		want int32
+	}{
+		{
+			name: "success in cpu",
+			args: args{
+				currentResourceReq:    resource.MustParse("4"),
+				currentTarget:         50,
+				recommendationFromVPA: resource.MustParse("3"),
+			},
+			want: 75,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := updateRecommendedContainerBasedMetric(tt.args.currentResourceReq, tt.args.currentTarget, tt.args.recommendationFromVPA); got != tt.want {
+				t.Errorf("updateRecommendedContainerBasedMetric() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

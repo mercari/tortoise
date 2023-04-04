@@ -6,6 +6,7 @@ import (
 	"fmt"
 	v1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"math"
@@ -26,22 +27,29 @@ import (
 type Client struct {
 	c client.Client
 
-	replicaReductionFactor float64
+	// TODO: make them configurable via flag
+	replicaReductionFactor         float64
+	upperTargetResourceUtilization int32
 }
 
 func New(c client.Client) *Client {
 	return &Client{
-		c:                      c,
-		replicaReductionFactor: 0.95,
+		c:                              c,
+		replicaReductionFactor:         0.95,
+		upperTargetResourceUtilization: 90,
 	}
 }
 
-func (c *Client) CreateHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*autoscalingv1alpha1.Tortoise, error) {
+func (c *Client) CreateHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
 	// TODO: make this default HPA spec configurable.
 	hpa := &v2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName,
 			Namespace: tortoise.Namespace,
+			Annotations: map[string]string{
+				annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: fmt.Sprintf("datadogmetric@%s:%s-memory-", tortoise.Namespace, tortoise.Spec.TargetRefs.DeploymentName),
+				annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    fmt.Sprintf("datadogmetric@%s:%s-cpu-", tortoise.Namespace, tortoise.Spec.TargetRefs.DeploymentName),
+			},
 		},
 		Spec: v2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: v2.CrossVersionObjectReference{
@@ -49,7 +57,7 @@ func (c *Client) CreateHPAOnTortoise(ctx context.Context, tortoise *autoscalingv
 				Name:       tortoise.Spec.TargetRefs.DeploymentName,
 				APIVersion: "apps/v1",
 			},
-			MinReplicas: pointer.Int32(dm.Status.Replicas / 2),
+			MinReplicas: pointer.Int32(int32(math.Ceil(float64(dm.Status.Replicas) / 2.0))),
 			MaxReplicas: dm.Status.Replicas * 2,
 			Behavior: &v2.HorizontalPodAutoscalerBehavior{
 				ScaleUp: &v2.HPAScalingRules{
@@ -77,32 +85,38 @@ func (c *Client) CreateHPAOnTortoise(ctx context.Context, tortoise *autoscalingv
 	m := make([]v2.MetricSpec, 0, len(tortoise.Spec.ResourcePolicy))
 	for _, c := range tortoise.Spec.ResourcePolicy {
 		for r, p := range c.AutoscalingPolicy {
+			value := resourceQuantityPtr(resource.MustParse("50"))
 			if p != autoscalingv1alpha1.AutoscalingTypeHorizontal {
-				continue
+				value = resourceQuantityPtr(resource.MustParse("90"))
+			}
+			externalMetricName, err := externalMetricNameFromAnnotation(hpa, c.ContainerName, r)
+			if err != nil {
+				return nil, tortoise, err
 			}
 			m = append(m, v2.MetricSpec{
-				Type: v2.ContainerResourceMetricSourceType,
-				ContainerResource: &v2.ContainerResourceMetricSource{
-					Name: r,
-					Target: v2.MetricTarget{
-						AverageUtilization: pointer.Int32(50),
+				Type: v2.ExternalMetricSourceType,
+				External: &v2.ExternalMetricSource{
+					Metric: v2.MetricIdentifier{
+						Name: externalMetricName,
 					},
-					Container: c.ContainerName,
+					Target: v2.MetricTarget{
+						Type:  v2.ValueMetricType,
+						Value: value,
+					},
 				},
 			})
 		}
 	}
 	hpa.Spec.Metrics = m
-
 	tortoise.Status.Targets.HorizontalPodAutoscaler = hpa.Name
 
 	err := c.c.Create(ctx, hpa)
 	if apierrors.IsAlreadyExists(err) {
 		// A user specified the existing HPA.
-		return tortoise, nil
+		return nil, tortoise, nil
 	}
 
-	return tortoise, err
+	return hpa.DeepCopy(), tortoise, err
 }
 
 func (c *Client) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
@@ -173,6 +187,19 @@ func getReplicasRecommendation(recommendations []autoscalingv1alpha1.ReplicasRec
 	return 0, errors.New("no recommendation slot")
 }
 
+func externalMetricNameFromAnnotation(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName) (string, error) {
+	var prefix string
+	switch k {
+	case corev1.ResourceCPU:
+		prefix = hpa.GetAnnotations()[annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation]
+	case corev1.ResourceMemory:
+		prefix = hpa.GetAnnotations()[annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation]
+	default:
+		return "", fmt.Errorf("non supported resource type: %s", k)
+	}
+	return prefix + containerName, nil
+}
+
 func updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName, targetValue int32) error {
 	for _, m := range hpa.Spec.Metrics {
 		if m.Type != v2.ContainerResourceMetricSourceType {
@@ -192,16 +219,10 @@ func updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string,
 		m.ContainerResource.Target.AverageUtilization = &targetValue
 	}
 
-	var prefix string
-	switch k {
-	case corev1.ResourceCPU:
-		prefix = hpa.GetAnnotations()[annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation]
-	case corev1.ResourceMemory:
-		prefix = hpa.GetAnnotations()[annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation]
-	default:
-		return fmt.Errorf("non supported resource type: %s", k)
+	externalMetricName, err := externalMetricNameFromAnnotation(hpa, containerName, k)
+	if err != nil {
+		return err
 	}
-	externalMetricName := prefix + containerName
 
 	for _, m := range hpa.Spec.Metrics {
 		if m.Type != v2.ExternalMetricSourceType {
@@ -222,4 +243,8 @@ func updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string,
 	}
 
 	return nil
+}
+
+func resourceQuantityPtr(quantity resource.Quantity) *resource.Quantity {
+	return &quantity
 }

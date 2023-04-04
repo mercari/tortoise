@@ -97,15 +97,22 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	tortoiseService, err := tortoise.New(mgr.GetClient())
+	tortoiseService, err := tortoise.New(mgr.GetClient(), 15*time.Second)
 	if err != nil {
 		setupLog.Error(err, "unable to start tortoise service")
 		os.Exit(1)
 	}
+
+	vpaClient, err := vpa.New(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "unable to start vpa client")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.TortoiseReconciler{
 		Scheme:             mgr.GetScheme(),
 		HpaClient:          hpa.New(mgr.GetClient()),
-		VpaClient:          vpa.New(mgr.GetClient()),
+		VpaClient:          vpaClient,
 		DeploymentClient:   deployment.New(mgr.GetClient()),
 		RecommenderService: recommender.New(),
 		TortoiseService:    tortoiseService,

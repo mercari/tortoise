@@ -134,8 +134,10 @@ const (
 )
 
 type Recommendations struct {
-	Horizontal HorizontalRecommendations `json:"horizontal" protobuf:"bytes,1,name=horizontal"`
-	Vertical   VerticalRecommendations   `json:"vertical" protobuf:"bytes,2,name=vertical"`
+	// +optional
+	Horizontal *HorizontalRecommendations `json:"horizontal,omitempty" protobuf:"bytes,1,opt,name=horizontal"`
+	// +optional
+	Vertical *VerticalRecommendations `json:"vertical,omitempty" protobuf:"bytes,2,opt,name=vertical"`
 }
 
 type VerticalRecommendations struct {
@@ -155,13 +157,16 @@ type RecommendedContainerResources struct {
 }
 
 type HorizontalRecommendations struct {
-	TargetUtilizations []HPATargetUtilizationRecommendationPerContainer `json:"targetUtilizations" protobuf:"bytes,1,name=targetUtilizations"`
+	// +optional
+	TargetUtilizations []HPATargetUtilizationRecommendationPerContainer `json:"targetUtilizations,omitempty" protobuf:"bytes,1,opt,name=targetUtilizations"`
 	// MaxReplicas has the recommendation of maxReplicas.
 	// It contains the recommendations for each time slot.
-	MaxReplicas []ReplicasRecommendation `json:"maxReplicas" protobuf:"bytes,2,name=maxReplicas"`
+	// +optional
+	MaxReplicas []ReplicasRecommendation `json:"maxReplicas,omitempty" protobuf:"bytes,2,opt,name=maxReplicas"`
 	// MinReplicas has the recommendation of minReplicas.
 	// It contains the recommendations for each time slot.
-	MinReplicas []ReplicasRecommendation `json:"minReplicas" protobuf:"bytes,3,name=minReplicas"`
+	// +optional
+	MinReplicas []ReplicasRecommendation `json:"minReplicas,omitempty" protobuf:"bytes,3,opt,name=minReplicas"`
 }
 
 type ReplicasRecommendation struct {
@@ -201,7 +206,8 @@ type HPATargetUtilizationRecommendationPerContainer struct {
 }
 
 type Conditions struct {
-	ContainerRecommendationFromVPA []ContainerRecommendationFromVPA `json:"containerRecommendationFromVPA" protobuf:"bytes,1,name=containerRecommendationFromVPA"`
+	// +optional
+	ContainerRecommendationFromVPA []ContainerRecommendationFromVPA `json:"containerRecommendationFromVPA,omitempty" protobuf:"bytes,1,opt,name=containerRecommendationFromVPA"`
 }
 
 type ContainerRecommendationFromVPA struct {
@@ -215,8 +221,10 @@ type ContainerRecommendationFromVPA struct {
 }
 
 type ResourceQuantity struct {
-	Quantity  resource.Quantity `json:"quantity" protobuf:"bytes,1,name=quantity"`
-	UpdatedAt metav1.Time       `json:"updatedAt" protobuf:"bytes,2,name=updatedAt"`
+	// +optional
+	Quantity resource.Quantity `json:"quantity,omitempty" protobuf:"bytes,1,opt,name=quantity"`
+	// +optional
+	UpdatedAt metav1.Time `json:"updatedAt,omitempty" protobuf:"bytes,2,opt,name=updatedAt"`
 }
 
 //+kubebuilder:object:root=true

@@ -3,6 +3,10 @@ package tortoise
 import (
 	"context"
 	"fmt"
+	"github.com/mercari/tortoise/pkg/utils"
+	appv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -19,9 +23,13 @@ type Service struct {
 	c                                       client.Client
 	rangeOfMinMaxReplicasRecommendationHour int
 	timeZone                                *time.Location
+	tortoiseUpdateInterval                  time.Duration
+
+	mu                     sync.RWMutex
+	lastTimeUpdateTortoise map[client.ObjectKey]time.Time
 }
 
-func New(c client.Client) (*Service, error) {
+func New(c client.Client, interval time.Duration) (*Service, error) {
 	timeZone := "Asia/Tokyo"
 	jst, err := time.LoadLocation(timeZone)
 	if err != nil {
@@ -33,13 +41,31 @@ func New(c client.Client) (*Service, error) {
 		// TODO: make them configurable via flag
 		rangeOfMinMaxReplicasRecommendationHour: 1,
 		timeZone:                                jst,
+		tortoiseUpdateInterval:                  interval,
+		lastTimeUpdateTortoise:                  map[client.ObjectKey]time.Time{},
 	}, nil
 }
 
-func (s *Service) UpdateTortoisePhase(tortoise *v1alpha1.Tortoise) *v1alpha1.Tortoise {
+func (s *Service) ShouldReconcileTortoiseNow(tortoise *v1alpha1.Tortoise, now time.Time) (bool, time.Duration) {
+	if tortoise.Spec.UpdateMode == v1alpha1.UpdateModeEmergency {
+		// If Emergency, it should be updated ASAP.
+		return true, 0
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	lastTime, ok := s.lastTimeUpdateTortoise[client.ObjectKeyFromObject(tortoise)]
+	if !ok || lastTime.Add(s.tortoiseUpdateInterval).Before(now) {
+		return true, 0
+	}
+	return false, lastTime.Add(s.tortoiseUpdateInterval).Sub(now)
+}
+
+func (s *Service) UpdateTortoisePhase(tortoise *v1alpha1.Tortoise, dm *appv1.Deployment) *v1alpha1.Tortoise {
 	switch tortoise.Status.TortoisePhase {
 	case "":
-		tortoise = s.initializeTortoise(tortoise)
+		tortoise = s.initializeTortoise(tortoise, dm)
 	case v1alpha1.TortoisePhaseInitializing:
 		// TODO: check initializing finished. (if VPA/HPA are working well etc)
 		tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseGatheringData
@@ -69,7 +95,7 @@ func (s *Service) checkIfTortoiseFinishedGatheringData(tortoise *v1alpha1.Tortoi
 	return tortoise
 }
 
-func (s *Service) initializeTortoise(tortoise *v1alpha1.Tortoise) *v1alpha1.Tortoise {
+func (s *Service) initializeTortoise(tortoise *v1alpha1.Tortoise, dm *appv1.Deployment) *v1alpha1.Tortoise {
 	recommendations := []v1alpha1.ReplicasRecommendation{}
 	from := 0
 	to := s.rangeOfMinMaxReplicasRecommendationHour
@@ -93,9 +119,29 @@ func (s *Service) initializeTortoise(tortoise *v1alpha1.Tortoise) *v1alpha1.Tort
 		from += s.rangeOfMinMaxReplicasRecommendationHour
 		to += s.rangeOfMinMaxReplicasRecommendationHour
 	}
+	if tortoise.Status.Recommendations.Horizontal == nil {
+		tortoise.Status.Recommendations.Horizontal = &v1alpha1.HorizontalRecommendations{}
+	}
 	tortoise.Status.Recommendations.Horizontal.MinReplicas = recommendations
 	tortoise.Status.Recommendations.Horizontal.MaxReplicas = recommendations
 	tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseInitializing
+
+	tortoise.Status.Conditions.ContainerRecommendationFromVPA = make([]v1alpha1.ContainerRecommendationFromVPA, len(dm.Spec.Template.Spec.Containers))
+	for i, c := range dm.Spec.Template.Spec.Containers {
+		tortoise.Status.Conditions.ContainerRecommendationFromVPA[i] = v1alpha1.ContainerRecommendationFromVPA{
+			ContainerName: c.Name,
+			Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+				corev1.ResourceCPU:    {},
+				corev1.ResourceMemory: {},
+			},
+			MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+				corev1.ResourceCPU:    {},
+				corev1.ResourceMemory: {},
+			},
+		}
+	}
+	tortoise.Status.Targets.Deployment = dm.Name
+
 	return tortoise.DeepCopy()
 }
 
@@ -129,7 +175,7 @@ func (s *Service) UpdateUpperRecommendation(tortoise *v1alpha1.Tortoise, vpa *v1
 
 			tortoise.Status.Conditions.ContainerRecommendationFromVPA[k].Recommendation[rn] = rq
 			if recommendation.Cmp(currentTarget) > 0 && recommendation.Cmp(currentUpper) < 0 {
-				// This case, recommendation is in the acceptable range. We don't update tortoise.
+				// This case, recommendation is in the acceptable range. We don't update maxRecommendation.
 				continue
 			}
 
@@ -147,6 +193,34 @@ func (s *Service) GetTortoise(ctx context.Context, namespacedName types.Namespac
 	return t, nil
 }
 
-func (s *Service) UpdateTortoiseStatus(ctx context.Context, tortoise *v1alpha1.Tortoise) (*v1alpha1.Tortoise, error) {
-	return tortoise, s.c.Status().Update(ctx, tortoise)
+func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1alpha1.Tortoise, now time.Time) (*v1alpha1.Tortoise, error) {
+	updateFn := func() (bool, error) {
+		tortoise := &v1alpha1.Tortoise{}
+		err := s.c.Get(ctx, client.ObjectKeyFromObject(originalTortoise), tortoise)
+		if err != nil {
+			return true, err
+		}
+		// It should be OK to overwrite the status, because the controller is the only person to update it.
+		tortoise.Status = originalTortoise.Status
+
+		err = s.c.Status().Update(ctx, tortoise)
+		if err != nil {
+			if apierrors.IsConflict(err) {
+				return false, nil
+			}
+			return true, err
+		}
+		return true, nil
+	}
+
+	err := utils.RetryWithExponentialBackOff(updateFn)
+	if err != nil {
+		return originalTortoise, nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.lastTimeUpdateTortoise[client.ObjectKeyFromObject(originalTortoise)] = now
+	return originalTortoise, nil
 }
