@@ -1,6 +1,8 @@
 package tortoise
 
 import (
+	appv1 "k8s.io/api/apps/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 	"time"
 
@@ -204,10 +206,11 @@ func TestService_InitializeTortoise(t *testing.T) {
 		timeZone                                *time.Location
 	}
 	tests := []struct {
-		name     string
-		fields   fields
-		tortoise *v1alpha1.Tortoise
-		want     *v1alpha1.Tortoise
+		name       string
+		fields     fields
+		tortoise   *v1alpha1.Tortoise
+		deployment *appv1.Deployment
+		want       *v1alpha1.Tortoise
 	}{
 		{
 			fields: fields{
@@ -217,11 +220,43 @@ func TestService_InitializeTortoise(t *testing.T) {
 			tortoise: &v1alpha1.Tortoise{
 				Status: v1alpha1.TortoiseStatus{},
 			},
+			deployment: &appv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+				},
+				Spec: appv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "app",
+								},
+							},
+						},
+					},
+				},
+			},
 			want: &v1alpha1.Tortoise{
 				Status: v1alpha1.TortoiseStatus{
 					TortoisePhase: v1alpha1.TortoisePhaseInitializing,
+					Targets:       v1alpha1.TargetsStatus{Deployment: "deployment"},
+					Conditions: v1alpha1.Conditions{
+						ContainerRecommendationFromVPA: []v1alpha1.ContainerRecommendationFromVPA{
+							{
+								ContainerName: "app",
+								Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+									corev1.ResourceCPU:    {},
+									corev1.ResourceMemory: {},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+									corev1.ResourceCPU:    {},
+									corev1.ResourceMemory: {},
+								},
+							},
+						},
+					},
 					Recommendations: v1alpha1.Recommendations{
-						Horizontal: v1alpha1.HorizontalRecommendations{
+						Horizontal: &v1alpha1.HorizontalRecommendations{
 							MinReplicas: []v1alpha1.ReplicasRecommendation{
 								{
 									From:     0,
@@ -490,9 +525,85 @@ func TestService_InitializeTortoise(t *testing.T) {
 				rangeOfMinMaxReplicasRecommendationHour: tt.fields.rangeOfMinMaxReplicasRecommendationHour,
 				timeZone:                                tt.fields.timeZone,
 			}
-			got := s.initializeTortoise(tt.tortoise)
+			got := s.initializeTortoise(tt.tortoise, tt.deployment)
 			if d := cmp.Diff(got, tt.want); d != "" {
 				t.Errorf("initializeTortoise() diff = %v", d)
+			}
+		})
+	}
+}
+
+func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name                   string
+		lastTimeUpdateTortoise map[client.ObjectKey]time.Time
+		tortoise               *v1alpha1.Tortoise
+		want                   bool
+		wantDuration           time.Duration
+	}{
+		{
+			name: "tortoise which isn't recorded lastTimeUpdateTortoise in should be updated",
+			lastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
+				client.ObjectKey{Name: "t2", Namespace: "default"}: now.Add(-1 * time.Second),
+			},
+			tortoise: &v1alpha1.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "t",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.TortoiseSpec{
+					UpdateMode: v1alpha1.AutoUpdateMode,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "tortoise which updated a few seconds ago shouldn't be updated",
+			lastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
+				client.ObjectKey{Name: "t", Namespace: "default"}: now.Add(-1 * time.Second),
+			},
+			tortoise: &v1alpha1.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "t",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.TortoiseSpec{
+					UpdateMode: v1alpha1.AutoUpdateMode,
+				},
+			},
+			want:         false,
+			wantDuration: 59 * time.Second,
+		},
+		{
+			name: "emergency mode tortoise should be updated",
+			lastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
+				client.ObjectKey{Name: "t", Namespace: "default"}: now.Add(-1 * time.Second),
+			},
+			tortoise: &v1alpha1.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "t",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.TortoiseSpec{
+					UpdateMode: v1alpha1.UpdateModeEmergency,
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Service{
+				tortoiseUpdateInterval: 1 * time.Minute,
+				lastTimeUpdateTortoise: tt.lastTimeUpdateTortoise,
+			}
+			got, gotDuration := s.ShouldReconcileTortoiseNow(tt.tortoise, now)
+			if got != tt.want {
+				t.Errorf("ShouldReconcileTortoiseNow() = %v, want %v", got, tt.want)
+			}
+			if tt.wantDuration != 0 && gotDuration != tt.wantDuration {
+				t.Errorf("ShouldReconcileTortoiseNow() = %v, want %v", gotDuration, tt.wantDuration)
 			}
 		})
 	}

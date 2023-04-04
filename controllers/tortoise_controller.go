@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	v1 "k8s.io/api/apps/v1"
 	"time"
 
@@ -72,17 +73,22 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	reconcileNow, requeueAfter := r.TortoiseService.ShouldReconcileTortoiseNow(tortoise, now)
+	if !reconcileNow {
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
+	}
+
 	dm, err := r.DeploymentClient.GetDeploymentOnTortoise(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get deployment", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
 
-	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise)
+	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, dm)
 	if tortoise.Status.TortoisePhase == autoscalingv1alpha1.TortoisePhaseInitializing {
 		// need to initialize HPA and VPA.
-		if err := r.initializeVPAAndHPA(ctx, tortoise, dm); err != nil {
-			return ctrl.Result{}, err
+		if err := r.initializeVPAAndHPA(ctx, tortoise, dm, now); err != nil {
+			return ctrl.Result{}, fmt.Errorf("initialize VPAs and HPA: %w", err)
 		}
 
 		// VPA and HPA are just created, and they won't start working soon.
@@ -122,31 +128,31 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise)
+	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
 	if err != nil {
 		logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{RequeueAfter: r.Interval}, nil
+	return ctrl.Result{}, nil
 }
 
-func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) error {
+func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment, now time.Time) error {
 	var err error
 	// need to initialize HPA and VPA.
-	tortoise, err = r.HpaClient.CreateHPAOnTortoise(ctx, tortoise, dm)
+	_, tortoise, err = r.HpaClient.CreateHPAOnTortoise(ctx, tortoise, dm)
 	if err != nil {
 		return err
 	}
-	tortoise, err = r.VpaClient.CreateTortoiseMonitorVPA(ctx, tortoise)
+	_, tortoise, err = r.VpaClient.CreateTortoiseMonitorVPA(ctx, tortoise)
 	if err != nil {
 		return err
 	}
-	tortoise, err = r.VpaClient.CreateTortoiseUpdaterVPA(ctx, tortoise)
+	_, tortoise, err = r.VpaClient.CreateTortoiseUpdaterVPA(ctx, tortoise)
 	if err != nil {
 		return err
 	}
-	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise)
+	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
 	if err != nil {
 		return err
 	}
