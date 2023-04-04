@@ -332,8 +332,7 @@ func (t *testCase) compare(got resources) error {
 
 // createResources creates the resources defined in t.before.
 func (t *testCase) createResources(ctx context.Context, k8sClient client.Client, config *rest.Config) error {
-	var err error
-	err = k8sClient.Create(ctx, t.before.deployment.DeepCopy())
+	err := k8sClient.Create(ctx, t.before.deployment.DeepCopy())
 	if err != nil {
 		return err
 	}
@@ -353,6 +352,9 @@ func (t *testCase) createResources(ctx context.Context, k8sClient client.Client,
 		// create default VPAs.
 		t.before.vpa = map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
 		VpaClient, err := vpa.New(config)
+		if err != nil {
+			return err
+		}
 		vpacli, err := versioned.NewForConfig(config)
 		if err != nil {
 			return err
