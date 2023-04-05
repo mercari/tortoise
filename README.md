@@ -39,7 +39,14 @@ Tortoise, you don't need a rearing cage, but need VPA in your Kubernetes cluster
 
 ## Contribution
 
-We'll accept the contribution from outside of mercari in the future, but not at the moment.
+Before implementing any feature changes as Pull Requests,
+please raise the Issue and discuss what you propose with maintainers.
+
+Also, please read the CLA carefully before submitting your contribution to Mercari. 
+Under any circumstances, by submitting your contribution, 
+you are deemed to accept and agree to be bound by the terms and conditions of the CLA.
+
+https://www.mercari.com/cla/
 
 ## LICENSE
 
