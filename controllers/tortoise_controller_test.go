@@ -42,17 +42,17 @@ var _ = Describe("Test TortoiseController", func() {
 		})
 		Expect(err).ShouldNot(HaveOccurred())
 
-		tortoiseService, err := tortoise.New(mgr.GetClient(), 1000*time.Minute)
+		tortoiseService, err := tortoise.New(mgr.GetClient(), 1, "Asia/Tokyo", 1000*time.Minute)
 		Expect(err).ShouldNot(HaveOccurred())
 		cli, err := vpa.New(mgr.GetConfig())
 		Expect(err).ShouldNot(HaveOccurred())
 		reconciler := &TortoiseReconciler{
 			Scheme:             scheme,
-			HpaClient:          hpa.New(mgr.GetClient()),
+			HpaClient:          hpa.New(mgr.GetClient(), 0.95, 90),
 			VpaClient:          cli,
 			DeploymentClient:   deployment.New(mgr.GetClient()),
 			TortoiseService:    tortoiseService,
-			RecommenderService: recommender.New(),
+			RecommenderService: recommender.New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi"),
 		}
 		err = reconciler.SetupWithManager(mgr)
 		Expect(err).ShouldNot(HaveOccurred())

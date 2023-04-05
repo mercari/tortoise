@@ -436,7 +436,7 @@ func TestUpdateRecommendation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := New()
+			s := New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi")
 			got, err := s.updateHPATargetUtilizationRecommendations(tt.args.tortoise, tt.args.hpa, tt.args.deployment)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -686,7 +686,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := New()
+			s := New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi")
 			got, err := s.updateHPAMinMaxReplicasRecommendations(tt.args.tortoise, tt.args.deployment, tt.args.now)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateHPAMinMaxReplicasRecommendations() error = %v, wantErr %v", err, tt.wantErr)
