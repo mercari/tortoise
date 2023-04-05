@@ -27,16 +27,15 @@ import (
 type Client struct {
 	c client.Client
 
-	// TODO: make them configurable via flag
 	replicaReductionFactor         float64
 	upperTargetResourceUtilization int32
 }
 
-func New(c client.Client) *Client {
+func New(c client.Client, replicaReductionFactor float64, upperTargetResourceUtilization int) *Client {
 	return &Client{
 		c:                              c,
-		replicaReductionFactor:         0.95,
-		upperTargetResourceUtilization: 90,
+		replicaReductionFactor:         replicaReductionFactor,
+		upperTargetResourceUtilization: int32(upperTargetResourceUtilization),
 	}
 }
 

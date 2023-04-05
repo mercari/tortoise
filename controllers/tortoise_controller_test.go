@@ -342,7 +342,7 @@ func (t *testCase) createResources(ctx context.Context, k8sClient client.Client,
 	}
 	if t.before.hpa == nil {
 		// create default HPA.
-		HpaClient := hpa.New(k8sClient)
+		HpaClient := hpa.New(k8sClient, 0.95, 90)
 		t.before.hpa, t.before.tortoise, err = HpaClient.CreateHPAOnTortoise(ctx, t.before.tortoise, t.before.deployment)
 		if err != nil {
 			return err

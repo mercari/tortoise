@@ -717,7 +717,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "replica count below preferredMaxReplicaNum",
+			name: "replica count below preferredReplicaNumUpperLimit",
 			fields: fields{
 				preferredReplicaNumAtPeak:  3,
 				suggestedResourceSizeAtMax: createResourceList("1000m", "1Gi"),
@@ -730,7 +730,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "replica count equals preferredMaxReplicaNum",
+			name: "replica count equals preferredReplicaNumUpperLimit",
 			fields: fields{
 				preferredReplicaNumAtPeak:  3,
 				suggestedResourceSizeAtMax: createResourceList("1000m", "1Gi"),
@@ -743,7 +743,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "replica count above preferredMaxReplicaNum",
+			name: "replica count above preferredReplicaNumUpperLimit",
 			fields: fields{
 				preferredReplicaNumAtPeak:  3,
 				suggestedResourceSizeAtMax: createResourceList("1000m", "1Gi"),
@@ -813,9 +813,9 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Service{
-				minimumMinReplicas:     tt.fields.minimumMinReplicas,
-				preferredMaxReplicaNum: tt.fields.preferredReplicaNumAtPeak,
-				maxResourceSize:        tt.fields.suggestedResourceSizeAtMax,
+				minimumMinReplicas:            tt.fields.minimumMinReplicas,
+				preferredReplicaNumUpperLimit: tt.fields.preferredReplicaNumAtPeak,
+				maxResourceSize:               tt.fields.suggestedResourceSizeAtMax,
 			}
 			got, err := s.updateVPARecommendation(tt.args.tortoise, tt.args.deployment)
 			if (err != nil) != tt.wantErr {
