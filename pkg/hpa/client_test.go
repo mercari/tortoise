@@ -749,7 +749,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build())
+			c := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), 0.95, 90)
 			got, tortoise, err := c.UpdateHPAFromTortoiseRecommendation(tt.args.ctx, tt.args.tortoise, tt.args.now)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateHPAFromTortoiseRecommendation() error = %v, wantErr %v", err, tt.wantErr)

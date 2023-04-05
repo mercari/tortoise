@@ -23,31 +23,36 @@ import (
 
 type Service struct {
 	// configurations
-	rangeOfMinMaxReplicasRecommendation   time.Duration
 	TTLHourOfMinMaxReplicasRecommendation float64
 	maxReplicasFactor                     float64
 	minReplicasFactor                     float64
 
-	// TODO: add what these parameters mean
 	minimumMinReplicas             int32
 	upperTargetResourceUtilization int32
-	preferredMaxReplicaNum         int32
+	preferredReplicaNumUpperLimit  int32
 	maxResourceSize                corev1.ResourceList
 }
 
-func New() *Service {
+func New(
+	tTLHoursOfMinMaxReplicasRecommendation int,
+	maxReplicasFactor float64,
+	minReplicasFactor float64,
+	upperTargetResourceUtilization int,
+	minimumMinReplicas int,
+	preferredReplicaNumUpperLimit int,
+	maxCPUPerContainer string,
+	maxMemoryPerContainer string,
+) *Service {
 	return &Service{
-		// TODO: make them configurable via flag
-		rangeOfMinMaxReplicasRecommendation:   1 * time.Hour,
-		TTLHourOfMinMaxReplicasRecommendation: 24 * 7 * 4, // 1 month
-		maxReplicasFactor:                     2,
-		minReplicasFactor:                     0.5,
-		upperTargetResourceUtilization:        90,
-		minimumMinReplicas:                    3,
-		preferredMaxReplicaNum:                30,
+		TTLHourOfMinMaxReplicasRecommendation: float64(tTLHoursOfMinMaxReplicasRecommendation),
+		maxReplicasFactor:                     maxReplicasFactor,
+		minReplicasFactor:                     minReplicasFactor,
+		upperTargetResourceUtilization:        int32(upperTargetResourceUtilization),
+		minimumMinReplicas:                    int32(minimumMinReplicas),
+		preferredReplicaNumUpperLimit:         int32(preferredReplicaNumUpperLimit),
 		maxResourceSize: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse("10"),
-			corev1.ResourceMemory: resource.MustParse("10Gi"),
+			corev1.ResourceCPU:    resource.MustParse(maxCPUPerContainer),
+			corev1.ResourceMemory: resource.MustParse(maxMemoryPerContainer),
 		},
 	}
 }
@@ -104,10 +109,10 @@ func (s *Service) updateVPARecommendation(tortoise *v1alpha1.Tortoise, deploymen
 
 				newSize = recom.MilliValue()
 			}
-			// Make the container size bigger (just multiple by s.preferredMaxReplicaNum)
-			// when the current replica num is more than or equal to the preferredMaxReplicaNum.
+			// Make the container size bigger (just multiple by s.preferredReplicaNumUpperLimit)
+			// when the current replica num is more than or equal to the preferredReplicaNumUpperLimit.
 			// But, in below justifyNewSizeByMaxMin(), this increase may be ignored due to s.maxResourceSize.
-			if deployment.Status.Replicas >= s.preferredMaxReplicaNum {
+			if deployment.Status.Replicas >= s.preferredReplicaNumUpperLimit {
 				newSize = int64(float64(req.MilliValue()) * 1.1)
 			}
 

@@ -66,6 +66,33 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+
+	// Tortoise specific flags
+	var rangeOfMinMaxReplicasRecommendationHours int
+	var tTLHoursOfMinMaxReplicasRecommendation int
+	var maxReplicasFactor float64
+	var minReplicasFactor float64
+	var replicaReductionFactor float64
+	var upperTargetResourceUtilization int
+	var minimumMinReplicas int
+	var preferredReplicaNumUpperLimit int
+	var maxCPUPerContainer string
+	var maxMemoryPerContainer string
+	var timeZone string
+	var tortoiseUpdateInterval time.Duration
+	flag.IntVar(&rangeOfMinMaxReplicasRecommendationHours, "range-of-min-max-replicas-recommendation-hours", 1, "the time (hours) range of minReplicas and maxReplicas recommendation (default: 1)")
+	flag.IntVar(&tTLHoursOfMinMaxReplicasRecommendation, "ttl-hours-of-min-max-replicas-recommendation", 24*30, "the TTL of minReplicas and maxReplicas recommendation (default: 720 (=30 days))")
+	flag.Float64Var(&maxReplicasFactor, "max-replicas-factor", 2.0, "the factor to calculate the maxReplicas recommendation from the current replica number (default: 2.0)")
+	flag.Float64Var(&minReplicasFactor, "min-replicas-factor", 0.5, "the factor to calculate the minReplicas recommendation from the current replica number (default: 0.5)")
+	flag.Float64Var(&replicaReductionFactor, "replica-reduction-factor", 0.95, "the factor to reduce the minReplicas gradually after turning off Emergency mode (default: 0.95)")
+	flag.IntVar(&upperTargetResourceUtilization, "upper-target-resource-utilization", 90, "the max target utilization that tortoise can give to the HPA (default: 90)")
+	flag.IntVar(&minimumMinReplicas, "minimum-min-replicas", 3, "the minimum minReplicas that tortoise can give to the HPA (default: 3)")
+	flag.IntVar(&preferredReplicaNumUpperLimit, "preferred-replicas-number-upper-limit", 30, "the replica number which the tortoise tries to keep the replica number less than. As said \"preferred\", the tortoise tries to keep the replicas number less than this, but it lets the replica number more than this when other \"required\" rule will be violated by this limit. (default: 30)")
+	flag.StringVar(&maxCPUPerContainer, "maximum-cpu-cores", "10", "the maximum CPU cores that the tortoise can give to the container (default: 10)")
+	flag.StringVar(&maxMemoryPerContainer, "maximum-memory-bytes", "10Gi", "the maximum memory bytes that the tortoise can give to the container (default: 10Gi)")
+	flag.StringVar(&timeZone, "timezone", "Asia/Tokyo", "The timezone used to record time in tortoise objects (default: Asia/Tokyo)")
+	flag.DurationVar(&tortoiseUpdateInterval, "tortoise-update-interval", 15*time.Second, "The interval of updating each tortoise (default: 15s)")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -97,7 +124,7 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	tortoiseService, err := tortoise.New(mgr.GetClient(), 15*time.Second)
+	tortoiseService, err := tortoise.New(mgr.GetClient(), rangeOfMinMaxReplicasRecommendationHours, timeZone, tortoiseUpdateInterval)
 	if err != nil {
 		setupLog.Error(err, "unable to start tortoise service")
 		os.Exit(1)
@@ -111,10 +138,10 @@ func main() {
 
 	if err = (&controllers.TortoiseReconciler{
 		Scheme:             mgr.GetScheme(),
-		HpaClient:          hpa.New(mgr.GetClient()),
+		HpaClient:          hpa.New(mgr.GetClient(), replicaReductionFactor, upperTargetResourceUtilization),
 		VpaClient:          vpaClient,
 		DeploymentClient:   deployment.New(mgr.GetClient()),
-		RecommenderService: recommender.New(),
+		RecommenderService: recommender.New(tTLHoursOfMinMaxReplicasRecommendation, maxReplicasFactor, minReplicasFactor, upperTargetResourceUtilization, minimumMinReplicas, preferredReplicaNumUpperLimit, maxCPUPerContainer, maxMemoryPerContainer),
 		TortoiseService:    tortoiseService,
 		Interval:           30 * time.Second,
 	}).SetupWithManager(mgr); err != nil {

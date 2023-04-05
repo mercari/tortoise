@@ -29,8 +29,7 @@ type Service struct {
 	lastTimeUpdateTortoise map[client.ObjectKey]time.Time
 }
 
-func New(c client.Client, interval time.Duration) (*Service, error) {
-	timeZone := "Asia/Tokyo"
+func New(c client.Client, rangeOfMinMaxReplicasRecommendationHour int, timeZone string, tortoiseUpdateInterval time.Duration) (*Service, error) {
 	jst, err := time.LoadLocation(timeZone)
 	if err != nil {
 		return nil, fmt.Errorf("load location: %w", err)
@@ -38,10 +37,9 @@ func New(c client.Client, interval time.Duration) (*Service, error) {
 	return &Service{
 		c: c,
 
-		// TODO: make them configurable via flag
-		rangeOfMinMaxReplicasRecommendationHour: 1,
+		rangeOfMinMaxReplicasRecommendationHour: rangeOfMinMaxReplicasRecommendationHour,
 		timeZone:                                jst,
-		tortoiseUpdateInterval:                  interval,
+		tortoiseUpdateInterval:                  tortoiseUpdateInterval,
 		lastTimeUpdateTortoise:                  map[client.ObjectKey]time.Time{},
 	}, nil
 }
