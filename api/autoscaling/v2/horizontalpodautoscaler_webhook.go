@@ -42,7 +42,7 @@ import (
 
 type HPAWebhook struct {
 	tortoiseService tortoise.Service
-	hpaService      hpa.Client
+	hpaService      hpa.Service
 }
 
 var _ admission.CustomDefaulter = &HPAWebhook{}

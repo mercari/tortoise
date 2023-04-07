@@ -54,9 +54,9 @@ type TortoiseReconciler struct {
 
 	Interval time.Duration
 
-	HpaClient          *hpa.Client
-	VpaClient          *vpa.Client
-	DeploymentClient   *deployment.Client
+	HpaService         *hpa.Service
+	VpaService         *vpa.Service
+	DeploymentService  *deployment.Service
 	TortoiseService    *tortoise.Service
 	RecommenderService *recommender.Service
 }
@@ -87,7 +87,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
-	dm, err := r.DeploymentClient.GetDeploymentOnTortoise(ctx, tortoise)
+	dm, err := r.DeploymentService.GetDeploymentOnTortoise(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get deployment", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -105,13 +105,13 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{RequeueAfter: 2 * time.Minute}, nil
 	}
 
-	vpa, err := r.VpaClient.GetTortoiseMonitorVPA(ctx, tortoise)
+	vpa, err := r.VpaService.GetTortoiseMonitorVPA(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get tortoise VPA", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
 
-	hpa, err := r.HpaClient.GetHPAOnTortoise(ctx, tortoise)
+	hpa, err := r.HpaService.GetHPAOnTortoise(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get HPA", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -125,13 +125,13 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	_, tortoise, err = r.HpaClient.UpdateHPAFromTortoiseRecommendation(ctx, tortoise, now)
+	_, tortoise, err = r.HpaService.UpdateHPAFromTortoiseRecommendation(ctx, tortoise, now)
 	if err != nil {
 		logger.Error(err, "update HPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.VpaClient.UpdateVPAFromTortoiseRecommendation(ctx, tortoise)
+	_, err = r.VpaService.UpdateVPAFromTortoiseRecommendation(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "update VPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -149,15 +149,15 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment, now time.Time) error {
 	var err error
 	// need to initialize HPA and VPA.
-	_, tortoise, err = r.HpaClient.CreateHPAOnTortoise(ctx, tortoise, dm)
+	_, tortoise, err = r.HpaService.CreateHPAOnTortoise(ctx, tortoise, dm)
 	if err != nil {
 		return err
 	}
-	_, tortoise, err = r.VpaClient.CreateTortoiseMonitorVPA(ctx, tortoise)
+	_, tortoise, err = r.VpaService.CreateTortoiseMonitorVPA(ctx, tortoise)
 	if err != nil {
 		return err
 	}
-	_, tortoise, err = r.VpaClient.CreateTortoiseUpdaterVPA(ctx, tortoise)
+	_, tortoise, err = r.VpaService.CreateTortoiseUpdaterVPA(ctx, tortoise)
 	if err != nil {
 		return err
 	}
