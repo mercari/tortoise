@@ -701,13 +701,14 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 
 func TestService_UpdateVPARecommendation(t *testing.T) {
 	type fields struct {
-		preferredReplicaNumAtPeak  int32
-		minimumMinReplicas         int32
-		suggestedResourceSizeAtMax corev1.ResourceList
+		preferredReplicaNumUpperLimit int32
+		minimumMinReplicas            int32
+		suggestedResourceSizeAtMax    corev1.ResourceList
 	}
 	type args struct {
 		tortoise   *v1alpha1.Tortoise
 		deployment *v1.Deployment
+		hpa        *v2.HorizontalPodAutoscaler
 	}
 	tests := []struct {
 		name    string
@@ -717,39 +718,20 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "replica count below preferredReplicaNumUpperLimit",
-			fields: fields{
-				preferredReplicaNumAtPeak:  3,
-				suggestedResourceSizeAtMax: createResourceList("1000m", "1Gi"),
-			},
-			args: args{
-				tortoise:   createTortoise(),
-				deployment: createDeployment(2, "500m", "500Mi"),
-			},
-			want:    createTortoiseWithVPARecommendation("500m", "500Mi"),
-			wantErr: false,
-		},
-		{
-			name: "replica count equals preferredReplicaNumUpperLimit",
-			fields: fields{
-				preferredReplicaNumAtPeak:  3,
-				suggestedResourceSizeAtMax: createResourceList("1000m", "1Gi"),
-			},
-			args: args{
-				tortoise:   createTortoise(),
-				deployment: createDeployment(3, "500m", "500Mi"),
-			},
-			want:    createTortoiseWithVPARecommendation("550m", "550Mi"),
-			wantErr: false,
-		},
-		{
 			name: "replica count above preferredReplicaNumUpperLimit",
 			fields: fields{
-				preferredReplicaNumAtPeak:  3,
-				suggestedResourceSizeAtMax: createResourceList("1000m", "1Gi"),
+				preferredReplicaNumUpperLimit: 3,
+				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise:   createTortoise(),
+				tortoise: createTortoiseWithCondition(map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+					corev1.ResourceCPU: {
+						Quantity: resource.MustParse("500m"),
+					},
+					corev1.ResourceMemory: {
+						Quantity: resource.MustParse("500Mi"),
+					},
+				}),
 				deployment: createDeployment(4, "500m", "500Mi"),
 			},
 			want:    createTortoiseWithVPARecommendation("550m", "550Mi"),
@@ -758,11 +740,18 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		{
 			name: "requested resources exceed maxResourceSize",
 			fields: fields{
-				preferredReplicaNumAtPeak:  3,
-				suggestedResourceSizeAtMax: createResourceList("1000m", "1Gi"),
+				preferredReplicaNumUpperLimit: 3,
+				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise:   createTortoise(),
+				tortoise: createTortoiseWithCondition(map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+					corev1.ResourceCPU: {
+						Quantity: resource.MustParse("1500m"),
+					},
+					corev1.ResourceMemory: {
+						Quantity: resource.MustParse("1.5Gi"),
+					},
+				}),
 				deployment: createDeployment(4, "1500m", "1.5Gi"),
 			},
 			want:    createTortoiseWithVPARecommendation("1500m", "1.5Gi"),
@@ -771,9 +760,9 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		{
 			name: "reduced resources based on VPA recommendation",
 			fields: fields{
-				preferredReplicaNumAtPeak:  6,
-				suggestedResourceSizeAtMax: createResourceList("1000m", "1Gi"),
-				minimumMinReplicas:         3,
+				preferredReplicaNumUpperLimit: 6,
+				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
+				minimumMinReplicas:            3,
 			},
 			args: args{
 				tortoise: createTortoiseWithCondition(map[corev1.ResourceName]v1alpha1.ResourceQuantity{
@@ -792,8 +781,8 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		{
 			name: "reduced resources based on VPA recommendation",
 			fields: fields{
-				preferredReplicaNumAtPeak:  6,
-				suggestedResourceSizeAtMax: createResourceList("1000m", "1Gi"),
+				preferredReplicaNumUpperLimit: 6,
+				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
 			},
 			args: args{
 				tortoise: createVerticalTortoiseWithCondition(map[corev1.ResourceName]v1alpha1.ResourceQuantity{
@@ -809,15 +798,90 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			want:    createVerticalTortoiseWithVPARecommendation("120m", "120Mi"),
 			wantErr: false,
 		},
+		{
+			name: "reduced resources based on VPA recommendation when unbalanced container size in multiple containers Pod",
+			fields: fields{
+				preferredReplicaNumUpperLimit: 6,
+				suggestedResourceSizeAtMax:    createResourceList("10000m", "100Gi"),
+			},
+			args: args{
+				tortoise: createTortoiseWithMultipleContainersWithCondition(
+					map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						corev1.ResourceCPU: {
+							Quantity: resource.MustParse("80m"),
+						},
+						corev1.ResourceMemory: {
+							Quantity: resource.MustParse("9Gi"),
+						},
+					},
+					map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						corev1.ResourceCPU: {
+							Quantity: resource.MustParse("800m"),
+						},
+						corev1.ResourceMemory: {
+							Quantity: resource.MustParse("0.7Gi"),
+						},
+					}),
+				deployment: createMultipleContainersDeployment(5, "1000m", "1000m", "10Gi", "10Gi"),
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						Metrics: []v2.MetricSpec{
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceCPU,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(80),
+									},
+									Container: "test-container",
+								},
+							},
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceMemory,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(80),
+									},
+									Container: "test-container",
+								},
+							},
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceCPU,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(70),
+									},
+									Container: "test-container2",
+								},
+							},
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceMemory,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(70),
+									},
+									Container: "test-container2",
+								},
+							},
+						},
+					},
+				},
+			},
+			want:    createTortoiseWithMultipleContainersWithVPARecommendation("100m", "1000m", "10Gi", "1Gi"),
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Service{
 				minimumMinReplicas:            tt.fields.minimumMinReplicas,
-				preferredReplicaNumUpperLimit: tt.fields.preferredReplicaNumAtPeak,
+				preferredReplicaNumUpperLimit: tt.fields.preferredReplicaNumUpperLimit,
 				maxResourceSize:               tt.fields.suggestedResourceSizeAtMax,
 			}
-			got, err := s.updateVPARecommendation(tt.args.tortoise, tt.args.deployment)
+			got, err := s.updateVPARecommendation(tt.args.tortoise, tt.args.deployment, tt.args.hpa)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateVPARecommendation() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -899,6 +963,72 @@ func createDeployment(replicas int32, cpu, memory string) *v1.Deployment {
 		},
 	}
 }
+func createTortoiseWithMultipleContainers() *v1alpha1.Tortoise {
+	return &v1alpha1.Tortoise{
+		Spec: v1alpha1.TortoiseSpec{
+			ResourcePolicy: []v1alpha1.ContainerResourcePolicy{
+				{
+					ContainerName: "test-container",
+					AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
+						corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1alpha1.AutoscalingTypeHorizontal,
+					},
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				},
+				{
+					ContainerName: "test-container2",
+					AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
+						corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1alpha1.AutoscalingTypeHorizontal,
+					},
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				},
+			},
+		},
+	}
+}
+func createMultipleContainersDeployment(replicas int32, cpu1, cpu2, memory1, memory2 string) *v1.Deployment {
+	return &v1.Deployment{
+		Status: v1.DeploymentStatus{
+			Replicas: replicas,
+		},
+		Spec: v1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "test-container",
+							Resources: corev1.ResourceRequirements{
+								Requests: createResourceList(cpu1, memory1),
+							},
+						},
+						{
+							Name: "test-container2",
+							Resources: corev1.ResourceRequirements{
+								Requests: createResourceList(cpu2, memory2),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func createTortoiseWithMultipleContainersWithCondition(vpaRecommendation1, vpaRecommendation2 map[corev1.ResourceName]v1alpha1.ResourceQuantity) *v1alpha1.Tortoise {
+	tortoise := createTortoiseWithMultipleContainers()
+	tortoise.Status.Conditions.ContainerRecommendationFromVPA = []v1alpha1.ContainerRecommendationFromVPA{
+		{
+			ContainerName:  "test-container",
+			Recommendation: vpaRecommendation1,
+		},
+		{
+			ContainerName:  "test-container2",
+			Recommendation: vpaRecommendation2,
+		},
+	}
+	return tortoise
+}
 
 func createTortoiseWithCondition(vpaRecommendation map[corev1.ResourceName]v1alpha1.ResourceQuantity) *v1alpha1.Tortoise {
 	tortoise := createTortoise()
@@ -940,33 +1070,21 @@ func createVerticalTortoiseWithVPARecommendation(cpu, memory string) *v1alpha1.T
 	}
 	return tortoise
 }
-
-func Test_updateRecommendedContainerBasedMetric(t *testing.T) {
-	type args struct {
-		currentResourceReq    resource.Quantity
-		currentTarget         int32
-		recommendationFromVPA resource.Quantity
-	}
-	tests := []struct {
-		name string
-		args args
-		want int32
-	}{
-		{
-			name: "success in cpu",
-			args: args{
-				currentResourceReq:    resource.MustParse("4"),
-				currentTarget:         50,
-				recommendationFromVPA: resource.MustParse("3"),
+func createTortoiseWithMultipleContainersWithVPARecommendation(cpu1, cpu2, memory1, memory2 string) *v1alpha1.Tortoise {
+	tortoise := createTortoiseWithMultipleContainers()
+	tortoise.Status.Recommendations = v1alpha1.Recommendations{
+		Vertical: &v1alpha1.VerticalRecommendations{
+			ContainerResourceRecommendation: []v1alpha1.RecommendedContainerResources{
+				{
+					ContainerName:       "test-container",
+					RecommendedResource: createResourceList(cpu1, memory1),
+				},
+				{
+					ContainerName:       "test-container2",
+					RecommendedResource: createResourceList(cpu2, memory2),
+				},
 			},
-			want: 75,
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := updateRecommendedContainerBasedMetric(tt.args.currentResourceReq, tt.args.currentTarget, tt.args.recommendationFromVPA); got != tt.want {
-				t.Errorf("updateRecommendedContainerBasedMetric() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	return tortoise
 }
