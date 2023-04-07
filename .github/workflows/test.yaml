@@ -3,6 +3,8 @@ name: test
 on:
   pull_request:
     types: [opened, synchronize]
+    paths-ignore:
+      - 'docs/**'
 
 jobs:
   test:

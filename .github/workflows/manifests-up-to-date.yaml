@@ -3,6 +3,8 @@ name: manifests-up-to-date
 on:
   pull_request:
     types: [opened, synchronize]
+    paths-ignore:
+      - 'docs/**'
 
 jobs:
   manifests-up-to-date:

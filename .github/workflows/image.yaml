@@ -1,0 +1,32 @@
+name: docker image build and push
+
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: docker/texturepacker/
+
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+      - name: Build
+        run: docker build -t ghcr.io/mercari/tortoise:${REF##*/} .
+        env:
+          REF: ${{ github.ref }}
+      - name: Login
+        run: echo $TOKEN | docker login ghcr.io -u ${OWNER,,} --password-stdin
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+      - name: Push
+        run: docker push ghcr.io/mercari/tortoise:${REF##*/}
+        env:
+          REF: ${{ github.ref }}
