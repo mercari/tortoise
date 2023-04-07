@@ -30,11 +30,12 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 		now      time.Time
 	}
 	tests := []struct {
-		name       string
-		args       args
-		initialHPA *v2.HorizontalPodAutoscaler
-		want       *v2.HorizontalPodAutoscaler
-		wantErr    bool
+		name         string
+		args         args
+		initialHPA   *v2.HorizontalPodAutoscaler
+		want         *v2.HorizontalPodAutoscaler
+		wantTortoise *autoscalingv1alpha1.Tortoise
+		wantErr      bool
 	}{
 		{
 			name: "Basic test case with external metrics",
@@ -749,10 +750,15 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), 0.95, 90)
-			got, err := c.UpdateHPAFromTortoiseRecommendation(tt.args.ctx, tt.args.tortoise, tt.args.now)
+			got, tortoise, err := c.UpdateHPAFromTortoiseRecommendation(tt.args.ctx, tt.args.tortoise, tt.args.now)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateHPAFromTortoiseRecommendation() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+			if tt.wantTortoise != nil {
+				if d := cmp.Diff(tt.wantTortoise, tortoise); d != "" {
+					t.Errorf("UpdateHPAFromTortoiseRecommendation() tortoise diff = %v", d)
+				}
 			}
 			if d := cmp.Diff(tt.want.Spec, got.Spec); d != "" {
 				t.Errorf("UpdateHPAFromTortoiseRecommendation() hpa diff = %v", d)

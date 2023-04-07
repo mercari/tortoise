@@ -127,23 +127,18 @@ func (c *Client) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1al
 	return hpa, nil
 }
 
-func (c *Client) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time) (*v2.HorizontalPodAutoscaler, error) {
-	n, ok := hpa.GetAnnotations()[annotation.TortoiseNameAnnotation]
-	if !ok || n != tortoise.Name {
-		hpa.Annotations[annotation.TortoiseNameAnnotation] = tortoise.Name
-	}
-
+func (c *Client) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
 	for _, t := range tortoise.Status.Recommendations.Horizontal.TargetUtilizations {
 		for k, r := range t.TargetUtilization {
 			if err := updateHPATargetValue(hpa, t.ContainerName, k, r); err != nil {
-				return nil, fmt.Errorf("update HPA from the recommendation from tortoise")
+				return nil, tortoise, fmt.Errorf("update HPA from the recommendation from tortoise")
 			}
 		}
 	}
 
 	max, err := getReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MaxReplicas, now)
 	if err != nil {
-		return nil, fmt.Errorf("get maxReplicas recommendation: %w", err)
+		return nil, tortoise, fmt.Errorf("get maxReplicas recommendation: %w", err)
 	}
 	hpa.Spec.MaxReplicas = max
 
@@ -155,7 +150,7 @@ func (c *Client) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alph
 	case autoscalingv1alpha1.TortoisePhaseBackToNormal:
 		idealMin, err := getReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
 		if err != nil {
-			return nil, fmt.Errorf("get minReplicas recommendation: %w", err)
+			return nil, tortoise, fmt.Errorf("get minReplicas recommendation: %w", err)
 		}
 		currentMin := *hpa.Spec.MinReplicas
 		reduced := int32(math.Trunc(float64(currentMin) * c.replicaReductionFactor))
@@ -169,26 +164,26 @@ func (c *Client) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alph
 	default:
 		min, err = getReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
 		if err != nil {
-			return nil, fmt.Errorf("get minReplicas recommendation: %w", err)
+			return nil, tortoise, fmt.Errorf("get minReplicas recommendation: %w", err)
 		}
 	}
 	hpa.Spec.MinReplicas = &min
 
-	return hpa, nil
+	return hpa, tortoise, nil
 }
 
-func (c *Client) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, now time.Time) (*v2.HorizontalPodAutoscaler, error) {
+func (c *Client) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
 	hpa := &v2.HorizontalPodAutoscaler{}
 	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName}, hpa); err != nil {
-		return nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
+		return nil, nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
 	}
 
-	hpa, err := c.ChangeHPAFromTortoiseRecommendation(tortoise, hpa, now)
+	hpa, tortoise, err := c.ChangeHPAFromTortoiseRecommendation(tortoise, hpa, now)
 	if err != nil {
-		return nil, fmt.Errorf("change HPA from tortoise recommendation: %w", err)
+		return nil, nil, fmt.Errorf("change HPA from tortoise recommendation: %w", err)
 	}
 
-	return hpa, c.c.Update(ctx, hpa)
+	return hpa, tortoise, c.c.Update(ctx, hpa)
 }
 
 // getReplicasRecommendation finds the corresponding recommendations.
