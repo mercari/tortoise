@@ -34,13 +34,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"time"
 )
-
-// log is for logging in this package.
-var horizontalpodautoscalerlog = logf.Log.WithName("horizontalpodautoscaler-resource")
 
 //+kubebuilder:webhook:path=/mutate-autoscaling-v2-horizontalpodautoscaler,mutating=true,failurePolicy=fail,sideEffects=None,groups=autoscaling,resources=horizontalpodautoscalers,verbs=create;update,versions=v2,name=mhorizontalpodautoscaler.kb.io,admissionReviewVersions=v1
 
