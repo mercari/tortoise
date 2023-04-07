@@ -12,15 +12,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Client struct {
+type Service struct {
 	c client.Client
 }
 
-func New(c client.Client) *Client {
-	return &Client{c: c}
+func New(c client.Client) *Service {
+	return &Service{c: c}
 }
 
-func (c *Client) GetDeploymentOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.Deployment, error) {
+func (c *Service) GetDeploymentOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.Deployment, error) {
 	d := &v1.Deployment{}
 	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Spec.TargetRefs.DeploymentName}, d); err != nil {
 		return nil, fmt.Errorf("failed to get deployment on tortoise: %w", err)

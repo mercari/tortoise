@@ -12,16 +12,16 @@ import (
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 )
 
-type Client struct {
+type Service struct {
 	c versioned.Interface
 }
 
-func New(c *rest.Config) (*Client, error) {
+func New(c *rest.Config) (*Service, error) {
 	cli, err := versioned.NewForConfig(c)
 	if err != nil {
 		return nil, err
 	}
-	return &Client{c: cli}, nil
+	return &Service{c: cli}, nil
 }
 
 const TortoiseMonitorVPANamePrefix = "tortoise-monitor-"
@@ -36,7 +36,7 @@ func TortoiseUpdaterVPAName(tortoiseName string) string {
 	return TortoiseUpdaterVPANamePrefix + tortoiseName
 }
 
-func (c *Client) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
+func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
 	auto := v1.UpdateModeAuto
 	vpa := &v1.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
@@ -77,7 +77,7 @@ func (c *Client) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosca
 	return vpa, tortoise, err
 }
 
-func (c *Client) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
+func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
 	off := v1.UpdateModeOff
 	vpa := &v1.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
@@ -114,7 +114,7 @@ func (c *Client) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosca
 	return vpa, tortoise, err
 }
 
-func (c *Client) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
+func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
 	vpa, err := c.GetTortoiseUpdaterVPA(ctx, tortoise)
 	if err != nil {
 		return nil, fmt.Errorf("get tortoise VPA: %w", err)
@@ -137,7 +137,7 @@ func (c *Client) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoi
 	return c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
 }
 
-func (c *Client) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
+func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Get(ctx, TortoiseUpdaterVPAName(tortoise.Name), metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get updater vpa on tortoise: %w", err)
@@ -145,7 +145,7 @@ func (c *Client) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalin
 	return vpa, nil
 }
 
-func (c *Client) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
+func (c *Service) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Get(ctx, TortoiseMonitorVPAName(tortoise.Name), metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get updater vpa on tortoise: %w", err)

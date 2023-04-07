@@ -24,22 +24,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Client struct {
+type Service struct {
 	c client.Client
 
 	replicaReductionFactor         float64
 	upperTargetResourceUtilization int32
 }
 
-func New(c client.Client, replicaReductionFactor float64, upperTargetResourceUtilization int) *Client {
-	return &Client{
+func New(c client.Client, replicaReductionFactor float64, upperTargetResourceUtilization int) *Service {
+	return &Service{
 		c:                              c,
 		replicaReductionFactor:         replicaReductionFactor,
 		upperTargetResourceUtilization: int32(upperTargetResourceUtilization),
 	}
 }
 
-func (c *Client) CreateHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
+func (c *Service) CreateHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
 	// TODO: make this default HPA spec configurable.
 	hpa := &v2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
@@ -119,7 +119,7 @@ func (c *Client) CreateHPAOnTortoise(ctx context.Context, tortoise *autoscalingv
 	return hpa.DeepCopy(), tortoise, err
 }
 
-func (c *Client) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
+func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
 	hpa := &v2.HorizontalPodAutoscaler{}
 	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName}, hpa); err != nil {
 		return nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
@@ -127,7 +127,7 @@ func (c *Client) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1al
 	return hpa, nil
 }
 
-func (c *Client) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
+func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
 	for _, t := range tortoise.Status.Recommendations.Horizontal.TargetUtilizations {
 		for k, r := range t.TargetUtilization {
 			if err := updateHPATargetValue(hpa, t.ContainerName, k, r); err != nil {
@@ -172,7 +172,7 @@ func (c *Client) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alph
 	return hpa, tortoise, nil
 }
 
-func (c *Client) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
+func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
 	hpa := &v2.HorizontalPodAutoscaler{}
 	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName}, hpa); err != nil {
 		return nil, nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)

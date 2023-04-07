@@ -149,9 +149,9 @@ func main() {
 
 	if err = (&controllers.TortoiseReconciler{
 		Scheme:             mgr.GetScheme(),
-		HpaClient:          hpa.New(mgr.GetClient(), replicaReductionFactor, upperTargetResourceUtilization),
-		VpaClient:          vpaClient,
-		DeploymentClient:   deployment.New(mgr.GetClient()),
+		HpaService:         hpa.New(mgr.GetClient(), replicaReductionFactor, upperTargetResourceUtilization),
+		VpaService:         vpaClient,
+		DeploymentService:  deployment.New(mgr.GetClient()),
 		RecommenderService: recommender.New(tTLHoursOfMinMaxReplicasRecommendation, maxReplicasFactor, minReplicasFactor, upperTargetResourceUtilization, minimumMinReplicas, preferredReplicaNumUpperLimit, maxCPUPerContainer, maxMemoryPerContainer),
 		TortoiseService:    tortoiseService,
 		Interval:           30 * time.Second,

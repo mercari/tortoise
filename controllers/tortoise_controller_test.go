@@ -48,9 +48,9 @@ var _ = Describe("Test TortoiseController", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 		reconciler := &TortoiseReconciler{
 			Scheme:             scheme,
-			HpaClient:          hpa.New(mgr.GetClient(), 0.95, 90),
-			VpaClient:          cli,
-			DeploymentClient:   deployment.New(mgr.GetClient()),
+			HpaService:         hpa.New(mgr.GetClient(), 0.95, 90),
+			VpaService:         cli,
+			DeploymentService:  deployment.New(mgr.GetClient()),
 			TortoiseService:    tortoiseService,
 			RecommenderService: recommender.New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi"),
 		}
