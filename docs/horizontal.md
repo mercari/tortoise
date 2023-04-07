@@ -251,6 +251,26 @@ But, the num of replicas has already reached "the minumum number of replicas".
 
 So, Tortoise won't change anything further.
 
-### Sample
+### container size adjustment for the multiple container Pods
 
-TODO: add sample tortoise.
+Although it says "Horizontal",
+again, this optimization is kind of vertical change.
+
+If several resources are managed by HPA,
+it often happens that one resource always kick HPA to scale up the deployment
+while other HPA-managed resources are low utilized.
+
+Tortoise adjusts such low utilized resource's request to be smaller in this case.
+
+#### Example
+
+Let's say:
+- The Pod has two containers (app and istio-proxy)
+- The app container requests 10 cores, and the istio-proxy container requests 5 cores.
+- The both container's CPU scale via HPA. (both targets 80%)
+- The app container usually uses around 80% (8 cores), whereas the istio-proxy container usually uses around 40% (2 cores).
+- It could happen because the app container always push HPA to scale out the deployment 
+while the istio-proxy doesn't need to scale up and always has wasted CPU.
+
+In this case, we can change the CPU request of istio-proxy to 2.5 cores.
+Then, the CPU utilization of the istio-proxy is changed to 80% which is around the target utilization of HPA.
