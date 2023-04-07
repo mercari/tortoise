@@ -18,6 +18,8 @@ package main
 
 import (
 	"flag"
+	autoscalingv2 "github.com/mercari/tortoise/api/autoscaling/v2"
+	v2 "k8s.io/api/autoscaling/v2"
 	"os"
 	"time"
 
@@ -153,6 +155,14 @@ func main() {
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
+
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		WithDefaulter(&autoscalingv2.HPAWebhook{}).
+		For(&v2.HorizontalPodAutoscaler{}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HorizontalPodAutoscaler")
+		os.Exit(1)
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

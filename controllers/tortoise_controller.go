@@ -116,7 +116,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	_, tortoise, err = r.HpaClient.UpdateHPAFromTortoiseRecommendation(ctx, tortoise, now)
+	_, err = r.HpaClient.UpdateHPAFromTortoiseRecommendation(ctx, tortoise, now)
 	if err != nil {
 		logger.Error(err, "update HPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err

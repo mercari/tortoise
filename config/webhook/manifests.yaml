@@ -25,6 +25,26 @@ webhooks:
     resources:
     - tortoises
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-autoscaling-v2-horizontalpodautoscaler
+  failurePolicy: Fail
+  name: mhorizontalpodautoscaler.kb.io
+  rules:
+  - apiGroups:
+    - autoscaling
+    apiVersions:
+    - v2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - horizontalpodautoscalers
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
