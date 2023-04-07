@@ -779,6 +779,26 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "reduced resources based on VPA recommendation",
+			fields: fields{
+				preferredReplicaNumUpperLimit: 6,
+				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
+			},
+			args: args{
+				tortoise: createVerticalTortoiseWithCondition(map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+					corev1.ResourceCPU: {
+						Quantity: resource.MustParse("120m"),
+					},
+					corev1.ResourceMemory: {
+						Quantity: resource.MustParse("120Mi"),
+					},
+				}),
+				deployment: createDeployment(3, "130m", "130Mi"),
+			},
+			want:    createVerticalTortoiseWithVPARecommendation("120m", "120Mi"),
+			wantErr: false,
+		},
+		{
 			name: "reduced resources based on VPA recommendation when unbalanced container size in multiple containers Pod",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 6,
