@@ -88,7 +88,8 @@ func (r *Tortoise) Default() {
 			}
 			if !policyExist {
 				r.Spec.ResourcePolicy = append(r.Spec.ResourcePolicy, ContainerResourcePolicy{
-					ContainerName: c.Name,
+					ContainerName:     c.Name,
+					AutoscalingPolicy: map[v1.ResourceName]AutoscalingType{},
 				})
 			}
 		}
