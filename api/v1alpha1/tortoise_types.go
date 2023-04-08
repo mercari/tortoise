@@ -70,7 +70,7 @@ type ContainerResourcePolicy struct {
 	// For example, your application will soon have new feature which leads to increase in the resource usage,
 	// it is expected that your application will soon get more requests than usual, etc.
 	// +optional
-	MinAllocatedResources v1.ResourceList `json:"MinAllocatedResources" protobuf:"bytes,2,name=MinAllocatedResources"`
+	MinAllocatedResources v1.ResourceList `json:"minAllocatedResources,omitempty" protobuf:"bytes,2,opt,name=minAllocatedResources"`
 	// AutoscalingPolicy specifies how each resource is scaled.
 	// If "Horizontal", the resource is horizontally scaled.
 	// If "Vertical", the resource is vertically scaled.

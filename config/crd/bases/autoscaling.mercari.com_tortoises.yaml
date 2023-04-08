@@ -45,7 +45,23 @@ spec:
                   is updated.
                 items:
                   properties:
-                    MinAllocatedResources:
+                    autoscalingPolicy:
+                      additionalProperties:
+                        enum:
+                        - Horizontal
+                        - Vertical
+                        type: string
+                      description: "AutoscalingPolicy specifies how each resource
+                        is scaled. If \"Horizontal\", the resource is horizontally
+                        scaled. If \"Vertical\", the resource is vertically scaled.
+                        Now, at least one container in Pod should be Horizontal. \n
+                        The default value is \"Horizontal\" for cpu, and \"Vertical\"
+                        for memory."
+                      type: object
+                    containerName:
+                      description: ContainerName is the name of target container.
+                      type: string
+                    minAllocatedResources:
                       additionalProperties:
                         anyOf:
                         - type: integer
@@ -65,22 +81,6 @@ spec:
                         it is expected that your application will soon get more requests
                         than usual, etc."
                       type: object
-                    autoscalingPolicy:
-                      additionalProperties:
-                        enum:
-                        - Horizontal
-                        - Vertical
-                        type: string
-                      description: "AutoscalingPolicy specifies how each resource
-                        is scaled. If \"Horizontal\", the resource is horizontally
-                        scaled. If \"Vertical\", the resource is vertically scaled.
-                        Now, at least one container in Pod should be Horizontal. \n
-                        The default value is \"Horizontal\" for cpu, and \"Vertical\"
-                        for memory."
-                      type: object
-                    containerName:
-                      description: ContainerName is the name of target container.
-                      type: string
                   required:
                   - containerName
                   type: object
