@@ -147,9 +147,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	hpaService := hpa.New(mgr.GetClient(), replicaReductionFactor, upperTargetResourceUtilization)
+
 	if err = (&controllers.TortoiseReconciler{
 		Scheme:             mgr.GetScheme(),
-		HpaService:         hpa.New(mgr.GetClient(), replicaReductionFactor, upperTargetResourceUtilization),
+		HpaService:         hpaService,
 		VpaService:         vpaClient,
 		DeploymentService:  deployment.New(mgr.GetClient()),
 		RecommenderService: recommender.New(tTLHoursOfMinMaxReplicasRecommendation, maxReplicasFactor, minReplicasFactor, upperTargetResourceUtilization, minimumMinReplicas, preferredReplicaNumUpperLimit, maxCPUPerContainer, maxMemoryPerContainer),
@@ -165,8 +167,10 @@ func main() {
 	}
 	//+kubebuilder:scaffold:builder
 
+	hpaWebhook := autoscalingv2.New(tortoiseService, hpaService)
+
 	if err = ctrl.NewWebhookManagedBy(mgr).
-		WithDefaulter(&autoscalingv2.HPAWebhook{}).
+		WithDefaulter(hpaWebhook).
 		For(&v2.HorizontalPodAutoscaler{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HorizontalPodAutoscaler")
