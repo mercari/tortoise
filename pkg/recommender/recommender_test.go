@@ -482,6 +482,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										Value:     1,
+										WeekDay:   time.Sunday.String(),
 									},
 								},
 								MaxReplicas: []v1alpha1.ReplicasRecommendation{
@@ -490,6 +491,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										Value:     7,
+										WeekDay:   time.Sunday.String(),
 									},
 								},
 							},
@@ -513,6 +515,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									To:        1,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									Value:     3,
+									WeekDay:   time.Sunday.String(),
 								},
 							},
 							MaxReplicas: []v1alpha1.ReplicasRecommendation{
@@ -521,6 +524,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									To:        1,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									Value:     8,
+									WeekDay:   time.Sunday.String(),
 								},
 							},
 						},
@@ -574,6 +578,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										Value:     10,
+										WeekDay:   time.Sunday.String(),
 									},
 								},
 								MaxReplicas: []v1alpha1.ReplicasRecommendation{
@@ -582,6 +587,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										Value:     25,
+										WeekDay:   time.Sunday.String(),
 									},
 								},
 							},
@@ -606,6 +612,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									// UpdatedAt is updated.
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									Value:     10,
+									WeekDay:   time.Sunday.String(),
 								},
 							},
 							MaxReplicas: []v1alpha1.ReplicasRecommendation{
@@ -615,6 +622,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									// UpdatedAt is updated.
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									Value:     25,
+									WeekDay:   time.Sunday.String(),
 								},
 							},
 						},
@@ -636,6 +644,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										Value:     3,
+										WeekDay:   time.Sunday.String(),
 									},
 								},
 								MaxReplicas: []v1alpha1.ReplicasRecommendation{
@@ -644,6 +653,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										Value:     8,
+										WeekDay:   time.Sunday.String(),
 									},
 								},
 							},
@@ -667,6 +677,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									To:        1,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									Value:     3,
+									WeekDay:   time.Sunday.String(),
 								},
 							},
 							MaxReplicas: []v1alpha1.ReplicasRecommendation{
@@ -675,6 +686,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									To:        1,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									Value:     8,
+									WeekDay:   time.Sunday.String(),
 								},
 							},
 						},
