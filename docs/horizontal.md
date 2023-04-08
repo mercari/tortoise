@@ -121,41 +121,33 @@ spec:
 ### The container right sizing
 
 Although it says "Horizontal", 
-Tortoise rarely changes the container's size if it's too large or too small.
-
-Because:
-- if it's too large and each container's size is small, it's often better to increase each container's size.
-- if it's too small and each container's size is big, it's often better to decrease each container's size.
-
-The cluster admin can adjust the following as global configurations:
-1. the minimum number of replicas: The Tortoise doesn't set lower value on HPA's `minReplicas`. And, when the num of replicas reaches this value, Tortoise temporary switches the scaling way to the Vertical until the container's size reaches `.spec.ResourcePolicy[*].MinAllocatedResources`
-2. the preferred maximum number of replicas: When the num of replicas reaches this value, Tortoise temporary switches the scaling way to the Vertical until the container's size reaches "maximum resource amount" described below.
-3. the maximum resource amount given to each resource: When the container's resource size reaches this value, Tortoise doesn't switch the scaling way to the Vertical.
-
-(1) and (3) will be never broken by Tortoise. But, (2) is best effort basis and the num of replicas may actually be bigger.
+a tortoise possibly changes the container's size if it's too large or too small.
+- if the number of replicas equals `minimum-min-replicas`, make each container's size smaller instead of reducing the number of replicas.
+- if the number of replicas equals `preferred-replicas-number-upper-limit`, make each container's size bigger instead of increasing the number of replicas.
+  - But, when the resource request reaches `maximum-cpu-cores` or `maximum-memory-bytes`, tortoise will ignore `preferred-replicas-number-upper-limit`, and increase the number of replicas.
 
 I know it's complicated, describe specifically in the following examples.
 
-#### Example1: reach the preferred maximum number of replicas
+#### Example1: reach `preferred-replicas-number-upper-limit`
 
 Let's say the global configurations are:
-- the minimum number of replicas: 3
-- the preferred maximum number of replicas: 10
-- the maximum resource amount: 5cores
+- `minimum-min-replicas` 3
+- `preferred-replicas-number-upper-limit`: 10
+- `maximum-cpu-cores`: 5 cores
 
 And, the target workload currently looks like:
 - `.spec.ResourcePolicy[*].AutoscalingPolicy.CPU`: Horizontal
-- `.spec.ResourcePolicy[*].MinAllocatedResources`: 1cores
-- resource request: CPU 2cores
-- the num of replicas: 10 (the same as "the preferred maximum number of replicas")
+- `.spec.ResourcePolicy[*].MinAllocatedResources`: 1 cores
+- resource request: CPU 2 cores
+- the num of replicas: 10 (the same as `preferred-replicas-number-upper-limit`)
 - the resource consumption is increasing.
 
 This case, Tortoise prefers not to increase the replica number more. 
 Instead, Tortoise temporary switch the scaling way to Vertical to make each container bigger. 
 
 After a while, the target workload looks like:
-- resource request: 4cores. 
-- the num of replicas: 10 (the same as "the preferred maximum number of replicas")
+- resource request: 4 cores. 
+- the num of replicas: 10 (the same as `preferred-replicas-number-upper-limit`)
 - the resource consumption starts to be decreasing.
 
 Given the resource consumption starts to be decreasing, the Tortoise switch the scaling way back to Horizontal.
@@ -163,59 +155,59 @@ So, this workload will continue to work with 4 cores after this time.
 
 If the traffic next day is very similar to this day, then Tortoise no longer needs to switch the scaling way to Vertical during peak time.
 
-#### Example2: reach the preferred maximum number of replicas and the maximum resource amount
+#### Example2: reach `preferred-replicas-number-upper-limit` and `maximum-cpu-cores` and `maximum-memory-bytes`
 
 Let's say the global configurations are (the same as Example1):
-- the minimum number of replicas: 3
-- the preferred maximum number of replicas: 10
-- the maximum resource: CPU 5cores
+- `minimum-min-replicas` 3
+- `preferred-replicas-number-upper-limit`: 10
+- `maximum-cpu-cores`: 5 cores
 
 And, the target workload currently looks like (the same as Example1):
 - `.spec.ResourcePolicy[*].AutoscalingPolicy.CPU`: Horizontal
-- `.spec.ResourcePolicy[*].MinAllocatedResources`: CPU 1cores
-- resource request: CPU 2cores
-- the num of replicas: 10 (the same as "the preferred maximum number of replicas")
+- `.spec.ResourcePolicy[*].MinAllocatedResources`: CPU 1 cores
+- resource request: CPU 2 cores
+- the num of replicas: 10 (the same as `preferred-replicas-number-upper-limit`)
 - the resource consumption is increasing.
 
 As described in Example1, Tortoise temporary switches the scaling way to Vertical.
 
 After a while, the target workload looks like:
-- resource request: CPU 5cores (the same value as "the maximum resource amount given to each resource")
+- resource request: CPU 5 cores (the same value as `maximum-cpu-cores` and `maximum-memory-bytes` given to each resource")
 - the num of replicas: 10 (the same as "preferred maximum number of replicas")
 - still the resource consumption is increasing.
 
-The resource request reaches the "the maximum resource amount given to each resource" now.
+The resource request reaches the `maximum-cpu-cores` and `maximum-memory-bytes` given to each resource" now.
 So, Tortoise switch the scaling way back to the Horizontal.
 
 After a while, the target workload looks like:
-- resource request: CPU 5cores (CPU request is the same value as "the maximum resource amount")
-- the num of replicas: 15 (more than "the preferred maximum number of replicas")
+- resource request: CPU 5 cores (CPU request is the same value as `maximum-cpu-cores` and `maximum-memory-bytes`)
+- the num of replicas: 15 (more than `preferred-replicas-number-upper-limit`)
 - the resource consumption starts to be decreasing.
 
 If the traffic next day is very similar to this day, 
 Tortoise no longer needs to switch the scaling way to Vertical during peak time
-because it's already reached "the maximum resource amount".
+because it's already reached `maximum-cpu-cores` and `maximum-memory-bytes`.
 
 #### Example 3: reach the minimum number of replicas
 
 Let's say the global configurations are (the same as Example1):
-- the minimum number of replicas: 3
-- the preferred maximum number of replicas: 10
-- the maximum resource amount given to each resource: CPU 5cores
+- `minimum-min-replicas` 3
+- `preferred-replicas-number-upper-limit`: 10
+- `maximum-cpu-cores`: CPU 5 cores
 
 And, the target workload currently looks like (the same as Example1):
 - `.spec.ResourcePolicy[*].AutoscalingPolicy.CPU`: Horizontal
-- `.spec.ResourcePolicy[*].MinAllocatedResources`: CPU 1cores
-- resource request: CPU 2cores
-- the num of replicas: 3 (the same as "the minumum number of replicas")
+- `.spec.ResourcePolicy[*].MinAllocatedResources`: CPU 1 cores
+- resource request: CPU 2 cores
+- the num of replicas: 3 (the same as `preferred-replicas-number-upper-limit`)
 - the resource consumption is decreasing.
 
 This case, Tortoise prefers not to decrease the replica number more.
 Instead, Tortoise temporary switch the scaling way to Vertical to make each container smaller.
 
 After a while, the target workload looks like:
-- resource request: CPU 1.5cores 
-- the num of replicas: 3 (the same as "the minumum number of replicas")
+- resource request: CPU 1.5 cores 
+- the num of replicas: 3 (the same as `preferred-replicas-number-upper-limit`)
 - the resource consumption starts to be increasing.
 
 Given the resource consumption starts to be increasing, the Tortoise switches the scaling way back to Horizontal.
@@ -227,27 +219,27 @@ Tortoise no longer needs to switch the scaling way to Vertical during off-peak t
 #### Example 4: reach the minimum number of replicas and `.spec.ResourcePolicy[*].MinAllocatedResources`
 
 Let's say the global configurations are (the same as Example1):
-- the minimum number of replicas: 3
-- the preferred maximum number of replicas: 10
-- the maximum resource amount given to each resource: CPU 5cores
+- `minimum-min-replicas` 3
+- `preferred-replicas-number-upper-limit`: 10
+- `maximum-cpu-cores`: CPU 5 cores
 
 And, the target workload currently looks like (the same as Example1):
 - `.spec.ResourcePolicy[*].AutoscalingPolicy.CPU`: Horizontal
-- `.spec.ResourcePolicy[*].MinAllocatedResources`: CPU 1cores
-- resource request: CPU 2cores
-- the num of replicas: 3 (the same as "the minimum number of replicas")
+- `.spec.ResourcePolicy[*].MinAllocatedResources`: CPU 1 cores
+- resource request: CPU 2 cores
+- the num of replicas: 3 (the same as `preferred-replicas-number-upper-limit`)
 - the resource consumption is decreasing.
 
 This case, Tortoise prefers not to decrease the replica number more.
 Instead, Tortoise temporary switch the scaling way to Vertical to make each container smaller.
 
 After a while, the target workload looks like:
-- resource request: CPU 1cores (the same as `.spec.ResourcePolicy[*].MinAllocatedResources.CPU`)
-- the num of replicas: 3 (the same as "the minimum number of replicas")
+- resource request: CPU 1 cores (the same as `.spec.ResourcePolicy[*].MinAllocatedResources.CPU`)
+- the num of replicas: 3 (the same as `preferred-replicas-number-upper-limit`)
 - still the resource consumption is decreasing.
 
 The resource request reaches the `.spec.ResourcePolicy[*].MinAllocatedResources.CPU`.
-But, the num of replicas has already reached "the minumum number of replicas".
+But, the num of replicas has already reached `preferred-replicas-number-upper-limit`.
 
 So, Tortoise won't change anything further.
 
