@@ -26,6 +26,7 @@ SOFTWARE.
 package v1alpha1
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	v1 "k8s.io/api/core/v1"
@@ -39,8 +40,10 @@ import (
 
 // log is for logging in this package.
 var tortoiselog = logf.Log.WithName("tortoise-resource")
+var DeploymentService *service
 
 func (r *Tortoise) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	DeploymentService = New(mgr.GetClient())
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
@@ -67,6 +70,28 @@ func (r *Tortoise) Default() {
 	}
 	if r.Spec.UpdateMode == "" {
 		r.Spec.UpdateMode = UpdateModeOff
+	}
+
+	d, err := DeploymentService.GetDeploymentOnTortoise(context.Background(), r)
+	if err != nil {
+		tortoiselog.Error(err, "failed to get deployment")
+	}
+
+	if len(d.Spec.Template.Spec.Containers) != len(r.Spec.ResourcePolicy) {
+		for _, c := range d.Spec.Template.Spec.Containers {
+			policyExist := false
+			for _, p := range r.Spec.ResourcePolicy {
+				if c.Name == p.ContainerName {
+					policyExist = true
+					break
+				}
+			}
+			if !policyExist {
+				r.Spec.ResourcePolicy = append(r.Spec.ResourcePolicy, ContainerResourcePolicy{
+					ContainerName: c.Name,
+				})
+			}
+		}
 	}
 
 	for i := range r.Spec.ResourcePolicy {
