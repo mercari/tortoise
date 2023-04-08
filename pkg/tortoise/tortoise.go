@@ -103,7 +103,7 @@ func (s *Service) initializeTortoise(tortoise *v1alpha1.Tortoise, dm *appv1.Depl
 			From:     from,
 			To:       to,
 			TimeZone: s.timeZone.String(),
-			WeekDay:  weekDay,
+			WeekDay:  weekDay.String(),
 		})
 		if to == 24 {
 			if weekDay == time.Saturday {

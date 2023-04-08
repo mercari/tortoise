@@ -26,8 +26,6 @@ SOFTWARE.
 package v1alpha1
 
 import (
-	"time"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -182,10 +180,12 @@ type ReplicasRecommendation struct {
 	// From represented in hour.
 	From int `json:"from" protobuf:"variant,1,name=from"`
 	// To represented in hour.
-	To       int          `json:"to" protobuf:"variant,2,name=to"`
-	WeekDay  time.Weekday `json:"weekDay" protobuf:"bytes,3,name=weekDay"`
-	TimeZone string       `json:"timeZone" protobuf:"bytes,4,name=timeZone"`
+	To       int    `json:"to" protobuf:"variant,2,name=to"`
+	WeekDay  string `json:"weekday" protobuf:"bytes,3,name=weekday"`
+	TimeZone string `json:"timezone" protobuf:"bytes,4,name=timezone"`
 	// Value is the recommendation value.
+	// It's calculated every reconciliation,
+	// and updated if the calculated recommendation value is more than the current recommendation value on tortoise.
 	Value     int32       `json:"value" protobuf:"variant,5,name=value"`
 	UpdatedAt metav1.Time `json:"updatedAt" protobuf:"bytes,6,name=updatedAt"`
 }

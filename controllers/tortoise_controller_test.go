@@ -107,7 +107,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday(),
+										WeekDay:   now.Weekday().String(),
 										TimeZone:  now.Location().String(),
 										Value:     15, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -117,7 +117,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday(),
+										WeekDay:   now.Weekday().String(),
 										TimeZone:  now.Location().String(),
 										Value:     3, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -231,7 +231,7 @@ var _ = Describe("Test TortoiseController", func() {
 								{
 									From:      0,
 									To:        24,
-									WeekDay:   now.Weekday(),
+									WeekDay:   now.Weekday().String(),
 									TimeZone:  now.Location().String(),
 									Value:     20,
 									UpdatedAt: metav1.NewTime(now),
@@ -241,7 +241,7 @@ var _ = Describe("Test TortoiseController", func() {
 								{
 									From:      0,
 									To:        24,
-									WeekDay:   now.Weekday(),
+									WeekDay:   now.Weekday().String(),
 									TimeZone:  now.Location().String(),
 									Value:     5,
 									UpdatedAt: metav1.NewTime(now),

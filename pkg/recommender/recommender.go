@@ -233,7 +233,7 @@ func (s *Service) updateMaxMinReplicasRecommendation(value int32, recommendation
 	// find the corresponding recommendations.
 	index := -1
 	for i, r := range recommendations {
-		if now.Hour() < r.To && now.Hour() >= r.From && now.Weekday() == r.WeekDay {
+		if now.Hour() < r.To && now.Hour() >= r.From && now.Weekday().String() == r.WeekDay {
 			index = i
 			break
 		}
