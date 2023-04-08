@@ -81,7 +81,6 @@ func (r *Tortoise) Default() {
 	}
 }
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-autoscaling-mercari-com-v1alpha1-tortoise,mutating=false,failurePolicy=fail,sideEffects=None,groups=autoscaling.mercari.com,resources=tortoises,verbs=create;update,versions=v1alpha1,name=vtortoise.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &Tortoise{}
@@ -93,7 +92,15 @@ func validateTortoise(t *Tortoise) error {
 		return fmt.Errorf("%s: shouldn't be empty", fieldPath.Child("targetRefs", "deploymentName"))
 	}
 
-	return nil
+	for _, p := range t.Spec.ResourcePolicy {
+		for _, ap := range p.AutoscalingPolicy {
+			if ap == AutoscalingTypeHorizontal {
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("%s: at least one policy should be Horizontal", fieldPath.Child("resourcePolicy", "autoscalingPolicy"))
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
@@ -103,6 +110,7 @@ func (r *Tortoise) ValidateCreate() error {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 func (r *Tortoise) ValidateUpdate(old runtime.Object) error {
 	tortoiselog.Info("validate update", "name", r.Name)
 	if err := validateTortoise(r); err != nil {
