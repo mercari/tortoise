@@ -40,9 +40,16 @@ import (
 
 //+kubebuilder:webhook:path=/mutate-autoscaling-v2-horizontalpodautoscaler,mutating=true,failurePolicy=fail,sideEffects=None,groups=autoscaling,resources=horizontalpodautoscalers,verbs=create;update,versions=v2,name=mhorizontalpodautoscaler.kb.io,admissionReviewVersions=v1
 
+func New(tortoiseService *tortoise.Service, hpaService *hpa.Service) *HPAWebhook {
+	return &HPAWebhook{
+		tortoiseService: tortoiseService,
+		hpaService:      hpaService,
+	}
+}
+
 type HPAWebhook struct {
-	tortoiseService tortoise.Service
-	hpaService      hpa.Service
+	tortoiseService *tortoise.Service
+	hpaService      *hpa.Service
 }
 
 var _ admission.CustomDefaulter = &HPAWebhook{}
