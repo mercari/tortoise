@@ -104,6 +104,12 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, fmt.Errorf("initialize VPAs and HPA: %w", err)
 		}
 
+		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
+		if err != nil {
+			logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
+			return ctrl.Result{}, err
+		}
+
 		// VPA and HPA are just created, and they won't start working soon.
 		// So, return here and wait a few min for them to start to work.
 		return ctrl.Result{RequeueAfter: 2 * time.Minute}, nil
