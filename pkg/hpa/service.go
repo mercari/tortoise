@@ -128,6 +128,9 @@ func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1a
 }
 
 func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
+	if tortoise.Status.Recommendations.Horizontal == nil {
+		return hpa, nil, nil
+	}
 	for _, t := range tortoise.Status.Recommendations.Horizontal.TargetUtilizations {
 		for k, r := range t.TargetUtilization {
 			if err := updateHPATargetValue(hpa, t.ContainerName, k, r); err != nil {
