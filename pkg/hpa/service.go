@@ -189,7 +189,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 // getReplicasRecommendation finds the corresponding recommendations.
 func getReplicasRecommendation(recommendations []autoscalingv1alpha1.ReplicasRecommendation, now time.Time) (int32, error) {
 	for _, r := range recommendations {
-		if now.Hour() < r.To && now.Hour() >= r.From && now.Weekday() == r.WeekDay {
+		if now.Hour() < r.To && now.Hour() >= r.From && now.Weekday().String() == r.WeekDay {
 			return r.Value, nil
 		}
 	}

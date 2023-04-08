@@ -186,7 +186,7 @@ spec:
                             from:
                               description: From represented in hour.
                               type: integer
-                            timeZone:
+                            timezone:
                               type: string
                             to:
                               description: To represented in hour.
@@ -195,20 +195,21 @@ spec:
                               format: date-time
                               type: string
                             value:
-                              description: Value is the recommendation value.
+                              description: Value is the recommendation value. It's
+                                calculated every reconciliation, and updated if the
+                                calculated recommendation value is more than the current
+                                recommendation value on tortoise.
                               format: int32
                               type: integer
-                            weekDay:
-                              description: A Weekday specifies a day of the week (Sunday
-                                = 0, ...).
-                              type: integer
+                            weekday:
+                              type: string
                           required:
                           - from
-                          - timeZone
+                          - timezone
                           - to
                           - updatedAt
                           - value
-                          - weekDay
+                          - weekday
                           type: object
                         type: array
                       minReplicas:
@@ -219,7 +220,7 @@ spec:
                             from:
                               description: From represented in hour.
                               type: integer
-                            timeZone:
+                            timezone:
                               type: string
                             to:
                               description: To represented in hour.
@@ -228,20 +229,21 @@ spec:
                               format: date-time
                               type: string
                             value:
-                              description: Value is the recommendation value.
+                              description: Value is the recommendation value. It's
+                                calculated every reconciliation, and updated if the
+                                calculated recommendation value is more than the current
+                                recommendation value on tortoise.
                               format: int32
                               type: integer
-                            weekDay:
-                              description: A Weekday specifies a day of the week (Sunday
-                                = 0, ...).
-                              type: integer
+                            weekday:
+                              type: string
                           required:
                           - from
-                          - timeZone
+                          - timezone
                           - to
                           - updatedAt
                           - value
-                          - weekDay
+                          - weekday
                           type: object
                         type: array
                       targetUtilizations:
