@@ -6,6 +6,8 @@ import (
 	"github.com/mercari/tortoise/pkg/utils"
 	appv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
 	"time"
 
@@ -192,6 +194,8 @@ func (s *Service) GetTortoise(ctx context.Context, namespacedName types.Namespac
 }
 
 func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1alpha1.Tortoise, now time.Time) (*v1alpha1.Tortoise, error) {
+	logger := log.FromContext(ctx)
+	logger.V(4).Info("update tortoise status", "tortoise", klog.KObj(originalTortoise))
 	updateFn := func() (bool, error) {
 		tortoise := &v1alpha1.Tortoise{}
 		err := s.c.Get(ctx, client.ObjectKeyFromObject(originalTortoise), tortoise)
@@ -213,7 +217,7 @@ func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1
 
 	err := utils.RetryWithExponentialBackOff(updateFn)
 	if err != nil {
-		return originalTortoise, nil
+		return originalTortoise, err
 	}
 
 	s.mu.Lock()

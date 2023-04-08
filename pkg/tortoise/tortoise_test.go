@@ -1,8 +1,11 @@
 package tortoise
 
 import (
+	"context"
 	appv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"testing"
 	"time"
 
@@ -604,6 +607,70 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 			}
 			if tt.wantDuration != 0 && gotDuration != tt.wantDuration {
 				t.Errorf("ShouldReconcileTortoiseNow() = %v, want %v", gotDuration, tt.wantDuration)
+			}
+		})
+	}
+}
+
+func TestService_UpdateTortoiseStatus(t *testing.T) {
+	now := time.Now()
+	type args struct {
+		originalTortoise *v1alpha1.Tortoise
+		now              time.Time
+	}
+	tests := []struct {
+		name                       string
+		args                       args
+		want                       *v1alpha1.Tortoise
+		wantErr                    bool
+		wantLastTimeUpdateTortoise map[client.ObjectKey]time.Time
+	}{
+		{
+			name: "success",
+			args: args{
+				originalTortoise: &v1alpha1.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "namespace"},
+					Status: v1alpha1.TortoiseStatus{
+						TortoisePhase: v1alpha1.TortoisePhaseInitializing,
+					},
+				},
+				now: now,
+			},
+			want: &v1alpha1.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "namespace"},
+				Status: v1alpha1.TortoiseStatus{
+					TortoisePhase: v1alpha1.TortoisePhaseInitializing,
+				},
+			},
+			wantErr: false,
+			wantLastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
+				client.ObjectKey{Name: "t", Namespace: "namespace"}: now,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			err := v1alpha1.AddToScheme(scheme)
+			if err != nil {
+				t.Fatalf("failed to add to scheme: %v", err)
+			}
+			s := &Service{
+				c:                      fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(tt.args.originalTortoise).Build(),
+				lastTimeUpdateTortoise: tt.wantLastTimeUpdateTortoise,
+			}
+			_, err = s.UpdateTortoiseStatus(context.Background(), tt.args.originalTortoise, tt.args.now)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UpdateTortoiseStatus() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			got := &v1alpha1.Tortoise{}
+			err = s.c.Get(context.Background(), client.ObjectKeyFromObject(tt.args.originalTortoise), got)
+			if err != nil {
+				t.Fatalf("get stored tortoise: %v", err)
+			}
+			if d := cmp.Diff(got, tt.want, cmpopts.IgnoreFields(v1alpha1.Tortoise{}, "TypeMeta", "ObjectMeta")); d != "" {
+				t.Errorf("UpdateTortoiseStatus() diff = %v", d)
 			}
 		})
 	}
