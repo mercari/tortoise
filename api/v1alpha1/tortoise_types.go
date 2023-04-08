@@ -51,7 +51,8 @@ type TortoiseSpec struct {
 	// +optional
 	UpdateMode UpdateMode `json:"updateMode,omitempty" protobuf:"bytes,2,opt,name=updateMode"`
 	// ResourcePolicy contains the policy how each resource is updated.
-	ResourcePolicy []ContainerResourcePolicy `json:"resourcePolicy" protobuf:"bytes,3,name=resourcePolicy"`
+	// +optional
+	ResourcePolicy []ContainerResourcePolicy `json:"resourcePolicy,omitempty" protobuf:"bytes,3,opt,name=resourcePolicy"`
 	// FeatureGates allows to list the alpha feature names.
 	// +optional
 	FeatureGates []string `json:"featureGates,omitempty" protobuf:"bytes,4,opt,name=featureGates"`

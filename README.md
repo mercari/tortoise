@@ -17,20 +17,21 @@ Tortoise, you cannot get it from the breeder.
 Tortoise, you need to get it from GitHub instead.
 
 ```shell
-# install all needed resources to the cluster.
+# Install CRDs into the K8s cluster specified in ~/.kube/config.
 make install
+# Deploy controller to the K8s cluster specified in ~/.kube/config.
+make deploy
 ```
 
 Tortoise, you don't need a rearing cage, but need VPA in your Kubernetes cluster before installing it.
 
 ## Documentations 
 
-(Note that the feature described in the doc may not have been implemented yet.)
-
 - [Concept](./docs/concept.md): describes a brief overview of tortoise.
 - [Horizontal scaling](./docs/horizontal.md): describes how the Tortoise does the horizontal autoscaling.
 - [Vertical scaling](./docs/vertical.md): describes how the Tortoise does the vertical autoscaling.
 - [The emergency mode](./docs/emergency.md): describes the emergency mode.
+- [Flag configurations for admin](./docs/flag-configuration.md): describes how the cluster admin can configure the global behavior via flags 
 - [Technically details](./docs/internal.md): describes the technically details of Tortoise. (mostly for the contributors)
 
 ## API definition
