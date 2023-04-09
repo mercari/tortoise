@@ -206,7 +206,6 @@ spec:
                           - from
                           - timezone
                           - to
-                          - updatedAt
                           - value
                           - weekday
                           type: object
@@ -240,7 +239,6 @@ spec:
                           - from
                           - timezone
                           - to
-                          - updatedAt
                           - value
                           - weekday
                           type: object

@@ -187,8 +187,9 @@ type ReplicasRecommendation struct {
 	// Value is the recommendation value.
 	// It's calculated every reconciliation,
 	// and updated if the calculated recommendation value is more than the current recommendation value on tortoise.
-	Value     int32       `json:"value" protobuf:"variant,5,name=value"`
-	UpdatedAt metav1.Time `json:"updatedAt" protobuf:"bytes,6,name=updatedAt"`
+	Value int32 `json:"value" protobuf:"variant,5,name=value"`
+	// +optional
+	UpdatedAt metav1.Time `json:"updatedAt,omitempty" protobuf:"bytes,6,opt,name=updatedAt"`
 }
 
 type TortoisePhase string
