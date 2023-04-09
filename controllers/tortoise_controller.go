@@ -99,15 +99,12 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, dm)
 	if tortoise.Status.TortoisePhase == autoscalingv1alpha1.TortoisePhaseInitializing {
+		logger.V(4).Info("initializing tortoise", "tortoise", req.NamespacedName)
+
+		logger.V(4).Info("initializing HPA and VPA", "tortoise", req.NamespacedName)
 		// need to initialize HPA and VPA.
 		if err := r.initializeVPAAndHPA(ctx, tortoise, dm, now); err != nil {
 			return ctrl.Result{}, fmt.Errorf("initialize VPAs and HPA: %w", err)
-		}
-
-		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
-		if err != nil {
-			logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
-			return ctrl.Result{}, err
 		}
 
 		// VPA and HPA are just created, and they won't start working soon.
