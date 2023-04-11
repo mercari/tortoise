@@ -35,22 +35,19 @@ var _ = Describe("Test TortoiseController", func() {
 	ctx := context.Background()
 	var stopFunc func()
 	var cleanUp func() = func() {
-		gotTortoise := &v1alpha1.Tortoise{}
-		err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
-		if err != nil {
+		if err := deleteObj(ctx, &v1alpha1.Tortoise{}, "mercari"); err != nil {
 			panic(err)
 		}
-		err = k8sClient.Delete(ctx, gotTortoise)
-		if err != nil {
+		if err := deleteObj(ctx, &v1.Deployment{}, "mercari-app"); err != nil {
 			panic(err)
 		}
-		gotApp := &v1.Deployment{}
-		err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari-app"}, gotApp)
-		if err != nil {
+		if err := deleteObj(ctx, &autoscalingv1.VerticalPodAutoscaler{}, "tortoise-updater-mercari"); err != nil {
 			panic(err)
 		}
-		err = k8sClient.Delete(ctx, gotApp)
-		if err != nil {
+		if err := deleteObj(ctx, &autoscalingv1.VerticalPodAutoscaler{}, "tortoise-monitor-mercari"); err != nil {
+			panic(err)
+		}
+		if err := deleteObj(ctx, &v2.HorizontalPodAutoscaler{}, "hpa"); err != nil {
 			panic(err)
 		}
 	}
@@ -687,4 +684,16 @@ func deploymentWithReplicaNum(replica int32) *v1.Deployment {
 
 func resourceQuantityPtr(quantity resource.Quantity) *resource.Quantity {
 	return &quantity
+}
+
+func deleteObj(ctx context.Context, deleteObj client.Object, name string) error {
+	err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: name}, deleteObj)
+	if err != nil {
+		return err
+	}
+	err = k8sClient.Delete(ctx, deleteObj)
+	if err != nil {
+		return err
+	}
+	return nil
 }
