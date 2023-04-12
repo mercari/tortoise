@@ -611,7 +611,7 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 					TortoisePhase: v1alpha1.TortoisePhaseEmergency,
 				},
 			},
-			want: true,
+			want: false,
 		},
 	}
 	for _, tt := range tests {
