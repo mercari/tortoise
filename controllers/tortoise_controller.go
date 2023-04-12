@@ -132,6 +132,12 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
+	if err != nil {
+		logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+
 	_, tortoise, err = r.HpaService.UpdateHPAFromTortoiseRecommendation(ctx, tortoise, now)
 	if err != nil {
 		logger.Error(err, "update HPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
