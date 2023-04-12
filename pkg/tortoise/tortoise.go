@@ -47,8 +47,8 @@ func New(c client.Client, rangeOfMinMaxReplicasRecommendationHour int, timeZone 
 }
 
 func (s *Service) ShouldReconcileTortoiseNow(tortoise *v1alpha1.Tortoise, now time.Time) (bool, time.Duration) {
-	if tortoise.Spec.UpdateMode == v1alpha1.UpdateModeEmergency {
-		// If Emergency, it should be updated ASAP.
+	if tortoise.Spec.UpdateMode == v1alpha1.UpdateModeEmergency && tortoise.Status.TortoisePhase != v1alpha1.TortoisePhaseEmergency {
+		// Tortoise which is emergency mode, but hasn't been handled by the controller yet. It should be updated ASAP.
 		return true, 0
 	}
 
