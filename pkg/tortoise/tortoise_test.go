@@ -579,7 +579,7 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 			wantDuration: 59 * time.Second,
 		},
 		{
-			name: "emergency mode tortoise should be updated",
+			name: "emergency mode un-handled tortoise should be updated",
 			lastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
 				client.ObjectKey{Name: "t", Namespace: "default"}: now.Add(-1 * time.Second),
 			},
@@ -590,6 +590,25 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 				},
 				Spec: v1alpha1.TortoiseSpec{
 					UpdateMode: v1alpha1.UpdateModeEmergency,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "emergency mode tortoise (already handled) is treated as the usual tortoise",
+			lastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
+				client.ObjectKey{Name: "t", Namespace: "default"}: now.Add(-1 * time.Second),
+			},
+			tortoise: &v1alpha1.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "t",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.TortoiseSpec{
+					UpdateMode: v1alpha1.UpdateModeEmergency,
+				},
+				Status: v1alpha1.TortoiseStatus{
+					TortoisePhase: v1alpha1.TortoisePhaseEmergency,
 				},
 			},
 			want: true,

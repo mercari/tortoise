@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/mercari/tortoise/pkg/annotation"
@@ -83,13 +84,13 @@ func (c *Service) CreateHPAOnTortoise(ctx context.Context, tortoise *autoscaling
 	}
 
 	m := make([]v2.MetricSpec, 0, len(tortoise.Spec.ResourcePolicy))
-	for _, c := range tortoise.Spec.ResourcePolicy {
-		for r, p := range c.AutoscalingPolicy {
+	for _, policy := range tortoise.Spec.ResourcePolicy {
+		for r, p := range policy.AutoscalingPolicy {
 			value := resourceQuantityPtr(resource.MustParse("50"))
 			if p != autoscalingv1alpha1.AutoscalingTypeHorizontal {
-				value = resourceQuantityPtr(resource.MustParse("90"))
+				value = resourceQuantityPtr(resource.MustParse(strconv.Itoa(int(c.upperTargetResourceUtilization))))
 			}
-			externalMetricName, err := externalMetricNameFromAnnotation(hpa, c.ContainerName, r)
+			externalMetricName, err := externalMetricNameFromAnnotation(hpa, policy.ContainerName, r)
 			if err != nil {
 				return nil, tortoise, err
 			}
