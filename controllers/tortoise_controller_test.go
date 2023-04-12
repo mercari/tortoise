@@ -34,22 +34,21 @@ import (
 var _ = Describe("Test TortoiseController", func() {
 	ctx := context.Background()
 	var stopFunc func()
-	var cleanUp func() = func() {
-		if err := deleteObj(ctx, &v1alpha1.Tortoise{}, "mercari"); err != nil {
-			panic(err)
-		}
-		if err := deleteObj(ctx, &v1.Deployment{}, "mercari-app"); err != nil {
-			panic(err)
-		}
-		if err := deleteObj(ctx, &autoscalingv1.VerticalPodAutoscaler{}, "tortoise-updater-mercari"); err != nil {
-			panic(err)
-		}
-		if err := deleteObj(ctx, &autoscalingv1.VerticalPodAutoscaler{}, "tortoise-monitor-mercari"); err != nil {
-			panic(err)
-		}
-		if err := deleteObj(ctx, &v2.HorizontalPodAutoscaler{}, "hpa"); err != nil {
-			panic(err)
-		}
+	cleanUp := func() {
+		err := deleteObj(ctx, &v1alpha1.Tortoise{}, "mercari")
+		Expect(err).ShouldNot(HaveOccurred())
+
+		err = deleteObj(ctx, &v1.Deployment{}, "mercari-app")
+		Expect(err).ShouldNot(HaveOccurred())
+
+		err = deleteObj(ctx, &autoscalingv1.VerticalPodAutoscaler{}, "tortoise-updater-mercari")
+		Expect(err).ShouldNot(HaveOccurred())
+
+		err = deleteObj(ctx, &autoscalingv1.VerticalPodAutoscaler{}, "tortoise-monitor-mercari")
+		Expect(err).ShouldNot(HaveOccurred())
+
+		err = deleteObj(ctx, &v2.HorizontalPodAutoscaler{}, "hpa")
+		Expect(err).ShouldNot(HaveOccurred())
 	}
 
 	BeforeEach(func() {
@@ -386,7 +385,7 @@ var _ = Describe("Test TortoiseController", func() {
 			wantHPA.Spec.MaxReplicas = 20
 			for i, m := range wantHPA.Spec.Metrics {
 				if m.External != nil && m.External.Metric.Name == "datadogmetric@default:mercari-app-cpu-app" {
-					wantHPA.Spec.Metrics[i].External.Target.Value = resourceQuantityPtr(resource.MustParse("90"))
+					wantHPA.Spec.Metrics[i].External.Target.Value = resourceQuantityPtr(resource.MustParse("75"))
 				}
 			}
 
@@ -459,7 +458,7 @@ var _ = Describe("Test TortoiseController", func() {
 								{
 									ContainerName: "app",
 									TargetUtilization: map[corev1.ResourceName]int32{
-										corev1.ResourceCPU:    90,
+										corev1.ResourceCPU:    75,
 										corev1.ResourceMemory: 90,
 									},
 								},
