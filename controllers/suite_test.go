@@ -111,7 +111,7 @@ When you have finished investigation, clean up with the following commands:
 $ pkill kube-apiserver
 $ pkill etcd
 $ rm -rf %s
-`, strings.Join(testEnv.ControlPlane.KubeCtl().Opts, " "), testEnv.ControlPlane.APIServer.CertDir)
+`, strings.Join(testEnv.ControlPlane.KubeCtl().Opts, " "), testEnv.ControlPlane.APIServer.CertDir) //nolint:staticcheck
 
 		return
 	}
