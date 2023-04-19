@@ -621,6 +621,12 @@ func (t *testCase) createResources(ctx context.Context, k8sClient client.Client,
 		t.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor].Status.Recommendation = &autoscalingv1.RecommendedPodResources{
 			ContainerRecommendations: r,
 		}
+		t.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor].Status.Conditions = []autoscalingv1.VerticalPodAutoscalerCondition{
+			{
+				Type:   autoscalingv1.RecommendationProvided,
+				Status: corev1.ConditionTrue,
+			},
+		}
 
 		_, err = vpacli.AutoscalingV1().VerticalPodAutoscalers(t.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor].Namespace).UpdateStatus(ctx, t.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor], metav1.UpdateOptions{})
 		if err != nil {

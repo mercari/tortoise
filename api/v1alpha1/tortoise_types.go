@@ -195,7 +195,8 @@ type ReplicasRecommendation struct {
 type TortoisePhase string
 
 const (
-	// TortoisePhaseInitializing means tortoise is just created and initializing some components.
+	// TortoisePhaseInitializing means tortoise is just created and initializing some components (HPA and VPAs),
+	// and wait for those components to be ready.
 	TortoisePhaseInitializing TortoisePhase = "Initializing"
 	// TortoisePhaseGatheringData means tortoise is now gathering data and cannot make the accurate recommendations.
 	TortoisePhaseGatheringData TortoisePhase = "GatheringData"

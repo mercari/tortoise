@@ -100,8 +100,6 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, dm)
 	if tortoise.Status.TortoisePhase == autoscalingv1alpha1.TortoisePhaseInitializing {
 		logger.V(4).Info("initializing tortoise", "tortoise", req.NamespacedName)
-
-		logger.V(4).Info("initializing HPA and VPA", "tortoise", req.NamespacedName)
 		// need to initialize HPA and VPA.
 		if err := r.initializeVPAAndHPA(ctx, tortoise, dm, now); err != nil {
 			return ctrl.Result{}, fmt.Errorf("initialize VPAs and HPA: %w", err)
@@ -112,12 +110,23 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{RequeueAfter: 2 * time.Minute}, nil
 	}
 
-	vpa, err := r.VpaService.GetTortoiseMonitorVPA(ctx, tortoise)
+	vpa, ready, err := r.VpaService.GetTortoiseMonitorVPA(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get tortoise VPA", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
+	if !ready {
+		logger.V(4).Info("VPA created by tortoise isn't ready yet", "tortoise", req.NamespacedName)
+		tortoise.Status.TortoisePhase = autoscalingv1alpha1.TortoisePhaseInitializing
+		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
+		if err != nil {
+			logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{RequeueAfter: 2 * time.Minute}, nil
+	}
 
+	logger.V(4).Info("VPA created by tortoise is ready, proceeding to generate the recommendation", "tortoise", req.NamespacedName)
 	hpa, err := r.HpaService.GetHPAOnTortoise(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get HPA", "tortoise", req.NamespacedName)
