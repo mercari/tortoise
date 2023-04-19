@@ -142,7 +142,6 @@ func (r *Tortoise) ValidateCreate() error {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 func (r *Tortoise) ValidateUpdate(old runtime.Object) error {
 	tortoiselog.Info("validate update", "name", r.Name)
 	if err := validateTortoise(r); err != nil {
@@ -172,6 +171,7 @@ func (r *Tortoise) ValidateUpdate(old runtime.Object) error {
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 func (r *Tortoise) ValidateDelete() error {
 	tortoiselog.Info("validate delete", "name", r.Name)
 	return nil
