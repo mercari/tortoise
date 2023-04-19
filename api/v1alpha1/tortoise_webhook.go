@@ -126,17 +126,22 @@ func validateTortoise(t *Tortoise) error {
 		}
 	}
 
+	if t.Spec.UpdateMode == UpdateModeEmergency &&
+		t.Status.TortoisePhase != TortoisePhaseWorking && t.Status.TortoisePhase != TortoisePhaseEmergency && t.Status.TortoisePhase != TortoisePhaseBackToNormal {
+		return fmt.Errorf("%s: emergency mode is only available for tortoises with Running phase", fieldPath.Child("updateMode"))
+	}
+
 	return fmt.Errorf("%s: at least one policy should be Horizontal", fieldPath.Child("resourcePolicy", "autoscalingPolicy"))
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Tortoise) ValidateCreate() error {
 	tortoiselog.Info("validate create", "name", r.Name)
+
 	return validateTortoise(r)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 func (r *Tortoise) ValidateUpdate(old runtime.Object) error {
 	tortoiselog.Info("validate update", "name", r.Name)
 	if err := validateTortoise(r); err != nil {
@@ -166,6 +171,7 @@ func (r *Tortoise) ValidateUpdate(old runtime.Object) error {
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 func (r *Tortoise) ValidateDelete() error {
 	tortoiselog.Info("validate delete", "name", r.Name)
 	return nil

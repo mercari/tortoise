@@ -30,3 +30,8 @@ Specifically, the controller reduces `minReplicas` to the original value gradual
 ```
 
 During gradually reducing the `minReplicas`, the Tortoise is in the `BackToNormal` state.
+
+### Note
+
+Emergency mode is available for tortoises with `Running` or `BackToNormal` phase.
+(because it requires enough historical data to work on)
