@@ -135,7 +135,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	tortoise = r.TortoiseService.UpdateUpperRecommendation(tortoise, vpa)
 
-	tortoise, err = r.RecommenderService.UpdateRecommendations(tortoise, hpa, dm, now)
+	tortoise, err = r.RecommenderService.UpdateRecommendations(ctx, tortoise, hpa, dm, now)
 	if err != nil {
 		logger.Error(err, "update recommendation in tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -171,7 +171,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment, now time.Time) error {
 	var err error
 	// need to initialize HPA and VPA.
-	_, tortoise, err = r.HpaService.CreateHPAOnTortoise(ctx, tortoise, dm)
+	_, tortoise, err = r.HpaService.CreateHPA(ctx, tortoise, dm)
 	if err != nil {
 		return err
 	}

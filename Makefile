@@ -57,6 +57,10 @@ vet: ## Run go vet against code.
 test: manifests generate fmt vet envtest ginkgo ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GINKGO) -r --cover --coverprofile cover.out
 
+.PHONY: test-debug
+test-debug: envtest ginkgo
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" DEBUG=true $(GINKGO) -r --fail-fast -v --progress
+
 GINKGO ?= $(LOCALBIN)/ginkgo
 GINKGO_VERSION ?= v2.1.4
 

@@ -1,6 +1,7 @@
 package recommender
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -437,7 +438,7 @@ func TestUpdateRecommendation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi")
-			got, err := s.updateHPATargetUtilizationRecommendations(tt.args.tortoise, tt.args.hpa, tt.args.deployment)
+			got, err := s.updateHPATargetUtilizationRecommendations(context.Background(), tt.args.tortoise, tt.args.hpa, tt.args.deployment)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

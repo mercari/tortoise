@@ -26,13 +26,16 @@ SOFTWARE.
 package controllers
 
 import (
+	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appv1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,8 +98,24 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).NotTo(BeNil())
 })
 
+var suiteFailed = false
+
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+
+	if os.Getenv("DEBUG") == "true" && suiteFailed {
+		fmt.Printf(`
+You can use the following command to investigate the failure:
+$ kubectl %s
+When you have finished investigation, clean up with the following commands:
+$ pkill kube-apiserver
+$ pkill etcd
+$ rm -rf %s
+`, strings.Join(testEnv.ControlPlane.KubeCtl().Opts, " "), testEnv.ControlPlane.APIServer.CertDir) //nolint:staticcheck
+
+		return
+	}
+
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })

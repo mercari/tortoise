@@ -1,9 +1,12 @@
 package recommender
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"time"
 
 	"github.com/mercari/tortoise/pkg/annotation"
@@ -137,7 +140,7 @@ func (s *Service) calculateBestNewSize(p v1alpha1.AutoscalingType, containerName
 	}
 
 	if p == v1alpha1.AutoscalingTypeHorizontal {
-		targetUtilizationValue, err := getHPATargetValue(hpa, containerName, k)
+		targetUtilizationValue, err := getHPATargetValue(hpa, containerName, k, len(deployment.Spec.Template.Spec.Containers) == 1)
 		if err != nil {
 			return 0, fmt.Errorf("get the target value from HPA: %w", err)
 		}
@@ -173,20 +176,21 @@ func (s *Service) justifyNewSizeByMaxMin(newSize int64, k corev1.ResourceName, r
 	return newSize
 }
 
-func (s *Service) updateHPARecommendation(tortoise *v1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, deployment *v1.Deployment, now time.Time) (*v1alpha1.Tortoise, error) {
+func (s *Service) updateHPARecommendation(ctx context.Context, tortoise *v1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, deployment *v1.Deployment, now time.Time) (*v1alpha1.Tortoise, error) {
+	logger := log.FromContext(ctx)
 	if tortoise.Spec.UpdateMode == v1alpha1.UpdateModeOff {
 		// dry-run
-		klog.Info("tortoise is dry-run mode", "tortoise", klog.KObj(tortoise))
+		logger.Info("tortoise is dry-run mode", "tortoise", klog.KObj(tortoise))
 		return tortoise, nil
 	}
 
 	if tortoise.Status.TortoisePhase == v1alpha1.TortoisePhaseGatheringData {
-		klog.Info("tortoise is gathering data and unable to recommend", "tortoise", klog.KObj(tortoise))
+		logger.Info("tortoise is gathering data and unable to recommend", "tortoise", klog.KObj(tortoise))
 		return tortoise, nil
 	}
 
 	var err error
-	tortoise, err = s.updateHPATargetUtilizationRecommendations(tortoise, hpa, deployment)
+	tortoise, err = s.updateHPATargetUtilizationRecommendations(ctx, tortoise, hpa, deployment)
 	if err != nil {
 		return nil, fmt.Errorf("update HPA target utilization recommendations: %w", err)
 	}
@@ -198,9 +202,9 @@ func (s *Service) updateHPARecommendation(tortoise *v1alpha1.Tortoise, hpa *v2.H
 	return tortoise, nil
 }
 
-func (s *Service) UpdateRecommendations(tortoise *v1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, deployment *v1.Deployment, now time.Time) (*v1alpha1.Tortoise, error) {
+func (s *Service) UpdateRecommendations(ctx context.Context, tortoise *v1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, deployment *v1.Deployment, now time.Time) (*v1alpha1.Tortoise, error) {
 	var err error
-	tortoise, err = s.updateHPARecommendation(tortoise, hpa, deployment, now)
+	tortoise, err = s.updateHPARecommendation(ctx, tortoise, hpa, deployment, now)
 	if err != nil {
 		return nil, fmt.Errorf("update HPA recommendations: %w", err)
 	}
@@ -253,7 +257,8 @@ func (s *Service) updateMaxMinReplicasRecommendation(value int32, recommendation
 	return recommendations, nil
 }
 
-func (s *Service) updateHPATargetUtilizationRecommendations(tortoise *v1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, deployment *v1.Deployment) (*v1alpha1.Tortoise, error) {
+func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context, tortoise *v1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, deployment *v1.Deployment) (*v1alpha1.Tortoise, error) {
+	logger := log.FromContext(ctx)
 	requestMap := map[string]map[corev1.ResourceName]resource.Quantity{}
 	for _, c := range deployment.Spec.Template.Spec.Containers {
 		requestMap[c.Name] = map[corev1.ResourceName]resource.Quantity{}
@@ -290,7 +295,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(tortoise *v1alpha1.T
 				continue
 			}
 
-			targetValue, err := getHPATargetValue(hpa, r.ContainerName, k)
+			targetValue, err := getHPATargetValue(hpa, r.ContainerName, k, len(tortoise.Spec.ResourcePolicy) == 1)
 			if err != nil {
 				return nil, fmt.Errorf("get the target value from HPA: %w", err)
 			}
@@ -311,13 +316,13 @@ func (s *Service) updateHPATargetUtilizationRecommendations(tortoise *v1alpha1.T
 				// https://github.com/mercari/tortoise/issues/24
 				// And this case, rather than changing the target value, we'd like to change the container size.
 				targetMap[k] = targetValue
-				continue
+			} else {
+				targetMap[k] = updateRecommendedContainerBasedMetric(int32(upperUsage), targetValue)
+				if targetMap[k] > s.upperTargetResourceUtilization {
+					targetMap[k] = s.upperTargetResourceUtilization
+				}
 			}
-
-			targetMap[k] = updateRecommendedContainerBasedMetric(int32(upperUsage), targetValue)
-			if targetMap[k] > s.upperTargetResourceUtilization {
-				targetMap[k] = s.upperTargetResourceUtilization
-			}
+			logger.Info("HPA target utilization recommendation is created", "current target utilization", targetValue, "recommended target utilization", targetMap[k], "upper usage", upperUsage)
 		}
 		newHPATargetUtilizationRecommendationPerContainer = append(newHPATargetUtilizationRecommendationPerContainer, v1alpha1.HPATargetUtilizationRecommendationPerContainer{
 			ContainerName:     r.ContainerName,
@@ -336,8 +341,12 @@ func (s *Service) updateHPATargetUtilizationRecommendations(tortoise *v1alpha1.T
 // Currently, only supports:
 // - The container resource metric with AverageUtilization.
 // - The external metric with AverageUtilization.
-func getHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName) (int32, error) {
+func getHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName, isSingleContainerDeployment bool) (int32, error) {
 	for _, m := range hpa.Spec.Metrics {
+		if isSingleContainerDeployment && m.Type == v2.ResourceMetricSourceType && m.Resource.Target.Type == v2.UtilizationMetricType && m.Resource.Name == k {
+			return *m.Resource.Target.AverageUtilization, nil
+		}
+
 		if m.Type != v2.ContainerResourceMetricSourceType {
 			continue
 		}
@@ -384,7 +393,7 @@ func getHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k 
 		return int32(m.External.Target.Value.Value()), nil
 	}
 
-	return 0, fmt.Errorf("unsupported hpa")
+	return 0, fmt.Errorf("unsupported hpa: %s, resource name: %s, single container deployment: %v", client.ObjectKeyFromObject(hpa).String(), k, isSingleContainerDeployment)
 }
 
 func updateRecommendedContainerBasedMetric(upperUsage, currentTarget int32) int32 {

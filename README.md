@@ -30,9 +30,10 @@ Tortoise, you don't need a rearing cage, but need VPA in your Kubernetes cluster
 - [Concept](./docs/concept.md): describes a brief overview of tortoise.
 - [Horizontal scaling](./docs/horizontal.md): describes how the Tortoise does the horizontal autoscaling.
 - [Vertical scaling](./docs/vertical.md): describes how the Tortoise does the vertical autoscaling.
-- [The emergency mode](./docs/emergency.md): describes the emergency mode.
+- [Emergency mode](./docs/emergency.md): describes the emergency mode.
 - [Flag configurations for admin](./docs/flag-configuration.md): describes how the cluster admin can configure the global behavior via flags 
 - [Technically details](./docs/internal.md): describes the technically details of Tortoise. (mostly for the contributors)
+- [Contributor guide](./docs/contributor-guide.md): describes other stuff for the contributor. (testing etc)
 
 ## API definition
 
