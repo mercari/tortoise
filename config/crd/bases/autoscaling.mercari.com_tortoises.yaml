@@ -113,7 +113,9 @@ spec:
                   in .Status, and apply it to resources. If \"Emergency\", tortoise
                   generates the recommendations in .Status as usual, but increase
                   replica number high enough value. \"Emergency\" is useful when something
-                  unexpected happens in workloads. \n \"Off\" is the default value."
+                  unexpected happens in workloads and you want to scale up the workload
+                  with high enough resources. See https://github.com/mercari/tortoise/blob/main/docs/emergency.md
+                  to know more about emergency mode. \n \"Off\" is the default value."
                 enum:
                 - "Off"
                 - Auto

@@ -132,6 +132,11 @@ func validateTortoise(t *Tortoise) error {
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Tortoise) ValidateCreate() error {
 	tortoiselog.Info("validate create", "name", r.Name)
+
+	if r.Spec.UpdateMode == UpdateModeEmergency {
+		return fmt.Errorf("%s: updateMode cannot be Emergency at first", field.NewPath("spec").Child("updateMode"))
+	}
+
 	return validateTortoise(r)
 }
 
