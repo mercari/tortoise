@@ -25,6 +25,8 @@ We only allow users to configure:
 But, for the cluster admin, we allow some global configurations 
 so that the cluster admin can make Tortoises fit their general workloads characteristic.
 
+See [Flag configurations for admin](./flag-configuration.md).
+
 ### How do workloads exactly get scaled?
 
 See each document:

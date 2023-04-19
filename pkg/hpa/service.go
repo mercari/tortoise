@@ -40,7 +40,77 @@ func New(c client.Client, replicaReductionFactor float64, upperTargetResourceUti
 	}
 }
 
-func (c *Service) CreateHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
+func (c *Service) CreateHPAForSingleContainer(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
+	// TODO: make this default HPA spec configurable.
+	hpa := &v2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName,
+			Namespace: tortoise.Namespace,
+			Annotations: map[string]string{
+				annotation.TortoiseNameAnnotation: tortoise.Name,
+			},
+		},
+		Spec: v2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: v2.CrossVersionObjectReference{
+				Kind:       "Deployment",
+				Name:       tortoise.Spec.TargetRefs.DeploymentName,
+				APIVersion: "apps/v1",
+			},
+			MinReplicas: pointer.Int32(int32(math.Ceil(float64(dm.Status.Replicas) / 2.0))),
+			MaxReplicas: dm.Status.Replicas * 2,
+			Behavior: &v2.HorizontalPodAutoscalerBehavior{
+				ScaleDown: &v2.HPAScalingRules{
+					Policies: []v2.HPAScalingPolicy{
+						{
+							Type:          v2.PercentScalingPolicy,
+							Value:         2,
+							PeriodSeconds: 90,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	m := make([]v2.MetricSpec, 0, len(tortoise.Spec.ResourcePolicy))
+	for _, policy := range tortoise.Spec.ResourcePolicy {
+		for r, p := range policy.AutoscalingPolicy {
+			value := pointer.Int32(50)
+			if p != autoscalingv1alpha1.AutoscalingTypeHorizontal {
+				value = pointer.Int32(c.upperTargetResourceUtilization)
+			}
+			m = append(m, v2.MetricSpec{
+				Type: v2.ResourceMetricSourceType,
+				Resource: &v2.ResourceMetricSource{
+					Name: r,
+					Target: v2.MetricTarget{
+						Type:               v2.UtilizationMetricType,
+						AverageUtilization: value,
+					},
+				},
+			})
+		}
+	}
+	hpa.Spec.Metrics = m
+	tortoise.Status.Targets.HorizontalPodAutoscaler = hpa.Name
+
+	err := c.c.Create(ctx, hpa)
+	if apierrors.IsAlreadyExists(err) {
+		// A user specified the existing HPA.
+		return nil, tortoise, nil
+	}
+
+	return hpa.DeepCopy(), tortoise, err
+}
+
+func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
+	if len(dm.Spec.Template.Spec.Containers) == 1 {
+		return c.CreateHPAForSingleContainer(ctx, tortoise, dm)
+	}
+	return c.CreateHPAForMultipleContainer(ctx, tortoise, dm)
+}
+
+func (c *Service) CreateHPAForMultipleContainer(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
 	// TODO: make this default HPA spec configurable.
 	hpa := &v2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
@@ -134,7 +204,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alp
 	}
 	for _, t := range tortoise.Status.Recommendations.Horizontal.TargetUtilizations {
 		for k, r := range t.TargetUtilization {
-			if err := updateHPATargetValue(hpa, t.ContainerName, k, r); err != nil {
+			if err := updateHPATargetValue(hpa, t.ContainerName, k, r, len(tortoise.Spec.ResourcePolicy) == 1); err != nil {
 				return nil, tortoise, fmt.Errorf("update HPA from the recommendation from tortoise")
 			}
 		}
@@ -213,8 +283,12 @@ func externalMetricNameFromAnnotation(hpa *v2.HorizontalPodAutoscaler, container
 	return prefix + containerName, nil
 }
 
-func updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName, targetValue int32) error {
+func updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName, targetValue int32, isSingleContainerDeployment bool) error {
 	for _, m := range hpa.Spec.Metrics {
+		if isSingleContainerDeployment && m.Type == v2.ResourceMetricSourceType && m.Resource.Target.Type == v2.UtilizationMetricType && m.Resource.Name == k {
+			m.Resource.Target.AverageUtilization = pointer.Int32(targetValue)
+		}
+
 		if m.Type != v2.ContainerResourceMetricSourceType {
 			continue
 		}
