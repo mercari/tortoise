@@ -45,7 +45,7 @@ type TortoiseSpec struct {
 	// If "Off", tortoise generates the recommendations in .Status, but doesn't apply it actually.
 	// If "Auto", tortoise generates the recommendations in .Status, and apply it to resources.
 	// If "Emergency", tortoise generates the recommendations in .Status as usual, but increase replica number high enough value.
-	// "Emergency" is useful when something unexpected happens in workloads and you want to scale up the workload with high enough resources.
+	// "Emergency" is useful when something unexpected happens in workloads, and you want to scale up the workload with high enough resources.
 	// See https://github.com/mercari/tortoise/blob/main/docs/emergency.md to know more about emergency mode.
 	//
 	// "Off" is the default value.

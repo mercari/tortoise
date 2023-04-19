@@ -126,16 +126,17 @@ func validateTortoise(t *Tortoise) error {
 		}
 	}
 
+	if t.Spec.UpdateMode == UpdateModeEmergency &&
+		t.Status.TortoisePhase != TortoisePhaseWorking && t.Status.TortoisePhase != TortoisePhaseEmergency && t.Status.TortoisePhase != TortoisePhaseBackToNormal {
+		return fmt.Errorf("%s: emergency mode is only available for tortoises with Running phase", fieldPath.Child("updateMode"))
+	}
+
 	return fmt.Errorf("%s: at least one policy should be Horizontal", fieldPath.Child("resourcePolicy", "autoscalingPolicy"))
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Tortoise) ValidateCreate() error {
 	tortoiselog.Info("validate create", "name", r.Name)
-
-	if r.Spec.UpdateMode == UpdateModeEmergency {
-		return fmt.Errorf("%s: updateMode cannot be Emergency at first", field.NewPath("spec").Child("updateMode"))
-	}
 
 	return validateTortoise(r)
 }
