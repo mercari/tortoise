@@ -3,6 +3,7 @@ package vpa
 import (
 	"context"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	"k8s.io/client-go/rest"
@@ -145,10 +146,17 @@ func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscali
 	return vpa, nil
 }
 
-func (c *Service) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
+func (c *Service) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, bool, error) {
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Get(ctx, TortoiseMonitorVPAName(tortoise.Name), metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get updater vpa on tortoise: %w", err)
+		return nil, false, fmt.Errorf("failed to get updater vpa on tortoise: %w", err)
 	}
-	return vpa, nil
+
+	for _, c := range vpa.Status.Conditions {
+		if c.Type == v1.RecommendationProvided && c.Status == corev1.ConditionTrue {
+			return vpa, true, nil
+		}
+	}
+
+	return vpa, false, nil
 }

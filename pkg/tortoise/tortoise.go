@@ -67,7 +67,7 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1alpha1.Tortoise, dm *appv1.Dep
 	case "":
 		tortoise = s.initializeTortoise(tortoise, dm)
 	case v1alpha1.TortoisePhaseInitializing:
-		// TODO: check initializing finished. (if VPA/HPA are working well etc)
+		// change it to GatheringData anyway. Later the controller may change it back to initialize if VPA isn't ready.
 		tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseGatheringData
 	case v1alpha1.TortoisePhaseGatheringData:
 		tortoise = s.checkIfTortoiseFinishedGatheringData(tortoise)
