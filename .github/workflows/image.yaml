@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-tortoise:
     runs-on: ubuntu-20.04
     timeout-minutes: 5
     steps:
@@ -24,5 +24,49 @@ jobs:
           OWNER: ${{ github.repository_owner }}
       - name: Push
         run: docker push ghcr.io/mercari/tortoise:${REF##*/}
+        env:
+          REF: ${{ github.ref }}
+  build-loadtester-server:
+    runs-on: ubuntu-20.04
+    defaults:
+      run:
+        working-directory: loadtester/server
+    timeout-minutes: 5
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+      - name: Build
+        run: docker build -t ghcr.io/mercari/loadtester-server:${REF##*/} .
+        env:
+          REF: ${{ github.ref }}
+      - name: Login
+        run: echo $TOKEN | docker login ghcr.io -u ${OWNER,,} --password-stdin
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+      - name: Push
+        run: docker push ghcr.io/mercari/loadtester-server:${REF##*/}
+        env:
+          REF: ${{ github.ref }}
+  build-loadtester-client:
+    runs-on: ubuntu-20.04
+    defaults:
+      run:
+        working-directory: loadtester/client
+    timeout-minutes: 5
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+      - name: Build
+        run: docker build -t ghcr.io/mercari/loadtester-client:${REF##*/} .
+        env:
+          REF: ${{ github.ref }}
+      - name: Login
+        run: echo $TOKEN | docker login ghcr.io -u ${OWNER,,} --password-stdin
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+      - name: Push
+        run: docker push ghcr.io/mercari/loadtester-client:${REF##*/}
         env:
           REF: ${{ github.ref }}
