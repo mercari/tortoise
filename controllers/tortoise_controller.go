@@ -147,6 +147,11 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	if tortoise.Status.TortoisePhase == autoscalingv1alpha1.TortoisePhaseGatheringData {
+		logger.V(4).Info("tortoise is GatheringData phase; skip applying the recommendation to HPA or VPAs")
+		return ctrl.Result{}, nil
+	}
+
 	_, tortoise, err = r.HpaService.UpdateHPAFromTortoiseRecommendation(ctx, tortoise, now)
 	if err != nil {
 		logger.Error(err, "update HPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
