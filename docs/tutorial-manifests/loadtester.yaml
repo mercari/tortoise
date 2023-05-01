@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-server-deployment
+  namespace: tortoise-poc
+  labels:
+    app: loadtester-client
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: loadtester-client
+  template:
+    metadata:
+      labels:
+        app: loadtester-client
+    spec:
+      containers:
+        - name: nginx
+          image: ghcr.io/mercari/loadtester-client:v0.0.14
+          args:
+            - "--url=http://sample-server-service.tortoise-poc.svc.cluster.local"
+            - "--parallel=5"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 10Mi

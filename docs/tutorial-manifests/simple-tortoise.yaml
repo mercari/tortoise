@@ -1,0 +1,9 @@
+apiVersion: autoscaling.mercari.com/v1alpha1
+kind: Tortoise
+metadata:
+  name: nginx-tortoise
+  namespace: tortoise-poc
+spec:
+  updateMode: Auto
+  targetRefs:
+    deploymentName: nginx-deployment

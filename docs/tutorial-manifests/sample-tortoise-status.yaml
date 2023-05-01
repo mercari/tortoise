@@ -1,0 +1,1732 @@
+apiVersion: autoscaling.mercari.com/v1alpha1
+kind: Tortoise
+metadata:
+  name: nginx-tortoise
+  namespace: tortoise-poc
+spec:
+  resourcePolicy:
+  - autoscalingPolicy:
+      cpu: Horizontal
+      memory: Vertical
+    containerName: nginx
+  targetRefs:
+    deploymentName: nginx-deployment
+    horizontalPodAutoscalerName: tortoise-hpa-nginx-tortoise
+  updateMode: Auto
+status:
+  conditions:
+    containerRecommendationFromVPA:
+    - containerName: nginx
+      maxRecommendation:
+        cpu:
+          quantity: 2m
+          updatedAt: "2023-04-19T07:12:41Z"
+        memory:
+          quantity: "3145728"
+          updatedAt: "2023-04-19T07:12:41Z"
+      recommendation:
+        cpu:
+          quantity: 2m
+          updatedAt: "2023-04-19T07:12:41Z"
+        memory:
+          quantity: "3145728"
+          updatedAt: "2023-04-19T07:12:41Z"
+  recommendations:
+    horizontal:
+      maxReplicas:
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 5
+        weekday: Sunday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 5
+        weekday: Sunday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 5
+        weekday: Sunday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 5
+        weekday: Sunday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 5
+        weekday: Sunday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 5
+        weekday: Sunday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 5
+        weekday: Sunday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 5
+        weekday: Sunday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 5
+        weekday: Sunday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 5
+        weekday: Sunday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 5
+        weekday: Sunday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 5
+        weekday: Sunday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 5
+        weekday: Sunday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 5
+        weekday: Sunday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 5
+        weekday: Sunday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 5
+        weekday: Sunday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 5
+        weekday: Sunday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 5
+        weekday: Sunday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 5
+        weekday: Sunday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 5
+        weekday: Sunday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 5
+        weekday: Sunday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 5
+        weekday: Sunday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 5
+        weekday: Sunday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 5
+        weekday: Sunday
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 5
+        weekday: Monday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 5
+        weekday: Monday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 5
+        weekday: Monday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 5
+        weekday: Monday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 5
+        weekday: Monday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 5
+        weekday: Monday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 5
+        weekday: Monday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 5
+        weekday: Monday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 5
+        weekday: Monday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 5
+        weekday: Monday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 5
+        weekday: Monday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 5
+        weekday: Monday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 5
+        weekday: Monday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 5
+        weekday: Monday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 5
+        weekday: Monday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 5
+        weekday: Monday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 5
+        weekday: Monday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 5
+        weekday: Monday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 5
+        weekday: Monday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 5
+        weekday: Monday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 5
+        weekday: Monday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 5
+        weekday: Monday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 5
+        weekday: Monday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 5
+        weekday: Monday
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 5
+        weekday: Tuesday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 5
+        weekday: Tuesday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 5
+        weekday: Tuesday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 5
+        weekday: Tuesday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 5
+        weekday: Tuesday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 5
+        weekday: Tuesday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 5
+        weekday: Tuesday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 5
+        weekday: Tuesday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 5
+        weekday: Tuesday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 5
+        weekday: Tuesday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 5
+        weekday: Tuesday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 5
+        weekday: Tuesday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 5
+        weekday: Tuesday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 5
+        weekday: Tuesday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 5
+        weekday: Tuesday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 5
+        weekday: Tuesday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 5
+        weekday: Tuesday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 5
+        weekday: Tuesday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 5
+        weekday: Tuesday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 5
+        weekday: Tuesday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 5
+        weekday: Tuesday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 5
+        weekday: Tuesday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 5
+        weekday: Tuesday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 5
+        weekday: Tuesday
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 5
+        weekday: Wednesday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 5
+        weekday: Wednesday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 5
+        weekday: Wednesday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 5
+        weekday: Wednesday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 5
+        weekday: Wednesday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 5
+        weekday: Wednesday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 5
+        weekday: Wednesday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 5
+        weekday: Wednesday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 5
+        weekday: Wednesday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 5
+        weekday: Wednesday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 5
+        weekday: Wednesday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 5
+        weekday: Wednesday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 5
+        weekday: Wednesday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 5
+        weekday: Wednesday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 5
+        weekday: Wednesday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 5
+        weekday: Wednesday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 5
+        weekday: Wednesday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 5
+        weekday: Wednesday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 5
+        weekday: Wednesday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 5
+        weekday: Wednesday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 5
+        weekday: Wednesday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 5
+        weekday: Wednesday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 5
+        weekday: Wednesday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 5
+        weekday: Wednesday
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 5
+        weekday: Thursday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 5
+        weekday: Thursday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 5
+        weekday: Thursday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 5
+        weekday: Thursday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 5
+        weekday: Thursday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 5
+        weekday: Thursday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 5
+        weekday: Thursday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 5
+        weekday: Thursday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 5
+        weekday: Thursday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 5
+        weekday: Thursday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 5
+        weekday: Thursday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 5
+        weekday: Thursday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 5
+        weekday: Thursday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 5
+        weekday: Thursday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 5
+        weekday: Thursday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 5
+        weekday: Thursday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 5
+        weekday: Thursday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 5
+        weekday: Thursday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 5
+        weekday: Thursday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 5
+        weekday: Thursday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 5
+        weekday: Thursday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 5
+        weekday: Thursday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 5
+        weekday: Thursday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 5
+        weekday: Thursday
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 5
+        weekday: Friday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 5
+        weekday: Friday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 5
+        weekday: Friday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 5
+        weekday: Friday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 5
+        weekday: Friday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 5
+        weekday: Friday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 5
+        weekday: Friday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 5
+        weekday: Friday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 5
+        weekday: Friday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 5
+        weekday: Friday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 5
+        weekday: Friday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 5
+        weekday: Friday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 5
+        weekday: Friday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 5
+        weekday: Friday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 5
+        weekday: Friday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 5
+        weekday: Friday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 5
+        weekday: Friday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 5
+        weekday: Friday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 5
+        weekday: Friday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 5
+        weekday: Friday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 5
+        weekday: Friday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 5
+        weekday: Friday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 5
+        weekday: Friday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 5
+        weekday: Friday
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 5
+        weekday: Saturday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 5
+        weekday: Saturday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 5
+        weekday: Saturday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 5
+        weekday: Saturday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 5
+        weekday: Saturday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 5
+        weekday: Saturday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 5
+        weekday: Saturday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 5
+        weekday: Saturday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 5
+        weekday: Saturday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 5
+        weekday: Saturday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 5
+        weekday: Saturday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 5
+        weekday: Saturday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 5
+        weekday: Saturday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 5
+        weekday: Saturday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 5
+        weekday: Saturday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 5
+        weekday: Saturday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 5
+        weekday: Saturday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 5
+        weekday: Saturday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 5
+        weekday: Saturday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 5
+        weekday: Saturday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 5
+        weekday: Saturday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 5
+        weekday: Saturday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 5
+        weekday: Saturday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 5
+        weekday: Saturday
+      minReplicas:
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 2
+        weekday: Sunday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 2
+        weekday: Sunday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 2
+        weekday: Sunday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 2
+        weekday: Sunday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 2
+        weekday: Sunday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 2
+        weekday: Sunday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 2
+        weekday: Sunday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 2
+        weekday: Sunday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 2
+        weekday: Sunday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 2
+        weekday: Sunday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 2
+        weekday: Sunday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 2
+        weekday: Sunday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 2
+        weekday: Sunday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 2
+        weekday: Sunday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 2
+        weekday: Sunday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 2
+        weekday: Sunday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 2
+        weekday: Sunday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 2
+        weekday: Sunday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 2
+        weekday: Sunday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 2
+        weekday: Sunday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 2
+        weekday: Sunday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 2
+        weekday: Sunday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 2
+        weekday: Sunday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 2
+        weekday: Sunday
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 2
+        weekday: Monday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 2
+        weekday: Monday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 2
+        weekday: Monday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 2
+        weekday: Monday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 2
+        weekday: Monday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 2
+        weekday: Monday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 2
+        weekday: Monday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 2
+        weekday: Monday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 2
+        weekday: Monday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 2
+        weekday: Monday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 2
+        weekday: Monday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 2
+        weekday: Monday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 2
+        weekday: Monday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 2
+        weekday: Monday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 2
+        weekday: Monday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 2
+        weekday: Monday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 2
+        weekday: Monday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 2
+        weekday: Monday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 2
+        weekday: Monday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 2
+        weekday: Monday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 2
+        weekday: Monday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 2
+        weekday: Monday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 2
+        weekday: Monday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 2
+        weekday: Monday
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 2
+        weekday: Tuesday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 2
+        weekday: Tuesday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 2
+        weekday: Tuesday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 2
+        weekday: Tuesday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 2
+        weekday: Tuesday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 2
+        weekday: Tuesday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 2
+        weekday: Tuesday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 2
+        weekday: Tuesday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 2
+        weekday: Tuesday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 2
+        weekday: Tuesday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 2
+        weekday: Tuesday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 2
+        weekday: Tuesday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 2
+        weekday: Tuesday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 2
+        weekday: Tuesday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 2
+        weekday: Tuesday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 2
+        weekday: Tuesday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 2
+        weekday: Tuesday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 2
+        weekday: Tuesday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 2
+        weekday: Tuesday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 2
+        weekday: Tuesday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 2
+        weekday: Tuesday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 2
+        weekday: Tuesday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 2
+        weekday: Tuesday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 2
+        weekday: Tuesday
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 2
+        weekday: Wednesday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 2
+        weekday: Wednesday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 2
+        weekday: Wednesday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 2
+        weekday: Wednesday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 2
+        weekday: Wednesday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 2
+        weekday: Wednesday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 2
+        weekday: Wednesday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 2
+        weekday: Wednesday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 2
+        weekday: Wednesday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 2
+        weekday: Wednesday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 2
+        weekday: Wednesday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 2
+        weekday: Wednesday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 2
+        weekday: Wednesday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 2
+        weekday: Wednesday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 2
+        weekday: Wednesday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 2
+        weekday: Wednesday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 2
+        weekday: Wednesday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 2
+        weekday: Wednesday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 2
+        weekday: Wednesday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 2
+        weekday: Wednesday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 2
+        weekday: Wednesday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 2
+        weekday: Wednesday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 2
+        weekday: Wednesday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 2
+        weekday: Wednesday
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 2
+        weekday: Thursday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 2
+        weekday: Thursday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 2
+        weekday: Thursday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 2
+        weekday: Thursday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 2
+        weekday: Thursday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 2
+        weekday: Thursday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 2
+        weekday: Thursday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 2
+        weekday: Thursday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 2
+        weekday: Thursday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 2
+        weekday: Thursday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 2
+        weekday: Thursday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 2
+        weekday: Thursday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 2
+        weekday: Thursday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 2
+        weekday: Thursday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 2
+        weekday: Thursday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 2
+        weekday: Thursday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 2
+        weekday: Thursday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 2
+        weekday: Thursday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 2
+        weekday: Thursday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 2
+        weekday: Thursday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 2
+        weekday: Thursday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 2
+        weekday: Thursday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 2
+        weekday: Thursday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 2
+        weekday: Thursday
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 2
+        weekday: Friday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 2
+        weekday: Friday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 2
+        weekday: Friday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 2
+        weekday: Friday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 2
+        weekday: Friday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 2
+        weekday: Friday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 2
+        weekday: Friday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 2
+        weekday: Friday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 2
+        weekday: Friday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 2
+        weekday: Friday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 2
+        weekday: Friday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 2
+        weekday: Friday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 2
+        weekday: Friday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 2
+        weekday: Friday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 2
+        weekday: Friday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 2
+        weekday: Friday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 2
+        weekday: Friday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 2
+        weekday: Friday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 2
+        weekday: Friday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 2
+        weekday: Friday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 2
+        weekday: Friday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 2
+        weekday: Friday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 2
+        weekday: Friday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 2
+        weekday: Friday
+      - from: 0
+        timezone: Asia/Tokyo
+        to: 1
+        value: 2
+        weekday: Saturday
+      - from: 1
+        timezone: Asia/Tokyo
+        to: 2
+        value: 2
+        weekday: Saturday
+      - from: 2
+        timezone: Asia/Tokyo
+        to: 3
+        value: 2
+        weekday: Saturday
+      - from: 3
+        timezone: Asia/Tokyo
+        to: 4
+        value: 2
+        weekday: Saturday
+      - from: 4
+        timezone: Asia/Tokyo
+        to: 5
+        value: 2
+        weekday: Saturday
+      - from: 5
+        timezone: Asia/Tokyo
+        to: 6
+        value: 2
+        weekday: Saturday
+      - from: 6
+        timezone: Asia/Tokyo
+        to: 7
+        value: 2
+        weekday: Saturday
+      - from: 7
+        timezone: Asia/Tokyo
+        to: 8
+        value: 2
+        weekday: Saturday
+      - from: 8
+        timezone: Asia/Tokyo
+        to: 9
+        value: 2
+        weekday: Saturday
+      - from: 9
+        timezone: Asia/Tokyo
+        to: 10
+        value: 2
+        weekday: Saturday
+      - from: 10
+        timezone: Asia/Tokyo
+        to: 11
+        value: 2
+        weekday: Saturday
+      - from: 11
+        timezone: Asia/Tokyo
+        to: 12
+        value: 2
+        weekday: Saturday
+      - from: 12
+        timezone: Asia/Tokyo
+        to: 13
+        value: 2
+        weekday: Saturday
+      - from: 13
+        timezone: Asia/Tokyo
+        to: 14
+        value: 2
+        weekday: Saturday
+      - from: 14
+        timezone: Asia/Tokyo
+        to: 15
+        value: 2
+        weekday: Saturday
+      - from: 15
+        timezone: Asia/Tokyo
+        to: 16
+        value: 2
+        weekday: Saturday
+      - from: 16
+        timezone: Asia/Tokyo
+        to: 17
+        value: 2
+        weekday: Saturday
+      - from: 17
+        timezone: Asia/Tokyo
+        to: 18
+        value: 2
+        weekday: Saturday
+      - from: 18
+        timezone: Asia/Tokyo
+        to: 19
+        value: 2
+        weekday: Saturday
+      - from: 19
+        timezone: Asia/Tokyo
+        to: 20
+        value: 2
+        weekday: Saturday
+      - from: 20
+        timezone: Asia/Tokyo
+        to: 21
+        value: 2
+        weekday: Saturday
+      - from: 21
+        timezone: Asia/Tokyo
+        to: 22
+        value: 2
+        weekday: Saturday
+      - from: 22
+        timezone: Asia/Tokyo
+        to: 23
+        value: 2
+        weekday: Saturday
+      - from: 23
+        timezone: Asia/Tokyo
+        to: 24
+        value: 2
+        weekday: Saturday
+    vertical:
+      containerResourceRecommendation:
+      - RecommendedResource:
+          cpu: 2m
+          memory: 3Mi
+        containerName: nginx
+  targets:
+    deployment: nginx-deployment
+    horizontalPodAutoscaler: tortoise-hpa-nginx-tortoise
+    verticalPodAutoscalers:
+    - name: tortoise-monitor-nginx-tortoise
+      role: Monitor
+    - name: tortoise-updater-nginx-tortoise
+      role: Updater
+  tortoisePhase: GatheringData

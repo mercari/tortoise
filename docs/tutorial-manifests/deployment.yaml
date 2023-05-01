@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-server-deployment
+  namespace: tortoise-poc
+  labels:
+    app: loadtester-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: loadtester-server
+  template:
+    metadata:
+      labels:
+        app: loadtester-server
+    spec:
+      containers:
+        - name: nginx
+          image: ghcr.io/mercari/loadtester-server:v0.0.14
+          resources:
+            requests:
+              cpu: 100m
+              memory: 10Mi
+          ports:
+            - containerPort: 8080
