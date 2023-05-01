@@ -5,6 +5,8 @@ on:
     types: [opened, synchronize]
     paths-ignore:
       - 'docs/**'
+      - 'config/**'
+      - 'Makefile'
 
 jobs:
   test:
