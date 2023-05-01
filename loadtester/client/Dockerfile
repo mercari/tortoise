@@ -12,7 +12,13 @@ RUN go build -o ./loadtester-client .
 
 FROM alpine:3.11.6
 
-COPY --from=build-env /go/src/github.com/mercari/tortoise/loadtester/client /loadtester-client
-RUN chmod a+x /loadtester-client
+COPY --from=build-env /go/src/github.com/mercari/tortoise/loadtester/client /bin/loadtester-client
 
-CMD ["/loadtester-client"]
+RUN chmod a+x /bin/loadtester-client \
+    && addgroup -S app \
+    && adduser -S -G app app \
+    && chown app:app /bin/loadtester-client
+
+USER app
+
+CMD ["/bin/loadtester-client"]
