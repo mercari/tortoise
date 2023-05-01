@@ -3,14 +3,14 @@ package vpa
 import (
 	"context"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
-	"k8s.io/client-go/rest"
-
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 	autoscaling "k8s.io/api/autoscaling/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
+	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 )
 
 type Service struct {
@@ -116,26 +116,32 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 }
 
 func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
-	vpa, err := c.GetTortoiseUpdaterVPA(ctx, tortoise)
-	if err != nil {
-		return nil, fmt.Errorf("get tortoise VPA: %w", err)
-	}
-	newRecommendations := make([]v1.RecommendedContainerResources, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
-	for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
-		newRecommendations = append(newRecommendations, v1.RecommendedContainerResources{
-			ContainerName:  r.ContainerName,
-			Target:         r.RecommendedResource,
-			LowerBound:     r.RecommendedResource,
-			UpperBound:     r.RecommendedResource,
-			UncappedTarget: r.RecommendedResource,
-		})
-	}
-	if vpa.Status.Recommendation == nil {
-		vpa.Status.Recommendation = &v1.RecommendedPodResources{}
-	}
-	vpa.Status.Recommendation.ContainerRecommendations = newRecommendations
+	retVPA := &v1.VerticalPodAutoscaler{}
 
-	return c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
+	updateFn := func() error {
+		vpa, err := c.GetTortoiseUpdaterVPA(ctx, tortoise)
+		if err != nil {
+			return fmt.Errorf("get tortoise VPA: %w", err)
+		}
+		newRecommendations := make([]v1.RecommendedContainerResources, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
+		for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
+			newRecommendations = append(newRecommendations, v1.RecommendedContainerResources{
+				ContainerName:  r.ContainerName,
+				Target:         r.RecommendedResource,
+				LowerBound:     r.RecommendedResource,
+				UpperBound:     r.RecommendedResource,
+				UncappedTarget: r.RecommendedResource,
+			})
+		}
+		if vpa.Status.Recommendation == nil {
+			vpa.Status.Recommendation = &v1.RecommendedPodResources{}
+		}
+		vpa.Status.Recommendation.ContainerRecommendations = newRecommendations
+		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
+		return err
+	}
+
+	return retVPA, retry.RetryOnConflict(retry.DefaultRetry, updateFn)
 }
 
 func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
