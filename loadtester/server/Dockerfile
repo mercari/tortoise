@@ -10,13 +10,14 @@ WORKDIR /go/src/github.com/mercari/tortoise/loadtester/server
 COPY . .
 RUN go build -o ./loadtester-server .
 
-FROM alpine:3.11.6
+FROM alpine:latest
 
 COPY --from=build-env /go/src/github.com/mercari/tortoise/loadtester/server /bin/loadtester-server
 
-RUN chmod a+x /bin/loadtester-server \
-    && addgroup -S app \
-    && adduser -S -G app app \
-    && chown app:app /bin/loadtester-server
+RUN apk --no-cache add ca-certificates
+
+RUN addgroup -g 1001 app && adduser -D -G app -u 1001 app
+
+USER 1001
 
 CMD ["/bin/loadtester-server"]
