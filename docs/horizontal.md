@@ -41,41 +41,37 @@ Note: the maximum target utilization is configurable by the cluster admin.
 
 #### Why we can calculate the target utilization from the above formula?
 
-You know, the target utilization should be below `100%`.
-Why? mostly because the HPA cannot scale up the Pod instantly when the utilization goes higher than `100%`.
+The target utilization should be less than `100%` because
+- each container's resource utilization isn't the same; one may be higher, but another may be lower. But, the HPA can only see the average among them.
+- the HPA cannot scale up the Pod instantly when the utilization goes higher than `100%`.
 
-Let's say we configure the target utilization with `70%`, 
-`70%` of resources is usually consumed, and the rest `30%` is extra resources which is usually not consumed.
-But, extra `30%` is given to the workload 
-because the workload need to handle traffic while HPA works on scaling up when the resource utilization goes higher than `77%`. 
-(Actually, not only HPA, but also many components are involved to run up new Pods.)
-
-(Why not `70%` but `77%` -> it's because of the [globally-configurable tolerance](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#algorithm-details))
-
-Thus, the question "how to calculate the best target utilization" 
-equals "how to calculate the amount of resources which is needed to handle traffic while waiting for new Pods to be run up".
+Thus, the question "how to calculate the best target utilization" equals 
+- how to calculate the expected difference in each container's resource utilization.
+  - If the difference is pretty big, we should give more additional resources through the target utilization.
+- how to calculate the amount of resources which is needed to handle traffic while waiting for new Pods to be run up.
 
 The VPA's recommendation is generally generated from the P90 past resource usage. 
 (See around [here](https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler/pkg/recommender/logic) to know more detailed logic)
 
-Tortoise assumes that this P90 usage is near the resource usage while waiting for new Pods to be run up.
-
 Looking back the above formula, 
-- `max{recommended resource usage from VPA}/{current resource request}` means the resource utilization at P90 resource usage
-- `max{recommended resource usage from VPA}/{current resource request} - {current target utilization}` means the additional resource which is needed to handle traffic while waiting for new Pods to be run up.
+- `max{recommended resource usage from VPA}/{current resource request}` means the resource utilization at P90 resource usage in history
+- `max{recommended resource usage from VPA}/{current resource request} - {current target utilization}` means required additional resource which is needed to:
+  - handle traffic while waiting for new Pods to be run up.
+  - make all container's resource utilization below 100%.
 - Thus, finally `100 - (max{recommended resource usage from VPA}/{current resource request} - {current target utilization})` means the target utilization which only give the bare minimum additional resources.
 
 #### Supported metrics in HPA
 
-Basically, Tortoise only touches `type: ContainerResource`; check each container's situation and adjust the target utilization of each of them.
+Currently, Tortoise supports:
+- `type: Resource` metric if Pod has only one container.
+- `type: ContainerResource` metric if Pod has only multiple containers.
+- `type: External` metric if Pod has the annotations described below.
 
-But, given [the container resource metrics](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#container-resource-metrics) is still alpha as of v1.26, 
-some companies are using the external metrics and the custom metrics to fetch the container's resource utilization.
+Regarding the `External`, given [the container resource metrics](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#container-resource-metrics) is still alpha as of v1.26, 
+some companies are using the external metrics to fetch the container's resource utilization.
 
-So, as a temporal solution, Tortoise supports the external metrics which refers to the container's resource utilization.
-
-To let tortoise regard the external metrics as the container resource metrics,
-you need to give the annotation to your HPA like:
+So, you can let Tortoise regard some external metrics as referring to the container's resource utilization.
+You need to give the annotations to your HPA like:
 
 ```yaml
 apiVersion: autoscaling/v2
