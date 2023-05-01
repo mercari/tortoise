@@ -15,21 +15,13 @@ make install
 make deploy
 ```
 
-#### 1. preparation
+#### 2. preparation
 
 You need to prepare the deployment which will be managed by tortoise.
 
 ```shell
 kubectl create ns tortoise-poc
 kubectl apply -f ./docs/tutorial-manifests/
-```
-
-
-#### 3. create `Tortoise` 
-
-```shell
-kubectl apply -f ./docs/tutorial-manifests/simple-tortoise.yaml
-kubectl describe tortoise nginx-tortoise -n tortoise-poc
 ```
 
 #### 4. cleanup

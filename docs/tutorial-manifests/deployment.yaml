@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: ghcr.io/mercari/loadtester-server:v0.0.14
+          image: ghcr.io/mercari/loadtester-server:v0.0.15
           resources:
             requests:
               cpu: 100m

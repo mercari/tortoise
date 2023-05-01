@@ -6,4 +6,4 @@ metadata:
 spec:
   updateMode: Auto
   targetRefs:
-    deploymentName: nginx-deployment
+    deploymentName: sample-server-deployment
