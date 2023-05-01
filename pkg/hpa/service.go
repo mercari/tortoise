@@ -8,6 +8,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	"math"
 	"strconv"
@@ -247,17 +248,26 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alp
 }
 
 func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
-	hpa := &v2.HorizontalPodAutoscaler{}
-	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName}, hpa); err != nil {
-		return nil, nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
+	retTortoise := &autoscalingv1alpha1.Tortoise{}
+	retHPA := &v2.HorizontalPodAutoscaler{}
+
+	updateFn := func() error {
+		hpa := &v2.HorizontalPodAutoscaler{}
+		if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName}, hpa); err != nil {
+			return fmt.Errorf("failed to get hpa on tortoise: %w", err)
+		}
+
+		hpa, tortoise, err := c.ChangeHPAFromTortoiseRecommendation(tortoise, hpa, now)
+		if err != nil {
+			return fmt.Errorf("change HPA from tortoise recommendation: %w", err)
+		}
+		retTortoise = tortoise
+		retHPA = hpa
+
+		return c.c.Update(ctx, hpa)
 	}
 
-	hpa, tortoise, err := c.ChangeHPAFromTortoiseRecommendation(tortoise, hpa, now)
-	if err != nil {
-		return nil, nil, fmt.Errorf("change HPA from tortoise recommendation: %w", err)
-	}
-
-	return hpa, tortoise, c.c.Update(ctx, hpa)
+	return retHPA, retTortoise, retry.RetryOnConflict(retry.DefaultRetry, updateFn)
 }
 
 // getReplicasRecommendation finds the corresponding recommendations.

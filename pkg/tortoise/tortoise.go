@@ -3,9 +3,8 @@ package tortoise
 import (
 	"context"
 	"fmt"
-	"github.com/mercari/tortoise/pkg/utils"
 	appv1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
@@ -196,26 +195,20 @@ func (s *Service) GetTortoise(ctx context.Context, namespacedName types.Namespac
 func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1alpha1.Tortoise, now time.Time) (*v1alpha1.Tortoise, error) {
 	logger := log.FromContext(ctx)
 	logger.V(4).Info("update tortoise status", "tortoise", klog.KObj(originalTortoise))
-	updateFn := func() (bool, error) {
-		tortoise := &v1alpha1.Tortoise{}
-		err := s.c.Get(ctx, client.ObjectKeyFromObject(originalTortoise), tortoise)
+	retTortoise := &v1alpha1.Tortoise{}
+	updateFn := func() error {
+		retTortoise = &v1alpha1.Tortoise{}
+		err := s.c.Get(ctx, client.ObjectKeyFromObject(originalTortoise), retTortoise)
 		if err != nil {
-			return true, err
+			return err
 		}
 		// It should be OK to overwrite the status, because the controller is the only person to update it.
-		tortoise.Status = originalTortoise.Status
+		retTortoise.Status = originalTortoise.Status
 
-		err = s.c.Status().Update(ctx, tortoise)
-		if err != nil {
-			if apierrors.IsConflict(err) {
-				return false, nil
-			}
-			return true, err
-		}
-		return true, nil
+		return s.c.Status().Update(ctx, retTortoise)
 	}
 
-	err := utils.RetryWithExponentialBackOff(updateFn)
+	err := retry.RetryOnConflict(retry.DefaultRetry, updateFn)
 	if err != nil {
 		return originalTortoise, err
 	}
@@ -224,5 +217,6 @@ func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1
 	defer s.mu.Unlock()
 
 	s.lastTimeUpdateTortoise[client.ObjectKeyFromObject(originalTortoise)] = now
+
 	return originalTortoise, nil
 }
