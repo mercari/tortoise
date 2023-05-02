@@ -12,7 +12,7 @@ RUN go build -o ./loadtester-client .
 
 FROM alpine:latest
 
-COPY --from=build-env /go/src/github.com/mercari/tortoise/loadtester/client /bin/loadtester-client
+COPY --from=build-env /go/src/github.com/mercari/tortoise/loadtester/client/loadtester-client /bin/loadtester-client
 
 RUN apk --no-cache add ca-certificates
 
