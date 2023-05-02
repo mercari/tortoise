@@ -12,11 +12,13 @@ RUN go build -o ./loadtester-server .
 
 FROM alpine:latest
 
-COPY --from=build-env /go/src/github.com/mercari/tortoise/loadtester/server /bin/loadtester-server
+COPY --from=build-env /go/src/github.com/mercari/tortoise/loadtester/server/loadtester-server /bin/loadtester-server
 
 RUN apk --no-cache add ca-certificates
 
 RUN addgroup -g 1001 app && adduser -D -G app -u 1001 app
+
+RUN chmod +x /bin/loadtester-server
 
 USER 1001
 
