@@ -104,6 +104,26 @@ func (c *Service) CreateHPAForSingleContainer(ctx context.Context, tortoise *aut
 	return hpa.DeepCopy(), tortoise, err
 }
 
+func (c *Service) GiveAnnotationsOnHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) error {
+	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
+		return nil
+	}
+
+	updateFn := func() error {
+		hpa := &v2.HorizontalPodAutoscaler{}
+		if err := c.c.Get(ctx, client.ObjectKey{
+			Namespace: tortoise.Namespace,
+			Name:      *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName,
+		}, hpa); err != nil {
+			return fmt.Errorf("get hpa: %w", err)
+		}
+		hpa.Annotations[annotation.TortoiseNameAnnotation] = tortoise.Name
+		return c.c.Update(ctx, hpa)
+	}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, updateFn)
+}
+
 func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
 	if len(dm.Spec.Template.Spec.Containers) == 1 {
 		return c.CreateHPAForSingleContainer(ctx, tortoise, dm)
