@@ -3,12 +3,10 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	v2 "k8s.io/api/autoscaling/v2"
 
 	v1 "k8s.io/api/apps/v1"
-
+	v2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/types"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

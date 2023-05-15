@@ -27,23 +27,10 @@ package main
 
 import (
 	"flag"
-	autoscalingv2 "github.com/mercari/tortoise/api/autoscaling/v2"
-	v2 "k8s.io/api/autoscaling/v2"
 	"os"
 	"time"
 
-	"github.com/mercari/tortoise/pkg/tortoise"
-
-	"github.com/mercari/tortoise/pkg/deployment"
-	"github.com/mercari/tortoise/pkg/recommender"
-
-	"github.com/mercari/tortoise/pkg/hpa"
-	"github.com/mercari/tortoise/pkg/vpa"
-
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
+	v2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -51,9 +38,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	autoscalingv2 "github.com/mercari/tortoise/api/autoscaling/v2"
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 	"github.com/mercari/tortoise/controllers"
-	//+kubebuilder:scaffold:imports
+	"github.com/mercari/tortoise/pkg/deployment"
+	"github.com/mercari/tortoise/pkg/hpa"
+	"github.com/mercari/tortoise/pkg/recommender"
+	"github.com/mercari/tortoise/pkg/tortoise"
+	"github.com/mercari/tortoise/pkg/vpa"
+
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 var (

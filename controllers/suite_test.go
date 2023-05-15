@@ -27,18 +27,16 @@ package controllers
 
 import (
 	"fmt"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	appv1 "k8s.io/api/apps/v1"
-	v2 "k8s.io/api/autoscaling/v2"
-	"k8s.io/apimachinery/pkg/runtime"
-	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	appv1 "k8s.io/api/apps/v1"
+	v2 "k8s.io/api/autoscaling/v2"
+	"k8s.io/apimachinery/pkg/runtime"
+	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -46,7 +44,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
-	//+kubebuilder:scaffold:imports
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to

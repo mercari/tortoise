@@ -3,7 +3,7 @@ package vpa
 import (
 	"context"
 	"fmt"
-	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
+
 	autoscaling "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,6 +11,8 @@ import (
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
+
+	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 )
 
 type Service struct {

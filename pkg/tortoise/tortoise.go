@@ -3,21 +3,21 @@ package tortoise
 import (
 	"context"
 	"fmt"
-	appv1 "k8s.io/api/apps/v1"
-	"k8s.io/client-go/util/retry"
-	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-
-	"github.com/mercari/tortoise/api/v1alpha1"
+	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
+	"k8s.io/client-go/util/retry"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/mercari/tortoise/api/v1alpha1"
 )
 
 type Service struct {
