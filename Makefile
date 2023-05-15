@@ -146,4 +146,5 @@ lint:
 .PHONY: lint-fix
 lint-fix:
 	# Note: gci's autofix on golangci-lint was disabled. We can remove this if that is enabled again.
+	find . -name "*.go" | xargs gci write --section Standard --section Default --section "Prefix(github.com/mercari/tortoise)" --section blank --section dot
 	@make lint args='--fix -v' cons_args='-v'

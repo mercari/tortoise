@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/rand"
 	"net/http"
+
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {

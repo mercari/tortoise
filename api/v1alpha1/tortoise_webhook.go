@@ -29,7 +29,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/mercari/tortoise/pkg/annotation"
+
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -41,6 +41,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	"github.com/mercari/tortoise/pkg/annotation"
 )
 
 // log is for logging in this package.

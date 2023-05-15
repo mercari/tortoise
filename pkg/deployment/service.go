@@ -5,11 +5,10 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/apps/v1"
-
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Service struct {

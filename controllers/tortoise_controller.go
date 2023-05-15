@@ -28,24 +28,20 @@ package controllers
 import (
 	"context"
 	"fmt"
-	v1 "k8s.io/api/apps/v1"
 	"time"
 
-	"github.com/mercari/tortoise/pkg/deployment"
-
-	"github.com/mercari/tortoise/pkg/recommender"
+	v1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
-	"github.com/mercari/tortoise/pkg/tortoise"
-
-	"github.com/mercari/tortoise/pkg/hpa"
-	"github.com/mercari/tortoise/pkg/vpa"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
+	"github.com/mercari/tortoise/pkg/deployment"
+	"github.com/mercari/tortoise/pkg/hpa"
+	"github.com/mercari/tortoise/pkg/recommender"
+	"github.com/mercari/tortoise/pkg/tortoise"
+	"github.com/mercari/tortoise/pkg/vpa"
 )
 
 // TortoiseReconciler reconciles a Tortoise object

@@ -4,26 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	v1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/retry"
-	"k8s.io/utils/pointer"
 	"math"
 	"strconv"
 	"time"
 
-	"github.com/mercari/tortoise/pkg/annotation"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/klog/v2"
-
+	v1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
+	"k8s.io/klog/v2"
+	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/mercari/tortoise/pkg/annotation"
 )
 
 type Service struct {

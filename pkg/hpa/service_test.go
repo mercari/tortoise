@@ -5,20 +5,16 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/utils/pointer"
-
 	"github.com/google/go-cmp/cmp"
-
-	"github.com/mercari/tortoise/pkg/annotation"
+	v2 "k8s.io/api/autoscaling/v2"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
-	v2 "k8s.io/api/autoscaling/v2"
+	"github.com/mercari/tortoise/pkg/annotation"
 )
 
 func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {

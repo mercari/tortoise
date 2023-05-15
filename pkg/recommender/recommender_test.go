@@ -5,22 +5,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp/cmpopts"
-
-	"github.com/mercari/tortoise/pkg/annotation"
-
 	"github.com/google/go-cmp/cmp"
-
-	"k8s.io/utils/pointer"
-
-	"k8s.io/apimachinery/pkg/api/resource"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/mercari/tortoise/api/v1alpha1"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	v1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
+
+	"github.com/mercari/tortoise/api/v1alpha1"
+	"github.com/mercari/tortoise/pkg/annotation"
 )
 
 func TestUpdateRecommendation(t *testing.T) {
