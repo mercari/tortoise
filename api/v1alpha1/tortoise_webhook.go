@@ -29,10 +29,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/mercari/tortoise/pkg/annotation"
+	v2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -41,10 +45,10 @@ import (
 
 // log is for logging in this package.
 var tortoiselog = logf.Log.WithName("tortoise-resource")
-var DeploymentService *service
+var ClientService *service
 
 func (r *Tortoise) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	DeploymentService = New(mgr.GetClient())
+	ClientService = newService(mgr.GetClient())
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
@@ -73,7 +77,7 @@ func (r *Tortoise) Default() {
 		r.Spec.UpdateMode = UpdateModeOff
 	}
 
-	d, err := DeploymentService.GetDeploymentOnTortoise(context.Background(), r)
+	d, err := ClientService.GetDeploymentOnTortoise(context.Background(), r)
 	if err != nil {
 		tortoiselog.Error(err, "failed to get deployment")
 	}
@@ -137,6 +141,7 @@ func validateTortoise(t *Tortoise) error {
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Tortoise) ValidateCreate() error {
+	ctx := context.Background()
 	tortoiselog.Info("validate create", "name", r.Name)
 	if err := validateTortoise(r); err != nil {
 		return err
@@ -144,7 +149,7 @@ func (r *Tortoise) ValidateCreate() error {
 
 	fieldPath := field.NewPath("spec")
 
-	d, err := DeploymentService.GetDeploymentOnTortoise(context.Background(), r)
+	d, err := ClientService.GetDeploymentOnTortoise(ctx, r)
 	if err != nil {
 		return fmt.Errorf("failed to get the deployment defined in %s: %w", fieldPath.Child("targetRefs", "deploymentName"), err)
 	}
@@ -166,6 +171,20 @@ func (r *Tortoise) ValidateCreate() error {
 	uselessPolicies := policies.Difference(containers)
 	if uselessPolicies.Len() != 0 {
 		return fmt.Errorf("%s: tortoise should not have the policies for the container(s) which isn't defined in the deployment, but, it have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), uselessPolicies)
+	}
+
+	hpa, err := ClientService.GetHPAFromUser(ctx, r)
+	if err != nil {
+		// Check if HPA really exists or not.
+		return fmt.Errorf("failed to get the horizontal pod autoscaler defined in %s: %w", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"), err)
+	}
+	if hpa != nil {
+		for _, c := range containers.List() {
+			err = validateHPAAnnotations(hpa, c)
+			if err != nil {
+				return fmt.Errorf("the horizontal pod autoscaler defined in %s is invalid: %w", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"), err)
+			}
+		}
 	}
 
 	return validateTortoise(r)
@@ -204,5 +223,49 @@ func (r *Tortoise) ValidateUpdate(old runtime.Object) error {
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 func (r *Tortoise) ValidateDelete() error {
 	tortoiselog.Info("validate delete", "name", r.Name)
+	return nil
+}
+
+func externalMetricNameFromAnnotation(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName) (string, error) {
+	var prefix string
+	switch k {
+	case corev1.ResourceCPU:
+		prefix = hpa.GetAnnotations()[annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation]
+	case corev1.ResourceMemory:
+		prefix = hpa.GetAnnotations()[annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation]
+	default:
+		return "", fmt.Errorf("non supported resource type: %s", k)
+	}
+	return prefix + containerName, nil
+}
+
+func validateHPAAnnotations(hpa *v2.HorizontalPodAutoscaler, containerName string) error {
+	externalMetrics := sets.NewString()
+	for _, m := range hpa.Spec.Metrics {
+		if m.Type != v2.ExternalMetricSourceType {
+			continue
+		}
+
+		if m.External == nil {
+			// shouldn't reach here
+			klog.ErrorS(nil, "invalid external metric on HPA", klog.KObj(hpa))
+			continue
+		}
+
+		externalMetrics.Insert(m.External.Metric.Name)
+	}
+
+	resourceNames := []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}
+	for _, rn := range resourceNames {
+		externalMetricName, err := externalMetricNameFromAnnotation(hpa, containerName, rn)
+		if err != nil {
+			return err
+		}
+
+		if !externalMetrics.Has(externalMetricName) {
+			return fmt.Errorf("HPA doesn't have the external metrics which is defined in the annotations. (The annotation wants an external metric named %s)", externalMetricName)
+		}
+	}
+
 	return nil
 }
