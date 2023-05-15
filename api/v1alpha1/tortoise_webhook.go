@@ -161,11 +161,11 @@ func (r *Tortoise) ValidateCreate() error {
 
 	noPolicyContainers := containers.Difference(policies)
 	if noPolicyContainers.Len() != 0 {
-		return fmt.Errorf("%s: The tortoise should have the policies for all containers defined in the deployment, but, it doesn't have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), noPolicyContainers)
+		return fmt.Errorf("%s: tortoise should have the policies for all containers defined in the deployment, but, it doesn't have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), noPolicyContainers)
 	}
 	uselessPolicies := policies.Difference(containers)
 	if uselessPolicies.Len() != 0 {
-		return fmt.Errorf("%s: The tortoise should not have the policies for the container(s) which isn't defined in the deployment, but, it have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), uselessPolicies)
+		return fmt.Errorf("%s: tortoise should not have the policies for the container(s) which isn't defined in the deployment, but, it have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), uselessPolicies)
 	}
 
 	return validateTortoise(r)
