@@ -31,6 +31,7 @@ import (
 	"fmt"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -137,6 +138,35 @@ func validateTortoise(t *Tortoise) error {
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Tortoise) ValidateCreate() error {
 	tortoiselog.Info("validate create", "name", r.Name)
+	if err := validateTortoise(r); err != nil {
+		return err
+	}
+
+	fieldPath := field.NewPath("spec")
+
+	d, err := DeploymentService.GetDeploymentOnTortoise(context.Background(), r)
+	if err != nil {
+		return fmt.Errorf("failed to get the deployment defined in %s: %w", fieldPath.Child("targetRefs", "deploymentName"), err)
+	}
+
+	containers := sets.NewString()
+	for _, c := range d.Spec.Template.Spec.Containers {
+		containers.Insert(c.Name)
+	}
+
+	policies := sets.NewString()
+	for _, p := range r.Spec.ResourcePolicy {
+		policies.Insert(p.ContainerName)
+	}
+
+	noPolicyContainers := containers.Difference(policies)
+	if noPolicyContainers.Len() != 0 {
+		return fmt.Errorf("%s: The tortoise should have the policies for all containers defined in the deployment, but, it doesn't have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), noPolicyContainers)
+	}
+	uselessPolicies := policies.Difference(containers)
+	if uselessPolicies.Len() != 0 {
+		return fmt.Errorf("%s: The tortoise should not have the policies for the container(s) which isn't defined in the deployment, but, it have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), uselessPolicies)
+	}
 
 	return validateTortoise(r)
 }
