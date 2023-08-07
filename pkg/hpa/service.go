@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
+	"github.com/mercari/tortoise/metrics"
 	"github.com/mercari/tortoise/pkg/annotation"
 )
 
@@ -222,14 +223,15 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alp
 		return hpa, nil, nil
 	}
 	for _, t := range tortoise.Status.Recommendations.Horizontal.TargetUtilizations {
-		for k, r := range t.TargetUtilization {
-			if err := updateHPATargetValue(hpa, t.ContainerName, k, r, len(tortoise.Spec.ResourcePolicy) == 1); err != nil {
+		for resourcename, targetutil := range t.TargetUtilization {
+			metrics.AppliedHPATargetUtilization.WithLabelValues(tortoise.Name, tortoise.Namespace, t.ContainerName, resourcename.String(), hpa.Name).Observe(float64(targetutil))
+			if err := updateHPATargetValue(hpa, t.ContainerName, resourcename, targetutil, len(tortoise.Spec.ResourcePolicy) == 1); err != nil {
 				return nil, tortoise, fmt.Errorf("update HPA from the recommendation from tortoise")
 			}
 		}
 	}
 
-	max, err := getReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MaxReplicas, now)
+	max, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MaxReplicas, now)
 	if err != nil {
 		return nil, tortoise, fmt.Errorf("get maxReplicas recommendation: %w", err)
 	}
@@ -241,7 +243,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alp
 		// when emergency mode, we set the same value on minReplicas.
 		min = max
 	case autoscalingv1alpha1.TortoisePhaseBackToNormal:
-		idealMin, err := getReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
+		idealMin, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
 		if err != nil {
 			return nil, tortoise, fmt.Errorf("get minReplicas recommendation: %w", err)
 		}
@@ -255,12 +257,14 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alp
 			min = reduced
 		}
 	default:
-		min, err = getReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
+		min, err = GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
 		if err != nil {
 			return nil, tortoise, fmt.Errorf("get minReplicas recommendation: %w", err)
 		}
 	}
 	hpa.Spec.MinReplicas = &min
+	metrics.AppliedHPAMinReplicass.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Observe(float64(*hpa.Spec.MinReplicas))
+	metrics.AppliedHPAMaxReplicass.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Observe(float64(hpa.Spec.MaxReplicas))
 
 	return hpa, tortoise, nil
 }
@@ -288,8 +292,8 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 	return retHPA, retTortoise, retry.RetryOnConflict(retry.DefaultRetry, updateFn)
 }
 
-// getReplicasRecommendation finds the corresponding recommendations.
-func getReplicasRecommendation(recommendations []autoscalingv1alpha1.ReplicasRecommendation, now time.Time) (int32, error) {
+// GetReplicasRecommendation finds the corresponding recommendations.
+func GetReplicasRecommendation(recommendations []autoscalingv1alpha1.ReplicasRecommendation, now time.Time) (int32, error) {
 	for _, r := range recommendations {
 		if now.Hour() < r.To && now.Hour() >= r.From && now.Weekday().String() == r.WeekDay {
 			return r.Value, nil
