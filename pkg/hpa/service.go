@@ -218,7 +218,7 @@ func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1a
 	return hpa, nil
 }
 
-func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
+func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time, recordMetrics bool) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
 	if tortoise.Status.Recommendations.Horizontal == nil {
 		return hpa, nil, nil
 	}
@@ -273,16 +273,19 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 	retTortoise := &autoscalingv1alpha1.Tortoise{}
 	retHPA := &v2.HorizontalPodAutoscaler{}
 
+	// we only want to record metric once in every reconcile loop.
+	metricsRecorded := false
 	updateFn := func() error {
 		hpa := &v2.HorizontalPodAutoscaler{}
 		if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName}, hpa); err != nil {
 			return fmt.Errorf("failed to get hpa on tortoise: %w", err)
 		}
 
-		hpa, tortoise, err := c.ChangeHPAFromTortoiseRecommendation(tortoise, hpa, now)
+		hpa, tortoise, err := c.ChangeHPAFromTortoiseRecommendation(tortoise, hpa, now, !metricsRecorded)
 		if err != nil {
 			return fmt.Errorf("change HPA from tortoise recommendation: %w", err)
 		}
+		metricsRecorded = true
 		retTortoise = tortoise
 		retHPA = hpa
 
