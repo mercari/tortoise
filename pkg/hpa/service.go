@@ -21,8 +21,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
-	"github.com/mercari/tortoise/metrics"
 	"github.com/mercari/tortoise/pkg/annotation"
+	"github.com/mercari/tortoise/pkg/metrics"
 )
 
 type Service struct {

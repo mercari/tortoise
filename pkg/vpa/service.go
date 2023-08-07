@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
-	"github.com/mercari/tortoise/metrics"
+	"github.com/mercari/tortoise/pkg/metrics"
 )
 
 type Service struct {
