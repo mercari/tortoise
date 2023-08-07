@@ -149,6 +149,11 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 			vpa.Status.Recommendation = &v1.RecommendedPodResources{}
 		}
 		vpa.Status.Recommendation.ContainerRecommendations = newRecommendations
+		retVPA = vpa
+		if tortoise.Spec.UpdateMode == autoscalingv1alpha1.UpdateModeOff {
+			// don't update status if update mode is off. (= dryrun)
+			return nil
+		}
 		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
 		return err
 	}

@@ -280,6 +280,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName}, hpa); err != nil {
 			return fmt.Errorf("failed to get hpa on tortoise: %w", err)
 		}
+		retHPA = hpa.DeepCopy()
 
 		hpa, tortoise, err := c.ChangeHPAFromTortoiseRecommendation(tortoise, hpa, now, !metricsRecorded)
 		if err != nil {
@@ -287,8 +288,11 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 		metricsRecorded = true
 		retTortoise = tortoise
+		if tortoise.Spec.UpdateMode == autoscalingv1alpha1.UpdateModeOff {
+			// don't update status if update mode is off. (= dryrun)
+			return nil
+		}
 		retHPA = hpa
-
 		return c.c.Update(ctx, hpa)
 	}
 
