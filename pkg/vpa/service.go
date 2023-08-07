@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
+	"github.com/mercari/tortoise/metrics"
 )
 
 type Service struct {
@@ -127,6 +128,9 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 		newRecommendations := make([]v1.RecommendedContainerResources, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
 		for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
+			for resourcename, value := range r.RecommendedResource {
+				metrics.AppliedResourceRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, resourcename.String()).Observe(float64(value.MilliValue()))
+			}
 			newRecommendations = append(newRecommendations, v1.RecommendedContainerResources{
 				ContainerName:  r.ContainerName,
 				Target:         r.RecommendedResource,
