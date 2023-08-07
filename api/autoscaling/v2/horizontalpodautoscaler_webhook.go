@@ -75,7 +75,7 @@ func (h *HPAWebhook) Default(ctx context.Context, obj runtime.Object) error {
 		return nil
 	}
 
-	hpa, _, err = h.hpaService.ChangeHPAFromTortoiseRecommendation(t, hpa, time.Now())
+	hpa, _, err = h.hpaService.ChangeHPAFromTortoiseRecommendation(t, hpa, time.Now(), false) // we don't need to record metrics.
 	if err != nil {
 		// Block updating HPA may be critical. Just ignore it with error logs.
 		klog.ErrorS(err, "failed to get tortoise for mutating webhook of HPA", "hpa", klog.KObj(hpa), "tortoise", tortoiseName)

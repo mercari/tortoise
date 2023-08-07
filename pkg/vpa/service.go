@@ -121,6 +121,8 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
 	retVPA := &v1.VerticalPodAutoscaler{}
 
+	// we only want to record metric once in every reconcile loop.
+	metricsRecorded := false
 	updateFn := func() error {
 		vpa, err := c.GetTortoiseUpdaterVPA(ctx, tortoise)
 		if err != nil {
@@ -128,9 +130,13 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 		newRecommendations := make([]v1.RecommendedContainerResources, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
 		for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
-			for resourcename, value := range r.RecommendedResource {
-				metrics.AppliedResourceRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, resourcename.String()).Observe(float64(value.MilliValue()))
+			if !metricsRecorded {
+				for resourcename, value := range r.RecommendedResource {
+					metrics.AppliedResourceRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, resourcename.String()).Observe(float64(value.MilliValue()))
+				}
+				metricsRecorded = true
 			}
+
 			newRecommendations = append(newRecommendations, v1.RecommendedContainerResources{
 				ContainerName:  r.ContainerName,
 				Target:         r.RecommendedResource,
