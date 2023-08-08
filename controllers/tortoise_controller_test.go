@@ -318,6 +318,202 @@ var _ = Describe("Test TortoiseController", func() {
 				g.Expect(err).ShouldNot(HaveOccurred())
 			}).Should(Succeed())
 		})
+		It("TortoisePhaseWorking (dryrun)", func() {
+			// When dryrun, Tortoise is updated, but HPA and VPA are not updated.
+
+			now := time.Now()
+			tc := testCase{
+				before: resources{
+					tortoise: utils.NewTortoiseBuilder().
+						SetName("mercari").
+						SetNamespace("default").
+						SetUpdateMode(v1alpha1.UpdateModeOff).
+						SetTargetRefs(v1alpha1.TargetRefs{
+							DeploymentName:              "mercari-app",
+							HorizontalPodAutoscalerName: pointer.String("hpa"),
+						}).
+						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+							ContainerName: "app",
+							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
+								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+							},
+						}).
+						SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
+						SetRecommendations(v1alpha1.Recommendations{
+							Horizontal: &v1alpha1.HorizontalRecommendations{
+								TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[corev1.ResourceName]int32{
+											corev1.ResourceCPU: 50, // will be updated.
+										},
+									},
+								},
+								MaxReplicas: []v1alpha1.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        24,
+										WeekDay:   now.Weekday().String(),
+										TimeZone:  now.Location().String(),
+										Value:     15, // will be updated
+										UpdatedAt: metav1.NewTime(now),
+									},
+								},
+								MinReplicas: []v1alpha1.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        24,
+										WeekDay:   now.Weekday().String(),
+										TimeZone:  now.Location().String(),
+										Value:     3, // will be updated
+										UpdatedAt: metav1.NewTime(now),
+									},
+								},
+							},
+						}).
+						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+							ContainerName: "app",
+							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								corev1.ResourceCPU:    {},
+								corev1.ResourceMemory: {},
+							},
+							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								corev1.ResourceCPU:    {},
+								corev1.ResourceMemory: {},
+							},
+						}).
+						Build(),
+					deployment: deploymentWithReplicaNum(10),
+				},
+			}
+
+			err := tc.initializeResources(ctx, k8sClient, cfg)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			// create the desired HPA from the created definition.
+			// (no difference from "before")
+			wantHPA := tc.before.hpa.DeepCopy()
+			// create the desired VPA from the created definition.
+			// (no difference from "before")
+			wantVPA := map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
+			wantUpdater := tc.before.vpa[v1alpha1.VerticalPodAutoscalerRoleUpdater].DeepCopy()
+			wantVPA[v1alpha1.VerticalPodAutoscalerRoleUpdater] = wantUpdater
+			wantVPA[v1alpha1.VerticalPodAutoscalerRoleMonitor] = tc.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor].DeepCopy()
+
+			want := resources{
+				tortoise: utils.NewTortoiseBuilder().
+					SetName("mercari").
+					SetNamespace("default").
+					SetUpdateMode(v1alpha1.UpdateModeOff).
+					SetTargetRefs(v1alpha1.TargetRefs{
+						DeploymentName:              "mercari-app",
+						HorizontalPodAutoscalerName: pointer.String("hpa"),
+					}).
+					AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+						ContainerName: "app",
+						AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
+							corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
+							corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+						},
+					}).
+					SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
+					SetTargetsStatus(v1alpha1.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+						VerticalPodAutoscalers: []v1alpha1.TargetStatusVerticalPodAutoscaler{
+							{Name: "tortoise-updater-mercari", Role: "Updater"},
+							{Name: "tortoise-monitor-mercari", Role: "Monitor"},
+						},
+					}).
+					SetRecommendations(v1alpha1.Recommendations{
+						Vertical: &v1alpha1.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1alpha1.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: map[corev1.ResourceName]resource.Quantity{
+										corev1.ResourceCPU:    resource.MustParse("4"),
+										corev1.ResourceMemory: resource.MustParse("3Gi"),
+									},
+								},
+							},
+						},
+						Horizontal: &v1alpha1.HorizontalRecommendations{
+							TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[corev1.ResourceName]int32{
+										corev1.ResourceCPU:    75,
+										corev1.ResourceMemory: 90,
+									},
+								},
+							},
+							MaxReplicas: []v1alpha1.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        24,
+									WeekDay:   now.Weekday().String(),
+									TimeZone:  now.Location().String(),
+									Value:     20,
+									UpdatedAt: metav1.NewTime(now),
+								},
+							},
+							MinReplicas: []v1alpha1.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        24,
+									WeekDay:   now.Weekday().String(),
+									TimeZone:  now.Location().String(),
+									Value:     5,
+									UpdatedAt: metav1.NewTime(now),
+								},
+							},
+						},
+					}).
+					AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+						ContainerName: "app",
+						Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							corev1.ResourceCPU: {
+								Quantity: resource.MustParse("3"),
+							},
+							corev1.ResourceMemory: {
+								Quantity: resource.MustParse("3Gi"),
+							},
+						},
+						MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							corev1.ResourceCPU: {
+								Quantity: resource.MustParse("3"),
+							},
+							corev1.ResourceMemory: {
+								Quantity: resource.MustParse("3Gi"),
+							},
+						},
+					}).
+					Build(),
+				hpa: wantHPA,
+				vpa: wantVPA,
+			}
+			tc.want = want
+			Eventually(func(g Gomega) {
+				gotTortoise := &v1alpha1.Tortoise{}
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
+				g.Expect(err).ShouldNot(HaveOccurred())
+				gotHPA := &v2.HorizontalPodAutoscaler{}
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "hpa"}, gotHPA)
+				g.Expect(err).ShouldNot(HaveOccurred())
+				gotUpdaterVPA := &autoscalingv1.VerticalPodAutoscaler{}
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, gotUpdaterVPA)
+				g.Expect(err).ShouldNot(HaveOccurred())
+				gotMonitorVPA := &autoscalingv1.VerticalPodAutoscaler{}
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, gotMonitorVPA)
+				g.Expect(err).ShouldNot(HaveOccurred())
+
+				err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
+					v1alpha1.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
+					v1alpha1.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
+				}})
+				g.Expect(err).ShouldNot(HaveOccurred())
+			}).Should(Succeed())
+		})
 		It("TortoisePhaseEmergency", func() {
 			now := time.Now()
 			tc := testCase{
