@@ -174,12 +174,6 @@ func (s *Service) justifyNewSizeByMaxMin(newSize int64, k corev1.ResourceName, r
 
 func (s *Service) updateHPARecommendation(ctx context.Context, tortoise *v1alpha1.Tortoise, hpa *v2.HorizontalPodAutoscaler, deployment *v1.Deployment, now time.Time) (*v1alpha1.Tortoise, error) {
 	logger := log.FromContext(ctx)
-	if tortoise.Spec.UpdateMode == v1alpha1.UpdateModeOff {
-		// dry-run
-		logger.Info("tortoise is dry-run mode", "tortoise", klog.KObj(tortoise))
-		return tortoise, nil
-	}
-
 	if tortoise.Status.TortoisePhase == v1alpha1.TortoisePhaseGatheringData {
 		logger.Info("tortoise is gathering data and unable to recommend", "tortoise", klog.KObj(tortoise))
 		return tortoise, nil
