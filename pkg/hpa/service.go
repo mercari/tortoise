@@ -103,11 +103,27 @@ func (c *Service) CreateHPAForSingleContainer(ctx context.Context, tortoise *aut
 	return hpa.DeepCopy(), tortoise, err
 }
 
-func (c *Service) GiveAnnotationsOnHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) error {
+func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) error {
 	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
-		return nil
+		// shouldn't reach here in the real cluster as the tortoise mutating webhook sets this.
+		tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName = pointer.String(autoscalingv1alpha1.TortoiseDefaultHPAName(tortoise.Name))
 	}
 
+	// update the existing HPA that the user set on tortoise.
+	err := c.giveAnnotationsOnHPA(ctx, tortoise)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	// create HPA
+	_, tortoise, err = c.CreateHPA(ctx, tortoise, dm)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Service) giveAnnotationsOnHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) error {
 	updateFn := func() error {
 		hpa := &v2.HorizontalPodAutoscaler{}
 		if err := c.c.Get(ctx, client.ObjectKey{
@@ -115,6 +131,9 @@ func (c *Service) GiveAnnotationsOnHPA(ctx context.Context, tortoise *autoscalin
 			Name:      *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName,
 		}, hpa); err != nil {
 			return fmt.Errorf("get hpa: %w", err)
+		}
+		if hpa.Annotations == nil {
+			hpa.Annotations = map[string]string{}
 		}
 		hpa.Annotations[annotation.TortoiseNameAnnotation] = tortoise.Name
 		return c.c.Update(ctx, hpa)
