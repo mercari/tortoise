@@ -87,6 +87,8 @@ func main() {
 	var maxMemoryPerContainer string
 	var timeZone string
 	var tortoiseUpdateInterval time.Duration
+	var defaultHPAForSingleContainerPath string
+	var defaultHPAForMultipleContainersPath string
 	flag.IntVar(&rangeOfMinMaxReplicasRecommendationHours, "range-of-min-max-replicas-recommendation-hours", 1, "the time (hours) range of minReplicas and maxReplicas recommendation (default: 1)")
 	flag.IntVar(&tTLHoursOfMinMaxReplicasRecommendation, "ttl-hours-of-min-max-replicas-recommendation", 24*30, "the TTL (hours) of minReplicas and maxReplicas recommendation (default: 720 (=30 days))")
 	flag.Float64Var(&maxReplicasFactor, "max-replicas-factor", 2.0, "the factor to calculate the maxReplicas recommendation from the current replica number (default: 2.0)")
@@ -99,6 +101,8 @@ func main() {
 	flag.StringVar(&maxMemoryPerContainer, "maximum-memory-bytes", "10Gi", "the maximum memory bytes that the tortoise can give to the container (default: 10Gi)")
 	flag.StringVar(&timeZone, "timezone", "Asia/Tokyo", "The timezone used to record time in tortoise objects (default: Asia/Tokyo)")
 	flag.DurationVar(&tortoiseUpdateInterval, "tortoise-update-interval", 15*time.Second, "The interval of updating each tortoise (default: 15s)")
+	flag.StringVar(&defaultHPAForSingleContainerPath, "default-hpa-for-single-container-yaml-path", "", "The path to the default HPA yaml file for single container Pod (default: \"\"")
+	flag.StringVar(&defaultHPAForMultipleContainersPath, "default-hpa-for-multiple-containers-yaml-path", "", "The path to the default HPA yaml file for multiple containers Pod (default: \"\"")
 
 	opts := zap.Options{
 		Development: true,
@@ -143,7 +147,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	hpaService := hpa.New(mgr.GetClient(), replicaReductionFactor, upperTargetResourceUtilization)
+	hpaService, err := hpa.New(mgr.GetClient(), replicaReductionFactor, upperTargetResourceUtilization, defaultHPAForSingleContainerPath, defaultHPAForMultipleContainersPath)
+	if err != nil {
+		setupLog.Error(err, "unable to start hpa service")
+		os.Exit(1)
+	}
 
 	if err = (&controllers.TortoiseReconciler{
 		Scheme:             mgr.GetScheme(),

@@ -63,9 +63,11 @@ var _ = Describe("Test TortoiseController", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 		cli, err := vpa.New(mgr.GetConfig())
 		Expect(err).ShouldNot(HaveOccurred())
+		hpaservice, err := hpa.New(mgr.GetClient(), 0.95, 90, "", "")
+		Expect(err).ShouldNot(HaveOccurred())
 		reconciler := &TortoiseReconciler{
 			Scheme:             scheme,
-			HpaService:         hpa.New(mgr.GetClient(), 0.95, 90),
+			HpaService:         hpaservice,
 			VpaService:         cli,
 			DeploymentService:  deployment.New(mgr.GetClient()),
 			TortoiseService:    tortoiseService,
@@ -1401,7 +1403,10 @@ func (t *testCase) initializeResources(ctx context.Context, k8sClient client.Cli
 	}
 	if t.before.hpa == nil {
 		// create default HPA.
-		HpaClient := hpa.New(k8sClient, 0.95, 90)
+		HpaClient, err := hpa.New(k8sClient, 0.95, 90, "", "")
+		if err != nil {
+			return err
+		}
 		t.before.hpa, t.before.tortoise, err = HpaClient.CreateHPA(ctx, t.before.tortoise, t.before.deployment)
 		if err != nil {
 			return err

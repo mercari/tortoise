@@ -1,11 +1,14 @@
 package hpa
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/apps/v1"
@@ -15,6 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
@@ -30,14 +35,57 @@ type Service struct {
 
 	replicaReductionFactor         float64
 	upperTargetResourceUtilization int32
+	defaultHPAForSingleContainer   *v2.HorizontalPodAutoscaler
+	defaultHPAForMultipleContainer *v2.HorizontalPodAutoscaler
 }
 
-func New(c client.Client, replicaReductionFactor float64, upperTargetResourceUtilization int) *Service {
-	return &Service{
+func readHPA(path string) (*v2.HorizontalPodAutoscaler, error) {
+	rawbyte, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	b := bufio.NewReader(strings.NewReader(string(rawbyte)))
+	r := k8syaml.NewYAMLReader(b)
+
+	doc, err := r.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	d := scheme.Codecs.UniversalDeserializer()
+	hpa := &v2.HorizontalPodAutoscaler{}
+	_, _, err = d.Decode(doc, nil, hpa)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode yaml: %s\n%s", string(rawbyte), err)
+	}
+
+	return hpa, err
+}
+
+func New(c client.Client, replicaReductionFactor float64, upperTargetResourceUtilization int, defaultHPAForSingleContainerPath, defaultHPAForMultipleContainersPath string) (*Service, error) {
+	s := &Service{
 		c:                              c,
 		replicaReductionFactor:         replicaReductionFactor,
 		upperTargetResourceUtilization: int32(upperTargetResourceUtilization),
 	}
+
+	if defaultHPAForSingleContainerPath != "" {
+		var err error
+		s.defaultHPAForSingleContainer, err = readHPA(defaultHPAForSingleContainerPath)
+		if err != nil {
+			return nil, fmt.Errorf("could not read default HPA for single container: %w", err)
+		}
+	}
+
+	if defaultHPAForMultipleContainersPath != "" {
+		var err error
+		s.defaultHPAForMultipleContainer, err = readHPA(defaultHPAForMultipleContainersPath)
+		if err != nil {
+			return nil, fmt.Errorf("could not read default HPA for multiple containers: %w", err)
+		}
+	}
+
+	return s, nil
 }
 
 func (c *Service) CreateHPAForSingleContainer(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
