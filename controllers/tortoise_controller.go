@@ -170,20 +170,10 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment, now time.Time) error {
-	var err error
 	// need to initialize HPA and VPA.
-	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
-		// create HPA
-		_, tortoise, err = r.HpaService.CreateHPA(ctx, tortoise, dm)
-		if err != nil {
-			return err
-		}
-	} else {
-		// update the existing HPA that the user set on tortoise.
-		err = r.HpaService.GiveAnnotationsOnHPA(ctx, tortoise)
-		if err != nil {
-			return err
-		}
+	tortoise, err := r.HpaService.InitializeHPA(ctx, tortoise, dm)
+	if err != nil {
+		return err
 	}
 
 	_, tortoise, err = r.VpaService.CreateTortoiseMonitorVPA(ctx, tortoise)

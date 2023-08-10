@@ -47,7 +47,7 @@ var _ = Describe("Test TortoiseController", func() {
 		err = deleteObj(ctx, &autoscalingv1.VerticalPodAutoscaler{}, "tortoise-monitor-mercari")
 		Expect(err).ShouldNot(HaveOccurred())
 
-		err = deleteObj(ctx, &v2.HorizontalPodAutoscaler{}, "hpa")
+		err = deleteObj(ctx, &v2.HorizontalPodAutoscaler{}, "tortoise-hpa-mercari")
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 
@@ -106,8 +106,7 @@ var _ = Describe("Test TortoiseController", func() {
 						SetName("mercari").
 						SetNamespace("default").
 						SetTargetRefs(v1alpha1.TargetRefs{
-							DeploymentName:              "mercari-app",
-							HorizontalPodAutoscalerName: pointer.String("hpa"),
+							DeploymentName: "mercari-app",
 						}).
 						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
 							ContainerName: "app",
@@ -211,8 +210,7 @@ var _ = Describe("Test TortoiseController", func() {
 					SetName("mercari").
 					SetNamespace("default").
 					SetTargetRefs(v1alpha1.TargetRefs{
-						DeploymentName:              "mercari-app",
-						HorizontalPodAutoscalerName: pointer.String("hpa"),
+						DeploymentName: "mercari-app",
 					}).
 					AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
 						ContainerName: "app",
@@ -223,7 +221,7 @@ var _ = Describe("Test TortoiseController", func() {
 					}).
 					SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
 					SetTargetsStatus(v1alpha1.TargetsStatus{
-						HorizontalPodAutoscaler: "hpa",
+						HorizontalPodAutoscaler: "tortoise-hpa-mercari",
 						VerticalPodAutoscalers: []v1alpha1.TargetStatusVerticalPodAutoscaler{
 							{Name: "tortoise-updater-mercari", Role: "Updater"},
 							{Name: "tortoise-monitor-mercari", Role: "Monitor"},
@@ -302,7 +300,7 @@ var _ = Describe("Test TortoiseController", func() {
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotHPA := &v2.HorizontalPodAutoscaler{}
-				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "hpa"}, gotHPA)
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, gotHPA)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotUpdaterVPA := &autoscalingv1.VerticalPodAutoscaler{}
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, gotUpdaterVPA)
@@ -329,8 +327,7 @@ var _ = Describe("Test TortoiseController", func() {
 						SetNamespace("default").
 						SetUpdateMode(v1alpha1.UpdateModeOff).
 						SetTargetRefs(v1alpha1.TargetRefs{
-							DeploymentName:              "mercari-app",
-							HorizontalPodAutoscalerName: pointer.String("hpa"),
+							DeploymentName: "mercari-app",
 						}).
 						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
 							ContainerName: "app",
@@ -407,8 +404,7 @@ var _ = Describe("Test TortoiseController", func() {
 					SetNamespace("default").
 					SetUpdateMode(v1alpha1.UpdateModeOff).
 					SetTargetRefs(v1alpha1.TargetRefs{
-						DeploymentName:              "mercari-app",
-						HorizontalPodAutoscalerName: pointer.String("hpa"),
+						DeploymentName: "mercari-app",
 					}).
 					AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
 						ContainerName: "app",
@@ -419,7 +415,7 @@ var _ = Describe("Test TortoiseController", func() {
 					}).
 					SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
 					SetTargetsStatus(v1alpha1.TargetsStatus{
-						HorizontalPodAutoscaler: "hpa",
+						HorizontalPodAutoscaler: "tortoise-hpa-mercari",
 						VerticalPodAutoscalers: []v1alpha1.TargetStatusVerticalPodAutoscaler{
 							{Name: "tortoise-updater-mercari", Role: "Updater"},
 							{Name: "tortoise-monitor-mercari", Role: "Monitor"},
@@ -498,7 +494,7 @@ var _ = Describe("Test TortoiseController", func() {
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotHPA := &v2.HorizontalPodAutoscaler{}
-				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "hpa"}, gotHPA)
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, gotHPA)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotUpdaterVPA := &autoscalingv1.VerticalPodAutoscaler{}
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, gotUpdaterVPA)
@@ -522,8 +518,7 @@ var _ = Describe("Test TortoiseController", func() {
 						SetName("mercari").
 						SetNamespace("default").
 						SetTargetRefs(v1alpha1.TargetRefs{
-							DeploymentName:              "mercari-app",
-							HorizontalPodAutoscalerName: pointer.String("hpa"),
+							DeploymentName: "mercari-app",
 						}).
 						SetUpdateMode(v1alpha1.UpdateModeEmergency).
 						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
@@ -628,8 +623,7 @@ var _ = Describe("Test TortoiseController", func() {
 					SetName("mercari").
 					SetNamespace("default").
 					SetTargetRefs(v1alpha1.TargetRefs{
-						DeploymentName:              "mercari-app",
-						HorizontalPodAutoscalerName: pointer.String("hpa"),
+						DeploymentName: "mercari-app",
 					}).
 					SetUpdateMode(v1alpha1.UpdateModeEmergency).
 					AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
@@ -641,7 +635,7 @@ var _ = Describe("Test TortoiseController", func() {
 					}).
 					SetTortoisePhase(v1alpha1.TortoisePhaseEmergency).
 					SetTargetsStatus(v1alpha1.TargetsStatus{
-						HorizontalPodAutoscaler: "hpa",
+						HorizontalPodAutoscaler: "tortoise-hpa-mercari",
 						VerticalPodAutoscalers: []v1alpha1.TargetStatusVerticalPodAutoscaler{
 							{Name: "tortoise-updater-mercari", Role: "Updater"},
 							{Name: "tortoise-monitor-mercari", Role: "Monitor"},
@@ -720,7 +714,7 @@ var _ = Describe("Test TortoiseController", func() {
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotHPA := &v2.HorizontalPodAutoscaler{}
-				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "hpa"}, gotHPA)
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, gotHPA)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotUpdaterVPA := &autoscalingv1.VerticalPodAutoscaler{}
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, gotUpdaterVPA)
@@ -746,8 +740,7 @@ var _ = Describe("Test TortoiseController", func() {
 						SetName("mercari").
 						SetNamespace("default").
 						SetTargetRefs(v1alpha1.TargetRefs{
-							DeploymentName:              "mercari-app",
-							HorizontalPodAutoscalerName: pointer.String("hpa"),
+							DeploymentName: "mercari-app",
 						}).
 						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
 							ContainerName: "app",
@@ -897,8 +890,7 @@ var _ = Describe("Test TortoiseController", func() {
 					SetName("mercari").
 					SetNamespace("default").
 					SetTargetRefs(v1alpha1.TargetRefs{
-						DeploymentName:              "mercari-app",
-						HorizontalPodAutoscalerName: pointer.String("hpa"),
+						DeploymentName: "mercari-app",
 					}).
 					AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
 						ContainerName: "app",
@@ -916,7 +908,7 @@ var _ = Describe("Test TortoiseController", func() {
 					}).
 					SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
 					SetTargetsStatus(v1alpha1.TargetsStatus{
-						HorizontalPodAutoscaler: "hpa",
+						HorizontalPodAutoscaler: "tortoise-hpa-mercari",
 						VerticalPodAutoscalers: []v1alpha1.TargetStatusVerticalPodAutoscaler{
 							{Name: "tortoise-updater-mercari", Role: "Updater"},
 							{Name: "tortoise-monitor-mercari", Role: "Monitor"},
@@ -1028,7 +1020,7 @@ var _ = Describe("Test TortoiseController", func() {
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotHPA := &v2.HorizontalPodAutoscaler{}
-				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "hpa"}, gotHPA)
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, gotHPA)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotUpdaterVPA := &autoscalingv1.VerticalPodAutoscaler{}
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, gotUpdaterVPA)
@@ -1052,8 +1044,7 @@ var _ = Describe("Test TortoiseController", func() {
 						SetName("mercari").
 						SetNamespace("default").
 						SetTargetRefs(v1alpha1.TargetRefs{
-							DeploymentName:              "mercari-app",
-							HorizontalPodAutoscalerName: pointer.String("hpa"),
+							DeploymentName: "mercari-app",
 						}).
 						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
 							ContainerName: "app",
@@ -1204,8 +1195,7 @@ var _ = Describe("Test TortoiseController", func() {
 					SetName("mercari").
 					SetNamespace("default").
 					SetTargetRefs(v1alpha1.TargetRefs{
-						DeploymentName:              "mercari-app",
-						HorizontalPodAutoscalerName: pointer.String("hpa"),
+						DeploymentName: "mercari-app",
 					}).
 					AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
 						ContainerName: "app",
@@ -1224,7 +1214,7 @@ var _ = Describe("Test TortoiseController", func() {
 					SetUpdateMode(v1alpha1.UpdateModeEmergency).
 					SetTortoisePhase(v1alpha1.TortoisePhaseEmergency).
 					SetTargetsStatus(v1alpha1.TargetsStatus{
-						HorizontalPodAutoscaler: "hpa",
+						HorizontalPodAutoscaler: "tortoise-hpa-mercari",
 						VerticalPodAutoscalers: []v1alpha1.TargetStatusVerticalPodAutoscaler{
 							{Name: "tortoise-updater-mercari", Role: "Updater"},
 							{Name: "tortoise-monitor-mercari", Role: "Monitor"},
@@ -1336,7 +1326,7 @@ var _ = Describe("Test TortoiseController", func() {
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotHPA := &v2.HorizontalPodAutoscaler{}
-				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "hpa"}, gotHPA)
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, gotHPA)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotUpdaterVPA := &autoscalingv1.VerticalPodAutoscaler{}
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, gotUpdaterVPA)

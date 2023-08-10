@@ -6,11 +6,14 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	appv1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
@@ -38,12 +41,10 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1alpha1.Tortoise{
-					Spec: autoscalingv1alpha1.TortoiseSpec{
-						TargetRefs: autoscalingv1alpha1.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("hpa"),
-						},
-					},
 					Status: autoscalingv1alpha1.TortoiseStatus{
+						Targets: autoscalingv1alpha1.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
 						Recommendations: autoscalingv1alpha1.Recommendations{
 							Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
 								TargetUtilizations: []autoscalingv1alpha1.HPATargetUtilizationRecommendationPerContainer{
@@ -173,12 +174,10 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1alpha1.Tortoise{
-					Spec: autoscalingv1alpha1.TortoiseSpec{
-						TargetRefs: autoscalingv1alpha1.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("hpa"),
-						},
-					},
 					Status: autoscalingv1alpha1.TortoiseStatus{
+						Targets: autoscalingv1alpha1.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
 						Recommendations: autoscalingv1alpha1.Recommendations{
 							Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
 								TargetUtilizations: []autoscalingv1alpha1.HPATargetUtilizationRecommendationPerContainer{
@@ -306,11 +305,11 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 				tortoise: &autoscalingv1alpha1.Tortoise{
 					Spec: autoscalingv1alpha1.TortoiseSpec{
 						UpdateMode: autoscalingv1alpha1.UpdateModeOff,
-						TargetRefs: autoscalingv1alpha1.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("hpa"),
-						},
 					},
 					Status: autoscalingv1alpha1.TortoiseStatus{
+						Targets: autoscalingv1alpha1.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
 						Recommendations: autoscalingv1alpha1.Recommendations{
 							Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
 								TargetUtilizations: []autoscalingv1alpha1.HPATargetUtilizationRecommendationPerContainer{
@@ -436,12 +435,10 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1alpha1.Tortoise{
-					Spec: autoscalingv1alpha1.TortoiseSpec{
-						TargetRefs: autoscalingv1alpha1.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("hpa"),
-						},
-					},
 					Status: autoscalingv1alpha1.TortoiseStatus{
+						Targets: autoscalingv1alpha1.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
 						TortoisePhase: autoscalingv1alpha1.TortoisePhaseEmergency,
 						Recommendations: autoscalingv1alpha1.Recommendations{
 							Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
@@ -568,12 +565,10 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1alpha1.Tortoise{
-					Spec: autoscalingv1alpha1.TortoiseSpec{
-						TargetRefs: autoscalingv1alpha1.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("hpa"),
-						},
-					},
 					Status: autoscalingv1alpha1.TortoiseStatus{
+						Targets: autoscalingv1alpha1.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
 						TortoisePhase: autoscalingv1alpha1.TortoisePhaseBackToNormal,
 						Recommendations: autoscalingv1alpha1.Recommendations{
 							Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
@@ -700,12 +695,10 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1alpha1.Tortoise{
-					Spec: autoscalingv1alpha1.TortoiseSpec{
-						TargetRefs: autoscalingv1alpha1.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("hpa"),
-						},
-					},
 					Status: autoscalingv1alpha1.TortoiseStatus{
+						Targets: autoscalingv1alpha1.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
 						TortoisePhase: autoscalingv1alpha1.TortoisePhaseBackToNormal,
 						Recommendations: autoscalingv1alpha1.Recommendations{
 							Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
@@ -826,12 +819,10 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 				},
 			},
 			wantTortoise: &autoscalingv1alpha1.Tortoise{
-				Spec: autoscalingv1alpha1.TortoiseSpec{
-					TargetRefs: autoscalingv1alpha1.TargetRefs{
-						HorizontalPodAutoscalerName: pointer.String("hpa"),
-					},
-				},
 				Status: autoscalingv1alpha1.TortoiseStatus{
+					Targets: autoscalingv1alpha1.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
 					TortoisePhase: autoscalingv1alpha1.TortoisePhaseWorking,
 					Recommendations: autoscalingv1alpha1.Recommendations{
 						Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
@@ -897,4 +888,200 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 
 func ptrInt32(i int32) *int32 {
 	return &i
+}
+
+func TestService_InitializeHPA(t *testing.T) {
+	type args struct {
+		tortoise *autoscalingv1alpha1.Tortoise
+		dm       *appv1.Deployment
+	}
+	tests := []struct {
+		name       string
+		initialHPA *v2.HorizontalPodAutoscaler
+		args       args
+		afterHPA   *v2.HorizontalPodAutoscaler
+		wantErr    bool
+	}{
+		{
+			name: "should create new hpa",
+			args: args{
+				tortoise: &autoscalingv1alpha1.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+					},
+					Spec: autoscalingv1alpha1.TortoiseSpec{
+						TargetRefs: autoscalingv1alpha1.TargetRefs{
+							DeploymentName: "deployment",
+						},
+					},
+				},
+				dm: &appv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "deployment",
+						Namespace: "default",
+					},
+					Spec: appv1.DeploymentSpec{
+						Replicas: pointer.Int32(4),
+						Template: v1.PodTemplateSpec{
+							Spec: v1.PodSpec{
+								Containers: []v1.Container{
+									{
+										Name: "app",
+									},
+								},
+							},
+						},
+					},
+					Status: appv1.DeploymentStatus{
+						Replicas: 4,
+					},
+				},
+			},
+			afterHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-hpa-tortoise",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annotation.TortoiseNameAnnotation: "tortoise",
+					},
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(2),
+					MaxReplicas: 8,
+					ScaleTargetRef: v2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleDown: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         2,
+									PeriodSeconds: 90,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "just give annotation to existing hpa",
+			args: args{
+				tortoise: &autoscalingv1alpha1.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+					},
+					Spec: autoscalingv1alpha1.TortoiseSpec{
+						TargetRefs: autoscalingv1alpha1.TargetRefs{
+							HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+							DeploymentName:              "deployment",
+						},
+					},
+				},
+				dm: &appv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "deployment",
+						Namespace: "default",
+					},
+					Spec: appv1.DeploymentSpec{
+						Replicas: pointer.Int32(4),
+						Template: v1.PodTemplateSpec{
+							Spec: v1.PodSpec{
+								Containers: []v1.Container{
+									{
+										Name: "app",
+									},
+								},
+							},
+						},
+					},
+					Status: appv1.DeploymentStatus{
+						Replicas: 4,
+					},
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "existing-hpa",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					ScaleTargetRef: v2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleDown: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         2,
+									PeriodSeconds: 90,
+								},
+							},
+						},
+					},
+				},
+			},
+			afterHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "existing-hpa",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annotation.TortoiseNameAnnotation: "tortoise",
+					},
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					ScaleTargetRef: v2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleDown: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         2,
+									PeriodSeconds: 90,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := New(fake.NewClientBuilder().Build(), 0.95, 90)
+			if tt.initialHPA != nil {
+				c = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), 0.95, 90)
+			}
+			_, err := c.InitializeHPA(context.Background(), tt.args.tortoise, tt.args.dm)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Service.InitializeHPA() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			hpa := &v2.HorizontalPodAutoscaler{}
+			err = c.c.Get(context.Background(), client.ObjectKey{Name: tt.afterHPA.Name, Namespace: tt.afterHPA.Namespace}, hpa)
+			if err != nil {
+				t.Errorf("get hpa error = %v", err)
+			}
+
+			if d := cmp.Diff(tt.afterHPA, hpa, cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "TypeMeta"), cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion")); d != "" {
+				t.Errorf("Service.InitializeHPA() hpa diff = %v", d)
+			}
+		})
+	}
 }
