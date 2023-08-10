@@ -10,11 +10,13 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,19 +38,25 @@ var _ = Describe("Test TortoiseController", func() {
 	var stopFunc func()
 	cleanUp := func() {
 		err := deleteObj(ctx, &v1alpha1.Tortoise{}, "mercari")
-		Expect(err).ShouldNot(HaveOccurred())
-
+		if err != nil {
+			Expect(apierrors.IsNotFound(err)).To(Equal(true))
+		}
 		err = deleteObj(ctx, &v1.Deployment{}, "mercari-app")
-		Expect(err).ShouldNot(HaveOccurred())
-
+		if err != nil {
+			Expect(apierrors.IsNotFound(err)).To(Equal(true))
+		}
 		err = deleteObj(ctx, &autoscalingv1.VerticalPodAutoscaler{}, "tortoise-updater-mercari")
-		Expect(err).ShouldNot(HaveOccurred())
-
+		if err != nil {
+			Expect(apierrors.IsNotFound(err)).To(Equal(true))
+		}
 		err = deleteObj(ctx, &autoscalingv1.VerticalPodAutoscaler{}, "tortoise-monitor-mercari")
-		Expect(err).ShouldNot(HaveOccurred())
-
+		if err != nil {
+			Expect(apierrors.IsNotFound(err)).To(Equal(true))
+		}
 		err = deleteObj(ctx, &v2.HorizontalPodAutoscaler{}, "tortoise-hpa-mercari")
-		Expect(err).ShouldNot(HaveOccurred())
+		if err != nil {
+			Expect(apierrors.IsNotFound(err)).To(Equal(true))
+		}
 	}
 
 	BeforeEach(func() {
@@ -91,6 +99,14 @@ var _ = Describe("Test TortoiseController", func() {
 			suiteFailed = true
 		} else {
 			cleanUp()
+			for {
+				// make sure all resources are deleted
+				t := &v1alpha1.Tortoise{}
+				err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, t)
+				if apierrors.IsNotFound(err) {
+					break
+				}
+			}
 		}
 
 		stopFunc()
@@ -1343,6 +1359,231 @@ var _ = Describe("Test TortoiseController", func() {
 			}).Should(Succeed())
 		})
 	})
+	Context("DeletionPolicy is handled correctly", func() {
+		It("[DeletionPolicy = DeleteAll] delete HPA and VPAs when Tortoise is deleted", func() {
+			now := time.Now()
+			tc := testCase{
+				before: resources{
+					tortoise: utils.NewTortoiseBuilder().
+						SetName("mercari").
+						SetNamespace("default").
+						SetDeletionPolicy(v1alpha1.DeletionPolicyDeleteAll).
+						SetTargetRefs(v1alpha1.TargetRefs{
+							DeploymentName: "mercari-app",
+						}).
+						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+							ContainerName: "app",
+							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
+								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+							},
+						}).
+						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+							ContainerName: "istio-proxy",
+							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
+								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+							},
+						}).
+						SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
+						SetRecommendations(v1alpha1.Recommendations{
+							Horizontal: &v1alpha1.HorizontalRecommendations{
+								TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[corev1.ResourceName]int32{
+											corev1.ResourceCPU: 50, // will be updated.
+										},
+									},
+									{
+										ContainerName: "istio-proxy",
+										TargetUtilization: map[corev1.ResourceName]int32{
+											corev1.ResourceCPU: 50, // will be updated.
+										},
+									},
+								},
+								MaxReplicas: []v1alpha1.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        24,
+										WeekDay:   now.Weekday().String(),
+										TimeZone:  now.Location().String(),
+										Value:     15, // will be updated
+										UpdatedAt: metav1.NewTime(now),
+									},
+								},
+								MinReplicas: []v1alpha1.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        24,
+										WeekDay:   now.Weekday().String(),
+										TimeZone:  now.Location().String(),
+										Value:     3, // will be updated
+										UpdatedAt: metav1.NewTime(now),
+									},
+								},
+							},
+						}).
+						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+							ContainerName: "app",
+							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								corev1.ResourceCPU:    {},
+								corev1.ResourceMemory: {},
+							},
+							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								corev1.ResourceCPU:    {},
+								corev1.ResourceMemory: {},
+							},
+						}).
+						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+							ContainerName: "istio-proxy",
+							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								corev1.ResourceCPU:    {},
+								corev1.ResourceMemory: {},
+							},
+							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								corev1.ResourceCPU:    {},
+								corev1.ResourceMemory: {},
+							},
+						}).
+						Build(),
+					deployment: multiContainerDeploymentWithReplicaNum(10),
+				},
+			}
+
+			err := tc.initializeResources(ctx, k8sClient, cfg)
+			Expect(err).ShouldNot(HaveOccurred())
+			time.Sleep(1 * time.Second)
+
+			// delete Tortoise
+			err = k8sClient.Delete(ctx, tc.before.tortoise)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			Eventually(func(g Gomega) {
+				// make sure all resources are deleted
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, &v1alpha1.Tortoise{})
+				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, &v2.HorizontalPodAutoscaler{})
+				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, &autoscalingv1.VerticalPodAutoscaler{})
+				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, &autoscalingv1.VerticalPodAutoscaler{})
+				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
+			}).Should(Succeed())
+		})
+		It("[DeletionPolicy = NoDelete] do not delete HPA and VPAs when Tortoise is deleted", func() {
+			now := time.Now()
+			tc := testCase{
+				before: resources{
+					tortoise: utils.NewTortoiseBuilder().
+						SetName("mercari").
+						SetNamespace("default").
+						SetDeletionPolicy(v1alpha1.DeletionPolicyNoDelete).
+						SetTargetRefs(v1alpha1.TargetRefs{
+							DeploymentName: "mercari-app",
+						}).
+						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+							ContainerName: "app",
+							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
+								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+							},
+						}).
+						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+							ContainerName: "istio-proxy",
+							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
+								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+							},
+						}).
+						SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
+						SetRecommendations(v1alpha1.Recommendations{
+							Horizontal: &v1alpha1.HorizontalRecommendations{
+								TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[corev1.ResourceName]int32{
+											corev1.ResourceCPU: 50, // will be updated.
+										},
+									},
+									{
+										ContainerName: "istio-proxy",
+										TargetUtilization: map[corev1.ResourceName]int32{
+											corev1.ResourceCPU: 50, // will be updated.
+										},
+									},
+								},
+								MaxReplicas: []v1alpha1.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        24,
+										WeekDay:   now.Weekday().String(),
+										TimeZone:  now.Location().String(),
+										Value:     15, // will be updated
+										UpdatedAt: metav1.NewTime(now),
+									},
+								},
+								MinReplicas: []v1alpha1.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        24,
+										WeekDay:   now.Weekday().String(),
+										TimeZone:  now.Location().String(),
+										Value:     3, // will be updated
+										UpdatedAt: metav1.NewTime(now),
+									},
+								},
+							},
+						}).
+						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+							ContainerName: "app",
+							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								corev1.ResourceCPU:    {},
+								corev1.ResourceMemory: {},
+							},
+							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								corev1.ResourceCPU:    {},
+								corev1.ResourceMemory: {},
+							},
+						}).
+						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+							ContainerName: "istio-proxy",
+							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								corev1.ResourceCPU:    {},
+								corev1.ResourceMemory: {},
+							},
+							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								corev1.ResourceCPU:    {},
+								corev1.ResourceMemory: {},
+							},
+						}).
+						Build(),
+					deployment: multiContainerDeploymentWithReplicaNum(10),
+				},
+			}
+
+			err := tc.initializeResources(ctx, k8sClient, cfg)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			// delete Tortoise
+			err = k8sClient.Delete(ctx, tc.before.tortoise)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			// wait for the reconciliation
+			time.Sleep(1 * time.Second)
+
+			Eventually(func(g Gomega) {
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, &v2.HorizontalPodAutoscaler{})
+				Expect(err).ShouldNot(HaveOccurred())
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, &autoscalingv1.VerticalPodAutoscaler{})
+				Expect(err).ShouldNot(HaveOccurred())
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, &autoscalingv1.VerticalPodAutoscaler{})
+				Expect(err).ShouldNot(HaveOccurred())
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, &v1alpha1.Tortoise{})
+				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
+			}).Should(Succeed())
+		})
+	})
 })
 
 type testCase struct {
@@ -1452,19 +1693,22 @@ func (t *testCase) initializeResources(ctx context.Context, k8sClient client.Cli
 
 	err = k8sClient.Create(ctx, t.before.tortoise.DeepCopy())
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create tortoise: %w", err)
 	}
-	tortoise := &v1alpha1.Tortoise{}
-	err = k8sClient.Get(ctx, client.ObjectKey{Namespace: t.before.tortoise.Namespace, Name: t.before.tortoise.Name}, tortoise)
-	if err != nil {
-		panic(err)
-	}
-	tortoise.Status = t.before.tortoise.DeepCopy().Status
-	err = k8sClient.Status().Update(ctx, tortoise)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		tortoise := &v1alpha1.Tortoise{}
+		err = k8sClient.Get(ctx, client.ObjectKey{Namespace: t.before.tortoise.Namespace, Name: t.before.tortoise.Name}, tortoise)
+		if err != nil {
+			return fmt.Errorf("failed to get tortoise: %w", err)
+		}
+		tortoise.Status = t.before.tortoise.DeepCopy().Status
+		err = k8sClient.Status().Update(ctx, tortoise)
+		if err != nil {
+			return fmt.Errorf("failed to update tortoise status: %w", err)
+		}
+		return nil
+	})
 }
 
 func deploymentWithReplicaNum(replica int32) *v1.Deployment {

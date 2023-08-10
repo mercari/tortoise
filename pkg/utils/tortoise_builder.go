@@ -28,6 +28,10 @@ func (b *TortoiseBuilder) SetTargetRefs(targetRefs v1alpha1.TargetRefs) *Tortois
 	b.tortoise.Spec.TargetRefs = targetRefs
 	return b
 }
+func (b *TortoiseBuilder) SetDeletionPolicy(policy v1alpha1.DeletionPolicy) *TortoiseBuilder {
+	b.tortoise.Spec.DeletionPolicy = policy
+	return b
+}
 
 func (b *TortoiseBuilder) SetUpdateMode(updateMode v1alpha1.UpdateMode) *TortoiseBuilder {
 	b.tortoise.Spec.UpdateMode = updateMode

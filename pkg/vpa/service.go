@@ -6,6 +6,7 @@ import (
 
 	autoscaling "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
@@ -13,6 +14,7 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
+	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/metrics"
 )
 
@@ -40,12 +42,68 @@ func TortoiseUpdaterVPAName(tortoiseName string) string {
 	return TortoiseUpdaterVPANamePrefix + tortoiseName
 }
 
+func (c *Service) DeleteTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) error {
+	if tortoise.Spec.DeletionPolicy == autoscalingv1alpha1.DeletionPolicyNoDelete {
+		return nil
+	}
+
+	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Get(ctx, TortoiseMonitorVPAName(tortoise.Name), metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// already deleted
+			return nil
+		}
+		return fmt.Errorf("failed to get vpa: %w", err)
+	}
+
+	// make sure it's created by tortoise
+	if v, ok := vpa.Annotations[annotation.ManagedByTortoiseAnnotation]; !ok || v != "true" {
+		// shouldn't reach here unless user manually remove the annotation.
+		return nil
+	}
+
+	if err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Delete(ctx, vpa.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete vpa: %w", err)
+	}
+	return nil
+}
+
+func (c *Service) DeleteTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) error {
+	if tortoise.Spec.DeletionPolicy == autoscalingv1alpha1.DeletionPolicyNoDelete {
+		return nil
+	}
+
+	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Get(ctx, TortoiseUpdaterVPAName(tortoise.Name), metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// already deleted
+			return nil
+		}
+		return fmt.Errorf("failed to get vpa: %w", err)
+	}
+
+	// make sure it's created by tortoise
+	if v, ok := vpa.Annotations[annotation.ManagedByTortoiseAnnotation]; !ok || v != "true" {
+		// shouldn't reach here unless user manually remove the annotation.
+		return nil
+	}
+
+	if err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Delete(ctx, vpa.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete vpa: %w", err)
+	}
+	return nil
+}
+
 func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
 	auto := v1.UpdateModeAuto
 	vpa := &v1.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: tortoise.Namespace,
 			Name:      TortoiseUpdaterVPAName(tortoise.Name),
+			Annotations: map[string]string{
+				annotation.ManagedByTortoiseAnnotation: "true",
+				annotation.TortoiseNameAnnotation:      tortoise.Name,
+			},
 		},
 		Spec: v1.VerticalPodAutoscalerSpec{
 			Recommenders: []*v1.VerticalPodAutoscalerRecommenderSelector{
@@ -87,6 +145,10 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: tortoise.Namespace,
 			Name:      TortoiseMonitorVPAName(tortoise.Name),
+			Annotations: map[string]string{
+				annotation.ManagedByTortoiseAnnotation: "true",
+				annotation.TortoiseNameAnnotation:      tortoise.Name,
+			},
 		},
 		Spec: v1.VerticalPodAutoscalerSpec{
 			TargetRef: &autoscaling.CrossVersionObjectReference{

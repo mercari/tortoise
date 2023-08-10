@@ -57,6 +57,14 @@ type TortoiseSpec struct {
 	// FeatureGates allows to list the alpha feature names.
 	// +optional
 	FeatureGates []string `json:"featureGates,omitempty" protobuf:"bytes,4,opt,name=featureGates"`
+	// DeletionPolicy is the policy how the controller deletes associated HPA and VPAs when tortoise is removed.
+	// If "DeleteAll", tortoise deletes all associated HPA and VPAs, created by tortoise. If the associated HPA is not created by tortoise,
+	// which is associated by spec.targetRefs.horizontalPodAutoscalerName, tortoise never delete the HPA.
+	// If "NoDelete", tortoise doesn't delete any associated HPA and VPAs.
+	//
+	// "DeleteAll" is the default value.
+	// +optional
+	DeletionPolicy DeletionPolicy `json:"deletionPolicy,omitempty" protobuf:"bytes,5,opt,name=deletionPolicy"`
 }
 
 type ContainerResourcePolicy struct {
@@ -81,6 +89,14 @@ type ContainerResourcePolicy struct {
 	// +optional
 	AutoscalingPolicy map[v1.ResourceName]AutoscalingType `json:"autoscalingPolicy,omitempty" protobuf:"bytes,3,opt,name=autoscalingPolicy"`
 }
+
+// +kubebuilder:validation:Enum=DeleteAll;NoDelete
+type DeletionPolicy string
+
+const (
+	DeletionPolicyDeleteAll DeletionPolicy = "DeleteAll"
+	DeletionPolicyNoDelete  DeletionPolicy = "NoDelete"
+)
 
 // +kubebuilder:validation:Enum=Off;Auto;Emergency
 type UpdateMode string

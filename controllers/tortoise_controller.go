@@ -72,14 +72,30 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	tortoise, err := r.TortoiseService.GetTortoise(ctx, req.NamespacedName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			// Probably deleted.
+			// Probably deleted already and finalizer is already removed.
 			logger.V(4).Info("tortoise is not found", "tortoise", req.NamespacedName)
-			// TODO: delete VPA and HPA created by the Tortoise?
 			return ctrl.Result{}, nil
 		}
 
 		logger.Error(err, "failed to get tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
+	}
+
+	if !tortoise.ObjectMeta.DeletionTimestamp.IsZero() {
+		// Tortoise is deleted by user and waiting for finalizer.
+		logger.Info("tortoise is deleted", "tortoise", req.NamespacedName)
+		if err := r.deleteVPAAndHPA(ctx, tortoise, now); err != nil {
+			return ctrl.Result{}, fmt.Errorf("delete VPAs and HPA: %w", err)
+		}
+		if err := r.TortoiseService.RemoveFinalizer(ctx, tortoise); err != nil {
+			return ctrl.Result{}, fmt.Errorf("remove finalizer: %w", err)
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// tortoise is not deleted. Make sure finalizer is added to tortoise.
+	if err := r.TortoiseService.AddFinalizer(ctx, tortoise); err != nil {
+		return ctrl.Result{}, fmt.Errorf("add finalizer: %w", err)
 	}
 
 	reconcileNow, requeueAfter := r.TortoiseService.ShouldReconcileTortoiseNow(tortoise, now)
@@ -169,6 +185,32 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
+func (r *TortoiseReconciler) deleteVPAAndHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, now time.Time) error {
+	if tortoise.Spec.DeletionPolicy == autoscalingv1alpha1.DeletionPolicyNoDelete {
+		// don't delete anything.
+		return nil
+	}
+
+	var err error
+	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
+		// delete HPA created by tortoise
+		err = r.HpaService.DeleteHPACreatedByTortoise(ctx, tortoise)
+		if err != nil {
+			return fmt.Errorf("delete HPA created by tortoise: %w", err)
+		}
+	}
+
+	err = r.VpaService.DeleteTortoiseMonitorVPA(ctx, tortoise)
+	if err != nil {
+		return fmt.Errorf("delete monitor VPA created by tortoise: %w", err)
+	}
+	err = r.VpaService.DeleteTortoiseUpdaterVPA(ctx, tortoise)
+	if err != nil {
+		return fmt.Errorf("delete updater VPA created by tortoise: %w", err)
+	}
+	return nil
+}
+
 func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment, now time.Time) error {
 	// need to initialize HPA and VPA.
 	tortoise, err := r.HpaService.InitializeHPA(ctx, tortoise, dm)
@@ -178,15 +220,15 @@ func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *
 
 	_, tortoise, err = r.VpaService.CreateTortoiseMonitorVPA(ctx, tortoise)
 	if err != nil {
-		return err
+		return fmt.Errorf("create tortoise monitor VPA: %w", err)
 	}
 	_, tortoise, err = r.VpaService.CreateTortoiseUpdaterVPA(ctx, tortoise)
 	if err != nil {
-		return err
+		return fmt.Errorf("create tortoise updater VPA: %w", err)
 	}
 	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
 	if err != nil {
-		return err
+		return fmt.Errorf("update Tortoise status: %w", err)
 	}
 	return nil
 }
