@@ -15,10 +15,13 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/mercari/tortoise/api/v1alpha1"
 )
+
+const tortoiseFinalizer = "tortoise.autoscaling.mercari.com/finalizer"
 
 type Service struct {
 	c                                       client.Client
@@ -26,7 +29,8 @@ type Service struct {
 	timeZone                                *time.Location
 	tortoiseUpdateInterval                  time.Duration
 
-	mu                     sync.RWMutex
+	mu sync.RWMutex
+	// TODO: Instead of here, we should store the last time of each tortoise in the status of the tortoise.
 	lastTimeUpdateTortoise map[client.ObjectKey]time.Time
 }
 
@@ -190,6 +194,50 @@ func (s *Service) GetTortoise(ctx context.Context, namespacedName types.Namespac
 		return nil, fmt.Errorf("failed to get tortoise: %w", err)
 	}
 	return t, nil
+}
+
+func (s *Service) AddFinalizer(ctx context.Context, tortoise *v1alpha1.Tortoise) error {
+	if controllerutil.ContainsFinalizer(tortoise, tortoiseFinalizer) {
+		return nil
+	}
+
+	updateFn := func() error {
+		retTortoise := &v1alpha1.Tortoise{}
+		err := s.c.Get(ctx, client.ObjectKeyFromObject(tortoise), retTortoise)
+		if err != nil {
+			return err
+		}
+		controllerutil.AddFinalizer(retTortoise, tortoiseFinalizer)
+		return s.c.Update(ctx, retTortoise)
+	}
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, updateFn)
+	if err != nil {
+		return fmt.Errorf("failed to add finalizer: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) RemoveFinalizer(ctx context.Context, tortoise *v1alpha1.Tortoise) error {
+	if !controllerutil.ContainsFinalizer(tortoise, tortoiseFinalizer) {
+		return nil
+	}
+
+	updateFn := func() error {
+		retTortoise := &v1alpha1.Tortoise{}
+		err := s.c.Get(ctx, client.ObjectKeyFromObject(tortoise), retTortoise)
+		if err != nil {
+			return err
+		}
+		controllerutil.RemoveFinalizer(tortoise, tortoiseFinalizer)
+		return s.c.Update(ctx, tortoise)
+	}
+	err := retry.RetryOnConflict(retry.DefaultRetry, updateFn)
+	if err != nil {
+		return fmt.Errorf("failed to remove finalizer: %w", err)
+	}
+	return nil
 }
 
 func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1alpha1.Tortoise, now time.Time) (*v1alpha1.Tortoise, error) {

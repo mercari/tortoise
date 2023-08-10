@@ -943,7 +943,8 @@ func TestService_InitializeHPA(t *testing.T) {
 					Name:      "tortoise-hpa-tortoise",
 					Namespace: "default",
 					Annotations: map[string]string{
-						annotation.TortoiseNameAnnotation: "tortoise",
+						annotation.TortoiseNameAnnotation:      "tortoise",
+						annotation.ManagedByTortoiseAnnotation: "true",
 					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
@@ -1037,7 +1038,8 @@ func TestService_InitializeHPA(t *testing.T) {
 					Name:      "existing-hpa",
 					Namespace: "default",
 					Annotations: map[string]string{
-						annotation.TortoiseNameAnnotation: "tortoise",
+						annotation.TortoiseNameAnnotation:      "tortoise",
+						annotation.ManagedByTortoiseAnnotation: "true",
 					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{

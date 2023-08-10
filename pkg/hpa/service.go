@@ -11,6 +11,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,7 +47,8 @@ func (c *Service) CreateHPAForSingleContainer(ctx context.Context, tortoise *aut
 			Name:      autoscalingv1alpha1.TortoiseDefaultHPAName(tortoise.Name),
 			Namespace: tortoise.Namespace,
 			Annotations: map[string]string{
-				annotation.TortoiseNameAnnotation: tortoise.Name,
+				annotation.TortoiseNameAnnotation:      tortoise.Name,
+				annotation.ManagedByTortoiseAnnotation: "true",
 			},
 		},
 		Spec: v2.HorizontalPodAutoscalerSpec{
@@ -133,11 +135,43 @@ func (c *Service) giveAnnotationsOnHPA(ctx context.Context, tortoise *autoscalin
 			hpa.Annotations = map[string]string{}
 		}
 		hpa.Annotations[annotation.TortoiseNameAnnotation] = tortoise.Name
+		hpa.Annotations[annotation.ManagedByTortoiseAnnotation] = "true"
 		tortoise.Status.Targets.HorizontalPodAutoscaler = hpa.Name
 		return c.c.Update(ctx, hpa)
 	}
 
 	return tortoise, retry.RetryOnConflict(retry.DefaultRetry, updateFn)
+}
+
+func (c *Service) DeleteHPACreatedByTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) error {
+	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil || tortoise.Spec.DeletionPolicy == autoscalingv1alpha1.DeletionPolicyNoDelete {
+		// A user specified the existing HPA and tortoise didn't create HPA by itself.
+		return nil
+	}
+
+	hpa := &v2.HorizontalPodAutoscaler{}
+	if err := c.c.Get(ctx, client.ObjectKey{
+		Namespace: tortoise.Namespace,
+		Name:      tortoise.Status.Targets.HorizontalPodAutoscaler,
+	}, hpa); err != nil {
+		if apierrors.IsNotFound(err) {
+			// already deleted
+			return nil
+		}
+		return fmt.Errorf("failed to get hpa: %w", err)
+	}
+
+	// make sure it's created by tortoise
+	if v, ok := hpa.Annotations[annotation.ManagedByTortoiseAnnotation]; !ok || v != "true" {
+		// shouldn't reach here unless user manually remove the annotation.
+		return nil
+	}
+
+	if err := c.c.Delete(ctx, hpa); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete hpa: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
@@ -162,6 +196,7 @@ func (c *Service) CreateHPAForMultipleContainer(ctx context.Context, tortoise *a
 				annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: fmt.Sprintf("datadogmetric@%s:%s-memory-", tortoise.Namespace, tortoise.Spec.TargetRefs.DeploymentName),
 				annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    fmt.Sprintf("datadogmetric@%s:%s-cpu-", tortoise.Namespace, tortoise.Spec.TargetRefs.DeploymentName),
 				annotation.TortoiseNameAnnotation:                                    tortoise.Name,
+				annotation.ManagedByTortoiseAnnotation:                               "true",
 			},
 		},
 		Spec: v2.HorizontalPodAutoscalerSpec{

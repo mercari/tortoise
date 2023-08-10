@@ -74,6 +74,9 @@ func (r *Tortoise) Default() {
 	if r.Spec.UpdateMode == "" {
 		r.Spec.UpdateMode = UpdateModeOff
 	}
+	if r.Spec.DeletionPolicy == "" {
+		r.Spec.DeletionPolicy = DeletionPolicyDeleteAll
+	}
 
 	d, err := ClientService.GetDeploymentOnTortoise(context.Background(), r)
 	if err != nil {
