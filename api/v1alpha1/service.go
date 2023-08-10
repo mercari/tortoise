@@ -28,6 +28,7 @@ func (c *service) GetDeploymentOnTortoise(ctx context.Context, tortoise *Tortois
 
 func (c *service) GetHPAFromUser(ctx context.Context, tortoise *Tortoise) (*v2.HorizontalPodAutoscaler, error) {
 	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
+		// user doesn't specify HPA.
 		return nil, nil
 	}
 

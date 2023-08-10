@@ -11,7 +11,6 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,7 +43,7 @@ func (c *Service) CreateHPAForSingleContainer(ctx context.Context, tortoise *aut
 	// TODO: make this default HPA spec configurable.
 	hpa := &v2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName,
+			Name:      autoscalingv1alpha1.TortoiseDefaultHPAName(tortoise.Name),
 			Namespace: tortoise.Namespace,
 			Annotations: map[string]string{
 				annotation.TortoiseNameAnnotation: tortoise.Name,
@@ -95,35 +94,33 @@ func (c *Service) CreateHPAForSingleContainer(ctx context.Context, tortoise *aut
 	tortoise.Status.Targets.HorizontalPodAutoscaler = hpa.Name
 
 	err := c.c.Create(ctx, hpa)
-	if apierrors.IsAlreadyExists(err) {
-		// A user specified the existing HPA.
-		return nil, tortoise, nil
-	}
-
 	return hpa.DeepCopy(), tortoise, err
 }
 
-func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) error {
-	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
-		// shouldn't reach here in the real cluster as the tortoise mutating webhook sets this.
-		tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName = pointer.String(autoscalingv1alpha1.TortoiseDefaultHPAName(tortoise.Name))
+func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*autoscalingv1alpha1.Tortoise, error) {
+	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
+		// update the existing HPA that the user set on tortoise.
+		tortoise, err := c.giveAnnotationsOnHPA(ctx, tortoise)
+		if err != nil {
+			return tortoise, fmt.Errorf("give annotations on a hpa specified in targetrefs: %w", err)
+		}
+		return tortoise, nil
 	}
 
-	// update the existing HPA that the user set on tortoise.
-	err := c.giveAnnotationsOnHPA(ctx, tortoise)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-
-	// create HPA
-	_, tortoise, err = c.CreateHPA(ctx, tortoise, dm)
+	// create default HPA.
+	_, tortoise, err := c.CreateHPA(ctx, tortoise, dm)
 	if err != nil {
-		return err
+		return tortoise, fmt.Errorf("create hpa: %w", err)
 	}
-	return nil
+
+	return tortoise, nil
 }
 
-func (c *Service) giveAnnotationsOnHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) error {
+func (c *Service) giveAnnotationsOnHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*autoscalingv1alpha1.Tortoise, error) {
+	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
+		// shouldn't reach here since the caller should check this.
+		return tortoise, fmt.Errorf("tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName is nil")
+	}
 	updateFn := func() error {
 		hpa := &v2.HorizontalPodAutoscaler{}
 		if err := c.c.Get(ctx, client.ObjectKey{
@@ -136,13 +133,19 @@ func (c *Service) giveAnnotationsOnHPA(ctx context.Context, tortoise *autoscalin
 			hpa.Annotations = map[string]string{}
 		}
 		hpa.Annotations[annotation.TortoiseNameAnnotation] = tortoise.Name
+		tortoise.Status.Targets.HorizontalPodAutoscaler = hpa.Name
 		return c.c.Update(ctx, hpa)
 	}
 
-	return retry.RetryOnConflict(retry.DefaultRetry, updateFn)
+	return tortoise, retry.RetryOnConflict(retry.DefaultRetry, updateFn)
 }
 
 func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
+	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
+		// we don't have to create HPA as the user specified the existing HPA.
+		return nil, tortoise, nil
+	}
+
 	if len(dm.Spec.Template.Spec.Containers) == 1 {
 		return c.CreateHPAForSingleContainer(ctx, tortoise, dm)
 	}
@@ -153,7 +156,7 @@ func (c *Service) CreateHPAForMultipleContainer(ctx context.Context, tortoise *a
 	// TODO: make this default HPA spec configurable.
 	hpa := &v2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName,
+			Name:      autoscalingv1alpha1.TortoiseDefaultHPAName(tortoise.Name),
 			Namespace: tortoise.Namespace,
 			Annotations: map[string]string{
 				annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: fmt.Sprintf("datadogmetric@%s:%s-memory-", tortoise.Namespace, tortoise.Spec.TargetRefs.DeploymentName),
@@ -221,17 +224,12 @@ func (c *Service) CreateHPAForMultipleContainer(ctx context.Context, tortoise *a
 	tortoise.Status.Targets.HorizontalPodAutoscaler = hpa.Name
 
 	err := c.c.Create(ctx, hpa)
-	if apierrors.IsAlreadyExists(err) {
-		// A user specified the existing HPA.
-		return nil, tortoise, nil
-	}
-
 	return hpa.DeepCopy(), tortoise, err
 }
 
 func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
 	hpa := &v2.HorizontalPodAutoscaler{}
-	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName}, hpa); err != nil {
+	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Status.Targets.HorizontalPodAutoscaler}, hpa); err != nil {
 		return nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
 	}
 	return hpa, nil
@@ -296,7 +294,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 	metricsRecorded := false
 	updateFn := func() error {
 		hpa := &v2.HorizontalPodAutoscaler{}
-		if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName}, hpa); err != nil {
+		if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Status.Targets.HorizontalPodAutoscaler}, hpa); err != nil {
 			return fmt.Errorf("failed to get hpa on tortoise: %w", err)
 		}
 		retHPA = hpa.DeepCopy()

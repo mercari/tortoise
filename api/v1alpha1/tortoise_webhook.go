@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -72,9 +71,6 @@ func TortoiseDefaultHPAName(tortoiseName string) string {
 func (r *Tortoise) Default() {
 	tortoiselog.Info("default", "name", r.Name)
 
-	if r.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
-		r.Spec.TargetRefs.HorizontalPodAutoscalerName = pointer.String(TortoiseDefaultHPAName(r.Name))
-	}
 	if r.Spec.UpdateMode == "" {
 		r.Spec.UpdateMode = UpdateModeOff
 	}
@@ -208,12 +204,14 @@ func (r *Tortoise) ValidateUpdate(old runtime.Object) error {
 	if r.Spec.TargetRefs.DeploymentName != oldTortoise.Spec.TargetRefs.DeploymentName {
 		return fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "deploymentNames"))
 	}
-	if r.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
-		if *oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != TortoiseDefaultHPAName(r.Name) {
+	if r.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
+		if oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil || *oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != *r.Spec.TargetRefs.HorizontalPodAutoscalerName {
+			// removed or updated.
 			return fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
 		}
 	} else {
-		if *oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != *r.Spec.TargetRefs.HorizontalPodAutoscalerName {
+		if oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
+			// newly specified.
 			return fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
 		}
 	}

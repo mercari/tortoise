@@ -108,9 +108,8 @@ type TargetRefs struct {
 	// The target HPA should have the ContainerResource type metric or the external metric refers to the container resource utilization.
 	// Please check out the document for more detail: https://github.com/mercari/tortoise/blob/master/docs/horizontal.md#supported-metrics-in-hpa
 	//
-	// You can specify either of existing HPA or non existing HPA.
-	// If non existing HPA is specified, tortoise will create HPA with the given name.
-	// The default value is "{Tortoise name} + -hpa".
+	// You can specify either of existing HPA only.
+	// This is an optional field, and if you don't specify this field, tortoise will create a new default HPA named `tortoise-hpa-{tortoise name}`.
 	// +optional
 	HorizontalPodAutoscalerName *string `json:"horizontalPodAutoscalerName,omitempty" protobuf:"bytes,2,opt,name=horizontalPodAutoscalerName"`
 }

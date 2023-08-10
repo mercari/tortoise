@@ -171,7 +171,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, dm *v1.Deployment, now time.Time) error {
 	// need to initialize HPA and VPA.
-	err := r.HpaService.InitializeHPA(ctx, tortoise, dm)
+	tortoise, err := r.HpaService.InitializeHPA(ctx, tortoise, dm)
 	if err != nil {
 		return err
 	}
