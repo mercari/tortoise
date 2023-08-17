@@ -31,6 +31,6 @@ jobs:
         run: |
           go mod download
       - name: Generate
-        run: make kustomize-build
+        run: make manifests
       - name: Check diff
         run: git diff --exit-code -- config
