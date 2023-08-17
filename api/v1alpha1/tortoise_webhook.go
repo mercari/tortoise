@@ -40,6 +40,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/mercari/tortoise/pkg/annotation"
 )
@@ -141,18 +142,18 @@ func validateTortoise(t *Tortoise) error {
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Tortoise) ValidateCreate() error {
+func (r *Tortoise) ValidateCreate() (admission.Warnings, error) {
 	ctx := context.Background()
 	tortoiselog.Info("validate create", "name", r.Name)
 	if err := validateTortoise(r); err != nil {
-		return err
+		return nil, err
 	}
 
 	fieldPath := field.NewPath("spec")
 
 	d, err := ClientService.GetDeploymentOnTortoise(ctx, r)
 	if err != nil {
-		return fmt.Errorf("failed to get the deployment defined in %s: %w", fieldPath.Child("targetRefs", "deploymentName"), err)
+		return nil, fmt.Errorf("failed to get the deployment defined in %s: %w", fieldPath.Child("targetRefs", "deploymentName"), err)
 	}
 
 	containers := sets.NewString()
@@ -167,66 +168,66 @@ func (r *Tortoise) ValidateCreate() error {
 
 	noPolicyContainers := containers.Difference(policies)
 	if noPolicyContainers.Len() != 0 {
-		return fmt.Errorf("%s: tortoise should have the policies for all containers defined in the deployment, but, it doesn't have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), noPolicyContainers)
+		return nil, fmt.Errorf("%s: tortoise should have the policies for all containers defined in the deployment, but, it doesn't have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), noPolicyContainers)
 	}
 	uselessPolicies := policies.Difference(containers)
 	if uselessPolicies.Len() != 0 {
-		return fmt.Errorf("%s: tortoise should not have the policies for the container(s) which isn't defined in the deployment, but, it have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), uselessPolicies)
+		return nil, fmt.Errorf("%s: tortoise should not have the policies for the container(s) which isn't defined in the deployment, but, it have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), uselessPolicies)
 	}
 
 	hpa, err := ClientService.GetHPAFromUser(ctx, r)
 	if err != nil {
 		// Check if HPA really exists or not.
-		return fmt.Errorf("failed to get the horizontal pod autoscaler defined in %s: %w", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"), err)
+		return nil, fmt.Errorf("failed to get the horizontal pod autoscaler defined in %s: %w", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"), err)
 	}
 	if hpa != nil {
 		for _, c := range containers.List() {
 			err = validateHPAAnnotations(hpa, c)
 			if err != nil {
-				return fmt.Errorf("the horizontal pod autoscaler defined in %s is invalid: %w", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"), err)
+				return nil, fmt.Errorf("the horizontal pod autoscaler defined in %s is invalid: %w", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"), err)
 			}
 		}
 	}
 
-	return validateTortoise(r)
+	return nil, validateTortoise(r)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Tortoise) ValidateUpdate(old runtime.Object) error {
+func (r *Tortoise) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	tortoiselog.Info("validate update", "name", r.Name)
 	if err := validateTortoise(r); err != nil {
-		return err
+		return nil, err
 	}
 
 	oldTortoise, ok := old.(*Tortoise)
 	if !ok {
-		return errors.New("failed to parse old object to Tortoise")
+		return nil, errors.New("failed to parse old object to Tortoise")
 	}
 
 	fieldPath := field.NewPath("spec")
 	if r.Spec.TargetRefs.DeploymentName != oldTortoise.Spec.TargetRefs.DeploymentName {
-		return fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "deploymentNames"))
+		return nil, fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "deploymentNames"))
 	}
 	if r.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
 		if oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil || *oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != *r.Spec.TargetRefs.HorizontalPodAutoscalerName {
 			// removed or updated.
-			return fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
+			return nil, fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
 		}
 	} else {
 		if oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
 			// newly specified.
-			return fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
+			return nil, fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-func (r *Tortoise) ValidateDelete() error {
+func (r *Tortoise) ValidateDelete() (admission.Warnings, error) {
 	tortoiselog.Info("validate delete", "name", r.Name)
-	return nil
+	return nil, nil
 }
 
 func externalMetricNameFromAnnotation(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName) (string, error) {

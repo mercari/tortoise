@@ -6,7 +6,6 @@ on:
     paths-ignore:
       - 'docs/**'
       - 'config/**'
-      - 'Makefile'
 
 jobs:
   test:

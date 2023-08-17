@@ -248,12 +248,16 @@ func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1
 		retTortoise = &v1alpha1.Tortoise{}
 		err := s.c.Get(ctx, client.ObjectKeyFromObject(originalTortoise), retTortoise)
 		if err != nil {
-			return err
+			return fmt.Errorf("get tortoise to update status: %w", err)
 		}
 		// It should be OK to overwrite the status, because the controller is the only person to update it.
 		retTortoise.Status = originalTortoise.Status
 
-		return s.c.Status().Update(ctx, retTortoise)
+		err = s.c.Status().Update(ctx, retTortoise)
+		if err != nil {
+			return fmt.Errorf("update tortoise status: %w", err)
+		}
+		return nil
 	}
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, updateFn)
@@ -261,10 +265,14 @@ func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1
 		return originalTortoise, err
 	}
 
+	s.updateLastTimeUpdateTortoise(originalTortoise, now)
+
+	return originalTortoise, nil
+}
+
+func (s *Service) updateLastTimeUpdateTortoise(tortoise *v1alpha1.Tortoise, now time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.lastTimeUpdateTortoise[client.ObjectKeyFromObject(originalTortoise)] = now
-
-	return originalTortoise, nil
+	s.lastTimeUpdateTortoise[client.ObjectKeyFromObject(tortoise)] = now
 }
