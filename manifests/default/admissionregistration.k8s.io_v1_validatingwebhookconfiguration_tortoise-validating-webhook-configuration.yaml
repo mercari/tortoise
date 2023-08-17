@@ -1,0 +1,27 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: tortoise-system/tortoise-serving-cert
+  name: tortoise-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: tortoise-webhook-service
+      namespace: tortoise-system
+      path: /validate-autoscaling-mercari-com-v1alpha1-tortoise
+  failurePolicy: Fail
+  name: vtortoise.kb.io
+  rules:
+  - apiGroups:
+    - autoscaling.mercari.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - tortoises
+  sideEffects: None

@@ -85,6 +85,11 @@ ifndef ignore-not-found
   ignore-not-found = false
 endif
 
+.PHONY: kustomize-build
+kustomize-build: manifests kustomize ## Build the manifests via kustomize.
+	$(KUSTOMIZE) build config/default -o manifests/default
+	$(KUSTOMIZE) build config/crd -o manifests/crd
+
 .PHONY: install
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
