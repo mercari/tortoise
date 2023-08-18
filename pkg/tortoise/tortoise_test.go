@@ -634,36 +634,31 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 func TestService_UpdateTortoiseStatus(t *testing.T) {
 	now := time.Now()
 	type args struct {
-		originalTortoise *v1alpha1.Tortoise
-		now              time.Time
+		t   *v1alpha1.Tortoise
+		now time.Time
 	}
 	tests := []struct {
 		name                       string
+		originalTortoise           *v1alpha1.Tortoise
 		args                       args
-		want                       *v1alpha1.Tortoise
-		wantErr                    bool
 		wantLastTimeUpdateTortoise map[client.ObjectKey]time.Time
 	}{
 		{
 			name: "success",
+			originalTortoise: &v1alpha1.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test"},
+			},
 			args: args{
-				originalTortoise: &v1alpha1.Tortoise{
-					ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "namespace"},
+				t: &v1alpha1.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test"},
 					Status: v1alpha1.TortoiseStatus{
 						TortoisePhase: v1alpha1.TortoisePhaseInitializing,
 					},
 				},
 				now: now,
 			},
-			want: &v1alpha1.Tortoise{
-				ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "namespace"},
-				Status: v1alpha1.TortoiseStatus{
-					TortoisePhase: v1alpha1.TortoisePhaseInitializing,
-				},
-			},
-			wantErr: false,
 			wantLastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
-				client.ObjectKey{Name: "t", Namespace: "namespace"}: now,
+				{Name: "t", Namespace: "test"}: now,
 			},
 		},
 	}
@@ -674,21 +669,18 @@ func TestService_UpdateTortoiseStatus(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to add to scheme: %v", err)
 			}
-			s := &Service{
-				c:                      fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(tt.args.originalTortoise).Build(),
-				lastTimeUpdateTortoise: tt.wantLastTimeUpdateTortoise,
-			}
-			_, err = s.UpdateTortoiseStatus(context.Background(), tt.args.originalTortoise, tt.args.now)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UpdateTortoiseStatus() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			got := &v1alpha1.Tortoise{}
-			err = s.c.Get(context.Background(), client.ObjectKeyFromObject(tt.args.originalTortoise), got)
+			c := fake.NewClientBuilder().WithScheme(scheme).Build()
+			err = c.Create(context.Background(), tt.originalTortoise)
 			if err != nil {
-				t.Fatalf("get stored tortoise: %v", err)
+				t.Fatalf("create tortoise: %v", err)
 			}
-			if d := cmp.Diff(got, tt.want, cmpopts.IgnoreFields(v1alpha1.Tortoise{}, "TypeMeta", "ObjectMeta")); d != "" {
+			s := &Service{
+				c:                      c,
+				lastTimeUpdateTortoise: make(map[client.ObjectKey]time.Time),
+			}
+
+			s.updateLastTimeUpdateTortoise(tt.args.t, tt.args.now)
+			if d := cmp.Diff(s.lastTimeUpdateTortoise, tt.wantLastTimeUpdateTortoise); d != "" {
 				t.Errorf("UpdateTortoiseStatus() diff = %v", d)
 			}
 		})
