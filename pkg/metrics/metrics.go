@@ -22,7 +22,7 @@ var (
 
 	AppliedResourceRequest = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "applied_resource_request",
-		Help: "recommended cpu request that tortoises apply",
+		Help: "recommended resource request that tortoises apply",
 	}, []string{"tortoise_name", "namespace", "container_name", "resource_name"})
 )
 
