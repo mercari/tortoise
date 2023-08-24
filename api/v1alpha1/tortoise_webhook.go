@@ -82,6 +82,7 @@ func (r *Tortoise) Default() {
 	d, err := ClientService.GetDeploymentOnTortoise(context.Background(), r)
 	if err != nil {
 		tortoiselog.Error(err, "failed to get deployment")
+		return
 	}
 
 	if len(d.Spec.Template.Spec.Containers) != len(r.Spec.ResourcePolicy) {
