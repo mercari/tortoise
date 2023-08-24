@@ -194,7 +194,7 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
 			if !metricsRecorded {
 				for resourcename, value := range r.RecommendedResource {
-					metrics.AppliedResourceRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, resourcename.String()).Observe(float64(value.MilliValue()))
+					metrics.ProposedResourceRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, resourcename.String()).Observe(float64(value.MilliValue()))
 				}
 				metricsRecorded = true
 			}
