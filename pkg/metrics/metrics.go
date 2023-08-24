@@ -5,33 +5,33 @@ import (
 )
 
 var (
-	AppliedHPATargetUtilization = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "applied_hpa_utilization_target",
-		Help: "recommended hpa utilization target values that tortoises apply",
+	ProposedHPATargetUtilization = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "proposed_hpa_utilization_target",
+		Help: "recommended hpa utilization target values that tortoises propose",
 	}, []string{"tortoise_name", "namespace", "container_name", "resource_name", "hpa_name"})
 
-	AppliedHPAMinReplicass = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "applied_hpa_minreplicas",
-		Help: "recommended hpa minReplicas that tortoises apply",
+	ProposedHPAMinReplicass = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "proposed_hpa_minreplicas",
+		Help: "recommended hpa minReplicas that tortoises propose",
 	}, []string{"tortoise_name", "namespace", "hpa_name"})
 
-	AppliedHPAMaxReplicass = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "applied_hpa_maxreplicas",
-		Help: "recommended hpa maxReplicas that tortoises apply",
+	ProposedHPAMaxReplicass = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "proposed_hpa_maxreplicas",
+		Help: "recommended hpa maxReplicas that tortoises propose",
 	}, []string{"tortoise_name", "namespace", "hpa_name"})
 
-	AppliedResourceRequest = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "applied_resource_request",
-		Help: "recommended resource request that tortoises apply",
+	ProposedResourceRequest = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "proposed_resource_request",
+		Help: "recommended resource request that tortoises propose",
 	}, []string{"tortoise_name", "namespace", "container_name", "resource_name"})
 )
 
 func init() {
 	//Register metrics with prometheus
 	prometheus.MustRegister(
-		AppliedHPATargetUtilization,
-		AppliedHPAMinReplicass,
-		AppliedHPAMaxReplicass,
-		AppliedResourceRequest,
+		ProposedHPATargetUtilization,
+		ProposedHPAMinReplicass,
+		ProposedHPAMaxReplicass,
+		ProposedResourceRequest,
 	)
 }
