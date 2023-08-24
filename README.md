@@ -25,6 +25,24 @@ make deploy
 
 Tortoise, you don't need a rearing cage, but need VPA in your Kubernetes cluster before installing it.
 
+## Usage
+
+Tortoise, they only need the deployment name basically.
+
+```yaml
+apiVersion: autoscaling.mercari.com/v1alpha1
+kind: Tortoise
+metadata:
+  name: lovely-tortoise
+  namespace: zoo
+spec:
+  updateMode: Auto
+  targetRefs:
+    deploymentName: sample-deployment
+```
+
+Tortoise, then they'll prepare/keep adjusting HPA and VPA to achieve efficient autoscaling based on the past behavior of the workload.
+
 ## Documentations 
 
 - [Concept](./docs/concept.md): describes a brief overview of tortoise.
