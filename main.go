@@ -43,7 +43,6 @@ import (
 	"github.com/mercari/tortoise/controllers"
 	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/hpa"
-	"github.com/mercari/tortoise/pkg/metrics"
 	"github.com/mercari/tortoise/pkg/recommender"
 	"github.com/mercari/tortoise/pkg/tortoise"
 	"github.com/mercari/tortoise/pkg/vpa"
@@ -59,7 +58,6 @@ var (
 )
 
 func init() {
-	metrics.RegisterMetrics()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(autoscalingv1alpha1.AddToScheme(scheme))
