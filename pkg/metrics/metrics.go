@@ -27,7 +27,7 @@ var (
 	}, []string{"tortoise_name", "namespace", "container_name", "resource_name"})
 )
 
-func init() {
+func RegisterMetrics() {
 	//Register metrics with prometheus
 	metrics.Registry.MustRegister(
 		ProposedHPATargetUtilization,
