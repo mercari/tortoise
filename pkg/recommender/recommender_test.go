@@ -496,7 +496,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				},
 				deployment: &v1.Deployment{
 					Status: v1.DeploymentStatus{
-						Replicas: 4,
+						Replicas: 10,
 					},
 				},
 				now: time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
@@ -510,7 +510,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									From:      0,
 									To:        1,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
-									Value:     3,
+									Value:     5,
 									WeekDay:   time.Sunday.String(),
 								},
 							},
@@ -519,7 +519,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									From:      0,
 									To:        1,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
-									Value:     8,
+									Value:     20,
 									WeekDay:   time.Sunday.String(),
 								},
 							},
@@ -658,7 +658,71 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				},
 				deployment: &v1.Deployment{
 					Status: v1.DeploymentStatus{
-						Replicas: 4,
+						Replicas: 10,
+					},
+				},
+				now: time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
+			},
+			want: &v1alpha1.Tortoise{
+				Status: v1alpha1.TortoiseStatus{
+					Recommendations: v1alpha1.Recommendations{
+						Horizontal: &v1alpha1.HorizontalRecommendations{
+							MinReplicas: []v1alpha1.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
+									Value:     5,
+									WeekDay:   time.Sunday.String(),
+								},
+							},
+							MaxReplicas: []v1alpha1.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
+									Value:     20,
+									WeekDay:   time.Sunday.String(),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "minimum MinReplicas and minimum MaxReplicas",
+			args: args{
+				tortoise: &v1alpha1.Tortoise{
+					Status: v1alpha1.TortoiseStatus{
+						Recommendations: v1alpha1.Recommendations{
+							Horizontal: &v1alpha1.HorizontalRecommendations{
+								MinReplicas: []v1alpha1.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										Value:     3,
+										WeekDay:   time.Sunday.String(),
+									},
+								},
+								MaxReplicas: []v1alpha1.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										Value:     8,
+										WeekDay:   time.Sunday.String(),
+									},
+								},
+							},
+						},
+					},
+				},
+				deployment: &v1.Deployment{
+					Status: v1.DeploymentStatus{
+						Replicas: 1,
 					},
 				},
 				now: time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
@@ -681,7 +745,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									From:      0,
 									To:        1,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
-									Value:     8,
+									Value:     12,
 									WeekDay:   time.Sunday.String(),
 								},
 							},

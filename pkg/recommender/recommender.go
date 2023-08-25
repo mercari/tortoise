@@ -207,7 +207,7 @@ func (s *Service) updateHPAMinMaxReplicasRecommendations(tortoise *v1alpha1.Tort
 		return tortoise, fmt.Errorf("update MinReplicas recommendation: %w", err)
 	}
 	tortoise.Status.Recommendations.Horizontal.MinReplicas = min
-	max, err := s.updateMaxMinReplicasRecommendation(int32(math.Ceil(currentReplicaNum*s.maxReplicasFactor)), tortoise.Status.Recommendations.Horizontal.MaxReplicas, now, 0)
+	max, err := s.updateMaxMinReplicasRecommendation(int32(math.Ceil(currentReplicaNum*s.maxReplicasFactor)), tortoise.Status.Recommendations.Horizontal.MaxReplicas, now, int32(float64(s.minimumMinReplicas)*s.maxReplicasFactor/s.minReplicasFactor))
 	if err != nil {
 		return tortoise, fmt.Errorf("update MaxReplicas recommendation: %w", err)
 	}
