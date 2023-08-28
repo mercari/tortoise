@@ -67,6 +67,10 @@ Currently, Tortoise supports:
 - `type: ContainerResource` metric if Pod has only multiple containers.
 - `type: External` metric if Pod has the annotations described below.
 
+##### `type: External` support (will be removed)
+
+※ This feature will be removed soon since the container resource metrics feature graduated to beta.
+
 Regarding the `External`, given [the container resource metrics](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#container-resource-metrics) is still alpha as of v1.26, 
 some companies are using the external metrics to fetch the container's resource utilization.
 
