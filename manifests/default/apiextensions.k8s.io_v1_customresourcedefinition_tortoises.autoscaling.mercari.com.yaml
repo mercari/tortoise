@@ -162,13 +162,13 @@ spec:
                               format: int32
                               type: integer
                             weekday:
+                              description: WeekDay is the day of the week. If empty, it means it applies to all days of the week.
                               type: string
                           required:
                           - from
                           - timezone
                           - to
                           - value
-                          - weekday
                           type: object
                         type: array
                       minReplicas:
@@ -191,13 +191,13 @@ spec:
                               format: int32
                               type: integer
                             weekday:
+                              description: WeekDay is the day of the week. If empty, it means it applies to all days of the week.
                               type: string
                           required:
                           - from
                           - timezone
                           - to
                           - value
-                          - weekday
                           type: object
                         type: array
                       targetUtilizations:

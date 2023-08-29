@@ -27,6 +27,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"time"
 
@@ -78,6 +79,7 @@ func main() {
 
 	// Tortoise specific flags
 	var rangeOfMinMaxReplicasRecommendationHours int
+	var minMaxReplicasRoutine string
 	var tTLHoursOfMinMaxReplicasRecommendation int
 	var maxReplicasFactor float64
 	var minReplicasFactor float64
@@ -90,6 +92,7 @@ func main() {
 	var timeZone string
 	var tortoiseUpdateInterval time.Duration
 	flag.IntVar(&rangeOfMinMaxReplicasRecommendationHours, "range-of-min-max-replicas-recommendation-hours", 1, "the time (hours) range of minReplicas and maxReplicas recommendation (default: 1)")
+	flag.StringVar(&minMaxReplicasRoutine, "min-max-replicas-routine", "weekly", "the routine of minReplicas and maxReplicas recommendation (default: weekly)")
 	flag.IntVar(&tTLHoursOfMinMaxReplicasRecommendation, "ttl-hours-of-min-max-replicas-recommendation", 24*30, "the TTL (hours) of minReplicas and maxReplicas recommendation (default: 720 (=30 days))")
 	flag.Float64Var(&maxReplicasFactor, "max-replicas-factor", 2.0, "the factor to calculate the maxReplicas recommendation from the current replica number (default: 2.0)")
 	flag.Float64Var(&minReplicasFactor, "min-replicas-factor", 0.5, "the factor to calculate the minReplicas recommendation from the current replica number (default: 0.5)")
@@ -101,6 +104,16 @@ func main() {
 	flag.StringVar(&maxMemoryPerContainer, "maximum-memory-bytes", "10Gi", "the maximum memory bytes that the tortoise can give to the container (default: 10Gi)")
 	flag.StringVar(&timeZone, "timezone", "Asia/Tokyo", "The timezone used to record time in tortoise objects (default: Asia/Tokyo)")
 	flag.DurationVar(&tortoiseUpdateInterval, "tortoise-update-interval", 15*time.Second, "The interval of updating each tortoise (default: 15s)")
+
+	if rangeOfMinMaxReplicasRecommendationHours > 24 || rangeOfMinMaxReplicasRecommendationHours < 1 {
+		setupLog.Error(fmt.Errorf("range-of-min-max-replicas-recommendation-hours should be between 1 and 24"), "invalid value")
+		os.Exit(1)
+	}
+
+	if minMaxReplicasRoutine != "daily" && minMaxReplicasRoutine != "weekly" {
+		setupLog.Error(fmt.Errorf("min-max-replicas-routine should be either \"daily\" or \"weekly\""), "invalid value")
+		os.Exit(1)
+	}
 
 	opts := zap.Options{
 		Development: true,
@@ -133,7 +146,7 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	tortoiseService, err := tortoise.New(mgr.GetClient(), rangeOfMinMaxReplicasRecommendationHours, timeZone, tortoiseUpdateInterval)
+	tortoiseService, err := tortoise.New(mgr.GetClient(), rangeOfMinMaxReplicasRecommendationHours, timeZone, tortoiseUpdateInterval, minMaxReplicasRoutine)
 	if err != nil {
 		setupLog.Error(err, "unable to start tortoise service")
 		os.Exit(1)

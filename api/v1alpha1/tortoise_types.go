@@ -197,9 +197,11 @@ type ReplicasRecommendation struct {
 	// From represented in hour.
 	From int `json:"from" protobuf:"variant,1,name=from"`
 	// To represented in hour.
-	To       int    `json:"to" protobuf:"variant,2,name=to"`
-	WeekDay  string `json:"weekday" protobuf:"bytes,3,name=weekday"`
-	TimeZone string `json:"timezone" protobuf:"bytes,4,name=timezone"`
+	To int `json:"to" protobuf:"variant,2,name=to"`
+	// WeekDay is the day of the week.
+	// If empty, it means it applies to all days of the week.
+	WeekDay  *string `json:"weekday,omitempty" protobuf:"bytes,3,opt,name=weekday"`
+	TimeZone string  `json:"timezone" protobuf:"bytes,4,name=timezone"`
 	// Value is the recommendation value.
 	// It's calculated every reconciliation,
 	// and updated if the calculated recommendation value is more than the current recommendation value on tortoise.
