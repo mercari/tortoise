@@ -13,7 +13,14 @@ spec:
     singular: tortoise
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.updateMode
+      name: MODE
+      type: string
+    - jsonPath: .status.tortoisePhase
+      name: PHASE
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Tortoise is the Schema for the tortoises API
