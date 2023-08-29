@@ -67,7 +67,7 @@ var _ = Describe("Test TortoiseController", func() {
 		})
 		Expect(err).ShouldNot(HaveOccurred())
 
-		tortoiseService, err := tortoise.New(mgr.GetClient(), 1, "Asia/Tokyo", 1000*time.Minute)
+		tortoiseService, err := tortoise.New(mgr.GetClient(), 1, "Asia/Tokyo", 1000*time.Minute, "weekly")
 		Expect(err).ShouldNot(HaveOccurred())
 		cli, err := vpa.New(mgr.GetConfig())
 		Expect(err).ShouldNot(HaveOccurred())
@@ -146,7 +146,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     15, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -156,7 +156,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     3, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -269,7 +269,7 @@ var _ = Describe("Test TortoiseController", func() {
 								{
 									From:      0,
 									To:        24,
-									WeekDay:   now.Weekday().String(),
+									WeekDay:   pointer.String(now.Weekday().String()),
 									TimeZone:  now.Location().String(),
 									Value:     20,
 									UpdatedAt: metav1.NewTime(now),
@@ -279,7 +279,7 @@ var _ = Describe("Test TortoiseController", func() {
 								{
 									From:      0,
 									To:        24,
-									WeekDay:   now.Weekday().String(),
+									WeekDay:   pointer.String(now.Weekday().String()),
 									TimeZone:  now.Location().String(),
 									Value:     5,
 									UpdatedAt: metav1.NewTime(now),
@@ -367,7 +367,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     15, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -377,7 +377,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     3, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -463,7 +463,7 @@ var _ = Describe("Test TortoiseController", func() {
 								{
 									From:      0,
 									To:        24,
-									WeekDay:   now.Weekday().String(),
+									WeekDay:   pointer.String(now.Weekday().String()),
 									TimeZone:  now.Location().String(),
 									Value:     20,
 									UpdatedAt: metav1.NewTime(now),
@@ -473,7 +473,7 @@ var _ = Describe("Test TortoiseController", func() {
 								{
 									From:      0,
 									To:        24,
-									WeekDay:   now.Weekday().String(),
+									WeekDay:   pointer.String(now.Weekday().String()),
 									TimeZone:  now.Location().String(),
 									Value:     5,
 									UpdatedAt: metav1.NewTime(now),
@@ -559,7 +559,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     15, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -569,7 +569,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     3, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -683,7 +683,7 @@ var _ = Describe("Test TortoiseController", func() {
 								{
 									From:      0,
 									To:        24,
-									WeekDay:   now.Weekday().String(),
+									WeekDay:   pointer.String(now.Weekday().String()),
 									TimeZone:  now.Location().String(),
 									Value:     20,
 									UpdatedAt: metav1.NewTime(now),
@@ -693,7 +693,7 @@ var _ = Describe("Test TortoiseController", func() {
 								{
 									From:      0,
 									To:        24,
-									WeekDay:   now.Weekday().String(),
+									WeekDay:   pointer.String(now.Weekday().String()),
 									TimeZone:  now.Location().String(),
 									Value:     5,
 									UpdatedAt: metav1.NewTime(now),
@@ -793,7 +793,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     15, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -803,7 +803,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     3, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -970,7 +970,7 @@ var _ = Describe("Test TortoiseController", func() {
 								{
 									From:      0,
 									To:        24,
-									WeekDay:   now.Weekday().String(),
+									WeekDay:   pointer.String(now.Weekday().String()),
 									TimeZone:  now.Location().String(),
 									Value:     20,
 									UpdatedAt: metav1.NewTime(now),
@@ -980,7 +980,7 @@ var _ = Describe("Test TortoiseController", func() {
 								{
 									From:      0,
 									To:        24,
-									WeekDay:   now.Weekday().String(),
+									WeekDay:   pointer.String(now.Weekday().String()),
 									TimeZone:  now.Location().String(),
 									Value:     5,
 									UpdatedAt: metav1.NewTime(now),
@@ -1098,7 +1098,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     15, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -1108,7 +1108,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     3, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -1276,7 +1276,7 @@ var _ = Describe("Test TortoiseController", func() {
 								{
 									From:      0,
 									To:        24,
-									WeekDay:   now.Weekday().String(),
+									WeekDay:   pointer.String(now.Weekday().String()),
 									TimeZone:  now.Location().String(),
 									Value:     20,
 									UpdatedAt: metav1.NewTime(now),
@@ -1286,7 +1286,7 @@ var _ = Describe("Test TortoiseController", func() {
 								{
 									From:      0,
 									To:        24,
-									WeekDay:   now.Weekday().String(),
+									WeekDay:   pointer.String(now.Weekday().String()),
 									TimeZone:  now.Location().String(),
 									Value:     5,
 									UpdatedAt: metav1.NewTime(now),
@@ -1406,7 +1406,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     15, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -1416,7 +1416,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     3, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -1517,7 +1517,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     15, // will be updated
 										UpdatedAt: metav1.NewTime(now),
@@ -1527,7 +1527,7 @@ var _ = Describe("Test TortoiseController", func() {
 									{
 										From:      0,
 										To:        24,
-										WeekDay:   now.Weekday().String(),
+										WeekDay:   pointer.String(now.Weekday().String()),
 										TimeZone:  now.Location().String(),
 										Value:     3, // will be updated
 										UpdatedAt: metav1.NewTime(now),
