@@ -257,6 +257,8 @@ type ResourceQuantity struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="MODE",type="string",JSONPath=".spec.updateMode"
+//+kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.tortoisePhase"
 
 // Tortoise is the Schema for the tortoises API
 type Tortoise struct {
