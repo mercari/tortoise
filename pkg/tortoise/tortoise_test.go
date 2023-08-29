@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -206,6 +207,7 @@ func TestService_InitializeTortoise(t *testing.T) {
 	}
 	type fields struct {
 		rangeOfMinMaxReplicasRecommendationHour int
+		minMaxReplicasRoutine                   string
 		timeZone                                *time.Location
 	}
 	tests := []struct {
@@ -217,6 +219,314 @@ func TestService_InitializeTortoise(t *testing.T) {
 	}{
 		{
 			fields: fields{
+				rangeOfMinMaxReplicasRecommendationHour: 8,
+				minMaxReplicasRoutine:                   "weekly",
+				timeZone:                                jst,
+			},
+			tortoise: &v1alpha1.Tortoise{
+				Status: v1alpha1.TortoiseStatus{},
+			},
+			deployment: &appv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+				},
+				Spec: appv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "app",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha1.Tortoise{
+				Status: v1alpha1.TortoiseStatus{
+					TortoisePhase: v1alpha1.TortoisePhaseInitializing,
+					Targets:       v1alpha1.TargetsStatus{Deployment: "deployment"},
+					Conditions: v1alpha1.Conditions{
+						ContainerRecommendationFromVPA: []v1alpha1.ContainerRecommendationFromVPA{
+							{
+								ContainerName: "app",
+								Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+									corev1.ResourceCPU:    {},
+									corev1.ResourceMemory: {},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+									corev1.ResourceCPU:    {},
+									corev1.ResourceMemory: {},
+								},
+							},
+						},
+					},
+					Recommendations: v1alpha1.Recommendations{
+						Horizontal: &v1alpha1.HorizontalRecommendations{
+							MinReplicas: []v1alpha1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Sunday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Sunday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Sunday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Monday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Monday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Monday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Tuesday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Tuesday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Tuesday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Wednesday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Wednesday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Wednesday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Thursday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Thursday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Thursday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Friday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Friday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Friday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Saturday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Saturday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Saturday.String()),
+									TimeZone: timeZone,
+								},
+							},
+							MaxReplicas: []v1alpha1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Sunday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Sunday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Sunday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Monday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Monday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Monday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Tuesday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Tuesday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Tuesday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Wednesday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Wednesday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Wednesday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Thursday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Thursday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Thursday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Friday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Friday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Friday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     0,
+									To:       8,
+									WeekDay:  pointer.String(time.Saturday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     8,
+									To:       16,
+									WeekDay:  pointer.String(time.Saturday.String()),
+									TimeZone: timeZone,
+								},
+								{
+									From:     16,
+									To:       24,
+									WeekDay:  pointer.String(time.Saturday.String()),
+									TimeZone: timeZone,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			fields: fields{
+				minMaxReplicasRoutine:                   "daily",
 				rangeOfMinMaxReplicasRecommendationHour: 8,
 				timeZone:                                jst,
 			},
@@ -264,127 +574,16 @@ func TestService_InitializeTortoise(t *testing.T) {
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  time.Sunday.String(),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  time.Sunday.String(),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  time.Sunday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     0,
-									To:       8,
-									WeekDay:  time.Monday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     8,
-									To:       16,
-									WeekDay:  time.Monday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     16,
-									To:       24,
-									WeekDay:  time.Monday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     0,
-									To:       8,
-									WeekDay:  time.Tuesday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     8,
-									To:       16,
-									WeekDay:  time.Tuesday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     16,
-									To:       24,
-									WeekDay:  time.Tuesday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     0,
-									To:       8,
-									WeekDay:  time.Wednesday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     8,
-									To:       16,
-									WeekDay:  time.Wednesday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     16,
-									To:       24,
-									WeekDay:  time.Wednesday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     0,
-									To:       8,
-									WeekDay:  time.Thursday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     8,
-									To:       16,
-									WeekDay:  time.Thursday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     16,
-									To:       24,
-									WeekDay:  time.Thursday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     0,
-									To:       8,
-									WeekDay:  time.Friday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     8,
-									To:       16,
-									WeekDay:  time.Friday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     16,
-									To:       24,
-									WeekDay:  time.Friday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     0,
-									To:       8,
-									WeekDay:  time.Saturday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     8,
-									To:       16,
-									WeekDay:  time.Saturday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     16,
-									To:       24,
-									WeekDay:  time.Saturday.String(),
 									TimeZone: timeZone,
 								},
 							},
@@ -392,127 +591,16 @@ func TestService_InitializeTortoise(t *testing.T) {
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  time.Sunday.String(),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  time.Sunday.String(),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  time.Sunday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     0,
-									To:       8,
-									WeekDay:  time.Monday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     8,
-									To:       16,
-									WeekDay:  time.Monday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     16,
-									To:       24,
-									WeekDay:  time.Monday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     0,
-									To:       8,
-									WeekDay:  time.Tuesday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     8,
-									To:       16,
-									WeekDay:  time.Tuesday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     16,
-									To:       24,
-									WeekDay:  time.Tuesday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     0,
-									To:       8,
-									WeekDay:  time.Wednesday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     8,
-									To:       16,
-									WeekDay:  time.Wednesday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     16,
-									To:       24,
-									WeekDay:  time.Wednesday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     0,
-									To:       8,
-									WeekDay:  time.Thursday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     8,
-									To:       16,
-									WeekDay:  time.Thursday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     16,
-									To:       24,
-									WeekDay:  time.Thursday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     0,
-									To:       8,
-									WeekDay:  time.Friday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     8,
-									To:       16,
-									WeekDay:  time.Friday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     16,
-									To:       24,
-									WeekDay:  time.Friday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     0,
-									To:       8,
-									WeekDay:  time.Saturday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     8,
-									To:       16,
-									WeekDay:  time.Saturday.String(),
-									TimeZone: timeZone,
-								},
-								{
-									From:     16,
-									To:       24,
-									WeekDay:  time.Saturday.String(),
 									TimeZone: timeZone,
 								},
 							},
@@ -526,6 +614,7 @@ func TestService_InitializeTortoise(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Service{
 				rangeOfMinMaxReplicasRecommendationHour: tt.fields.rangeOfMinMaxReplicasRecommendationHour,
+				minMaxReplicasRoutine:                   tt.fields.minMaxReplicasRoutine,
 				timeZone:                                tt.fields.timeZone,
 			}
 			got := s.initializeTortoise(tt.tortoise, tt.deployment)

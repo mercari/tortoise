@@ -14,6 +14,7 @@ import (
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -28,21 +29,26 @@ type Service struct {
 	rangeOfMinMaxReplicasRecommendationHour int
 	timeZone                                *time.Location
 	tortoiseUpdateInterval                  time.Duration
+	// If "daily", tortoise will consider all workload behaves very similarly every day.
+	// If your workload may behave differently on, for example, weekdays and weekends, set this to "".
+	minMaxReplicasRoutine string
 
 	mu sync.RWMutex
 	// TODO: Instead of here, we should store the last time of each tortoise in the status of the tortoise.
 	lastTimeUpdateTortoise map[client.ObjectKey]time.Time
 }
 
-func New(c client.Client, rangeOfMinMaxReplicasRecommendationHour int, timeZone string, tortoiseUpdateInterval time.Duration) (*Service, error) {
+func New(c client.Client, rangeOfMinMaxReplicasRecommendationHour int, timeZone string, tortoiseUpdateInterval time.Duration, minMaxReplicasRoutine string) (*Service, error) {
 	jst, err := time.LoadLocation(timeZone)
 	if err != nil {
 		return nil, fmt.Errorf("load location: %w", err)
 	}
+
 	return &Service{
 		c: c,
 
 		rangeOfMinMaxReplicasRecommendationHour: rangeOfMinMaxReplicasRecommendationHour,
+		minMaxReplicasRoutine:                   minMaxReplicasRoutine,
 		timeZone:                                jst,
 		tortoiseUpdateInterval:                  tortoiseUpdateInterval,
 		lastTimeUpdateTortoise:                  map[client.ObjectKey]time.Time{},
@@ -98,22 +104,32 @@ func (s *Service) checkIfTortoiseFinishedGatheringData(tortoise *v1alpha1.Tortoi
 	return tortoise
 }
 
-func (s *Service) initializeTortoise(tortoise *v1alpha1.Tortoise, dm *appv1.Deployment) *v1alpha1.Tortoise {
+func (s *Service) initializeMinMaxReplicas(tortoise *v1alpha1.Tortoise) *v1alpha1.Tortoise {
 	recommendations := []v1alpha1.ReplicasRecommendation{}
 	from := 0
 	to := s.rangeOfMinMaxReplicasRecommendationHour
 	weekDay := time.Sunday
 	for {
-		recommendations = append(recommendations, v1alpha1.ReplicasRecommendation{
-			From:     from,
-			To:       to,
-			TimeZone: s.timeZone.String(),
-			WeekDay:  weekDay.String(),
-		})
+		if s.minMaxReplicasRoutine == "daily" {
+			recommendations = append(recommendations, v1alpha1.ReplicasRecommendation{
+				From:     from,
+				To:       to,
+				TimeZone: s.timeZone.String(),
+			})
+		} else if s.minMaxReplicasRoutine == "weekly" {
+			recommendations = append(recommendations, v1alpha1.ReplicasRecommendation{
+				From:     from,
+				To:       to,
+				TimeZone: s.timeZone.String(),
+				WeekDay:  pointer.String(weekDay.String()),
+			})
+		}
+
 		if to == 24 {
-			if weekDay == time.Saturday {
+			if weekDay == time.Saturday || s.minMaxReplicasRoutine == "daily" {
 				break
 			}
+
 			weekDay += 1
 			from = 0
 			to = s.rangeOfMinMaxReplicasRecommendationHour
@@ -127,6 +143,12 @@ func (s *Service) initializeTortoise(tortoise *v1alpha1.Tortoise, dm *appv1.Depl
 	}
 	tortoise.Status.Recommendations.Horizontal.MinReplicas = recommendations
 	tortoise.Status.Recommendations.Horizontal.MaxReplicas = recommendations
+
+	return tortoise
+}
+
+func (s *Service) initializeTortoise(tortoise *v1alpha1.Tortoise, dm *appv1.Deployment) *v1alpha1.Tortoise {
+	tortoise = s.initializeMinMaxReplicas(tortoise)
 	tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseInitializing
 
 	tortoise.Status.Conditions.ContainerRecommendationFromVPA = make([]v1alpha1.ContainerRecommendationFromVPA, len(dm.Spec.Template.Spec.Containers))
