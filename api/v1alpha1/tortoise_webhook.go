@@ -231,17 +231,18 @@ func (r *Tortoise) ValidateDelete() (admission.Warnings, error) {
 	return nil, nil
 }
 
-func externalMetricNameFromAnnotation(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName) (string, error) {
+func externalMetricNameFromAnnotation(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName) (string, bool, error) {
 	var prefix string
+	var ok bool
 	switch k {
 	case corev1.ResourceCPU:
-		prefix = hpa.GetAnnotations()[annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation]
+		prefix, ok = hpa.GetAnnotations()[annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation]
 	case corev1.ResourceMemory:
-		prefix = hpa.GetAnnotations()[annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation]
+		prefix, ok = hpa.GetAnnotations()[annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation]
 	default:
-		return "", fmt.Errorf("non supported resource type: %s", k)
+		return "", false, fmt.Errorf("non supported resource type: %s", k)
 	}
-	return prefix + containerName, nil
+	return prefix + containerName, ok, nil
 }
 
 func validateHPAAnnotations(hpa *v2.HorizontalPodAutoscaler, containerName string) error {
@@ -262,9 +263,12 @@ func validateHPAAnnotations(hpa *v2.HorizontalPodAutoscaler, containerName strin
 
 	resourceNames := []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}
 	for _, rn := range resourceNames {
-		externalMetricName, err := externalMetricNameFromAnnotation(hpa, containerName, rn)
+		externalMetricName, ok, err := externalMetricNameFromAnnotation(hpa, containerName, rn)
 		if err != nil {
 			return err
+		}
+		if !ok {
+			continue
 		}
 
 		if !externalMetrics.Has(externalMetricName) {
