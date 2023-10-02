@@ -27,9 +27,7 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
-	"time"
 
 	v2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,6 +40,7 @@ import (
 	autoscalingv2 "github.com/mercari/tortoise/api/autoscaling/v2"
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 	"github.com/mercari/tortoise/controllers"
+	"github.com/mercari/tortoise/pkg/config"
 	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/hpa"
 	"github.com/mercari/tortoise/pkg/recommender"
@@ -76,40 +75,11 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 
 	// Tortoise specific flags
-	var rangeOfMinMaxReplicasRecommendationHours int
-	var minMaxReplicasRoutine string
-	var tTLHoursOfMinMaxReplicasRecommendation int
-	var maxReplicasFactor float64
-	var minReplicasFactor float64
-	var replicaReductionFactor float64
-	var upperTargetResourceUtilization int
-	var minimumMinReplicas int
-	var preferredReplicaNumUpperLimit int
-	var maxCPUPerContainer string
-	var maxMemoryPerContainer string
-	var timeZone string
-	var tortoiseUpdateInterval time.Duration
-	flag.IntVar(&rangeOfMinMaxReplicasRecommendationHours, "range-of-min-max-replicas-recommendation-hours", 1, "the time (hours) range of minReplicas and maxReplicas recommendation (default: 1)")
-	flag.StringVar(&minMaxReplicasRoutine, "min-max-replicas-routine", "weekly", "the routine of minReplicas and maxReplicas recommendation (default: weekly)")
-	flag.IntVar(&tTLHoursOfMinMaxReplicasRecommendation, "ttl-hours-of-min-max-replicas-recommendation", 24*30, "the TTL (hours) of minReplicas and maxReplicas recommendation (default: 720 (=30 days))")
-	flag.Float64Var(&maxReplicasFactor, "max-replicas-factor", 2.0, "the factor to calculate the maxReplicas recommendation from the current replica number (default: 2.0)")
-	flag.Float64Var(&minReplicasFactor, "min-replicas-factor", 0.5, "the factor to calculate the minReplicas recommendation from the current replica number (default: 0.5)")
-	flag.Float64Var(&replicaReductionFactor, "replica-reduction-factor", 0.95, "the factor to reduce the minReplicas gradually after turning off Emergency mode (default: 0.95)")
-	flag.IntVar(&upperTargetResourceUtilization, "upper-target-resource-utilization", 90, "the max target utilization that tortoise can give to the HPA (default: 90)")
-	flag.IntVar(&minimumMinReplicas, "minimum-min-replicas", 3, "the minimum minReplicas that tortoise can give to the HPA (default: 3)")
-	flag.IntVar(&preferredReplicaNumUpperLimit, "preferred-replicas-number-upper-limit", 30, "The replica number which the tortoise tries to keep the replica number less than. As it says \"preferred\", the tortoise **tries** to keep the replicas number less than this, but the replica number may be more than this when other \"required\" rule will be violated by this limit. (default: 30)")
-	flag.StringVar(&maxCPUPerContainer, "maximum-cpu-cores", "10", "the maximum CPU cores that the tortoise can give to the container (default: 10)")
-	flag.StringVar(&maxMemoryPerContainer, "maximum-memory-bytes", "10Gi", "the maximum memory bytes that the tortoise can give to the container (default: 10Gi)")
-	flag.StringVar(&timeZone, "timezone", "Asia/Tokyo", "The timezone used to record time in tortoise objects (default: Asia/Tokyo)")
-	flag.DurationVar(&tortoiseUpdateInterval, "tortoise-update-interval", 15*time.Second, "The interval of updating each tortoise (default: 15s)")
-
-	if rangeOfMinMaxReplicasRecommendationHours > 24 || rangeOfMinMaxReplicasRecommendationHours < 1 {
-		setupLog.Error(fmt.Errorf("range-of-min-max-replicas-recommendation-hours should be between 1 and 24"), "invalid value")
-		os.Exit(1)
-	}
-
-	if minMaxReplicasRoutine != "daily" && minMaxReplicasRoutine != "weekly" {
-		setupLog.Error(fmt.Errorf("min-max-replicas-routine should be either \"daily\" or \"weekly\""), "invalid value")
+	var configPath string
+	flag.StringVar(&configPath, "config", "", "The path to the config file.")
+	config, err := config.ParseConfig(configPath)
+	if err != nil {
+		setupLog.Error(err, "failed to load config")
 		os.Exit(1)
 	}
 
@@ -145,7 +115,7 @@ func main() {
 		os.Exit(1)
 	}
 	eventRecorder := mgr.GetEventRecorderFor("tortoise-controller")
-	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, rangeOfMinMaxReplicasRecommendationHours, timeZone, tortoiseUpdateInterval, minMaxReplicasRoutine)
+	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, config.RangeOfMinMaxReplicasRecommendationHours, config.TimeZone, config.TortoiseUpdateInterval, config.MinMaxReplicasRecommendationType)
 	if err != nil {
 		setupLog.Error(err, "unable to start tortoise service")
 		os.Exit(1)
@@ -157,16 +127,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	hpaService := hpa.New(mgr.GetClient(), eventRecorder, replicaReductionFactor, upperTargetResourceUtilization)
+	hpaService := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.UpperTargetResourceUtilization)
 
 	if err = (&controllers.TortoiseReconciler{
 		Scheme:             mgr.GetScheme(),
 		HpaService:         hpaService,
 		VpaService:         vpaClient,
 		DeploymentService:  deployment.New(mgr.GetClient()),
-		RecommenderService: recommender.New(tTLHoursOfMinMaxReplicasRecommendation, maxReplicasFactor, minReplicasFactor, upperTargetResourceUtilization, minimumMinReplicas, preferredReplicaNumUpperLimit, maxCPUPerContainer, maxMemoryPerContainer),
+		RecommenderService: recommender.New(config.TTLHoursOfMinMaxReplicasRecommendation, config.MaxReplicasFactor, config.MinReplicasFactor, config.UpperTargetResourceUtilization, config.MinimumMinReplicas, config.PreferredReplicaNumUpperLimit, config.MaximumCPUCores, config.MaximumMemoryBytes),
 		TortoiseService:    tortoiseService,
-		Interval:           tortoiseUpdateInterval,
+		Interval:           config.TortoiseUpdateInterval,
 		EventRecorder:      eventRecorder,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Tortoise")
