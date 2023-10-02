@@ -30,19 +30,14 @@ import (
 	"errors"
 	"fmt"
 
-	v2 "k8s.io/api/autoscaling/v2"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	"github.com/mercari/tortoise/pkg/annotation"
 )
 
 // log is for logging in this package.
@@ -176,20 +171,6 @@ func (r *Tortoise) ValidateCreate() (admission.Warnings, error) {
 		return nil, fmt.Errorf("%s: tortoise should not have the policies for the container(s) which isn't defined in the deployment, but, it have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), uselessPolicies)
 	}
 
-	hpa, err := ClientService.GetHPAFromUser(ctx, r)
-	if err != nil {
-		// Check if HPA really exists or not.
-		return nil, fmt.Errorf("failed to get the horizontal pod autoscaler defined in %s: %w", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"), err)
-	}
-	if hpa != nil {
-		for _, c := range containers.List() {
-			err = validateHPAAnnotations(hpa, c)
-			if err != nil {
-				return nil, fmt.Errorf("the horizontal pod autoscaler defined in %s is invalid: %w", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"), err)
-			}
-		}
-	}
-
 	return nil, validateTortoise(r)
 }
 
@@ -229,52 +210,4 @@ func (r *Tortoise) ValidateUpdate(old runtime.Object) (admission.Warnings, error
 func (r *Tortoise) ValidateDelete() (admission.Warnings, error) {
 	tortoiselog.Info("validate delete", "name", r.Name)
 	return nil, nil
-}
-
-func externalMetricNameFromAnnotation(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName) (string, bool, error) {
-	var prefix string
-	var ok bool
-	switch k {
-	case corev1.ResourceCPU:
-		prefix, ok = hpa.GetAnnotations()[annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation]
-	case corev1.ResourceMemory:
-		prefix, ok = hpa.GetAnnotations()[annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation]
-	default:
-		return "", false, fmt.Errorf("non supported resource type: %s", k)
-	}
-	return prefix + containerName, ok, nil
-}
-
-func validateHPAAnnotations(hpa *v2.HorizontalPodAutoscaler, containerName string) error {
-	externalMetrics := sets.NewString()
-	for _, m := range hpa.Spec.Metrics {
-		if m.Type != v2.ExternalMetricSourceType {
-			continue
-		}
-
-		if m.External == nil {
-			// shouldn't reach here
-			klog.ErrorS(nil, "invalid external metric on HPA", klog.KObj(hpa))
-			continue
-		}
-
-		externalMetrics.Insert(m.External.Metric.Name)
-	}
-
-	resourceNames := []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}
-	for _, rn := range resourceNames {
-		externalMetricName, ok, err := externalMetricNameFromAnnotation(hpa, containerName, rn)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			continue
-		}
-
-		if !externalMetrics.Has(externalMetricName) {
-			return fmt.Errorf("HPA doesn't have the external metrics which is defined in the annotations. (The annotation wants an external metric named %s)", externalMetricName)
-		}
-	}
-
-	return nil
 }

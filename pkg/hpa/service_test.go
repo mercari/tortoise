@@ -10,7 +10,6 @@ import (
 	appv1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,139 +35,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 		wantTortoise *autoscalingv1alpha1.Tortoise
 		wantErr      bool
 	}{
-		{
-			name: "Basic test case with external metrics",
-			args: args{
-				ctx: context.Background(),
-				tortoise: &autoscalingv1alpha1.Tortoise{
-					Status: autoscalingv1alpha1.TortoiseStatus{
-						Targets: autoscalingv1alpha1.TargetsStatus{
-							HorizontalPodAutoscaler: "hpa",
-						},
-						Recommendations: autoscalingv1alpha1.Recommendations{
-							Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
-								TargetUtilizations: []autoscalingv1alpha1.HPATargetUtilizationRecommendationPerContainer{
-									{
-										ContainerName: "app",
-										TargetUtilization: map[v1.ResourceName]int32{
-											v1.ResourceMemory: 90,
-										},
-									},
-									{
-										ContainerName: "istio-proxy",
-										TargetUtilization: map[v1.ResourceName]int32{
-											v1.ResourceCPU: 80,
-										},
-									},
-								},
-								MaxReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
-									{
-										From:      0,
-										To:        2,
-										Value:     6,
-										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
-									},
-								},
-								MinReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
-									{
-										From:      0,
-										To:        2,
-										Value:     3,
-										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
-									},
-								},
-							},
-						},
-					},
-				},
-				now: now.Time,
-			},
-			initialHPA: &v2.HorizontalPodAutoscaler{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "hpa",
-					Annotations: map[string]string{
-						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-					},
-				},
-				Spec: v2.HorizontalPodAutoscalerSpec{
-					MinReplicas: ptrInt32(1),
-					MaxReplicas: 2,
-					Metrics: []v2.MetricSpec{
-						{
-							Type: v2.ObjectMetricSourceType,
-							// should be ignored
-						},
-						{
-							Type: v2.ExternalMetricSourceType,
-							External: &v2.ExternalMetricSource{
-								Metric: v2.MetricIdentifier{
-									Name: "datadogmetric@echo-prod:echo-memory-app",
-								},
-								Target: v2.MetricTarget{
-									Value: resourceQuantityPtr(resource.MustParse("60")),
-								},
-							},
-						},
-						{
-							Type: v2.ExternalMetricSourceType,
-							External: &v2.ExternalMetricSource{
-								Metric: v2.MetricIdentifier{
-									Name: "datadogmetric@echo-prod:echo-cpu-istio-proxy",
-								},
-								Target: v2.MetricTarget{
-									Value: resourceQuantityPtr(resource.MustParse("50")),
-								},
-							},
-						},
-					},
-				},
-			},
-			want: &v2.HorizontalPodAutoscaler{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "hpa",
-					Annotations: map[string]string{
-						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-					},
-				},
-				Spec: v2.HorizontalPodAutoscalerSpec{
-					MinReplicas: ptrInt32(3),
-					MaxReplicas: 6,
-					Metrics: []v2.MetricSpec{
-						{
-							Type: v2.ObjectMetricSourceType,
-							// should be ignored
-						},
-						{
-							Type: v2.ExternalMetricSourceType,
-							External: &v2.ExternalMetricSource{
-								Metric: v2.MetricIdentifier{
-									Name: "datadogmetric@echo-prod:echo-memory-app",
-								},
-								Target: v2.MetricTarget{
-									Value: resourceQuantityPtr(resource.MustParse("90")),
-								},
-							},
-						},
-						{
-							Type: v2.ExternalMetricSourceType,
-							External: &v2.ExternalMetricSource{
-								Metric: v2.MetricIdentifier{
-									Name: "datadogmetric@echo-prod:echo-cpu-istio-proxy",
-								},
-								Target: v2.MetricTarget{
-									Value: resourceQuantityPtr(resource.MustParse("80")),
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErr: false,
-		},
 		{
 			name: "Basic test case with container resource metrics",
 			args: args{
@@ -221,10 +87,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hpa",
-					Annotations: map[string]string{
-						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -260,10 +122,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			want: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hpa",
-					Annotations: map[string]string{
-						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(3),
@@ -353,10 +211,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hpa",
-					Annotations: map[string]string{
-						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -392,10 +246,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			want: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hpa",
-					Annotations: map[string]string{
-						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -483,10 +333,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hpa",
-					Annotations: map[string]string{
-						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -522,10 +368,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			want: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hpa",
-					Annotations: map[string]string{
-						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(6),
@@ -613,10 +455,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hpa",
-					Annotations: map[string]string{
-						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(6),
@@ -652,10 +490,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			want: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hpa",
-					Annotations: map[string]string{
-						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(5),
@@ -743,10 +577,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hpa",
-					Annotations: map[string]string{
-						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -782,10 +612,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			want: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hpa",
-					Annotations: map[string]string{
-						annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-						annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(3),
@@ -956,6 +782,15 @@ func TestService_InitializeHPA(t *testing.T) {
 						APIVersion: "apps/v1",
 					},
 					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         100,
+									PeriodSeconds: 60,
+								},
+							},
+						},
 						ScaleDown: &v2.HPAScalingRules{
 							Policies: []v2.HPAScalingPolicy{
 								{

@@ -64,59 +64,9 @@ Looking back the above formula,
 
 Currently, Tortoise supports:
 - `type: Resource` metric if Pod has only one container.
-- `type: ContainerResource` metric if Pod has only multiple containers.
-- `type: External` metric if Pod has the annotations described below.
+- `type: ContainerResource` metric if Pod has multiple containers.
 
-##### `type: External` support (will be removed)
-
-※ This feature will be removed soon since the container resource metrics feature graduated to beta.
-
-Regarding the `External`, given [the container resource metrics](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#container-resource-metrics) is still alpha as of v1.26, 
-some companies are using the external metrics to fetch the container's resource utilization.
-
-So, you can let Tortoise regard some external metrics as referring to the container's resource utilization.
-You need to give the annotations to your HPA like:
-
-```yaml
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: example-hpa
-  namespace: example-prod
-  annotations:
-    tortoises.autoscaling.mercari.com/container-based-cpu-metric-prefix: "datadogmetric@example-prod:example-workload-cpu-"
-    tortoises.autoscaling.mercari.com/container-based-memory-metric-prefix: "datadogmetric@example-prod:example-workload-memory-"
-spec:
-  metrics:
-    - type: External
-      external:
-        metric:
-          name: datadogmetric@example-prod:example-workload-cpu-app # CPU target of the container named "app"
-        target:
-          type: Value
-          value: 60 # Tortoise regards this value as the target utilization for the CPU of the container named "app", and it will adjust this target value.
-    - type: External
-      external:
-        metric:
-          name: datadogmetric@example-prod:example-workload-cpu-istio-sidecar # CPU target of the container named "istio-sidecar"
-        target:
-          type: Value
-          value: 80 # Tortoise regards this value as the target utilization for the CPU of the container named "istio-sidecar", and it will adjust this target value. 
-    - type: External
-      external:
-        metric:
-          name: datadogmetric@example-prod:example-workload-memory-app # memory target of the container named "app"
-        target:
-          type: Value
-          value: 75 # Tortoise regards this value as the target utilization for the memory of the container named "app", and it will adjust this target value.
-    - type: External
-      external:
-        metric:
-          name: datadogmetric@example-prod:example-workload-memory-istio-sidecar # memory target of the container named "istio-sidecar"
-        target:
-          type: Value
-          value: 70 # Tortoise regards this value as the target utilization for the memory of the container named "istio-sidecar", and it will adjust this target value.
-```
+But, if a Pod has only one container but a corresponding HPA doesn't have `type: Resource`, tortoise controller looks for `type: ContainerResource` in HPA next.
 
 ### The container right sizing
 
