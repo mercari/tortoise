@@ -13,6 +13,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,13 +28,15 @@ type Service struct {
 
 	replicaReductionFactor         float64
 	upperTargetResourceUtilization int32
+	recorder                       record.EventRecorder
 }
 
-func New(c client.Client, replicaReductionFactor float64, upperTargetResourceUtilization int) *Service {
+func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor float64, upperTargetResourceUtilization int) *Service {
 	return &Service{
 		c:                              c,
 		replicaReductionFactor:         replicaReductionFactor,
 		upperTargetResourceUtilization: int32(upperTargetResourceUtilization),
+		recorder:                       recorder,
 	}
 }
 
@@ -44,6 +47,9 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1alph
 		if err != nil {
 			return tortoise, fmt.Errorf("give annotations on a hpa specified in targetrefs: %w", err)
 		}
+
+		c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPAUpdated", fmt.Sprintf("Updated HPA %s/%s", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
+
 		return tortoise, nil
 	}
 
@@ -52,6 +58,8 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1alph
 	if err != nil {
 		return tortoise, fmt.Errorf("create hpa: %w", err)
 	}
+
+	c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPACreated", fmt.Sprintf("Initialized a HPA %s/%s", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
 
 	return tortoise, nil
 }
@@ -271,7 +279,15 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		return c.c.Update(ctx, hpa)
 	}
 
-	return retHPA, retTortoise, retry.RetryOnConflict(retry.DefaultRetry, updateFn)
+	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
+		return nil, nil, err
+	}
+
+	if tortoise.Spec.UpdateMode != autoscalingv1alpha1.UpdateModeOff {
+		c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPAUpdated", fmt.Sprintf("HPA %s/%s is updated by the recommendation", retHPA.Namespace, retHPA.Name))
+	}
+
+	return retHPA, retTortoise, nil
 }
 
 // GetReplicasRecommendation finds the corresponding recommendations.

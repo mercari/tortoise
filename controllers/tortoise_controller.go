@@ -33,6 +33,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -55,17 +56,25 @@ type TortoiseReconciler struct {
 	DeploymentService  *deployment.Service
 	TortoiseService    *tortoise.Service
 	RecommenderService *recommender.Service
+	EventRecorder      record.EventRecorder
 }
 
 //+kubebuilder:rbac:groups=autoscaling.mercari.com,resources=tortoises,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=autoscaling.mercari.com,resources=tortoises/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=autoscaling.mercari.com,resources=tortoises/finalizers,verbs=update
+//+kubebuilder:rbac:groups=core,resources=events,verbs=create;update;patch
 
 //+kubebuilder:rbac:groups=autoscaling.k8s.io,resources=verticalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 
-func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+	defer func() {
+		if reterr != nil {
+			r.EventRecorder.Event(&autoscalingv1alpha1.Tortoise{}, "Warning", "ReconcileError", reterr.Error())
+		}
+	}()
+
 	logger := log.FromContext(ctx)
 	now := time.Now()
 
@@ -90,7 +99,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if err := r.TortoiseService.RemoveFinalizer(ctx, tortoise); err != nil {
 			return ctrl.Result{}, fmt.Errorf("remove finalizer: %w", err)
 		}
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
 	// tortoise is not deleted. Make sure finalizer is added to tortoise.
@@ -117,9 +126,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, fmt.Errorf("initialize VPAs and HPA: %w", err)
 		}
 
-		// VPA and HPA are just created, and they won't start working soon.
-		// So, return here and wait a few min for them to start to work.
-		return ctrl.Result{RequeueAfter: 2 * time.Minute}, nil
+		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
 	vpa, ready, err := r.VpaService.GetTortoiseMonitorVPA(ctx, tortoise)
@@ -135,7 +142,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{RequeueAfter: 2 * time.Minute}, nil
+		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
 	logger.V(4).Info("VPA created by tortoise is ready, proceeding to generate the recommendation", "tortoise", req.NamespacedName)
@@ -161,7 +168,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	if tortoise.Status.TortoisePhase == autoscalingv1alpha1.TortoisePhaseGatheringData {
 		logger.V(4).Info("tortoise is GatheringData phase; skip applying the recommendation to HPA or VPAs")
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
 	_, tortoise, err = r.HpaService.UpdateHPAFromTortoiseRecommendation(ctx, tortoise, now)
@@ -182,7 +189,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: r.Interval}, nil
 }
 
 func (r *TortoiseReconciler) deleteVPAAndHPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise, now time.Time) error {

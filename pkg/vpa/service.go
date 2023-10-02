@@ -11,6 +11,7 @@ import (
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
@@ -19,15 +20,16 @@ import (
 )
 
 type Service struct {
-	c versioned.Interface
+	c        versioned.Interface
+	recorder record.EventRecorder
 }
 
-func New(c *rest.Config) (*Service, error) {
+func New(c *rest.Config, recorder record.EventRecorder) (*Service, error) {
 	cli, err := versioned.NewForConfig(c)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{c: cli}, nil
+	return &Service{c: cli, recorder: recorder}, nil
 }
 
 const TortoiseMonitorVPANamePrefix = "tortoise-monitor-"
@@ -136,7 +138,13 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 		Role: autoscalingv1alpha1.VerticalPodAutoscalerRoleUpdater,
 	})
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Create(ctx, vpa, metav1.CreateOptions{})
-	return vpa, tortoise, err
+	if err != nil {
+		return nil, tortoise, err
+	}
+
+	c.recorder.Event(tortoise, corev1.EventTypeNormal, "VPACreated", fmt.Sprintf("Initialized a updator VPA %s/%s", vpa.Namespace, vpa.Name))
+
+	return vpa, tortoise, nil
 }
 
 func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
@@ -177,7 +185,13 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 	})
 
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Create(ctx, vpa, metav1.CreateOptions{})
-	return vpa, tortoise, err
+	if err != nil {
+		return nil, tortoise, err
+	}
+
+	c.recorder.Event(tortoise, corev1.EventTypeNormal, "VPACreated", fmt.Sprintf("Initialized a monitor VPA %s/%s", vpa.Namespace, vpa.Name))
+
+	return vpa, tortoise, nil
 }
 
 func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
@@ -220,7 +234,15 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		return err
 	}
 
-	return retVPA, retry.RetryOnConflict(retry.DefaultRetry, updateFn)
+	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
+		return retVPA, fmt.Errorf("update VPA status: %w", err)
+	}
+
+	if tortoise.Spec.UpdateMode != autoscalingv1alpha1.UpdateModeOff {
+		c.recorder.Event(tortoise, corev1.EventTypeNormal, "VPAUpdated", fmt.Sprintf("VPA %s/%s is updated by the recommendation. The Pods should also be updated with new resources soon by VPA if needed", retVPA.Namespace, retVPA.Name))
+	}
+
+	return retVPA, nil
 }
 
 func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {

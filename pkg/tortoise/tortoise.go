@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
@@ -25,7 +26,9 @@ import (
 const tortoiseFinalizer = "tortoise.autoscaling.mercari.com/finalizer"
 
 type Service struct {
-	c                                       client.Client
+	c        client.Client
+	recorder record.EventRecorder
+
 	rangeOfMinMaxReplicasRecommendationHour int
 	timeZone                                *time.Location
 	tortoiseUpdateInterval                  time.Duration
@@ -38,7 +41,7 @@ type Service struct {
 	lastTimeUpdateTortoise map[client.ObjectKey]time.Time
 }
 
-func New(c client.Client, rangeOfMinMaxReplicasRecommendationHour int, timeZone string, tortoiseUpdateInterval time.Duration, minMaxReplicasRoutine string) (*Service, error) {
+func New(c client.Client, recorder record.EventRecorder, rangeOfMinMaxReplicasRecommendationHour int, timeZone string, tortoiseUpdateInterval time.Duration, minMaxReplicasRoutine string) (*Service, error) {
 	jst, err := time.LoadLocation(timeZone)
 	if err != nil {
 		return nil, fmt.Errorf("load location: %w", err)
@@ -47,6 +50,7 @@ func New(c client.Client, rangeOfMinMaxReplicasRecommendationHour int, timeZone 
 	return &Service{
 		c: c,
 
+		recorder:                                recorder,
 		rangeOfMinMaxReplicasRecommendationHour: rangeOfMinMaxReplicasRecommendationHour,
 		minMaxReplicasRoutine:                   minMaxReplicasRoutine,
 		timeZone:                                jst,
@@ -75,16 +79,35 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1alpha1.Tortoise, dm *appv1.Dep
 	switch tortoise.Status.TortoisePhase {
 	case "":
 		tortoise = s.initializeTortoise(tortoise, dm)
+		r := "1 week"
+		if s.minMaxReplicasRoutine == "daily" {
+			r = "1 day"
+		}
+		s.recorder.Event(tortoise, corev1.EventTypeNormal, "Initialized", fmt.Sprintf("Tortoise is initialized and starts to gather data to make recommendations. It will take %s to finish gathering data and then tortoise starts to work actually", r))
+
 	case v1alpha1.TortoisePhaseInitializing:
 		// change it to GatheringData anyway. Later the controller may change it back to initialize if VPA isn't ready.
 		tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseGatheringData
 	case v1alpha1.TortoisePhaseGatheringData:
 		tortoise = s.checkIfTortoiseFinishedGatheringData(tortoise)
+		if tortoise.Status.TortoisePhase == v1alpha1.TortoisePhaseWorking {
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Working", "Tortoise finishes gathering data and it starts to work on autoscaling")
+		}
+	case v1alpha1.TortoisePhaseEmergency:
+		if tortoise.Spec.UpdateMode != v1alpha1.UpdateModeEmergency {
+			// Emergency mode is turned off.
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Working", "Emergency mode is turned off. Tortoise starts to work on autoscaling normally")
+			tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseEmergency
+		}
 	}
 
 	if tortoise.Spec.UpdateMode == v1alpha1.UpdateModeEmergency {
-		tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseEmergency
+		if tortoise.Status.TortoisePhase != v1alpha1.TortoisePhaseEmergency {
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Emergency", "Tortoise is in Emergency mode")
+			tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseEmergency
+		}
 	}
+
 	return tortoise
 }
 
@@ -286,6 +309,8 @@ func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1
 	if err != nil {
 		return originalTortoise, err
 	}
+
+	s.recorder.Event(originalTortoise, corev1.EventTypeNormal, "RecommendationUpdated", "The recommendation on Tortoise status is updated")
 
 	s.updateLastTimeUpdateTortoise(originalTortoise, now)
 
