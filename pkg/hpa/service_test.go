@@ -11,6 +11,7 @@ import (
 	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -694,7 +695,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), 0.95, 90)
+			c := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90)
 			got, tortoise, err := c.UpdateHPAFromTortoiseRecommendation(tt.args.ctx, tt.args.tortoise, tt.args.now)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateHPAFromTortoiseRecommendation() error = %v, wantErr %v", err, tt.wantErr)
@@ -902,9 +903,9 @@ func TestService_InitializeHPA(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := New(fake.NewClientBuilder().Build(), 0.95, 90)
+			c := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90)
 			if tt.initialHPA != nil {
-				c = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), 0.95, 90)
+				c = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90)
 			}
 			_, err := c.InitializeHPA(context.Background(), tt.args.tortoise, tt.args.dm)
 			if (err != nil) != tt.wantErr {

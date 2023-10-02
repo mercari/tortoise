@@ -16,6 +16,7 @@ import (
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -67,13 +68,14 @@ var _ = Describe("Test TortoiseController", func() {
 		})
 		Expect(err).ShouldNot(HaveOccurred())
 
-		tortoiseService, err := tortoise.New(mgr.GetClient(), 1, "Asia/Tokyo", 1000*time.Minute, "weekly")
+		tortoiseService, err := tortoise.New(mgr.GetClient(), record.NewFakeRecorder(10), 1, "Asia/Tokyo", 1000*time.Minute, "weekly")
 		Expect(err).ShouldNot(HaveOccurred())
-		cli, err := vpa.New(mgr.GetConfig())
+		cli, err := vpa.New(mgr.GetConfig(), record.NewFakeRecorder(10))
 		Expect(err).ShouldNot(HaveOccurred())
 		reconciler := &TortoiseReconciler{
 			Scheme:             scheme,
-			HpaService:         hpa.New(mgr.GetClient(), 0.95, 90),
+			HpaService:         hpa.New(mgr.GetClient(), record.NewFakeRecorder(10), 0.95, 90),
+			EventRecorder:      record.NewFakeRecorder(10),
 			VpaService:         cli,
 			DeploymentService:  deployment.New(mgr.GetClient()),
 			TortoiseService:    tortoiseService,
@@ -1632,7 +1634,7 @@ func (t *testCase) initializeResources(ctx context.Context, k8sClient client.Cli
 	}
 	if t.before.hpa == nil {
 		// create default HPA.
-		HpaClient := hpa.New(k8sClient, 0.95, 90)
+		HpaClient := hpa.New(k8sClient, record.NewFakeRecorder(10), 0.95, 90)
 		t.before.hpa, t.before.tortoise, err = HpaClient.CreateHPA(ctx, t.before.tortoise, t.before.deployment)
 		if err != nil {
 			return err
@@ -1641,7 +1643,7 @@ func (t *testCase) initializeResources(ctx context.Context, k8sClient client.Cli
 	if t.before.vpa == nil {
 		// create default VPAs.
 		t.before.vpa = map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
-		VpaClient, err := vpa.New(config)
+		VpaClient, err := vpa.New(config, record.NewFakeRecorder(10))
 		if err != nil {
 			return err
 		}

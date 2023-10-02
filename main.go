@@ -144,19 +144,20 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	tortoiseService, err := tortoise.New(mgr.GetClient(), rangeOfMinMaxReplicasRecommendationHours, timeZone, tortoiseUpdateInterval, minMaxReplicasRoutine)
+	eventRecorder := mgr.GetEventRecorderFor("tortoise-controller")
+	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, rangeOfMinMaxReplicasRecommendationHours, timeZone, tortoiseUpdateInterval, minMaxReplicasRoutine)
 	if err != nil {
 		setupLog.Error(err, "unable to start tortoise service")
 		os.Exit(1)
 	}
 
-	vpaClient, err := vpa.New(mgr.GetConfig())
+	vpaClient, err := vpa.New(mgr.GetConfig(), eventRecorder)
 	if err != nil {
 		setupLog.Error(err, "unable to start vpa client")
 		os.Exit(1)
 	}
 
-	hpaService := hpa.New(mgr.GetClient(), replicaReductionFactor, upperTargetResourceUtilization)
+	hpaService := hpa.New(mgr.GetClient(), eventRecorder, replicaReductionFactor, upperTargetResourceUtilization)
 
 	if err = (&controllers.TortoiseReconciler{
 		Scheme:             mgr.GetScheme(),
@@ -165,7 +166,8 @@ func main() {
 		DeploymentService:  deployment.New(mgr.GetClient()),
 		RecommenderService: recommender.New(tTLHoursOfMinMaxReplicasRecommendation, maxReplicasFactor, minReplicasFactor, upperTargetResourceUtilization, minimumMinReplicas, preferredReplicaNumUpperLimit, maxCPUPerContainer, maxMemoryPerContainer),
 		TortoiseService:    tortoiseService,
-		Interval:           30 * time.Second,
+		Interval:           tortoiseUpdateInterval,
+		EventRecorder:      eventRecorder,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Tortoise")
 		os.Exit(1)
