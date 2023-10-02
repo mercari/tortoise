@@ -21,10 +21,15 @@ var (
 		Help: "recommended hpa maxReplicas that tortoises propose",
 	}, []string{"tortoise_name", "namespace", "hpa_name"})
 
-	ProposedResourceRequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "proposed_resource_request",
+	ProposedCPURequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "proposed_cpu_request",
 		Help: "recommended resource request that tortoises propose",
-	}, []string{"tortoise_name", "namespace", "container_name", "resource_name"})
+	}, []string{"tortoise_name", "namespace", "container_name"})
+
+	ProposedMemoryRequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "proposed_memory_request",
+		Help: "recommended resource request that tortoises propose",
+	}, []string{"tortoise_name", "namespace", "container_name"})
 )
 
 func init() {
@@ -33,6 +38,7 @@ func init() {
 		ProposedHPATargetUtilization,
 		ProposedHPAMinReplicass,
 		ProposedHPAMaxReplicass,
-		ProposedResourceRequest,
+		ProposedCPURequest,
+		ProposedMemoryRequest,
 	)
 }

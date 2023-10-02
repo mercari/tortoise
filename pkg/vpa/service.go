@@ -208,7 +208,12 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
 			if !metricsRecorded {
 				for resourcename, value := range r.RecommendedResource {
-					metrics.ProposedResourceRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, resourcename.String()).Set(float64(value.MilliValue()))
+					if resourcename == corev1.ResourceCPU {
+						metrics.ProposedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName).Set(float64(value.MilliValue()))
+					}
+					if resourcename == corev1.ResourceMemory {
+						metrics.ProposedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName).Set(float64(value.MilliValue()))
+					}
 				}
 				metricsRecorded = true
 			}
