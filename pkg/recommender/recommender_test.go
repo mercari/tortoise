@@ -15,7 +15,6 @@ import (
 	"k8s.io/utils/pointer"
 
 	"github.com/mercari/tortoise/api/v1alpha1"
-	"github.com/mercari/tortoise/pkg/annotation"
 )
 
 func TestUpdateRecommendation(t *testing.T) {
@@ -81,32 +80,14 @@ func TestUpdateRecommendation(t *testing.T) {
 					},
 				},
 				hpa: &v2.HorizontalPodAutoscaler{
-					TypeMeta: metav1.TypeMeta{},
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							// they shouldn't affect.
-							annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-							annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-						},
-					},
 					Spec: v2.HorizontalPodAutoscalerSpec{
 						Metrics: []v2.MetricSpec{
 							{
+								// unrelated
 								Type: v2.ObjectMetricSourceType,
-								// should be ignored
 							},
 							{
-								Type: v2.ExternalMetricSourceType,
-								External: &v2.ExternalMetricSource{
-									Metric: v2.MetricIdentifier{
-										Name: "datadogmetric@echo-prod:echo-memory-app",
-									},
-									Target: v2.MetricTarget{
-										Value: resourceQuantityPtr(resource.MustParse("90")),
-									},
-								},
-							},
-							{
+								// unrelated
 								Type: v2.ExternalMetricSourceType,
 								External: &v2.ExternalMetricSource{
 									Metric: v2.MetricIdentifier{
@@ -198,196 +179,6 @@ func TestUpdateRecommendation(t *testing.T) {
 									TargetUtilization: map[corev1.ResourceName]int32{
 										corev1.ResourceCPU:    90,
 										corev1.ResourceMemory: 80,
-									},
-								},
-								{
-									ContainerName: "istio-proxy",
-									TargetUtilization: map[corev1.ResourceName]int32{
-										corev1.ResourceCPU:    90,
-										corev1.ResourceMemory: 90,
-									},
-								},
-							},
-						},
-					},
-					Conditions: v1alpha1.Conditions{
-						ContainerRecommendationFromVPA: []v1alpha1.ContainerRecommendationFromVPA{
-							{
-								ContainerName: "app",
-								MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
-									corev1.ResourceMemory: {
-										Quantity: resource.MustParse("4Gi"),
-									},
-									corev1.ResourceCPU: {
-										Quantity: resource.MustParse("4"),
-									},
-								},
-							},
-							{
-								ContainerName: "istio-proxy",
-								MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
-									corev1.ResourceMemory: {
-										Quantity: resource.MustParse("0.6Gi"),
-									},
-									corev1.ResourceCPU: {
-										Quantity: resource.MustParse("0.6"),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "if HPA doesn't have the container resource metrics, then the external metrics are used",
-			args: args{
-				tortoise: &v1alpha1.Tortoise{
-					Spec: v1alpha1.TortoiseSpec{
-						ResourcePolicy: []v1alpha1.ContainerResourcePolicy{
-							{
-								ContainerName: "app",
-								AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-									corev1.ResourceMemory: v1alpha1.AutoscalingTypeHorizontal,
-									corev1.ResourceCPU:    v1alpha1.AutoscalingTypeVertical,
-								},
-							},
-							{
-								ContainerName: "istio-proxy",
-								AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-									corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
-									corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-								},
-							},
-						},
-					},
-					Status: v1alpha1.TortoiseStatus{
-						Conditions: v1alpha1.Conditions{
-							ContainerRecommendationFromVPA: []v1alpha1.ContainerRecommendationFromVPA{
-
-								{
-									ContainerName: "app",
-									MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
-										corev1.ResourceMemory: {
-											Quantity: resource.MustParse("4Gi"),
-										},
-										corev1.ResourceCPU: {
-											Quantity: resource.MustParse("4"),
-										},
-									},
-								},
-								{
-									ContainerName: "istio-proxy",
-									MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
-										corev1.ResourceMemory: {
-											Quantity: resource.MustParse("0.6Gi"),
-										},
-										corev1.ResourceCPU: {
-											Quantity: resource.MustParse("0.6"),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				hpa: &v2.HorizontalPodAutoscaler{
-					TypeMeta: metav1.TypeMeta{},
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation: "datadogmetric@echo-prod:echo-memory-",
-							annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation:    "datadogmetric@echo-prod:echo-cpu-",
-						},
-					},
-					Spec: v2.HorizontalPodAutoscalerSpec{
-						Metrics: []v2.MetricSpec{
-							{
-								Type: v2.ObjectMetricSourceType,
-								// should be ignored
-							},
-							{
-								Type: v2.ExternalMetricSourceType,
-								External: &v2.ExternalMetricSource{
-									Metric: v2.MetricIdentifier{
-										Name: "datadogmetric@echo-prod:echo-memory-app",
-									},
-									Target: v2.MetricTarget{
-										Value: resourceQuantityPtr(resource.MustParse("60")),
-									},
-								},
-							},
-							{
-								Type: v2.ExternalMetricSourceType,
-								External: &v2.ExternalMetricSource{
-									Metric: v2.MetricIdentifier{
-										Name: "datadogmetric@echo-prod:echo-cpu-istio-proxy",
-									},
-									Target: v2.MetricTarget{
-										Value: resourceQuantityPtr(resource.MustParse("50")),
-									},
-								},
-							},
-						},
-					},
-					Status: v2.HorizontalPodAutoscalerStatus{},
-				},
-				deployment: &v1.Deployment{
-					Spec: v1.DeploymentSpec{
-						Template: corev1.PodTemplateSpec{
-							Spec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Name: "app",
-										Resources: corev1.ResourceRequirements{
-											Requests: corev1.ResourceList{
-												corev1.ResourceMemory: resource.MustParse("5Gi"),
-												corev1.ResourceCPU:    resource.MustParse("5"),
-											},
-										},
-									},
-									{
-										Name: "istio-proxy",
-										Resources: corev1.ResourceRequirements{
-											Requests: corev1.ResourceList{
-												corev1.ResourceMemory: resource.MustParse("1Gi"),
-												corev1.ResourceCPU:    resource.MustParse("1"),
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			want: &v1alpha1.Tortoise{
-				Spec: v1alpha1.TortoiseSpec{
-					ResourcePolicy: []v1alpha1.ContainerResourcePolicy{
-						{
-							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceMemory: v1alpha1.AutoscalingTypeHorizontal,
-								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeVertical,
-							},
-						},
-						{
-							ContainerName: "istio-proxy",
-							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
-								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-							},
-						},
-					},
-				},
-				Status: v1alpha1.TortoiseStatus{
-					Recommendations: v1alpha1.Recommendations{
-						Horizontal: &v1alpha1.HorizontalRecommendations{
-							TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
-								{
-									ContainerName: "app",
-									TargetUtilization: map[corev1.ResourceName]int32{
-										corev1.ResourceMemory: 80,
-										corev1.ResourceCPU:    90,
 									},
 								},
 								{

@@ -188,8 +188,8 @@ var _ = Describe("Test TortoiseController", func() {
 			wantHPA.Spec.MinReplicas = pointer.Int32(5)
 			wantHPA.Spec.MaxReplicas = 20
 			for i, m := range wantHPA.Spec.Metrics {
-				if m.Resource != nil && m.Resource.Name == corev1.ResourceCPU {
-					wantHPA.Spec.Metrics[i].Resource.Target.AverageUtilization = pointer.Int32(75)
+				if m.ContainerResource != nil && m.ContainerResource.Name == corev1.ResourceCPU && m.ContainerResource.Container == "app" {
+					wantHPA.Spec.Metrics[i].ContainerResource.Target.AverageUtilization = pointer.Int32(75)
 				}
 			}
 
@@ -601,8 +601,8 @@ var _ = Describe("Test TortoiseController", func() {
 			wantHPA.Spec.MinReplicas = pointer.Int32(20)
 			wantHPA.Spec.MaxReplicas = 20
 			for i, m := range wantHPA.Spec.Metrics {
-				if m.Resource != nil && m.Resource.Name == corev1.ResourceCPU {
-					wantHPA.Spec.Metrics[i].Resource.Target.AverageUtilization = pointer.Int32(75)
+				if m.ContainerResource != nil && m.ContainerResource.Name == corev1.ResourceCPU && m.ContainerResource.Container == "app" {
+					wantHPA.Spec.Metrics[i].ContainerResource.Target.AverageUtilization = pointer.Int32(75)
 				}
 			}
 
@@ -846,11 +846,11 @@ var _ = Describe("Test TortoiseController", func() {
 			wantHPA.Spec.MinReplicas = pointer.Int32(5)
 			wantHPA.Spec.MaxReplicas = 20
 			for i, m := range wantHPA.Spec.Metrics {
-				if m.External != nil && m.External.Metric.Name == "datadogmetric@default:mercari-app-cpu-app" {
-					wantHPA.Spec.Metrics[i].External.Target.Value = resourceQuantityPtr(resource.MustParse("50")) // won't get changed.
+				if m.ContainerResource != nil && m.ContainerResource.Name == corev1.ResourceCPU && m.ContainerResource.Container == "app" {
+					wantHPA.Spec.Metrics[i].ContainerResource.Target.AverageUtilization = pointer.Int32(50) // won't get changed.
 				}
-				if m.External != nil && m.External.Metric.Name == "datadogmetric@default:mercari-app-cpu-istio-proxy" {
-					wantHPA.Spec.Metrics[i].External.Target.Value = resourceQuantityPtr(resource.MustParse("75"))
+				if m.ContainerResource != nil && m.ContainerResource.Name == corev1.ResourceCPU && m.ContainerResource.Container == "istio-proxy" {
+					wantHPA.Spec.Metrics[i].ContainerResource.Target.AverageUtilization = pointer.Int32(75)
 				}
 			}
 
@@ -1151,11 +1151,11 @@ var _ = Describe("Test TortoiseController", func() {
 			wantHPA.Spec.MinReplicas = pointer.Int32(20)
 			wantHPA.Spec.MaxReplicas = 20
 			for i, m := range wantHPA.Spec.Metrics {
-				if m.External != nil && m.External.Metric.Name == "datadogmetric@default:mercari-app-cpu-app" {
-					wantHPA.Spec.Metrics[i].External.Target.Value = resourceQuantityPtr(resource.MustParse("50")) // won't get changed.
+				if m.ContainerResource != nil && m.ContainerResource.Name == corev1.ResourceCPU && m.ContainerResource.Container == "app" {
+					wantHPA.Spec.Metrics[i].ContainerResource.Target.AverageUtilization = pointer.Int32(50) // won't get changed.
 				}
-				if m.External != nil && m.External.Metric.Name == "datadogmetric@default:mercari-app-cpu-istio-proxy" {
-					wantHPA.Spec.Metrics[i].External.Target.Value = resourceQuantityPtr(resource.MustParse("75"))
+				if m.ContainerResource != nil && m.ContainerResource.Name == corev1.ResourceCPU && m.ContainerResource.Container == "istio-proxy" {
+					wantHPA.Spec.Metrics[i].ContainerResource.Target.AverageUtilization = pointer.Int32(75)
 				}
 			}
 
@@ -1791,10 +1791,6 @@ func multiContainerDeploymentWithReplicaNum(replica int32) *v1.Deployment {
 			Replicas: replica,
 		},
 	}
-}
-
-func resourceQuantityPtr(quantity resource.Quantity) *resource.Quantity {
-	return &quantity
 }
 
 func deleteObj(ctx context.Context, deleteObj client.Object, name string) error {

@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/mercari/tortoise/api/v1alpha1"
-	"github.com/mercari/tortoise/pkg/annotation"
 )
 
 type Service struct {
@@ -328,9 +327,16 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 func getHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName, isSingleContainerDeployment bool) (int32, error) {
 	for _, m := range hpa.Spec.Metrics {
 		if isSingleContainerDeployment && m.Type == v2.ResourceMetricSourceType && m.Resource.Target.Type == v2.UtilizationMetricType && m.Resource.Name == k {
+			// If the deployment has only one container, the resource metric is the metric for the container.
 			return *m.Resource.Target.AverageUtilization, nil
 		}
+	}
 
+	// If the deployment has more than one container, the container resource metric is the metric for the container.
+	// Also, even if the deployment has only one container, the container resource metric might be used instead of resource metric.
+	// So, check the container resource metric as well.
+
+	for _, m := range hpa.Spec.Metrics {
 		if m.Type != v2.ContainerResourceMetricSourceType {
 			continue
 		}
@@ -346,35 +352,6 @@ func getHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k 
 		}
 
 		return *m.ContainerResource.Target.AverageUtilization, nil
-	}
-
-	var prefix string
-	switch k {
-	case corev1.ResourceCPU:
-		prefix = hpa.GetAnnotations()[annotation.HPAContainerBasedCPUExternalMetricNamePrefixAnnotation]
-	case corev1.ResourceMemory:
-		prefix = hpa.GetAnnotations()[annotation.HPAContainerBasedMemoryExternalMetricNamePrefixAnnotation]
-	default:
-		return 0, fmt.Errorf("non supported resource type: %s", k)
-	}
-	externalMetricName := prefix + containerName
-
-	for _, m := range hpa.Spec.Metrics {
-		if m.Type != v2.ExternalMetricSourceType {
-			continue
-		}
-
-		if m.External == nil {
-			// shouldn't reach here
-			klog.ErrorS(nil, "invalid external metric", klog.KObj(hpa))
-			continue
-		}
-
-		if m.External.Metric.Name != externalMetricName {
-			continue
-		}
-
-		return int32(m.External.Target.Value.Value()), nil
 	}
 
 	return 0, fmt.Errorf("unsupported hpa: %s, resource name: %s, single container deployment: %v", client.ObjectKeyFromObject(hpa).String(), k, isSingleContainerDeployment)
