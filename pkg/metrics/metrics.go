@@ -23,12 +23,12 @@ var (
 
 	ProposedCPURequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "proposed_cpu_request",
-		Help: "recommended resource request that tortoises propose",
+		Help: "recommended cpu request (millicore) that tortoises propose",
 	}, []string{"tortoise_name", "namespace", "container_name"})
 
 	ProposedMemoryRequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "proposed_memory_request",
-		Help: "recommended resource request that tortoises propose",
+		Help: "recommended memory request (millibyte) that tortoises propose",
 	}, []string{"tortoise_name", "namespace", "container_name"})
 )
 
