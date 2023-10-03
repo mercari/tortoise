@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
+	autoscalingv1beta1 "github.com/mercari/tortoise/api/v1beta1"
 	"github.com/mercari/tortoise/pkg/annotation"
 )
 
@@ -25,7 +25,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 
 	type args struct {
 		ctx      context.Context
-		tortoise *autoscalingv1alpha1.Tortoise
+		tortoise *autoscalingv1beta1.Tortoise
 		now      time.Time
 	}
 	tests := []struct {
@@ -33,21 +33,21 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 		args         args
 		initialHPA   *v2.HorizontalPodAutoscaler
 		want         *v2.HorizontalPodAutoscaler
-		wantTortoise *autoscalingv1alpha1.Tortoise
+		wantTortoise *autoscalingv1beta1.Tortoise
 		wantErr      bool
 	}{
 		{
 			name: "Basic test case with container resource metrics",
 			args: args{
 				ctx: context.Background(),
-				tortoise: &autoscalingv1alpha1.Tortoise{
-					Status: autoscalingv1alpha1.TortoiseStatus{
-						Targets: autoscalingv1alpha1.TargetsStatus{
+				tortoise: &autoscalingv1beta1.Tortoise{
+					Status: autoscalingv1beta1.TortoiseStatus{
+						Targets: autoscalingv1beta1.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
 						},
-						Recommendations: autoscalingv1alpha1.Recommendations{
-							Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
-								TargetUtilizations: []autoscalingv1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						Recommendations: autoscalingv1beta1.Recommendations{
+							Horizontal: autoscalingv1beta1.HorizontalRecommendations{
+								TargetUtilizations: []autoscalingv1beta1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
 										TargetUtilization: map[v1.ResourceName]int32{
@@ -61,7 +61,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										},
 									},
 								},
-								MaxReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
+								MaxReplicas: []autoscalingv1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        2,
@@ -70,7 +70,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										WeekDay:   pointer.String(now.Weekday().String()),
 									},
 								},
-								MinReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
+								MinReplicas: []autoscalingv1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        2,
@@ -161,17 +161,17 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			name: "no update preformed when updateMode is Off",
 			args: args{
 				ctx: context.Background(),
-				tortoise: &autoscalingv1alpha1.Tortoise{
-					Spec: autoscalingv1alpha1.TortoiseSpec{
-						UpdateMode: autoscalingv1alpha1.UpdateModeOff,
+				tortoise: &autoscalingv1beta1.Tortoise{
+					Spec: autoscalingv1beta1.TortoiseSpec{
+						UpdateMode: autoscalingv1beta1.UpdateModeOff,
 					},
-					Status: autoscalingv1alpha1.TortoiseStatus{
-						Targets: autoscalingv1alpha1.TargetsStatus{
+					Status: autoscalingv1beta1.TortoiseStatus{
+						Targets: autoscalingv1beta1.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
 						},
-						Recommendations: autoscalingv1alpha1.Recommendations{
-							Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
-								TargetUtilizations: []autoscalingv1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						Recommendations: autoscalingv1beta1.Recommendations{
+							Horizontal: autoscalingv1beta1.HorizontalRecommendations{
+								TargetUtilizations: []autoscalingv1beta1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
 										TargetUtilization: map[v1.ResourceName]int32{
@@ -185,7 +185,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										},
 									},
 								},
-								MaxReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
+								MaxReplicas: []autoscalingv1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        2,
@@ -194,7 +194,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										WeekDay:   pointer.String(now.Weekday().String()),
 									},
 								},
-								MinReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
+								MinReplicas: []autoscalingv1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        2,
@@ -285,15 +285,15 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			name: "emergency mode",
 			args: args{
 				ctx: context.Background(),
-				tortoise: &autoscalingv1alpha1.Tortoise{
-					Status: autoscalingv1alpha1.TortoiseStatus{
-						Targets: autoscalingv1alpha1.TargetsStatus{
+				tortoise: &autoscalingv1beta1.Tortoise{
+					Status: autoscalingv1beta1.TortoiseStatus{
+						Targets: autoscalingv1beta1.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
 						},
-						TortoisePhase: autoscalingv1alpha1.TortoisePhaseEmergency,
-						Recommendations: autoscalingv1alpha1.Recommendations{
-							Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
-								TargetUtilizations: []autoscalingv1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						TortoisePhase: autoscalingv1beta1.TortoisePhaseEmergency,
+						Recommendations: autoscalingv1beta1.Recommendations{
+							Horizontal: autoscalingv1beta1.HorizontalRecommendations{
+								TargetUtilizations: []autoscalingv1beta1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
 										TargetUtilization: map[v1.ResourceName]int32{
@@ -307,7 +307,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										},
 									},
 								},
-								MaxReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
+								MaxReplicas: []autoscalingv1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        2,
@@ -316,7 +316,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										WeekDay:   pointer.String(now.Weekday().String()),
 									},
 								},
-								MinReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
+								MinReplicas: []autoscalingv1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        2,
@@ -407,15 +407,15 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			name: "minReplicas are reduced gradually during BackToNormal",
 			args: args{
 				ctx: context.Background(),
-				tortoise: &autoscalingv1alpha1.Tortoise{
-					Status: autoscalingv1alpha1.TortoiseStatus{
-						Targets: autoscalingv1alpha1.TargetsStatus{
+				tortoise: &autoscalingv1beta1.Tortoise{
+					Status: autoscalingv1beta1.TortoiseStatus{
+						Targets: autoscalingv1beta1.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
 						},
-						TortoisePhase: autoscalingv1alpha1.TortoisePhaseBackToNormal,
-						Recommendations: autoscalingv1alpha1.Recommendations{
-							Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
-								TargetUtilizations: []autoscalingv1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						TortoisePhase: autoscalingv1beta1.TortoisePhaseBackToNormal,
+						Recommendations: autoscalingv1beta1.Recommendations{
+							Horizontal: autoscalingv1beta1.HorizontalRecommendations{
+								TargetUtilizations: []autoscalingv1beta1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
 										TargetUtilization: map[v1.ResourceName]int32{
@@ -429,7 +429,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										},
 									},
 								},
-								MaxReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
+								MaxReplicas: []autoscalingv1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        2,
@@ -438,7 +438,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										WeekDay:   pointer.String(now.Weekday().String()),
 									},
 								},
-								MinReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
+								MinReplicas: []autoscalingv1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        2,
@@ -529,15 +529,15 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			name: "BackToNormal finishes when minReplicas reaches the ideal value",
 			args: args{
 				ctx: context.Background(),
-				tortoise: &autoscalingv1alpha1.Tortoise{
-					Status: autoscalingv1alpha1.TortoiseStatus{
-						Targets: autoscalingv1alpha1.TargetsStatus{
+				tortoise: &autoscalingv1beta1.Tortoise{
+					Status: autoscalingv1beta1.TortoiseStatus{
+						Targets: autoscalingv1beta1.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
 						},
-						TortoisePhase: autoscalingv1alpha1.TortoisePhaseBackToNormal,
-						Recommendations: autoscalingv1alpha1.Recommendations{
-							Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
-								TargetUtilizations: []autoscalingv1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						TortoisePhase: autoscalingv1beta1.TortoisePhaseBackToNormal,
+						Recommendations: autoscalingv1beta1.Recommendations{
+							Horizontal: autoscalingv1beta1.HorizontalRecommendations{
+								TargetUtilizations: []autoscalingv1beta1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
 										TargetUtilization: map[v1.ResourceName]int32{
@@ -551,7 +551,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										},
 									},
 								},
-								MaxReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
+								MaxReplicas: []autoscalingv1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        2,
@@ -560,7 +560,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										WeekDay:   pointer.String(now.Weekday().String()),
 									},
 								},
-								MinReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
+								MinReplicas: []autoscalingv1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        2,
@@ -645,15 +645,15 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					},
 				},
 			},
-			wantTortoise: &autoscalingv1alpha1.Tortoise{
-				Status: autoscalingv1alpha1.TortoiseStatus{
-					Targets: autoscalingv1alpha1.TargetsStatus{
+			wantTortoise: &autoscalingv1beta1.Tortoise{
+				Status: autoscalingv1beta1.TortoiseStatus{
+					Targets: autoscalingv1beta1.TargetsStatus{
 						HorizontalPodAutoscaler: "hpa",
 					},
-					TortoisePhase: autoscalingv1alpha1.TortoisePhaseWorking,
-					Recommendations: autoscalingv1alpha1.Recommendations{
-						Horizontal: &autoscalingv1alpha1.HorizontalRecommendations{
-							TargetUtilizations: []autoscalingv1alpha1.HPATargetUtilizationRecommendationPerContainer{
+					TortoisePhase: autoscalingv1beta1.TortoisePhaseWorking,
+					Recommendations: autoscalingv1beta1.Recommendations{
+						Horizontal: autoscalingv1beta1.HorizontalRecommendations{
+							TargetUtilizations: []autoscalingv1beta1.HPATargetUtilizationRecommendationPerContainer{
 								{
 									ContainerName: "app",
 									TargetUtilization: map[v1.ResourceName]int32{
@@ -667,7 +667,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 									},
 								},
 							},
-							MaxReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
+							MaxReplicas: []autoscalingv1beta1.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        2,
@@ -676,7 +676,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 									WeekDay:   pointer.String(now.Weekday().String()),
 								},
 							},
-							MinReplicas: []autoscalingv1alpha1.ReplicasRecommendation{
+							MinReplicas: []autoscalingv1beta1.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        2,
@@ -719,7 +719,7 @@ func ptrInt32(i int32) *int32 {
 
 func TestService_InitializeHPA(t *testing.T) {
 	type args struct {
-		tortoise *autoscalingv1alpha1.Tortoise
+		tortoise *autoscalingv1beta1.Tortoise
 		dm       *appv1.Deployment
 	}
 	tests := []struct {
@@ -732,14 +732,18 @@ func TestService_InitializeHPA(t *testing.T) {
 		{
 			name: "should create new hpa",
 			args: args{
-				tortoise: &autoscalingv1alpha1.Tortoise{
+				tortoise: &autoscalingv1beta1.Tortoise{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tortoise",
 						Namespace: "default",
 					},
-					Spec: autoscalingv1alpha1.TortoiseSpec{
-						TargetRefs: autoscalingv1alpha1.TargetRefs{
-							DeploymentName: "deployment",
+					Spec: autoscalingv1beta1.TortoiseSpec{
+						TargetRefs: autoscalingv1beta1.TargetRefs{
+							ScaleTargetRef: autoscalingv1beta1.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "deployment",
+								APIVersion: "apps/v1",
+							},
 						},
 					},
 				},
@@ -808,15 +812,18 @@ func TestService_InitializeHPA(t *testing.T) {
 		{
 			name: "just give annotation to existing hpa",
 			args: args{
-				tortoise: &autoscalingv1alpha1.Tortoise{
+				tortoise: &autoscalingv1beta1.Tortoise{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tortoise",
 						Namespace: "default",
 					},
-					Spec: autoscalingv1alpha1.TortoiseSpec{
-						TargetRefs: autoscalingv1alpha1.TargetRefs{
+					Spec: autoscalingv1beta1.TortoiseSpec{
+						TargetRefs: autoscalingv1beta1.TargetRefs{
 							HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
-							DeploymentName:              "deployment",
+							ScaleTargetRef: autoscalingv1beta1.CrossVersionObjectReference{
+								Kind: "Deployment",
+								Name: "deployment",
+							},
 						},
 					},
 				},

@@ -1,0 +1,12 @@
+apiVersion: autoscaling.mercari.com/v1beta1
+kind: Tortoise
+metadata:
+  labels:
+    app.kubernetes.io/name: tortoise
+    app.kubernetes.io/instance: tortoise-sample
+    app.kubernetes.io/part-of: tortoise
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: tortoise
+  name: tortoise-sample
+spec:
+  # TODO(user): Add fields here

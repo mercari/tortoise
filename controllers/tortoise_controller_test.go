@@ -22,7 +22,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/mercari/tortoise/api/v1alpha1"
+	"github.com/mercari/tortoise/api/v1beta1"
 	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/hpa"
 	"github.com/mercari/tortoise/pkg/recommender"
@@ -38,7 +38,7 @@ var _ = Describe("Test TortoiseController", func() {
 	ctx := context.Background()
 	var stopFunc func()
 	cleanUp := func() {
-		err := deleteObj(ctx, &v1alpha1.Tortoise{}, "mercari")
+		err := deleteObj(ctx, &v1beta1.Tortoise{}, "mercari")
 		if err != nil {
 			Expect(apierrors.IsNotFound(err)).To(Equal(true))
 		}
@@ -103,7 +103,7 @@ var _ = Describe("Test TortoiseController", func() {
 			cleanUp()
 			for {
 				// make sure all resources are deleted
-				t := &v1alpha1.Tortoise{}
+				t := &v1beta1.Tortoise{}
 				err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, t)
 				if apierrors.IsNotFound(err) {
 					break
@@ -123,20 +123,24 @@ var _ = Describe("Test TortoiseController", func() {
 					tortoise: utils.NewTortoiseBuilder().
 						SetName("mercari").
 						SetNamespace("default").
-						SetTargetRefs(v1alpha1.TargetRefs{
-							DeploymentName: "mercari-app",
-						}).
-						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
-							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+						SetTargetRefs(v1beta1.TargetRefs{
+							ScaleTargetRef: v1beta1.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "mercari-app",
+								APIVersion: "apps/v1",
 							},
 						}).
-						SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
-						SetRecommendations(v1alpha1.Recommendations{
-							Horizontal: &v1alpha1.HorizontalRecommendations{
-								TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						AddResourcePolicy(v1beta1.ContainerResourcePolicy{
+							ContainerName: "app",
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+							},
+						}).
+						SetTortoisePhase(v1beta1.TortoisePhaseWorking).
+						SetRecommendations(v1beta1.Recommendations{
+							Horizontal: v1beta1.HorizontalRecommendations{
+								TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
 										TargetUtilization: map[corev1.ResourceName]int32{
@@ -144,7 +148,7 @@ var _ = Describe("Test TortoiseController", func() {
 										},
 									},
 								},
-								MaxReplicas: []v1alpha1.ReplicasRecommendation{
+								MaxReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -154,7 +158,7 @@ var _ = Describe("Test TortoiseController", func() {
 										UpdatedAt: metav1.NewTime(now),
 									},
 								},
-								MinReplicas: []v1alpha1.ReplicasRecommendation{
+								MinReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -166,13 +170,13 @@ var _ = Describe("Test TortoiseController", func() {
 								},
 							},
 						}).
-						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+						AddCondition(v1beta1.ContainerRecommendationFromVPA{
 							ContainerName: "app",
-							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
-							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
@@ -196,8 +200,8 @@ var _ = Describe("Test TortoiseController", func() {
 			}
 
 			// create the desired VPA from the created definition.
-			wantVPA := map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
-			wantUpdater := tc.before.vpa[v1alpha1.VerticalPodAutoscalerRoleUpdater].DeepCopy()
+			wantVPA := map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
+			wantUpdater := tc.before.vpa[v1beta1.VerticalPodAutoscalerRoleUpdater].DeepCopy()
 			wantUpdater.Status.Recommendation = &autoscalingv1.RecommendedPodResources{}
 			wantUpdater.Status.Recommendation.ContainerRecommendations = []autoscalingv1.RecommendedContainerResources{
 				{
@@ -220,34 +224,38 @@ var _ = Describe("Test TortoiseController", func() {
 					},
 				},
 			}
-			wantVPA[v1alpha1.VerticalPodAutoscalerRoleUpdater] = wantUpdater
-			wantVPA[v1alpha1.VerticalPodAutoscalerRoleMonitor] = tc.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor].DeepCopy()
+			wantVPA[v1beta1.VerticalPodAutoscalerRoleUpdater] = wantUpdater
+			wantVPA[v1beta1.VerticalPodAutoscalerRoleMonitor] = tc.before.vpa[v1beta1.VerticalPodAutoscalerRoleMonitor].DeepCopy()
 
 			want := resources{
 				tortoise: utils.NewTortoiseBuilder().
 					SetName("mercari").
 					SetNamespace("default").
-					SetTargetRefs(v1alpha1.TargetRefs{
-						DeploymentName: "mercari-app",
-					}).
-					AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
-						ContainerName: "app",
-						AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-							corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-							corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+					SetTargetRefs(v1beta1.TargetRefs{
+						ScaleTargetRef: v1beta1.CrossVersionObjectReference{
+							Kind:       "Deployment",
+							Name:       "mercari-app",
+							APIVersion: "apps/v1",
 						},
 					}).
-					SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
-					SetTargetsStatus(v1alpha1.TargetsStatus{
+					AddResourcePolicy(v1beta1.ContainerResourcePolicy{
+						ContainerName: "app",
+						AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+							corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+						},
+					}).
+					SetTortoisePhase(v1beta1.TortoisePhaseWorking).
+					SetTargetsStatus(v1beta1.TargetsStatus{
 						HorizontalPodAutoscaler: "tortoise-hpa-mercari",
-						VerticalPodAutoscalers: []v1alpha1.TargetStatusVerticalPodAutoscaler{
+						VerticalPodAutoscalers: []v1beta1.TargetStatusVerticalPodAutoscaler{
 							{Name: "tortoise-updater-mercari", Role: "Updater"},
 							{Name: "tortoise-monitor-mercari", Role: "Monitor"},
 						},
 					}).
-					SetRecommendations(v1alpha1.Recommendations{
-						Vertical: &v1alpha1.VerticalRecommendations{
-							ContainerResourceRecommendation: []v1alpha1.RecommendedContainerResources{
+					SetRecommendations(v1beta1.Recommendations{
+						Vertical: v1beta1.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta1.RecommendedContainerResources{
 								{
 									ContainerName: "app",
 									RecommendedResource: map[corev1.ResourceName]resource.Quantity{
@@ -257,8 +265,8 @@ var _ = Describe("Test TortoiseController", func() {
 								},
 							},
 						},
-						Horizontal: &v1alpha1.HorizontalRecommendations{
-							TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						Horizontal: v1beta1.HorizontalRecommendations{
+							TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
 								{
 									ContainerName: "app",
 									TargetUtilization: map[corev1.ResourceName]int32{
@@ -267,7 +275,7 @@ var _ = Describe("Test TortoiseController", func() {
 									},
 								},
 							},
-							MaxReplicas: []v1alpha1.ReplicasRecommendation{
+							MaxReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        24,
@@ -277,7 +285,7 @@ var _ = Describe("Test TortoiseController", func() {
 									UpdatedAt: metav1.NewTime(now),
 								},
 							},
-							MinReplicas: []v1alpha1.ReplicasRecommendation{
+							MinReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        24,
@@ -289,9 +297,9 @@ var _ = Describe("Test TortoiseController", func() {
 							},
 						},
 					}).
-					AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+					AddCondition(v1beta1.ContainerRecommendationFromVPA{
 						ContainerName: "app",
-						Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -299,7 +307,7 @@ var _ = Describe("Test TortoiseController", func() {
 								Quantity: resource.MustParse("3Gi"),
 							},
 						},
-						MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -314,7 +322,7 @@ var _ = Describe("Test TortoiseController", func() {
 			}
 			tc.want = want
 			Eventually(func(g Gomega) {
-				gotTortoise := &v1alpha1.Tortoise{}
+				gotTortoise := &v1beta1.Tortoise{}
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotHPA := &v2.HorizontalPodAutoscaler{}
@@ -327,9 +335,9 @@ var _ = Describe("Test TortoiseController", func() {
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, gotMonitorVPA)
 				g.Expect(err).ShouldNot(HaveOccurred())
 
-				err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
-					v1alpha1.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
-					v1alpha1.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
+				err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
+					v1beta1.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
+					v1beta1.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
 				}})
 				g.Expect(err).ShouldNot(HaveOccurred())
 			}).Should(Succeed())
@@ -343,21 +351,25 @@ var _ = Describe("Test TortoiseController", func() {
 					tortoise: utils.NewTortoiseBuilder().
 						SetName("mercari").
 						SetNamespace("default").
-						SetUpdateMode(v1alpha1.UpdateModeOff).
-						SetTargetRefs(v1alpha1.TargetRefs{
-							DeploymentName: "mercari-app",
-						}).
-						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
-							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+						SetUpdateMode(v1beta1.UpdateModeOff).
+						SetTargetRefs(v1beta1.TargetRefs{
+							ScaleTargetRef: v1beta1.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "mercari-app",
+								APIVersion: "apps/v1",
 							},
 						}).
-						SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
-						SetRecommendations(v1alpha1.Recommendations{
-							Horizontal: &v1alpha1.HorizontalRecommendations{
-								TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						AddResourcePolicy(v1beta1.ContainerResourcePolicy{
+							ContainerName: "app",
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+							},
+						}).
+						SetTortoisePhase(v1beta1.TortoisePhaseWorking).
+						SetRecommendations(v1beta1.Recommendations{
+							Horizontal: v1beta1.HorizontalRecommendations{
+								TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
 										TargetUtilization: map[corev1.ResourceName]int32{
@@ -365,7 +377,7 @@ var _ = Describe("Test TortoiseController", func() {
 										},
 									},
 								},
-								MaxReplicas: []v1alpha1.ReplicasRecommendation{
+								MaxReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -375,7 +387,7 @@ var _ = Describe("Test TortoiseController", func() {
 										UpdatedAt: metav1.NewTime(now),
 									},
 								},
-								MinReplicas: []v1alpha1.ReplicasRecommendation{
+								MinReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -387,13 +399,13 @@ var _ = Describe("Test TortoiseController", func() {
 								},
 							},
 						}).
-						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+						AddCondition(v1beta1.ContainerRecommendationFromVPA{
 							ContainerName: "app",
-							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
-							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
@@ -411,37 +423,41 @@ var _ = Describe("Test TortoiseController", func() {
 			wantHPA := tc.before.hpa.DeepCopy()
 			// create the desired VPA from the created definition.
 			// (no difference from "before")
-			wantVPA := map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
-			wantUpdater := tc.before.vpa[v1alpha1.VerticalPodAutoscalerRoleUpdater].DeepCopy()
-			wantVPA[v1alpha1.VerticalPodAutoscalerRoleUpdater] = wantUpdater
-			wantVPA[v1alpha1.VerticalPodAutoscalerRoleMonitor] = tc.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor].DeepCopy()
+			wantVPA := map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
+			wantUpdater := tc.before.vpa[v1beta1.VerticalPodAutoscalerRoleUpdater].DeepCopy()
+			wantVPA[v1beta1.VerticalPodAutoscalerRoleUpdater] = wantUpdater
+			wantVPA[v1beta1.VerticalPodAutoscalerRoleMonitor] = tc.before.vpa[v1beta1.VerticalPodAutoscalerRoleMonitor].DeepCopy()
 
 			want := resources{
 				tortoise: utils.NewTortoiseBuilder().
 					SetName("mercari").
 					SetNamespace("default").
-					SetUpdateMode(v1alpha1.UpdateModeOff).
-					SetTargetRefs(v1alpha1.TargetRefs{
-						DeploymentName: "mercari-app",
-					}).
-					AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
-						ContainerName: "app",
-						AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-							corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-							corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+					SetUpdateMode(v1beta1.UpdateModeOff).
+					SetTargetRefs(v1beta1.TargetRefs{
+						ScaleTargetRef: v1beta1.CrossVersionObjectReference{
+							Kind:       "Deployment",
+							Name:       "mercari-app",
+							APIVersion: "apps/v1",
 						},
 					}).
-					SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
-					SetTargetsStatus(v1alpha1.TargetsStatus{
+					AddResourcePolicy(v1beta1.ContainerResourcePolicy{
+						ContainerName: "app",
+						AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+							corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+						},
+					}).
+					SetTortoisePhase(v1beta1.TortoisePhaseWorking).
+					SetTargetsStatus(v1beta1.TargetsStatus{
 						HorizontalPodAutoscaler: "tortoise-hpa-mercari",
-						VerticalPodAutoscalers: []v1alpha1.TargetStatusVerticalPodAutoscaler{
+						VerticalPodAutoscalers: []v1beta1.TargetStatusVerticalPodAutoscaler{
 							{Name: "tortoise-updater-mercari", Role: "Updater"},
 							{Name: "tortoise-monitor-mercari", Role: "Monitor"},
 						},
 					}).
-					SetRecommendations(v1alpha1.Recommendations{
-						Vertical: &v1alpha1.VerticalRecommendations{
-							ContainerResourceRecommendation: []v1alpha1.RecommendedContainerResources{
+					SetRecommendations(v1beta1.Recommendations{
+						Vertical: v1beta1.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta1.RecommendedContainerResources{
 								{
 									ContainerName: "app",
 									RecommendedResource: map[corev1.ResourceName]resource.Quantity{
@@ -451,8 +467,8 @@ var _ = Describe("Test TortoiseController", func() {
 								},
 							},
 						},
-						Horizontal: &v1alpha1.HorizontalRecommendations{
-							TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						Horizontal: v1beta1.HorizontalRecommendations{
+							TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
 								{
 									ContainerName: "app",
 									TargetUtilization: map[corev1.ResourceName]int32{
@@ -461,7 +477,7 @@ var _ = Describe("Test TortoiseController", func() {
 									},
 								},
 							},
-							MaxReplicas: []v1alpha1.ReplicasRecommendation{
+							MaxReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        24,
@@ -471,7 +487,7 @@ var _ = Describe("Test TortoiseController", func() {
 									UpdatedAt: metav1.NewTime(now),
 								},
 							},
-							MinReplicas: []v1alpha1.ReplicasRecommendation{
+							MinReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        24,
@@ -483,9 +499,9 @@ var _ = Describe("Test TortoiseController", func() {
 							},
 						},
 					}).
-					AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+					AddCondition(v1beta1.ContainerRecommendationFromVPA{
 						ContainerName: "app",
-						Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -493,7 +509,7 @@ var _ = Describe("Test TortoiseController", func() {
 								Quantity: resource.MustParse("3Gi"),
 							},
 						},
-						MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -508,7 +524,7 @@ var _ = Describe("Test TortoiseController", func() {
 			}
 			tc.want = want
 			Eventually(func(g Gomega) {
-				gotTortoise := &v1alpha1.Tortoise{}
+				gotTortoise := &v1beta1.Tortoise{}
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotHPA := &v2.HorizontalPodAutoscaler{}
@@ -521,9 +537,9 @@ var _ = Describe("Test TortoiseController", func() {
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, gotMonitorVPA)
 				g.Expect(err).ShouldNot(HaveOccurred())
 
-				err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
-					v1alpha1.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
-					v1alpha1.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
+				err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
+					v1beta1.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
+					v1beta1.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
 				}})
 				g.Expect(err).ShouldNot(HaveOccurred())
 			}).Should(Succeed())
@@ -535,21 +551,25 @@ var _ = Describe("Test TortoiseController", func() {
 					tortoise: utils.NewTortoiseBuilder().
 						SetName("mercari").
 						SetNamespace("default").
-						SetTargetRefs(v1alpha1.TargetRefs{
-							DeploymentName: "mercari-app",
-						}).
-						SetUpdateMode(v1alpha1.UpdateModeEmergency).
-						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
-							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+						SetTargetRefs(v1beta1.TargetRefs{
+							ScaleTargetRef: v1beta1.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "mercari-app",
+								APIVersion: "apps/v1",
 							},
 						}).
-						SetTortoisePhase(v1alpha1.TortoisePhaseWorking). // will be updated.
-						SetRecommendations(v1alpha1.Recommendations{
-							Horizontal: &v1alpha1.HorizontalRecommendations{
-								TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						SetUpdateMode(v1beta1.UpdateModeEmergency).
+						AddResourcePolicy(v1beta1.ContainerResourcePolicy{
+							ContainerName: "app",
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+							},
+						}).
+						SetTortoisePhase(v1beta1.TortoisePhaseWorking). // will be updated.
+						SetRecommendations(v1beta1.Recommendations{
+							Horizontal: v1beta1.HorizontalRecommendations{
+								TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
 										TargetUtilization: map[corev1.ResourceName]int32{
@@ -557,7 +577,7 @@ var _ = Describe("Test TortoiseController", func() {
 										},
 									},
 								},
-								MaxReplicas: []v1alpha1.ReplicasRecommendation{
+								MaxReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -567,7 +587,7 @@ var _ = Describe("Test TortoiseController", func() {
 										UpdatedAt: metav1.NewTime(now),
 									},
 								},
-								MinReplicas: []v1alpha1.ReplicasRecommendation{
+								MinReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -579,13 +599,13 @@ var _ = Describe("Test TortoiseController", func() {
 								},
 							},
 						}).
-						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+						AddCondition(v1beta1.ContainerRecommendationFromVPA{
 							ContainerName: "app",
-							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
-							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
@@ -609,8 +629,8 @@ var _ = Describe("Test TortoiseController", func() {
 			}
 
 			// create the desired VPA from the created definition.
-			wantVPA := map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
-			wantUpdater := tc.before.vpa[v1alpha1.VerticalPodAutoscalerRoleUpdater].DeepCopy()
+			wantVPA := map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
+			wantUpdater := tc.before.vpa[v1beta1.VerticalPodAutoscalerRoleUpdater].DeepCopy()
 			wantUpdater.Status.Recommendation = &autoscalingv1.RecommendedPodResources{}
 			wantUpdater.Status.Recommendation.ContainerRecommendations = []autoscalingv1.RecommendedContainerResources{
 				{
@@ -633,35 +653,39 @@ var _ = Describe("Test TortoiseController", func() {
 					},
 				},
 			}
-			wantVPA[v1alpha1.VerticalPodAutoscalerRoleUpdater] = wantUpdater
-			wantVPA[v1alpha1.VerticalPodAutoscalerRoleMonitor] = tc.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor].DeepCopy()
+			wantVPA[v1beta1.VerticalPodAutoscalerRoleUpdater] = wantUpdater
+			wantVPA[v1beta1.VerticalPodAutoscalerRoleMonitor] = tc.before.vpa[v1beta1.VerticalPodAutoscalerRoleMonitor].DeepCopy()
 
 			want := resources{
 				tortoise: utils.NewTortoiseBuilder().
 					SetName("mercari").
 					SetNamespace("default").
-					SetTargetRefs(v1alpha1.TargetRefs{
-						DeploymentName: "mercari-app",
-					}).
-					SetUpdateMode(v1alpha1.UpdateModeEmergency).
-					AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
-						ContainerName: "app",
-						AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-							corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-							corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+					SetTargetRefs(v1beta1.TargetRefs{
+						ScaleTargetRef: v1beta1.CrossVersionObjectReference{
+							Kind:       "Deployment",
+							Name:       "mercari-app",
+							APIVersion: "apps/v1",
 						},
 					}).
-					SetTortoisePhase(v1alpha1.TortoisePhaseEmergency).
-					SetTargetsStatus(v1alpha1.TargetsStatus{
+					SetUpdateMode(v1beta1.UpdateModeEmergency).
+					AddResourcePolicy(v1beta1.ContainerResourcePolicy{
+						ContainerName: "app",
+						AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+							corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+						},
+					}).
+					SetTortoisePhase(v1beta1.TortoisePhaseEmergency).
+					SetTargetsStatus(v1beta1.TargetsStatus{
 						HorizontalPodAutoscaler: "tortoise-hpa-mercari",
-						VerticalPodAutoscalers: []v1alpha1.TargetStatusVerticalPodAutoscaler{
+						VerticalPodAutoscalers: []v1beta1.TargetStatusVerticalPodAutoscaler{
 							{Name: "tortoise-updater-mercari", Role: "Updater"},
 							{Name: "tortoise-monitor-mercari", Role: "Monitor"},
 						},
 					}).
-					SetRecommendations(v1alpha1.Recommendations{
-						Vertical: &v1alpha1.VerticalRecommendations{
-							ContainerResourceRecommendation: []v1alpha1.RecommendedContainerResources{
+					SetRecommendations(v1beta1.Recommendations{
+						Vertical: v1beta1.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta1.RecommendedContainerResources{
 								{
 									ContainerName: "app",
 									RecommendedResource: map[corev1.ResourceName]resource.Quantity{
@@ -671,8 +695,8 @@ var _ = Describe("Test TortoiseController", func() {
 								},
 							},
 						},
-						Horizontal: &v1alpha1.HorizontalRecommendations{
-							TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						Horizontal: v1beta1.HorizontalRecommendations{
+							TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
 								{
 									ContainerName: "app",
 									TargetUtilization: map[corev1.ResourceName]int32{
@@ -681,7 +705,7 @@ var _ = Describe("Test TortoiseController", func() {
 									},
 								},
 							},
-							MaxReplicas: []v1alpha1.ReplicasRecommendation{
+							MaxReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        24,
@@ -691,7 +715,7 @@ var _ = Describe("Test TortoiseController", func() {
 									UpdatedAt: metav1.NewTime(now),
 								},
 							},
-							MinReplicas: []v1alpha1.ReplicasRecommendation{
+							MinReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        24,
@@ -703,9 +727,9 @@ var _ = Describe("Test TortoiseController", func() {
 							},
 						},
 					}).
-					AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+					AddCondition(v1beta1.ContainerRecommendationFromVPA{
 						ContainerName: "app",
-						Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -713,7 +737,7 @@ var _ = Describe("Test TortoiseController", func() {
 								Quantity: resource.MustParse("3Gi"),
 							},
 						},
-						MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -728,7 +752,7 @@ var _ = Describe("Test TortoiseController", func() {
 			}
 			tc.want = want
 			Eventually(func(g Gomega) {
-				gotTortoise := &v1alpha1.Tortoise{}
+				gotTortoise := &v1beta1.Tortoise{}
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotHPA := &v2.HorizontalPodAutoscaler{}
@@ -741,9 +765,9 @@ var _ = Describe("Test TortoiseController", func() {
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, gotMonitorVPA)
 				g.Expect(err).ShouldNot(HaveOccurred())
 
-				err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
-					v1alpha1.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
-					v1alpha1.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
+				err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
+					v1beta1.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
+					v1beta1.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
 				}})
 				g.Expect(err).ShouldNot(HaveOccurred())
 			}).Should(Succeed())
@@ -757,27 +781,31 @@ var _ = Describe("Test TortoiseController", func() {
 					tortoise: utils.NewTortoiseBuilder().
 						SetName("mercari").
 						SetNamespace("default").
-						SetTargetRefs(v1alpha1.TargetRefs{
-							DeploymentName: "mercari-app",
+						SetTargetRefs(v1beta1.TargetRefs{
+							ScaleTargetRef: v1beta1.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "mercari-app",
+								APIVersion: "apps/v1",
+							},
 						}).
-						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+						AddResourcePolicy(v1beta1.ContainerResourcePolicy{
 							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
 							},
 						}).
-						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+						AddResourcePolicy(v1beta1.ContainerResourcePolicy{
 							ContainerName: "istio-proxy",
-							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
 							},
 						}).
-						SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
-						SetRecommendations(v1alpha1.Recommendations{
-							Horizontal: &v1alpha1.HorizontalRecommendations{
-								TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						SetTortoisePhase(v1beta1.TortoisePhaseWorking).
+						SetRecommendations(v1beta1.Recommendations{
+							Horizontal: v1beta1.HorizontalRecommendations{
+								TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
 										TargetUtilization: map[corev1.ResourceName]int32{
@@ -791,7 +819,7 @@ var _ = Describe("Test TortoiseController", func() {
 										},
 									},
 								},
-								MaxReplicas: []v1alpha1.ReplicasRecommendation{
+								MaxReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -801,7 +829,7 @@ var _ = Describe("Test TortoiseController", func() {
 										UpdatedAt: metav1.NewTime(now),
 									},
 								},
-								MinReplicas: []v1alpha1.ReplicasRecommendation{
+								MinReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -813,24 +841,24 @@ var _ = Describe("Test TortoiseController", func() {
 								},
 							},
 						}).
-						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+						AddCondition(v1beta1.ContainerRecommendationFromVPA{
 							ContainerName: "app",
-							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
-							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
 						}).
-						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+						AddCondition(v1beta1.ContainerRecommendationFromVPA{
 							ContainerName: "istio-proxy",
-							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
-							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
@@ -857,8 +885,8 @@ var _ = Describe("Test TortoiseController", func() {
 			}
 
 			// create the desired VPA from the created definition.
-			wantVPA := map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
-			wantUpdater := tc.before.vpa[v1alpha1.VerticalPodAutoscalerRoleUpdater].DeepCopy()
+			wantVPA := map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
+			wantUpdater := tc.before.vpa[v1beta1.VerticalPodAutoscalerRoleUpdater].DeepCopy()
 			wantUpdater.Status.Recommendation = &autoscalingv1.RecommendedPodResources{}
 			wantUpdater.Status.Recommendation.ContainerRecommendations = []autoscalingv1.RecommendedContainerResources{
 				{
@@ -900,41 +928,45 @@ var _ = Describe("Test TortoiseController", func() {
 					},
 				},
 			}
-			wantVPA[v1alpha1.VerticalPodAutoscalerRoleUpdater] = wantUpdater
-			wantVPA[v1alpha1.VerticalPodAutoscalerRoleMonitor] = tc.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor].DeepCopy()
+			wantVPA[v1beta1.VerticalPodAutoscalerRoleUpdater] = wantUpdater
+			wantVPA[v1beta1.VerticalPodAutoscalerRoleMonitor] = tc.before.vpa[v1beta1.VerticalPodAutoscalerRoleMonitor].DeepCopy()
 
 			want := resources{
 				tortoise: utils.NewTortoiseBuilder().
 					SetName("mercari").
 					SetNamespace("default").
-					SetTargetRefs(v1alpha1.TargetRefs{
-						DeploymentName: "mercari-app",
+					SetTargetRefs(v1beta1.TargetRefs{
+						ScaleTargetRef: v1beta1.CrossVersionObjectReference{
+							Kind:       "Deployment",
+							Name:       "mercari-app",
+							APIVersion: "apps/v1",
+						},
 					}).
-					AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+					AddResourcePolicy(v1beta1.ContainerResourcePolicy{
 						ContainerName: "app",
-						AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-							corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-							corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+						AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+							corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
 						},
 					}).
-					AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+					AddResourcePolicy(v1beta1.ContainerResourcePolicy{
 						ContainerName: "istio-proxy",
-						AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-							corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-							corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+						AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+							corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
 						},
 					}).
-					SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
-					SetTargetsStatus(v1alpha1.TargetsStatus{
+					SetTortoisePhase(v1beta1.TortoisePhaseWorking).
+					SetTargetsStatus(v1beta1.TargetsStatus{
 						HorizontalPodAutoscaler: "tortoise-hpa-mercari",
-						VerticalPodAutoscalers: []v1alpha1.TargetStatusVerticalPodAutoscaler{
+						VerticalPodAutoscalers: []v1beta1.TargetStatusVerticalPodAutoscaler{
 							{Name: "tortoise-updater-mercari", Role: "Updater"},
 							{Name: "tortoise-monitor-mercari", Role: "Monitor"},
 						},
 					}).
-					SetRecommendations(v1alpha1.Recommendations{
-						Vertical: &v1alpha1.VerticalRecommendations{
-							ContainerResourceRecommendation: []v1alpha1.RecommendedContainerResources{
+					SetRecommendations(v1beta1.Recommendations{
+						Vertical: v1beta1.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta1.RecommendedContainerResources{
 								{
 									ContainerName: "app",
 									RecommendedResource: map[corev1.ResourceName]resource.Quantity{
@@ -951,8 +983,8 @@ var _ = Describe("Test TortoiseController", func() {
 								},
 							},
 						},
-						Horizontal: &v1alpha1.HorizontalRecommendations{
-							TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						Horizontal: v1beta1.HorizontalRecommendations{
+							TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
 								{
 									ContainerName: "app",
 									TargetUtilization: map[corev1.ResourceName]int32{
@@ -968,7 +1000,7 @@ var _ = Describe("Test TortoiseController", func() {
 									},
 								},
 							},
-							MaxReplicas: []v1alpha1.ReplicasRecommendation{
+							MaxReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        24,
@@ -978,7 +1010,7 @@ var _ = Describe("Test TortoiseController", func() {
 									UpdatedAt: metav1.NewTime(now),
 								},
 							},
-							MinReplicas: []v1alpha1.ReplicasRecommendation{
+							MinReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        24,
@@ -990,9 +1022,9 @@ var _ = Describe("Test TortoiseController", func() {
 							},
 						},
 					}).
-					AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+					AddCondition(v1beta1.ContainerRecommendationFromVPA{
 						ContainerName: "app",
-						Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -1000,7 +1032,7 @@ var _ = Describe("Test TortoiseController", func() {
 								Quantity: resource.MustParse("3Gi"),
 							},
 						},
-						MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -1009,9 +1041,9 @@ var _ = Describe("Test TortoiseController", func() {
 							},
 						},
 					}).
-					AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+					AddCondition(v1beta1.ContainerRecommendationFromVPA{
 						ContainerName: "istio-proxy",
-						Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -1019,7 +1051,7 @@ var _ = Describe("Test TortoiseController", func() {
 								Quantity: resource.MustParse("3Gi"),
 							},
 						},
-						MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -1034,7 +1066,7 @@ var _ = Describe("Test TortoiseController", func() {
 			}
 			tc.want = want
 			Eventually(func(g Gomega) {
-				gotTortoise := &v1alpha1.Tortoise{}
+				gotTortoise := &v1beta1.Tortoise{}
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotHPA := &v2.HorizontalPodAutoscaler{}
@@ -1047,9 +1079,9 @@ var _ = Describe("Test TortoiseController", func() {
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, gotMonitorVPA)
 				g.Expect(err).ShouldNot(HaveOccurred())
 
-				err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
-					v1alpha1.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
-					v1alpha1.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
+				err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
+					v1beta1.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
+					v1beta1.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
 				}})
 				g.Expect(err).ShouldNot(HaveOccurred())
 			}).Should(Succeed())
@@ -1061,28 +1093,32 @@ var _ = Describe("Test TortoiseController", func() {
 					tortoise: utils.NewTortoiseBuilder().
 						SetName("mercari").
 						SetNamespace("default").
-						SetTargetRefs(v1alpha1.TargetRefs{
-							DeploymentName: "mercari-app",
+						SetTargetRefs(v1beta1.TargetRefs{
+							ScaleTargetRef: v1beta1.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "mercari-app",
+								APIVersion: "apps/v1",
+							},
 						}).
-						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+						AddResourcePolicy(v1beta1.ContainerResourcePolicy{
 							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
 							},
 						}).
-						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+						AddResourcePolicy(v1beta1.ContainerResourcePolicy{
 							ContainerName: "istio-proxy",
-							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
 							},
 						}).
-						SetUpdateMode(v1alpha1.UpdateModeEmergency).
-						SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
-						SetRecommendations(v1alpha1.Recommendations{
-							Horizontal: &v1alpha1.HorizontalRecommendations{
-								TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						SetUpdateMode(v1beta1.UpdateModeEmergency).
+						SetTortoisePhase(v1beta1.TortoisePhaseWorking).
+						SetRecommendations(v1beta1.Recommendations{
+							Horizontal: v1beta1.HorizontalRecommendations{
+								TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
 										TargetUtilization: map[corev1.ResourceName]int32{
@@ -1096,7 +1132,7 @@ var _ = Describe("Test TortoiseController", func() {
 										},
 									},
 								},
-								MaxReplicas: []v1alpha1.ReplicasRecommendation{
+								MaxReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -1106,7 +1142,7 @@ var _ = Describe("Test TortoiseController", func() {
 										UpdatedAt: metav1.NewTime(now),
 									},
 								},
-								MinReplicas: []v1alpha1.ReplicasRecommendation{
+								MinReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -1118,24 +1154,24 @@ var _ = Describe("Test TortoiseController", func() {
 								},
 							},
 						}).
-						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+						AddCondition(v1beta1.ContainerRecommendationFromVPA{
 							ContainerName: "app",
-							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
-							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
 						}).
-						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+						AddCondition(v1beta1.ContainerRecommendationFromVPA{
 							ContainerName: "istio-proxy",
-							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
-							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
@@ -1162,8 +1198,8 @@ var _ = Describe("Test TortoiseController", func() {
 			}
 
 			// create the desired VPA from the created definition.
-			wantVPA := map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
-			wantUpdater := tc.before.vpa[v1alpha1.VerticalPodAutoscalerRoleUpdater].DeepCopy()
+			wantVPA := map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
+			wantUpdater := tc.before.vpa[v1beta1.VerticalPodAutoscalerRoleUpdater].DeepCopy()
 			wantUpdater.Status.Recommendation = &autoscalingv1.RecommendedPodResources{}
 			wantUpdater.Status.Recommendation.ContainerRecommendations = []autoscalingv1.RecommendedContainerResources{
 				{
@@ -1205,42 +1241,46 @@ var _ = Describe("Test TortoiseController", func() {
 					},
 				},
 			}
-			wantVPA[v1alpha1.VerticalPodAutoscalerRoleUpdater] = wantUpdater
-			wantVPA[v1alpha1.VerticalPodAutoscalerRoleMonitor] = tc.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor].DeepCopy()
+			wantVPA[v1beta1.VerticalPodAutoscalerRoleUpdater] = wantUpdater
+			wantVPA[v1beta1.VerticalPodAutoscalerRoleMonitor] = tc.before.vpa[v1beta1.VerticalPodAutoscalerRoleMonitor].DeepCopy()
 
 			want := resources{
 				tortoise: utils.NewTortoiseBuilder().
 					SetName("mercari").
 					SetNamespace("default").
-					SetTargetRefs(v1alpha1.TargetRefs{
-						DeploymentName: "mercari-app",
+					SetTargetRefs(v1beta1.TargetRefs{
+						ScaleTargetRef: v1beta1.CrossVersionObjectReference{
+							Kind:       "Deployment",
+							Name:       "mercari-app",
+							APIVersion: "apps/v1",
+						},
 					}).
-					AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+					AddResourcePolicy(v1beta1.ContainerResourcePolicy{
 						ContainerName: "app",
-						AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-							corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-							corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+						AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+							corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
 						},
 					}).
-					AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+					AddResourcePolicy(v1beta1.ContainerResourcePolicy{
 						ContainerName: "istio-proxy",
-						AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-							corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-							corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+						AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+							corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
 						},
 					}).
-					SetUpdateMode(v1alpha1.UpdateModeEmergency).
-					SetTortoisePhase(v1alpha1.TortoisePhaseEmergency).
-					SetTargetsStatus(v1alpha1.TargetsStatus{
+					SetUpdateMode(v1beta1.UpdateModeEmergency).
+					SetTortoisePhase(v1beta1.TortoisePhaseEmergency).
+					SetTargetsStatus(v1beta1.TargetsStatus{
 						HorizontalPodAutoscaler: "tortoise-hpa-mercari",
-						VerticalPodAutoscalers: []v1alpha1.TargetStatusVerticalPodAutoscaler{
+						VerticalPodAutoscalers: []v1beta1.TargetStatusVerticalPodAutoscaler{
 							{Name: "tortoise-updater-mercari", Role: "Updater"},
 							{Name: "tortoise-monitor-mercari", Role: "Monitor"},
 						},
 					}).
-					SetRecommendations(v1alpha1.Recommendations{
-						Vertical: &v1alpha1.VerticalRecommendations{
-							ContainerResourceRecommendation: []v1alpha1.RecommendedContainerResources{
+					SetRecommendations(v1beta1.Recommendations{
+						Vertical: v1beta1.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta1.RecommendedContainerResources{
 								{
 									ContainerName: "app",
 									RecommendedResource: map[corev1.ResourceName]resource.Quantity{
@@ -1257,8 +1297,8 @@ var _ = Describe("Test TortoiseController", func() {
 								},
 							},
 						},
-						Horizontal: &v1alpha1.HorizontalRecommendations{
-							TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						Horizontal: v1beta1.HorizontalRecommendations{
+							TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
 								{
 									ContainerName: "app",
 									TargetUtilization: map[corev1.ResourceName]int32{
@@ -1274,7 +1314,7 @@ var _ = Describe("Test TortoiseController", func() {
 									},
 								},
 							},
-							MaxReplicas: []v1alpha1.ReplicasRecommendation{
+							MaxReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        24,
@@ -1284,7 +1324,7 @@ var _ = Describe("Test TortoiseController", func() {
 									UpdatedAt: metav1.NewTime(now),
 								},
 							},
-							MinReplicas: []v1alpha1.ReplicasRecommendation{
+							MinReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        24,
@@ -1296,9 +1336,9 @@ var _ = Describe("Test TortoiseController", func() {
 							},
 						},
 					}).
-					AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+					AddCondition(v1beta1.ContainerRecommendationFromVPA{
 						ContainerName: "app",
-						Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -1306,7 +1346,7 @@ var _ = Describe("Test TortoiseController", func() {
 								Quantity: resource.MustParse("3Gi"),
 							},
 						},
-						MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -1315,9 +1355,9 @@ var _ = Describe("Test TortoiseController", func() {
 							},
 						},
 					}).
-					AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+					AddCondition(v1beta1.ContainerRecommendationFromVPA{
 						ContainerName: "istio-proxy",
-						Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -1325,7 +1365,7 @@ var _ = Describe("Test TortoiseController", func() {
 								Quantity: resource.MustParse("3Gi"),
 							},
 						},
-						MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+						MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 							corev1.ResourceCPU: {
 								Quantity: resource.MustParse("3"),
 							},
@@ -1340,7 +1380,7 @@ var _ = Describe("Test TortoiseController", func() {
 			}
 			tc.want = want
 			Eventually(func(g Gomega) {
-				gotTortoise := &v1alpha1.Tortoise{}
+				gotTortoise := &v1beta1.Tortoise{}
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
 				g.Expect(err).ShouldNot(HaveOccurred())
 				gotHPA := &v2.HorizontalPodAutoscaler{}
@@ -1353,9 +1393,9 @@ var _ = Describe("Test TortoiseController", func() {
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, gotMonitorVPA)
 				g.Expect(err).ShouldNot(HaveOccurred())
 
-				err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
-					v1alpha1.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
-					v1alpha1.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
+				err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
+					v1beta1.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
+					v1beta1.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
 				}})
 				g.Expect(err).ShouldNot(HaveOccurred())
 			}).Should(Succeed())
@@ -1369,28 +1409,32 @@ var _ = Describe("Test TortoiseController", func() {
 					tortoise: utils.NewTortoiseBuilder().
 						SetName("mercari").
 						SetNamespace("default").
-						SetDeletionPolicy(v1alpha1.DeletionPolicyDeleteAll).
-						SetTargetRefs(v1alpha1.TargetRefs{
-							DeploymentName: "mercari-app",
+						SetDeletionPolicy(v1beta1.DeletionPolicyDeleteAll).
+						SetTargetRefs(v1beta1.TargetRefs{
+							ScaleTargetRef: v1beta1.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "mercari-app",
+								APIVersion: "apps/v1",
+							},
 						}).
-						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+						AddResourcePolicy(v1beta1.ContainerResourcePolicy{
 							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
 							},
 						}).
-						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+						AddResourcePolicy(v1beta1.ContainerResourcePolicy{
 							ContainerName: "istio-proxy",
-							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
 							},
 						}).
-						SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
-						SetRecommendations(v1alpha1.Recommendations{
-							Horizontal: &v1alpha1.HorizontalRecommendations{
-								TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						SetTortoisePhase(v1beta1.TortoisePhaseWorking).
+						SetRecommendations(v1beta1.Recommendations{
+							Horizontal: v1beta1.HorizontalRecommendations{
+								TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
 										TargetUtilization: map[corev1.ResourceName]int32{
@@ -1404,7 +1448,7 @@ var _ = Describe("Test TortoiseController", func() {
 										},
 									},
 								},
-								MaxReplicas: []v1alpha1.ReplicasRecommendation{
+								MaxReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -1414,7 +1458,7 @@ var _ = Describe("Test TortoiseController", func() {
 										UpdatedAt: metav1.NewTime(now),
 									},
 								},
-								MinReplicas: []v1alpha1.ReplicasRecommendation{
+								MinReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -1426,24 +1470,24 @@ var _ = Describe("Test TortoiseController", func() {
 								},
 							},
 						}).
-						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+						AddCondition(v1beta1.ContainerRecommendationFromVPA{
 							ContainerName: "app",
-							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
-							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
 						}).
-						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+						AddCondition(v1beta1.ContainerRecommendationFromVPA{
 							ContainerName: "istio-proxy",
-							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
-							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
@@ -1463,7 +1507,7 @@ var _ = Describe("Test TortoiseController", func() {
 
 			Eventually(func(g Gomega) {
 				// make sure all resources are deleted
-				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, &v1alpha1.Tortoise{})
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, &v1beta1.Tortoise{})
 				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, &v2.HorizontalPodAutoscaler{})
 				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
@@ -1480,28 +1524,32 @@ var _ = Describe("Test TortoiseController", func() {
 					tortoise: utils.NewTortoiseBuilder().
 						SetName("mercari").
 						SetNamespace("default").
-						SetDeletionPolicy(v1alpha1.DeletionPolicyNoDelete).
-						SetTargetRefs(v1alpha1.TargetRefs{
-							DeploymentName: "mercari-app",
+						SetDeletionPolicy(v1beta1.DeletionPolicyNoDelete).
+						SetTargetRefs(v1beta1.TargetRefs{
+							ScaleTargetRef: v1beta1.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "mercari-app",
+								APIVersion: "apps/v1",
+							},
 						}).
-						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+						AddResourcePolicy(v1beta1.ContainerResourcePolicy{
 							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
 							},
 						}).
-						AddResourcePolicy(v1alpha1.ContainerResourcePolicy{
+						AddResourcePolicy(v1beta1.ContainerResourcePolicy{
 							ContainerName: "istio-proxy",
-							AutoscalingPolicy: map[corev1.ResourceName]v1alpha1.AutoscalingType{
-								corev1.ResourceCPU:    v1alpha1.AutoscalingTypeHorizontal,
-								corev1.ResourceMemory: v1alpha1.AutoscalingTypeVertical,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
 							},
 						}).
-						SetTortoisePhase(v1alpha1.TortoisePhaseWorking).
-						SetRecommendations(v1alpha1.Recommendations{
-							Horizontal: &v1alpha1.HorizontalRecommendations{
-								TargetUtilizations: []v1alpha1.HPATargetUtilizationRecommendationPerContainer{
+						SetTortoisePhase(v1beta1.TortoisePhaseWorking).
+						SetRecommendations(v1beta1.Recommendations{
+							Horizontal: v1beta1.HorizontalRecommendations{
+								TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
 									{
 										ContainerName: "app",
 										TargetUtilization: map[corev1.ResourceName]int32{
@@ -1515,7 +1563,7 @@ var _ = Describe("Test TortoiseController", func() {
 										},
 									},
 								},
-								MaxReplicas: []v1alpha1.ReplicasRecommendation{
+								MaxReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -1525,7 +1573,7 @@ var _ = Describe("Test TortoiseController", func() {
 										UpdatedAt: metav1.NewTime(now),
 									},
 								},
-								MinReplicas: []v1alpha1.ReplicasRecommendation{
+								MinReplicas: []v1beta1.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        24,
@@ -1537,24 +1585,24 @@ var _ = Describe("Test TortoiseController", func() {
 								},
 							},
 						}).
-						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+						AddCondition(v1beta1.ContainerRecommendationFromVPA{
 							ContainerName: "app",
-							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
-							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
 						}).
-						AddCondition(v1alpha1.ContainerRecommendationFromVPA{
+						AddCondition(v1beta1.ContainerRecommendationFromVPA{
 							ContainerName: "istio-proxy",
-							Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
-							MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+							MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 								corev1.ResourceCPU:    {},
 								corev1.ResourceMemory: {},
 							},
@@ -1581,7 +1629,7 @@ var _ = Describe("Test TortoiseController", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, &autoscalingv1.VerticalPodAutoscaler{})
 				Expect(err).ShouldNot(HaveOccurred())
-				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, &v1alpha1.Tortoise{})
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, &v1beta1.Tortoise{})
 				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
 			}).Should(Succeed())
 		})
@@ -1594,14 +1642,14 @@ type testCase struct {
 }
 
 type resources struct {
-	tortoise   *v1alpha1.Tortoise
+	tortoise   *v1beta1.Tortoise
 	deployment *v1.Deployment
 	hpa        *v2.HorizontalPodAutoscaler
-	vpa        map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler
+	vpa        map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler
 }
 
 func (t *testCase) compare(got resources) error {
-	if d := cmp.Diff(t.want.tortoise, got.tortoise, cmpopts.IgnoreFields(v1alpha1.Tortoise{}, "ObjectMeta"), cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
+	if d := cmp.Diff(t.want.tortoise, got.tortoise, cmpopts.IgnoreFields(v1beta1.Tortoise{}, "ObjectMeta"), cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
 		return fmt.Errorf("unexpected tortoise: diff = %s", d)
 	}
 	if d := cmp.Diff(t.want.hpa, got.hpa, cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "ObjectMeta"), cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
@@ -1642,7 +1690,7 @@ func (t *testCase) initializeResources(ctx context.Context, k8sClient client.Cli
 	}
 	if t.before.vpa == nil {
 		// create default VPAs.
-		t.before.vpa = map[v1alpha1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
+		t.before.vpa = map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{}
 		VpaClient, err := vpa.New(config, record.NewFakeRecorder(10))
 		if err != nil {
 			return err
@@ -1651,11 +1699,11 @@ func (t *testCase) initializeResources(ctx context.Context, k8sClient client.Cli
 		if err != nil {
 			return err
 		}
-		t.before.vpa[v1alpha1.VerticalPodAutoscalerRoleUpdater], t.before.tortoise, err = VpaClient.CreateTortoiseUpdaterVPA(ctx, t.before.tortoise)
+		t.before.vpa[v1beta1.VerticalPodAutoscalerRoleUpdater], t.before.tortoise, err = VpaClient.CreateTortoiseUpdaterVPA(ctx, t.before.tortoise)
 		if err != nil {
 			return err
 		}
-		t.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor], t.before.tortoise, err = VpaClient.CreateTortoiseMonitorVPA(ctx, t.before.tortoise)
+		t.before.vpa[v1beta1.VerticalPodAutoscalerRoleMonitor], t.before.tortoise, err = VpaClient.CreateTortoiseMonitorVPA(ctx, t.before.tortoise)
 		if err != nil {
 			return err
 		}
@@ -1677,17 +1725,17 @@ func (t *testCase) initializeResources(ctx context.Context, k8sClient client.Cli
 				},
 			}
 		}
-		t.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor].Status.Recommendation = &autoscalingv1.RecommendedPodResources{
+		t.before.vpa[v1beta1.VerticalPodAutoscalerRoleMonitor].Status.Recommendation = &autoscalingv1.RecommendedPodResources{
 			ContainerRecommendations: r,
 		}
-		t.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor].Status.Conditions = []autoscalingv1.VerticalPodAutoscalerCondition{
+		t.before.vpa[v1beta1.VerticalPodAutoscalerRoleMonitor].Status.Conditions = []autoscalingv1.VerticalPodAutoscalerCondition{
 			{
 				Type:   autoscalingv1.RecommendationProvided,
 				Status: corev1.ConditionTrue,
 			},
 		}
 
-		_, err = vpacli.AutoscalingV1().VerticalPodAutoscalers(t.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor].Namespace).UpdateStatus(ctx, t.before.vpa[v1alpha1.VerticalPodAutoscalerRoleMonitor], metav1.UpdateOptions{})
+		_, err = vpacli.AutoscalingV1().VerticalPodAutoscalers(t.before.vpa[v1beta1.VerticalPodAutoscalerRoleMonitor].Namespace).UpdateStatus(ctx, t.before.vpa[v1beta1.VerticalPodAutoscalerRoleMonitor], metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -1699,7 +1747,7 @@ func (t *testCase) initializeResources(ctx context.Context, k8sClient client.Cli
 	}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		tortoise := &v1alpha1.Tortoise{}
+		tortoise := &v1beta1.Tortoise{}
 		err = k8sClient.Get(ctx, client.ObjectKey{Namespace: t.before.tortoise.Namespace, Name: t.before.tortoise.Name}, tortoise)
 		if err != nil {
 			return fmt.Errorf("failed to get tortoise: %w", err)

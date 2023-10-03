@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/mercari/tortoise/api/v1alpha1"
+	"github.com/mercari/tortoise/api/v1beta1"
 )
 
 const tortoiseFinalizer = "tortoise.autoscaling.mercari.com/finalizer"
@@ -59,8 +59,8 @@ func New(c client.Client, recorder record.EventRecorder, rangeOfMinMaxReplicasRe
 	}, nil
 }
 
-func (s *Service) ShouldReconcileTortoiseNow(tortoise *v1alpha1.Tortoise, now time.Time) (bool, time.Duration) {
-	if tortoise.Spec.UpdateMode == v1alpha1.UpdateModeEmergency && tortoise.Status.TortoisePhase != v1alpha1.TortoisePhaseEmergency {
+func (s *Service) ShouldReconcileTortoiseNow(tortoise *v1beta1.Tortoise, now time.Time) (bool, time.Duration) {
+	if tortoise.Spec.UpdateMode == v1beta1.UpdateModeEmergency && tortoise.Status.TortoisePhase != v1beta1.TortoisePhaseEmergency {
 		// Tortoise which is emergency mode, but hasn't been handled by the controller yet. It should be updated ASAP.
 		return true, 0
 	}
@@ -75,7 +75,7 @@ func (s *Service) ShouldReconcileTortoiseNow(tortoise *v1alpha1.Tortoise, now ti
 	return false, lastTime.Add(s.tortoiseUpdateInterval).Sub(now)
 }
 
-func (s *Service) UpdateTortoisePhase(tortoise *v1alpha1.Tortoise, dm *appv1.Deployment) *v1alpha1.Tortoise {
+func (s *Service) UpdateTortoisePhase(tortoise *v1beta1.Tortoise, dm *appv1.Deployment) *v1beta1.Tortoise {
 	switch tortoise.Status.TortoisePhase {
 	case "":
 		tortoise = s.initializeTortoise(tortoise, dm)
@@ -85,33 +85,33 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1alpha1.Tortoise, dm *appv1.Dep
 		}
 		s.recorder.Event(tortoise, corev1.EventTypeNormal, "Initialized", fmt.Sprintf("Tortoise is initialized and starts to gather data to make recommendations. It will take %s to finish gathering data and then tortoise starts to work actually", r))
 
-	case v1alpha1.TortoisePhaseInitializing:
+	case v1beta1.TortoisePhaseInitializing:
 		// change it to GatheringData anyway. Later the controller may change it back to initialize if VPA isn't ready.
-		tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseGatheringData
-	case v1alpha1.TortoisePhaseGatheringData:
+		tortoise.Status.TortoisePhase = v1beta1.TortoisePhaseGatheringData
+	case v1beta1.TortoisePhaseGatheringData:
 		tortoise = s.checkIfTortoiseFinishedGatheringData(tortoise)
-		if tortoise.Status.TortoisePhase == v1alpha1.TortoisePhaseWorking {
+		if tortoise.Status.TortoisePhase == v1beta1.TortoisePhaseWorking {
 			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Working", "Tortoise finishes gathering data and it starts to work on autoscaling")
 		}
-	case v1alpha1.TortoisePhaseEmergency:
-		if tortoise.Spec.UpdateMode != v1alpha1.UpdateModeEmergency {
+	case v1beta1.TortoisePhaseEmergency:
+		if tortoise.Spec.UpdateMode != v1beta1.UpdateModeEmergency {
 			// Emergency mode is turned off.
 			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Working", "Emergency mode is turned off. Tortoise starts to work on autoscaling normally")
-			tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseEmergency
+			tortoise.Status.TortoisePhase = v1beta1.TortoisePhaseEmergency
 		}
 	}
 
-	if tortoise.Spec.UpdateMode == v1alpha1.UpdateModeEmergency {
-		if tortoise.Status.TortoisePhase != v1alpha1.TortoisePhaseEmergency {
+	if tortoise.Spec.UpdateMode == v1beta1.UpdateModeEmergency {
+		if tortoise.Status.TortoisePhase != v1beta1.TortoisePhaseEmergency {
 			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Emergency", "Tortoise is in Emergency mode")
-			tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseEmergency
+			tortoise.Status.TortoisePhase = v1beta1.TortoisePhaseEmergency
 		}
 	}
 
 	return tortoise
 }
 
-func (s *Service) checkIfTortoiseFinishedGatheringData(tortoise *v1alpha1.Tortoise) *v1alpha1.Tortoise {
+func (s *Service) checkIfTortoiseFinishedGatheringData(tortoise *v1beta1.Tortoise) *v1beta1.Tortoise {
 	for _, r := range tortoise.Status.Recommendations.Horizontal.MinReplicas {
 		if r.Value == 0 {
 			return tortoise
@@ -123,24 +123,24 @@ func (s *Service) checkIfTortoiseFinishedGatheringData(tortoise *v1alpha1.Tortoi
 		}
 	}
 
-	tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseWorking
+	tortoise.Status.TortoisePhase = v1beta1.TortoisePhaseWorking
 	return tortoise
 }
 
-func (s *Service) initializeMinMaxReplicas(tortoise *v1alpha1.Tortoise) *v1alpha1.Tortoise {
-	recommendations := []v1alpha1.ReplicasRecommendation{}
+func (s *Service) initializeMinMaxReplicas(tortoise *v1beta1.Tortoise) *v1beta1.Tortoise {
+	recommendations := []v1beta1.ReplicasRecommendation{}
 	from := 0
 	to := s.rangeOfMinMaxReplicasRecommendationHour
 	weekDay := time.Sunday
 	for {
 		if s.minMaxReplicasRoutine == "daily" {
-			recommendations = append(recommendations, v1alpha1.ReplicasRecommendation{
+			recommendations = append(recommendations, v1beta1.ReplicasRecommendation{
 				From:     from,
 				To:       to,
 				TimeZone: s.timeZone.String(),
 			})
 		} else if s.minMaxReplicasRoutine == "weekly" {
-			recommendations = append(recommendations, v1alpha1.ReplicasRecommendation{
+			recommendations = append(recommendations, v1beta1.ReplicasRecommendation{
 				From:     from,
 				To:       to,
 				TimeZone: s.timeZone.String(),
@@ -161,28 +161,25 @@ func (s *Service) initializeMinMaxReplicas(tortoise *v1alpha1.Tortoise) *v1alpha
 		from += s.rangeOfMinMaxReplicasRecommendationHour
 		to += s.rangeOfMinMaxReplicasRecommendationHour
 	}
-	if tortoise.Status.Recommendations.Horizontal == nil {
-		tortoise.Status.Recommendations.Horizontal = &v1alpha1.HorizontalRecommendations{}
-	}
 	tortoise.Status.Recommendations.Horizontal.MinReplicas = recommendations
 	tortoise.Status.Recommendations.Horizontal.MaxReplicas = recommendations
 
 	return tortoise
 }
 
-func (s *Service) initializeTortoise(tortoise *v1alpha1.Tortoise, dm *appv1.Deployment) *v1alpha1.Tortoise {
+func (s *Service) initializeTortoise(tortoise *v1beta1.Tortoise, dm *appv1.Deployment) *v1beta1.Tortoise {
 	tortoise = s.initializeMinMaxReplicas(tortoise)
-	tortoise.Status.TortoisePhase = v1alpha1.TortoisePhaseInitializing
+	tortoise.Status.TortoisePhase = v1beta1.TortoisePhaseInitializing
 
-	tortoise.Status.Conditions.ContainerRecommendationFromVPA = make([]v1alpha1.ContainerRecommendationFromVPA, len(dm.Spec.Template.Spec.Containers))
+	tortoise.Status.Conditions.ContainerRecommendationFromVPA = make([]v1beta1.ContainerRecommendationFromVPA, len(dm.Spec.Template.Spec.Containers))
 	for i, c := range dm.Spec.Template.Spec.Containers {
-		tortoise.Status.Conditions.ContainerRecommendationFromVPA[i] = v1alpha1.ContainerRecommendationFromVPA{
+		tortoise.Status.Conditions.ContainerRecommendationFromVPA[i] = v1beta1.ContainerRecommendationFromVPA{
 			ContainerName: c.Name,
-			Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+			Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 				corev1.ResourceCPU:    {},
 				corev1.ResourceMemory: {},
 			},
-			MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+			MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 				corev1.ResourceCPU:    {},
 				corev1.ResourceMemory: {},
 			},
@@ -193,7 +190,7 @@ func (s *Service) initializeTortoise(tortoise *v1alpha1.Tortoise, dm *appv1.Depl
 	return tortoise.DeepCopy()
 }
 
-func (s *Service) UpdateUpperRecommendation(tortoise *v1alpha1.Tortoise, vpa *v1.VerticalPodAutoscaler) *v1alpha1.Tortoise {
+func (s *Service) UpdateUpperRecommendation(tortoise *v1beta1.Tortoise, vpa *v1.VerticalPodAutoscaler) *v1beta1.Tortoise {
 	upperMap := make(map[string]map[corev1.ResourceName]resource.Quantity, len(vpa.Status.Recommendation.ContainerRecommendations))
 	for _, c := range vpa.Status.Recommendation.ContainerRecommendations {
 		upperMap[c.ContainerName] = make(map[corev1.ResourceName]resource.Quantity, len(c.UpperBound))
@@ -216,7 +213,7 @@ func (s *Service) UpdateUpperRecommendation(tortoise *v1alpha1.Tortoise, vpa *v1
 			currentTarget := targetMap[r.ContainerName][rn]
 			recommendation := max.Quantity
 
-			rq := v1alpha1.ResourceQuantity{
+			rq := v1beta1.ResourceQuantity{
 				Quantity:  currentTarget,
 				UpdatedAt: metav1.Now(),
 			}
@@ -233,21 +230,21 @@ func (s *Service) UpdateUpperRecommendation(tortoise *v1alpha1.Tortoise, vpa *v1
 	return tortoise
 }
 
-func (s *Service) GetTortoise(ctx context.Context, namespacedName types.NamespacedName) (*v1alpha1.Tortoise, error) {
-	t := &v1alpha1.Tortoise{}
+func (s *Service) GetTortoise(ctx context.Context, namespacedName types.NamespacedName) (*v1beta1.Tortoise, error) {
+	t := &v1beta1.Tortoise{}
 	if err := s.c.Get(ctx, namespacedName, t); err != nil {
 		return nil, fmt.Errorf("failed to get tortoise: %w", err)
 	}
 	return t, nil
 }
 
-func (s *Service) AddFinalizer(ctx context.Context, tortoise *v1alpha1.Tortoise) error {
+func (s *Service) AddFinalizer(ctx context.Context, tortoise *v1beta1.Tortoise) error {
 	if controllerutil.ContainsFinalizer(tortoise, tortoiseFinalizer) {
 		return nil
 	}
 
 	updateFn := func() error {
-		retTortoise := &v1alpha1.Tortoise{}
+		retTortoise := &v1beta1.Tortoise{}
 		err := s.c.Get(ctx, client.ObjectKeyFromObject(tortoise), retTortoise)
 		if err != nil {
 			return err
@@ -264,13 +261,13 @@ func (s *Service) AddFinalizer(ctx context.Context, tortoise *v1alpha1.Tortoise)
 	return nil
 }
 
-func (s *Service) RemoveFinalizer(ctx context.Context, tortoise *v1alpha1.Tortoise) error {
+func (s *Service) RemoveFinalizer(ctx context.Context, tortoise *v1beta1.Tortoise) error {
 	if !controllerutil.ContainsFinalizer(tortoise, tortoiseFinalizer) {
 		return nil
 	}
 
 	updateFn := func() error {
-		retTortoise := &v1alpha1.Tortoise{}
+		retTortoise := &v1beta1.Tortoise{}
 		err := s.c.Get(ctx, client.ObjectKeyFromObject(tortoise), retTortoise)
 		if err != nil {
 			return err
@@ -285,12 +282,12 @@ func (s *Service) RemoveFinalizer(ctx context.Context, tortoise *v1alpha1.Tortoi
 	return nil
 }
 
-func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1alpha1.Tortoise, now time.Time) (*v1alpha1.Tortoise, error) {
+func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1beta1.Tortoise, now time.Time) (*v1beta1.Tortoise, error) {
 	logger := log.FromContext(ctx)
 	logger.V(4).Info("update tortoise status", "tortoise", klog.KObj(originalTortoise))
-	retTortoise := &v1alpha1.Tortoise{}
+	retTortoise := &v1beta1.Tortoise{}
 	updateFn := func() error {
-		retTortoise = &v1alpha1.Tortoise{}
+		retTortoise = &v1beta1.Tortoise{}
 		err := s.c.Get(ctx, client.ObjectKeyFromObject(originalTortoise), retTortoise)
 		if err != nil {
 			return fmt.Errorf("get tortoise to update status: %w", err)
@@ -317,7 +314,7 @@ func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1
 	return originalTortoise, nil
 }
 
-func (s *Service) updateLastTimeUpdateTortoise(tortoise *v1alpha1.Tortoise, now time.Time) {
+func (s *Service) updateLastTimeUpdateTortoise(tortoise *v1beta1.Tortoise, now time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
