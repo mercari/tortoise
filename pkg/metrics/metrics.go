@@ -28,7 +28,7 @@ var (
 
 	ProposedMemoryRequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "proposed_memory_request",
-		Help: "recommended memory request (millibyte) that tortoises propose",
+		Help: "recommended memory request (byte) that tortoises propose",
 	}, []string{"tortoise_name", "namespace", "container_name", "controller_name", "controller_kind"})
 )
 
