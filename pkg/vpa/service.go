@@ -212,7 +212,7 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 						metrics.ProposedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.DeploymentName, "Deployment").Set(float64(value.MilliValue()))
 					}
 					if resourcename == corev1.ResourceMemory {
-						metrics.ProposedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.DeploymentName, "Deployment").Set(float64(value.MilliValue()))
+						metrics.ProposedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.DeploymentName, "Deployment").Set(float64(value.Value()))
 					}
 				}
 				metricsRecorded = true
