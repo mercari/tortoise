@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
-	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
+	autoscalingv1beta1 "github.com/mercari/tortoise/api/v1beta1"
 	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/metrics"
 )
@@ -44,8 +44,8 @@ func TortoiseUpdaterVPAName(tortoiseName string) string {
 	return TortoiseUpdaterVPANamePrefix + tortoiseName
 }
 
-func (c *Service) DeleteTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) error {
-	if tortoise.Spec.DeletionPolicy == autoscalingv1alpha1.DeletionPolicyNoDelete {
+func (c *Service) DeleteTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) error {
+	if tortoise.Spec.DeletionPolicy == autoscalingv1beta1.DeletionPolicyNoDelete {
 		return nil
 	}
 
@@ -70,8 +70,8 @@ func (c *Service) DeleteTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 	return nil
 }
 
-func (c *Service) DeleteTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) error {
-	if tortoise.Spec.DeletionPolicy == autoscalingv1alpha1.DeletionPolicyNoDelete {
+func (c *Service) DeleteTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) error {
+	if tortoise.Spec.DeletionPolicy == autoscalingv1beta1.DeletionPolicyNoDelete {
 		return nil
 	}
 
@@ -96,7 +96,7 @@ func (c *Service) DeleteTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 	return nil
 }
 
-func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
+func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
 	auto := v1.UpdateModeAuto
 	vpa := &v1.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
@@ -115,7 +115,7 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 			},
 			TargetRef: &autoscaling.CrossVersionObjectReference{
 				Kind:       "Deployment",
-				Name:       tortoise.Spec.TargetRefs.DeploymentName,
+				Name:       tortoise.Spec.TargetRefs.ScaleTargetRef.Name,
 				APIVersion: "apps/v1",
 			},
 			UpdatePolicy: &v1.PodUpdatePolicy{
@@ -133,9 +133,9 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 	}
 	vpa.Spec.ResourcePolicy.ContainerPolicies = crp
 
-	tortoise.Status.Targets.VerticalPodAutoscalers = append(tortoise.Status.Targets.VerticalPodAutoscalers, autoscalingv1alpha1.TargetStatusVerticalPodAutoscaler{
+	tortoise.Status.Targets.VerticalPodAutoscalers = append(tortoise.Status.Targets.VerticalPodAutoscalers, autoscalingv1beta1.TargetStatusVerticalPodAutoscaler{
 		Name: vpa.Name,
-		Role: autoscalingv1alpha1.VerticalPodAutoscalerRoleUpdater,
+		Role: autoscalingv1beta1.VerticalPodAutoscalerRoleUpdater,
 	})
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Create(ctx, vpa, metav1.CreateOptions{})
 	if err != nil {
@@ -147,7 +147,7 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 	return vpa, tortoise, nil
 }
 
-func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1alpha1.Tortoise, error) {
+func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
 	off := v1.UpdateModeOff
 	vpa := &v1.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
@@ -161,7 +161,7 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 		Spec: v1.VerticalPodAutoscalerSpec{
 			TargetRef: &autoscaling.CrossVersionObjectReference{
 				Kind:       "Deployment",
-				Name:       tortoise.Spec.TargetRefs.DeploymentName,
+				Name:       tortoise.Spec.TargetRefs.ScaleTargetRef.Name,
 				APIVersion: "apps/v1",
 			},
 			UpdatePolicy: &v1.PodUpdatePolicy{
@@ -179,9 +179,9 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 	}
 	vpa.Spec.ResourcePolicy.ContainerPolicies = crp
 
-	tortoise.Status.Targets.VerticalPodAutoscalers = append(tortoise.Status.Targets.VerticalPodAutoscalers, autoscalingv1alpha1.TargetStatusVerticalPodAutoscaler{
+	tortoise.Status.Targets.VerticalPodAutoscalers = append(tortoise.Status.Targets.VerticalPodAutoscalers, autoscalingv1beta1.TargetStatusVerticalPodAutoscaler{
 		Name: vpa.Name,
-		Role: autoscalingv1alpha1.VerticalPodAutoscalerRoleMonitor,
+		Role: autoscalingv1beta1.VerticalPodAutoscalerRoleMonitor,
 	})
 
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Create(ctx, vpa, metav1.CreateOptions{})
@@ -194,7 +194,7 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 	return vpa, tortoise, nil
 }
 
-func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
+func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
 	retVPA := &v1.VerticalPodAutoscaler{}
 
 	// we only want to record metric once in every reconcile loop.
@@ -209,10 +209,10 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 			if !metricsRecorded {
 				for resourcename, value := range r.RecommendedResource {
 					if resourcename == corev1.ResourceCPU {
-						metrics.ProposedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.DeploymentName, "Deployment").Set(float64(value.MilliValue()))
+						metrics.ProposedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
 					}
 					if resourcename == corev1.ResourceMemory {
-						metrics.ProposedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.DeploymentName, "Deployment").Set(float64(value.Value()))
+						metrics.ProposedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
 					}
 				}
 				metricsRecorded = true
@@ -231,7 +231,7 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 		vpa.Status.Recommendation.ContainerRecommendations = newRecommendations
 		retVPA = vpa
-		if tortoise.Spec.UpdateMode == autoscalingv1alpha1.UpdateModeOff {
+		if tortoise.Spec.UpdateMode == autoscalingv1beta1.UpdateModeOff {
 			// don't update status if update mode is off. (= dryrun)
 			return nil
 		}
@@ -243,14 +243,14 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		return retVPA, fmt.Errorf("update VPA status: %w", err)
 	}
 
-	if tortoise.Spec.UpdateMode != autoscalingv1alpha1.UpdateModeOff {
+	if tortoise.Spec.UpdateMode != autoscalingv1beta1.UpdateModeOff {
 		c.recorder.Event(tortoise, corev1.EventTypeNormal, "VPAUpdated", fmt.Sprintf("VPA %s/%s is updated by the recommendation. The Pods should also be updated with new resources soon by VPA if needed", retVPA.Namespace, retVPA.Name))
 	}
 
 	return retVPA, nil
 }
 
-func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
+func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*v1.VerticalPodAutoscaler, error) {
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Get(ctx, TortoiseUpdaterVPAName(tortoise.Name), metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get updater vpa on tortoise: %w", err)
@@ -258,7 +258,7 @@ func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscali
 	return vpa, nil
 }
 
-func (c *Service) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1alpha1.Tortoise) (*v1.VerticalPodAutoscaler, bool, error) {
+func (c *Service) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*v1.VerticalPodAutoscaler, bool, error) {
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Get(ctx, TortoiseMonitorVPAName(tortoise.Name), metav1.GetOptions{})
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to get updater vpa on tortoise: %w", err)

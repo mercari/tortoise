@@ -17,25 +17,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/mercari/tortoise/api/v1alpha1"
+	"github.com/mercari/tortoise/api/v1beta1"
 )
 
 func TestService_updateUpperRecommendation(t *testing.T) {
 	tests := []struct {
 		name     string
-		tortoise *v1alpha1.Tortoise
+		tortoise *v1beta1.Tortoise
 		vpa      *v1.VerticalPodAutoscaler
-		want     *v1alpha1.Tortoise
+		want     *v1beta1.Tortoise
 	}{
 		{
 			name: "success: the current recommendation on tortoise is less than the one on the current VPA",
-			tortoise: &v1alpha1.Tortoise{
-				Status: v1alpha1.TortoiseStatus{
-					Conditions: v1alpha1.Conditions{
-						ContainerRecommendationFromVPA: []v1alpha1.ContainerRecommendationFromVPA{
+			tortoise: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					Conditions: v1beta1.Conditions{
+						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("1"),
 									},
@@ -43,7 +43,7 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 										Quantity: resource.MustParse("1"),
 									},
 								},
-								MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("5"),
 									},
@@ -79,13 +79,13 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 					},
 				},
 			},
-			want: &v1alpha1.Tortoise{
-				Status: v1alpha1.TortoiseStatus{
-					Conditions: v1alpha1.Conditions{
-						ContainerRecommendationFromVPA: []v1alpha1.ContainerRecommendationFromVPA{
+			want: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					Conditions: v1beta1.Conditions{
+						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("5"),
 									},
@@ -93,7 +93,7 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 										Quantity: resource.MustParse("8"),
 									},
 								},
-								MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("5"),
 									},
@@ -109,13 +109,13 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 		},
 		{
 			name: "success: the current recommendation on tortoise is more than the upper bound on the current VPA",
-			tortoise: &v1alpha1.Tortoise{
-				Status: v1alpha1.TortoiseStatus{
-					Conditions: v1alpha1.Conditions{
-						ContainerRecommendationFromVPA: []v1alpha1.ContainerRecommendationFromVPA{
+			tortoise: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					Conditions: v1beta1.Conditions{
+						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("1"),
 									},
@@ -123,7 +123,7 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 										Quantity: resource.MustParse("1"),
 									},
 								},
-								MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("5"),
 									},
@@ -159,13 +159,13 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 					},
 				},
 			},
-			want: &v1alpha1.Tortoise{
-				Status: v1alpha1.TortoiseStatus{
-					Conditions: v1alpha1.Conditions{
-						ContainerRecommendationFromVPA: []v1alpha1.ContainerRecommendationFromVPA{
+			want: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					Conditions: v1beta1.Conditions{
+						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("2"),
 									},
@@ -173,7 +173,7 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 										Quantity: resource.MustParse("2"),
 									},
 								},
-								MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("5"),
 									},
@@ -213,9 +213,9 @@ func TestService_InitializeTortoise(t *testing.T) {
 	tests := []struct {
 		name       string
 		fields     fields
-		tortoise   *v1alpha1.Tortoise
+		tortoise   *v1beta1.Tortoise
 		deployment *appv1.Deployment
-		want       *v1alpha1.Tortoise
+		want       *v1beta1.Tortoise
 	}{
 		{
 			fields: fields{
@@ -223,8 +223,8 @@ func TestService_InitializeTortoise(t *testing.T) {
 				minMaxReplicasRoutine:                   "weekly",
 				timeZone:                                jst,
 			},
-			tortoise: &v1alpha1.Tortoise{
-				Status: v1alpha1.TortoiseStatus{},
+			tortoise: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{},
 			},
 			deployment: &appv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
@@ -242,28 +242,28 @@ func TestService_InitializeTortoise(t *testing.T) {
 					},
 				},
 			},
-			want: &v1alpha1.Tortoise{
-				Status: v1alpha1.TortoiseStatus{
-					TortoisePhase: v1alpha1.TortoisePhaseInitializing,
-					Targets:       v1alpha1.TargetsStatus{Deployment: "deployment"},
-					Conditions: v1alpha1.Conditions{
-						ContainerRecommendationFromVPA: []v1alpha1.ContainerRecommendationFromVPA{
+			want: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					TortoisePhase: v1beta1.TortoisePhaseInitializing,
+					Targets:       v1beta1.TargetsStatus{Deployment: "deployment"},
+					Conditions: v1beta1.Conditions{
+						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 									corev1.ResourceCPU:    {},
 									corev1.ResourceMemory: {},
 								},
-								MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 									corev1.ResourceCPU:    {},
 									corev1.ResourceMemory: {},
 								},
 							},
 						},
 					},
-					Recommendations: v1alpha1.Recommendations{
-						Horizontal: &v1alpha1.HorizontalRecommendations{
-							MinReplicas: []v1alpha1.ReplicasRecommendation{
+					Recommendations: v1beta1.Recommendations{
+						Horizontal: v1beta1.HorizontalRecommendations{
+							MinReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -391,7 +391,7 @@ func TestService_InitializeTortoise(t *testing.T) {
 									TimeZone: timeZone,
 								},
 							},
-							MaxReplicas: []v1alpha1.ReplicasRecommendation{
+							MaxReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -530,8 +530,8 @@ func TestService_InitializeTortoise(t *testing.T) {
 				rangeOfMinMaxReplicasRecommendationHour: 8,
 				timeZone:                                jst,
 			},
-			tortoise: &v1alpha1.Tortoise{
-				Status: v1alpha1.TortoiseStatus{},
+			tortoise: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{},
 			},
 			deployment: &appv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
@@ -549,28 +549,28 @@ func TestService_InitializeTortoise(t *testing.T) {
 					},
 				},
 			},
-			want: &v1alpha1.Tortoise{
-				Status: v1alpha1.TortoiseStatus{
-					TortoisePhase: v1alpha1.TortoisePhaseInitializing,
-					Targets:       v1alpha1.TargetsStatus{Deployment: "deployment"},
-					Conditions: v1alpha1.Conditions{
-						ContainerRecommendationFromVPA: []v1alpha1.ContainerRecommendationFromVPA{
+			want: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					TortoisePhase: v1beta1.TortoisePhaseInitializing,
+					Targets:       v1beta1.TargetsStatus{Deployment: "deployment"},
+					Conditions: v1beta1.Conditions{
+						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								Recommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 									corev1.ResourceCPU:    {},
 									corev1.ResourceMemory: {},
 								},
-								MaxRecommendation: map[corev1.ResourceName]v1alpha1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
 									corev1.ResourceCPU:    {},
 									corev1.ResourceMemory: {},
 								},
 							},
 						},
 					},
-					Recommendations: v1alpha1.Recommendations{
-						Horizontal: &v1alpha1.HorizontalRecommendations{
-							MinReplicas: []v1alpha1.ReplicasRecommendation{
+					Recommendations: v1beta1.Recommendations{
+						Horizontal: v1beta1.HorizontalRecommendations{
+							MinReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -587,7 +587,7 @@ func TestService_InitializeTortoise(t *testing.T) {
 									TimeZone: timeZone,
 								},
 							},
-							MaxReplicas: []v1alpha1.ReplicasRecommendation{
+							MaxReplicas: []v1beta1.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -630,7 +630,7 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 	tests := []struct {
 		name                   string
 		lastTimeUpdateTortoise map[client.ObjectKey]time.Time
-		tortoise               *v1alpha1.Tortoise
+		tortoise               *v1beta1.Tortoise
 		want                   bool
 		wantDuration           time.Duration
 	}{
@@ -639,13 +639,13 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 			lastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
 				client.ObjectKey{Name: "t2", Namespace: "default"}: now.Add(-1 * time.Second),
 			},
-			tortoise: &v1alpha1.Tortoise{
+			tortoise: &v1beta1.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "t",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.TortoiseSpec{
-					UpdateMode: v1alpha1.AutoUpdateMode,
+				Spec: v1beta1.TortoiseSpec{
+					UpdateMode: v1beta1.AutoUpdateMode,
 				},
 			},
 			want: true,
@@ -655,13 +655,13 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 			lastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
 				client.ObjectKey{Name: "t", Namespace: "default"}: now.Add(-1 * time.Second),
 			},
-			tortoise: &v1alpha1.Tortoise{
+			tortoise: &v1beta1.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "t",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.TortoiseSpec{
-					UpdateMode: v1alpha1.AutoUpdateMode,
+				Spec: v1beta1.TortoiseSpec{
+					UpdateMode: v1beta1.AutoUpdateMode,
 				},
 			},
 			want:         false,
@@ -672,13 +672,13 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 			lastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
 				client.ObjectKey{Name: "t", Namespace: "default"}: now.Add(-1 * time.Second),
 			},
-			tortoise: &v1alpha1.Tortoise{
+			tortoise: &v1beta1.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "t",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.TortoiseSpec{
-					UpdateMode: v1alpha1.UpdateModeEmergency,
+				Spec: v1beta1.TortoiseSpec{
+					UpdateMode: v1beta1.UpdateModeEmergency,
 				},
 			},
 			want: true,
@@ -688,16 +688,16 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 			lastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
 				client.ObjectKey{Name: "t", Namespace: "default"}: now.Add(-1 * time.Second),
 			},
-			tortoise: &v1alpha1.Tortoise{
+			tortoise: &v1beta1.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "t",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.TortoiseSpec{
-					UpdateMode: v1alpha1.UpdateModeEmergency,
+				Spec: v1beta1.TortoiseSpec{
+					UpdateMode: v1beta1.UpdateModeEmergency,
 				},
-				Status: v1alpha1.TortoiseStatus{
-					TortoisePhase: v1alpha1.TortoisePhaseEmergency,
+				Status: v1beta1.TortoiseStatus{
+					TortoisePhase: v1beta1.TortoisePhaseEmergency,
 				},
 			},
 			want: false,
@@ -723,25 +723,25 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 func TestService_UpdateTortoiseStatus(t *testing.T) {
 	now := time.Now()
 	type args struct {
-		t   *v1alpha1.Tortoise
+		t   *v1beta1.Tortoise
 		now time.Time
 	}
 	tests := []struct {
 		name                       string
-		originalTortoise           *v1alpha1.Tortoise
+		originalTortoise           *v1beta1.Tortoise
 		args                       args
 		wantLastTimeUpdateTortoise map[client.ObjectKey]time.Time
 	}{
 		{
 			name: "success",
-			originalTortoise: &v1alpha1.Tortoise{
+			originalTortoise: &v1beta1.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test"},
 			},
 			args: args{
-				t: &v1alpha1.Tortoise{
+				t: &v1beta1.Tortoise{
 					ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test"},
-					Status: v1alpha1.TortoiseStatus{
-						TortoisePhase: v1alpha1.TortoisePhaseInitializing,
+					Status: v1beta1.TortoiseStatus{
+						TortoisePhase: v1beta1.TortoisePhaseInitializing,
 					},
 				},
 				now: now,
@@ -754,7 +754,7 @@ func TestService_UpdateTortoiseStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			scheme := runtime.NewScheme()
-			err := v1alpha1.AddToScheme(scheme)
+			err := v1beta1.AddToScheme(scheme)
 			if err != nil {
 				t.Fatalf("failed to add to scheme: %v", err)
 			}

@@ -1,4 +1,4 @@
-package deployment
+package v1beta1
 
 import (
 	"context"
@@ -7,19 +7,21 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	autoscalingv1beta1 "github.com/mercari/tortoise/api/v1beta1"
 )
 
-type Service struct {
+type service struct {
 	c client.Client
 }
 
-func New(c client.Client) *Service {
-	return &Service{c: c}
+func newService(c client.Client) *service {
+	return &service{c: c}
 }
 
-func (c *Service) GetDeploymentOnTortoise(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*v1.Deployment, error) {
+func (c *service) GetDeploymentOnTortoise(ctx context.Context, tortoise *Tortoise) (*v1.Deployment, error) {
+	if tortoise.Spec.TargetRefs.ScaleTargetRef.Kind != "Deployment" {
+		return nil, fmt.Errorf("target kind is not deployment: %s", tortoise.Spec.TargetRefs.ScaleTargetRef.Kind)
+	}
+
 	d := &v1.Deployment{}
 	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Spec.TargetRefs.ScaleTargetRef.Name}, d); err != nil {
 		return nil, fmt.Errorf("failed to get deployment on tortoise: %w", err)

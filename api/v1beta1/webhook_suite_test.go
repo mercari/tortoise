@@ -23,27 +23,26 @@ SOFTWARE.
 
 */
 
-package controllers
+package v1beta1
 
 import (
+	"context"
+	"crypto/tls"
 	"fmt"
-	"os"
+	"net"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
-	appv1 "k8s.io/api/apps/v1"
-	v2 "k8s.io/api/autoscaling/v2"
+	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	//+kubebuilder:scaffold:imports
 	"k8s.io/apimachinery/pkg/runtime"
-	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	autoscalingv1beta1 "github.com/mercari/tortoise/api/v1beta1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -55,25 +54,27 @@ import (
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
-var scheme = runtime.NewScheme()
+var ctx context.Context
+var cancel context.CancelFunc
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	SetDefaultEventuallyTimeout(10 * time.Second)
-	SetDefaultEventuallyPollingInterval(100 * time.Millisecond)
-	SetDefaultConsistentlyDuration(3 * time.Second)
-	SetDefaultConsistentlyPollingInterval(100 * time.Millisecond)
-	RunSpecs(t, "Controller Suite")
+	RunSpecs(t, "Webhook Suite")
 }
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
+	ctx, cancel = context.WithCancel(context.TODO())
+
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases"), filepath.Join("testdata")},
-		ErrorIfCRDPathMissing: true,
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: false,
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
+		},
 	}
 
 	var err error
@@ -82,13 +83,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = autoscalingv1beta1.AddToScheme(scheme)
+	scheme := runtime.NewScheme()
+	err = AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = v1.AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = appv1.AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = v2.AddToScheme(scheme)
+
+	err = admissionv1beta1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
@@ -96,26 +95,47 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	// start webhook server using Manager
+	webhookInstallOptions := &testEnv.WebhookInstallOptions
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:             scheme,
+		Host:               webhookInstallOptions.LocalServingHost,
+		Port:               webhookInstallOptions.LocalServingPort,
+		CertDir:            webhookInstallOptions.LocalServingCertDir,
+		LeaderElection:     false,
+		MetricsBindAddress: "0",
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&Tortoise{}).SetupWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	//+kubebuilder:scaffold:webhook
+
+	go func() {
+		defer GinkgoRecover()
+		err = mgr.Start(ctx)
+		Expect(err).NotTo(HaveOccurred())
+	}()
+
+	// wait for the webhook server to get ready
+	dialer := &net.Dialer{Timeout: time.Second}
+	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
+	Eventually(func() error {
+		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
+		if err != nil {
+			return err
+		}
+		conn.Close()
+		return nil
+	}).Should(Succeed())
+
 })
 
-var suiteFailed = false
-
 var _ = AfterSuite(func() {
+	cancel()
 	By("tearing down the test environment")
-
-	if os.Getenv("DEBUG") == "true" && suiteFailed {
-		fmt.Printf(`
-You can use the following command to investigate the failure:
-$ kubectl %s
-When you have finished investigation, clean up with the following commands:
-$ pkill kube-apiserver
-$ pkill etcd
-$ rm -rf %s
-`, strings.Join(testEnv.ControlPlane.KubeCtl().Opts, " "), testEnv.ControlPlane.APIServer.CertDir) //nolint:staticcheck
-
-		return
-	}
-
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })

@@ -39,6 +39,7 @@ import (
 
 	autoscalingv2 "github.com/mercari/tortoise/api/autoscaling/v2"
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
+	autoscalingv1beta1 "github.com/mercari/tortoise/api/v1beta1"
 	"github.com/mercari/tortoise/controllers"
 	"github.com/mercari/tortoise/pkg/config"
 	"github.com/mercari/tortoise/pkg/deployment"
@@ -61,6 +62,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(autoscalingv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(autoscalingv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -143,6 +145,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&autoscalingv1alpha1.Tortoise{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Tortoise")
+		os.Exit(1)
+	}
+	if err = (&autoscalingv1beta1.Tortoise{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Tortoise")
 		os.Exit(1)
 	}
