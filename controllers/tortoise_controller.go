@@ -69,12 +69,6 @@ type TortoiseReconciler struct {
 //+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 
 func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
-	defer func() {
-		if reterr != nil {
-			r.EventRecorder.Event(&autoscalingv1beta1.Tortoise{}, "Warning", "ReconcileError", reterr.Error())
-		}
-	}()
-
 	logger := log.FromContext(ctx)
 	now := time.Now()
 
@@ -89,6 +83,11 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		logger.Error(err, "failed to get tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
+	defer func() {
+		if reterr != nil {
+			r.EventRecorder.Event(tortoise, "Warning", "ReconcileError", reterr.Error())
+		}
+	}()
 
 	if !tortoise.ObjectMeta.DeletionTimestamp.IsZero() {
 		// Tortoise is deleted by user and waiting for finalizer.
