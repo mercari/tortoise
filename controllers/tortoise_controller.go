@@ -31,6 +31,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -166,6 +167,8 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
+
+	r.EventRecorder.Event(tortoise, corev1.EventTypeNormal, "RecommendationUpdated", "The recommendation on Tortoise status is updated")
 
 	if tortoise.Status.TortoisePhase == autoscalingv1beta1.TortoisePhaseGatheringData {
 		logger.V(4).Info("tortoise is GatheringData phase; skip applying the recommendation to HPA or VPAs")
