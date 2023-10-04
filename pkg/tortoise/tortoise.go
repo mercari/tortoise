@@ -307,8 +307,6 @@ func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1
 		return originalTortoise, err
 	}
 
-	s.recorder.Event(originalTortoise, corev1.EventTypeNormal, "RecommendationUpdated", "The recommendation on Tortoise status is updated")
-
 	s.updateLastTimeUpdateTortoise(originalTortoise, now)
 
 	return originalTortoise, nil
