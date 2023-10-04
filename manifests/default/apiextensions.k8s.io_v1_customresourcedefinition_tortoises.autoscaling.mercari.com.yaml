@@ -341,7 +341,7 @@ spec:
                         - Horizontal
                         - Vertical
                         type: string
-                      description: "AutoscalingPolicy specifies how each resource is scaled. If \"Horizontal\", the resource is horizontally scaled. If \"Vertical\", the resource is vertically scaled. If \"Off\", tortoise doesn't scale at all based on that resource. At least one container in Pod should be Horizontal. \n The default value is \"Horizontal\" for cpu, and \"Vertical\" for memory."
+                      description: "AutoscalingPolicy specifies how each resource is scaled. If \"Horizontal\", the resource is horizontally scaled. If \"Vertical\", the resource is vertically scaled. If \"Off\", tortoise doesn't scale at all based on that resource. \n The default value is \"Horizontal\" for cpu, and \"Vertical\" for memory."
                       type: object
                     containerName:
                       description: ContainerName is the name of target container.

@@ -1,0 +1,10 @@
+apiVersion: autoscaling.mercari.com/v1beta1
+kind: Tortoise
+metadata:
+  name: tortoise-sample
+  namespace: default
+spec:
+  targetRefs:
+    scaleTargetRef:
+      kind: Deployment
+      name: sample

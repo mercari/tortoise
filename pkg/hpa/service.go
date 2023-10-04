@@ -43,7 +43,7 @@ func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor 
 func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment) (*autoscalingv1beta1.Tortoise, error) {
 	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
 		// update the existing HPA that the user set on tortoise.
-		tortoise, err := c.giveAnnotationsOnHPA(ctx, tortoise)
+		tortoise, err := c.giveAnnotationsOnExistingHPA(ctx, tortoise)
 		if err != nil {
 			return tortoise, fmt.Errorf("give annotations on a hpa specified in targetrefs: %w", err)
 		}
@@ -64,7 +64,7 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta
 	return tortoise, nil
 }
 
-func (c *Service) giveAnnotationsOnHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*autoscalingv1beta1.Tortoise, error) {
+func (c *Service) giveAnnotationsOnExistingHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*autoscalingv1beta1.Tortoise, error) {
 	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
 		// shouldn't reach here since the caller should check this.
 		return tortoise, fmt.Errorf("tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName is nil")

@@ -228,9 +228,12 @@ func (s *Service) UpdateUpperRecommendation(tortoise *v1beta1.Tortoise, vpa *v1.
 				// This case, recommendation is in the acceptable range. We don't update maxRecommendation.
 				continue
 			}
-			// currentMaxRecommendation < currentTargetFromVPA || currentUpperFromVPA < currentMaxRecommendation
 
-			// replace with currentTargetFromVPA
+			// replace with currentTargetFromVPA if:
+			// currentMaxRecommendation < currentTargetFromVPA: currentMaxRecommendation is too small based on the currentTargetFromVPA.
+			// OR
+			// currentUpperFromVPA < currentMaxRecommendation: currentMaxRecommendation is too big based on the currentUpperFromVPA.
+
 			tortoise.Status.Conditions.ContainerRecommendationFromVPA[k].MaxRecommendation[rn] = rq
 		}
 	}
