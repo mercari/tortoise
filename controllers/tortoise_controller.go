@@ -85,13 +85,6 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		logger.Error(err, "failed to get tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
-	defer func() {
-		tortoise = r.TortoiseService.RecordReconciliationFailure(tortoise, reterr, now)
-		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
-		if err != nil {
-			logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
-		}
-	}()
 
 	if !tortoise.ObjectMeta.DeletionTimestamp.IsZero() {
 		// Tortoise is deleted by user and waiting for finalizer.
@@ -115,6 +108,15 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		logger.V(4).Info("the reconciliation is skipped because this tortoise is recently updated", "tortoise", req.NamespacedName)
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
+
+	// Need to register defer after `ShouldReconcileTortoiseNow` because it updates the tortoise status in it.
+	defer func() {
+		tortoise = r.TortoiseService.RecordReconciliationFailure(tortoise, reterr, now)
+		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
+		if err != nil {
+			logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
+		}
+	}()
 
 	dm, err := r.DeploymentService.GetDeploymentOnTortoise(ctx, tortoise)
 	if err != nil {
