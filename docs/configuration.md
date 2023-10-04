@@ -2,7 +2,8 @@
 
 <img alt="Tortoise" src="images/eating.jpg" width="400px"/>
 
-The cluster admin can set the global configurations via flags.
+The cluster admin can set the global configurations via the configuration file.
+The configuration file is passed via `--config` flag.
 
 ```
 RangeOfMinMaxReplicasRecommendationHours:     The time (hours) range of minReplicas and maxReplicas recommendation (default: 1)
