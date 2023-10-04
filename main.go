@@ -92,6 +92,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	setupLog.Info("config", "config", *config)
+
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
