@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"reflect"
 
+	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -144,6 +145,15 @@ func validateTortoise(t *Tortoise) error {
 	return fmt.Errorf("%s: at least one policy should be Horizontal", fieldPath.Child("resourcePolicy", "autoscalingPolicy"))
 }
 
+type resourceNameAndContainerName struct {
+	rn            v1.ResourceName
+	containerName string
+}
+
+func (r resourceNameAndContainerName) String() string {
+	return fmt.Sprintf("container name: %s/resource name: %s", r.rn, r.containerName)
+}
+
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Tortoise) ValidateCreate() (admission.Warnings, error) {
 	ctx := context.Background()
@@ -163,23 +173,49 @@ func (r *Tortoise) ValidateCreate() (admission.Warnings, error) {
 			return nil, fmt.Errorf("failed to get the deployment defined in %s: %w", fieldPath.Child("targetRefs", "scaleTargetRef"), err)
 		}
 
-		containers := sets.NewString()
+		containers := sets.New[string]()
 		for _, c := range d.Spec.Template.Spec.Containers {
 			containers.Insert(c.Name)
 		}
 
-		policies := sets.NewString()
+		policies := sets.New[string]()
+		horizontalResourceAndContainer := sets.New[resourceNameAndContainerName]()
 		for _, p := range r.Spec.ResourcePolicy {
 			policies.Insert(p.ContainerName)
+			for rn, ap := range p.AutoscalingPolicy {
+				if ap == AutoscalingTypeHorizontal {
+					horizontalResourceAndContainer.Insert(resourceNameAndContainerName{rn, p.ContainerName})
+				}
+			}
 		}
 
-		noPolicyContainers := containers.Difference(policies)
-		if noPolicyContainers.Len() != 0 {
-			return nil, fmt.Errorf("%s: tortoise should have the policies for all containers defined in the deployment, but, it doesn't have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), noPolicyContainers)
-		}
 		uselessPolicies := policies.Difference(containers)
 		if uselessPolicies.Len() != 0 {
 			return nil, fmt.Errorf("%s: tortoise should not have the policies for the container(s) which isn't defined in the deployment, but, it have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), uselessPolicies)
+		}
+
+		hpa, err := ClientService.GetHPAFromUser(ctx, r)
+		if err != nil {
+			// Check if HPA really exists or not.
+			return nil, fmt.Errorf("failed to get the horizontal pod autoscaler defined in %s: %w", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"), err)
+		}
+		if hpa != nil {
+			hpaManagedResourceAndContainer := sets.New[resourceNameAndContainerName]()
+			for _, m := range hpa.Spec.Metrics {
+				if m.Type != v2.ContainerResourceMetricSourceType {
+					continue
+				}
+				hpaManagedResourceAndContainer.Insert(resourceNameAndContainerName{m.ContainerResource.Name, m.ContainerResource.Container})
+			}
+
+			containerNotInHPA := horizontalResourceAndContainer.Difference(hpaManagedResourceAndContainer)
+			if containerNotInHPA.Len() != 0 {
+				return nil, fmt.Errorf("%s: tortoise has Horizontal autoscalingPolicy for %v, but HPA %v doesn't have the metrics for %v", fieldPath.Child("resourcePolicy", "autoscalingPolicy"), horizontalResourceAndContainer.UnsortedList(), hpa.Name, containerNotInHPA.UnsortedList())
+			}
+			hpaManagedResourceAndContainerButNotInTortoise := hpaManagedResourceAndContainer.Difference(horizontalResourceAndContainer)
+			if hpaManagedResourceAndContainerButNotInTortoise.Len() != 0 {
+				return nil, fmt.Errorf("%s: HPA %v has the metrics for %v, but autoscalingPolicy(s) for %v isn't Horizontal", fieldPath.Child("resourcePolicy", "autoscalingPolicy"), hpa.Name, hpaManagedResourceAndContainer.UnsortedList(), hpaManagedResourceAndContainerButNotInTortoise.UnsortedList())
+			}
 		}
 	}
 

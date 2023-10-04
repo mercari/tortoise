@@ -81,7 +81,6 @@ type ContainerResourcePolicy struct {
 	// If "Horizontal", the resource is horizontally scaled.
 	// If "Vertical", the resource is vertically scaled.
 	// If "Off", tortoise doesn't scale at all based on that resource.
-	// At least one container in Pod should be Horizontal.
 	//
 	// The default value is "Horizontal" for cpu, and "Vertical" for memory.
 	// +optional

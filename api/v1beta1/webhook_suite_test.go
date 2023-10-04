@@ -26,17 +26,24 @@ SOFTWARE.
 package v1beta1
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	//+kubebuilder:scaffold:imports
+	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admissionregistration/v1"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/yaml"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -69,15 +76,38 @@ var _ = BeforeSuite(func() {
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	By("bootstrapping test environment")
+
+	y, err := os.ReadFile(filepath.Join("..", "..", "config", "webhook", "manifests.yaml"))
+	Expect(err).NotTo(HaveOccurred())
+	mutatingWebhookConfig := &admissionv1.MutatingWebhookConfiguration{}
+	validatingWebhookConfig := &admissionv1.ValidatingWebhookConfiguration{}
+	d := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096)
+	err = d.Decode(mutatingWebhookConfig)
+	Expect(err).NotTo(HaveOccurred())
+	err = d.Decode(validatingWebhookConfig)
+	Expect(err).NotTo(HaveOccurred())
+
+	for i, w := range mutatingWebhookConfig.Webhooks {
+		for _, rule := range w.Rules {
+			for _, resource := range rule.Resources {
+				// We want not to include the mutating webhook for HorizontalPodAutoscaler.
+				if resource == "horizontalpodautoscalers" {
+					mutatingWebhookConfig.Webhooks = append(mutatingWebhookConfig.Webhooks[:i], mutatingWebhookConfig.Webhooks[i+1:]...)
+				}
+			}
+		}
+	}
+
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: false,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
+			Paths:              []string{filepath.Join("..", "..", "config", "webhook", "service.yaml")},
+			MutatingWebhooks:   []*admissionv1.MutatingWebhookConfiguration{mutatingWebhookConfig},
+			ValidatingWebhooks: []*admissionv1.ValidatingWebhookConfiguration{validatingWebhookConfig},
 		},
 	}
 
-	var err error
 	// cfg is defined in this file globally.
 	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
@@ -85,6 +115,12 @@ var _ = BeforeSuite(func() {
 
 	scheme := runtime.NewScheme()
 	err = AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = clientgoscheme.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = autoscalingv1.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = autoscalingv2.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = admissionv1beta1.AddToScheme(scheme)
