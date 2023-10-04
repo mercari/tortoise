@@ -217,6 +217,11 @@ func (s *Service) updateMaxMinReplicasRecommendation(value int32, recommendation
 	// find the corresponding recommendations.
 	index := -1
 	for i, r := range recommendations {
+		tz, err := time.LoadLocation(r.TimeZone)
+		if err == nil {
+			// if the timezone is invalid, just ignore it.
+			now = now.In(tz)
+		}
 		if now.Hour() < r.To && now.Hour() >= r.From && (r.WeekDay == nil || now.Weekday().String() == *r.WeekDay) {
 			index = i
 			break
