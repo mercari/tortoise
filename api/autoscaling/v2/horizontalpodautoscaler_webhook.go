@@ -75,6 +75,11 @@ func (h *HPAWebhook) Default(ctx context.Context, obj runtime.Object) error {
 		return nil
 	}
 
+	if t.Status.Targets.HorizontalPodAutoscaler != hpa.Name {
+		// not managed by tortoise
+		return nil
+	}
+
 	hpa, _, err = h.hpaService.ChangeHPAFromTortoiseRecommendation(t, hpa, time.Now(), false) // we don't need to record metrics.
 	if err != nil {
 		// Block updating HPA may be critical. Just ignore it with error logs.
