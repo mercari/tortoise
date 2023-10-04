@@ -269,6 +269,10 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 			continue
 		}
 		for k, p := range r.AutoscalingPolicy {
+			if p == v1beta1.AutoscalingTypeOff {
+				// nothing to do.
+				continue
+			}
 			if p == v1beta1.AutoscalingTypeVertical {
 				targetMap[k] = s.upperTargetResourceUtilization
 				continue
@@ -282,7 +286,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 
 			targetValue, err := getHPATargetValue(hpa, r.ContainerName, k, len(tortoise.Spec.ResourcePolicy) == 1)
 			if err != nil {
-				return nil, fmt.Errorf("get the target value from HPA: %w", err)
+				return nil, fmt.Errorf("try to find the metric for the conainter which is configured to be scale by Horizontal: %w", err)
 			}
 
 			recomMap, ok := recommendationMap[r.ContainerName]
@@ -353,7 +357,7 @@ func getHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k 
 		return *m.ContainerResource.Target.AverageUtilization, nil
 	}
 
-	return 0, fmt.Errorf("unsupported hpa: %s, resource name: %s, single container deployment: %v", client.ObjectKeyFromObject(hpa).String(), k, isSingleContainerDeployment)
+	return 0, fmt.Errorf("the metric for the container isn't found in the hpa: %s. (resource name: %s, container name: %s)", client.ObjectKeyFromObject(hpa).String(), k, containerName)
 }
 
 func updateRecommendedContainerBasedMetric(upperUsage, currentTarget int32) int32 {

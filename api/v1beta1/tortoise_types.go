@@ -80,7 +80,8 @@ type ContainerResourcePolicy struct {
 	// AutoscalingPolicy specifies how each resource is scaled.
 	// If "Horizontal", the resource is horizontally scaled.
 	// If "Vertical", the resource is vertically scaled.
-	// Now, at least one container in Pod should be Horizontal.
+	// If "Off", tortoise doesn't scale at all based on that resource.
+	// At least one container in Pod should be Horizontal.
 	//
 	// The default value is "Horizontal" for cpu, and "Vertical" for memory.
 	// +optional
@@ -104,10 +105,11 @@ const (
 	AutoUpdateMode      UpdateMode = "Auto"
 )
 
-// +kubebuilder:validation:Enum=Horizontal;Vertical
+// +kubebuilder:validation:Enum=Off;Horizontal;Vertical
 type AutoscalingType string
 
 const (
+	AutoscalingTypeOff        AutoscalingType = "Off"
 	AutoscalingTypeHorizontal AutoscalingType = "Horizontal"
 	AutoscalingTypeVertical   AutoscalingType = "Vertical"
 )
@@ -290,7 +292,7 @@ type TortoiseCondition struct {
 type ContainerRecommendationFromVPA struct {
 	// ContainerName is the name of target container.
 	ContainerName string `json:"containerName" protobuf:"bytes,1,name=containerName"`
-	// MaxRecommendation is the max recommendation value from VPA among certain period (1 week).
+	// MaxRecommendation is the max recommendation value from VPA in a certain period (1 week).
 	// Tortoise generates all recommendation based on this MaxRecommendation.
 	MaxRecommendation map[v1.ResourceName]ResourceQuantity `json:"maxRecommendation" protobuf:"bytes,2,name=maxRecommendation"`
 	// Recommendation is the latest recommendation value from VPA.

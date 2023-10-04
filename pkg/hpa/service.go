@@ -170,7 +170,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta1.To
 	for _, policy := range tortoise.Spec.ResourcePolicy {
 		for r, p := range policy.AutoscalingPolicy {
 			value := pointer.Int32(50)
-			if p != autoscalingv1beta1.AutoscalingTypeHorizontal {
+			if p == autoscalingv1beta1.AutoscalingTypeVertical {
 				value = pointer.Int32(c.upperTargetResourceUtilization)
 			}
 			m = append(m, v2.MetricSpec{
@@ -250,6 +250,20 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 }
 
 func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
+	// if all policy is off or Vertical, we don't update HPA.
+	foundHorizontal := false
+	for _, r := range tortoise.Spec.ResourcePolicy {
+		for _, p := range r.AutoscalingPolicy {
+			if p == autoscalingv1beta1.AutoscalingTypeHorizontal {
+				foundHorizontal = true
+				break
+			}
+		}
+	}
+	if !foundHorizontal {
+		return nil, tortoise, nil
+	}
+
 	retTortoise := &autoscalingv1beta1.Tortoise{}
 	retHPA := &v2.HorizontalPodAutoscaler{}
 
