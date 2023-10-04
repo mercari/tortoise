@@ -29,6 +29,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -206,14 +207,19 @@ func (r *Tortoise) ValidateUpdate(old runtime.Object) (admission.Warnings, error
 	}
 	if r.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
 		if oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil || *oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != *r.Spec.TargetRefs.HorizontalPodAutoscalerName {
-			// removed or updated.
+			// newly specified or updated.
 			return nil, fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
 		}
 	} else {
 		if oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
-			// newly specified.
+			// Old has HorizontalPodAutoscalerName, but the new one doesn't.
+			// removed.
 			return nil, fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
 		}
+	}
+
+	if reflect.DeepEqual(oldTortoise.Spec.ResourcePolicy, r.Spec.ResourcePolicy) {
+		return nil, fmt.Errorf("%s: immutable field get changed", fieldPath.Child("resourcePolicy"))
 	}
 
 	return nil, nil
