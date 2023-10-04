@@ -79,17 +79,18 @@ func main() {
 	// Tortoise specific flags
 	var configPath string
 	flag.StringVar(&configPath, "config", "", "The path to the config file.")
-	config, err := config.ParseConfig(configPath)
-	if err != nil {
-		setupLog.Error(err, "failed to load config")
-		os.Exit(1)
-	}
 
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	config, err := config.ParseConfig(configPath)
+	if err != nil {
+		setupLog.Error(err, "failed to load config")
+		os.Exit(1)
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
