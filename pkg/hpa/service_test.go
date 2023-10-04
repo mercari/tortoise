@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/mercari/tortoise/api/v1beta1"
 	autoscalingv1beta1 "github.com/mercari/tortoise/api/v1beta1"
 	"github.com/mercari/tortoise/pkg/annotation"
 )
@@ -41,6 +42,22 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1beta1.Tortoise{
+					Spec: autoscalingv1beta1.TortoiseSpec{
+						ResourcePolicy: []autoscalingv1beta1.ContainerResourcePolicy{
+							{
+								ContainerName: "app",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceMemory: v1beta1.AutoscalingTypeHorizontal,
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceCPU: v1beta1.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+					},
 					Status: autoscalingv1beta1.TortoiseStatus{
 						Targets: autoscalingv1beta1.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
@@ -163,6 +180,20 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 				ctx: context.Background(),
 				tortoise: &autoscalingv1beta1.Tortoise{
 					Spec: autoscalingv1beta1.TortoiseSpec{
+						ResourcePolicy: []autoscalingv1beta1.ContainerResourcePolicy{
+							{
+								ContainerName: "app",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceMemory: v1beta1.AutoscalingTypeHorizontal,
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceCPU: v1beta1.AutoscalingTypeHorizontal,
+								},
+							},
+						},
 						UpdateMode: autoscalingv1beta1.UpdateModeOff,
 					},
 					Status: autoscalingv1beta1.TortoiseStatus{
@@ -286,6 +317,22 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1beta1.Tortoise{
+					Spec: autoscalingv1beta1.TortoiseSpec{
+						ResourcePolicy: []autoscalingv1beta1.ContainerResourcePolicy{
+							{
+								ContainerName: "app",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceMemory: v1beta1.AutoscalingTypeHorizontal,
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceCPU: v1beta1.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+					},
 					Status: autoscalingv1beta1.TortoiseStatus{
 						Targets: autoscalingv1beta1.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
@@ -408,6 +455,22 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1beta1.Tortoise{
+					Spec: autoscalingv1beta1.TortoiseSpec{
+						ResourcePolicy: []autoscalingv1beta1.ContainerResourcePolicy{
+							{
+								ContainerName: "app",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceMemory: v1beta1.AutoscalingTypeHorizontal,
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceCPU: v1beta1.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+					},
 					Status: autoscalingv1beta1.TortoiseStatus{
 						Targets: autoscalingv1beta1.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
@@ -530,6 +593,22 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1beta1.Tortoise{
+					Spec: autoscalingv1beta1.TortoiseSpec{
+						ResourcePolicy: []autoscalingv1beta1.ContainerResourcePolicy{
+							{
+								ContainerName: "app",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceMemory: v1beta1.AutoscalingTypeHorizontal,
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceCPU: v1beta1.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+					},
 					Status: autoscalingv1beta1.TortoiseStatus{
 						Targets: autoscalingv1beta1.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
@@ -646,6 +725,22 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 				},
 			},
 			wantTortoise: &autoscalingv1beta1.Tortoise{
+				Spec: autoscalingv1beta1.TortoiseSpec{
+					ResourcePolicy: []autoscalingv1beta1.ContainerResourcePolicy{
+						{
+							ContainerName: "app",
+							AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+								v1.ResourceMemory: v1beta1.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+								v1.ResourceCPU: v1beta1.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+				},
 				Status: autoscalingv1beta1.TortoiseStatus{
 					Targets: autoscalingv1beta1.TargetsStatus{
 						HorizontalPodAutoscaler: "hpa",

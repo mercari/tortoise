@@ -404,14 +404,16 @@ spec:
                     autoscalingPolicy:
                       additionalProperties:
                         enum:
+                        - "Off"
                         - Horizontal
                         - Vertical
                         type: string
                       description: "AutoscalingPolicy specifies how each resource
                         is scaled. If \"Horizontal\", the resource is horizontally
                         scaled. If \"Vertical\", the resource is vertically scaled.
-                        Now, at least one container in Pod should be Horizontal. \n
-                        The default value is \"Horizontal\" for cpu, and \"Vertical\"
+                        If \"Off\", tortoise doesn't scale at all based on that resource.
+                        At least one container in Pod should be Horizontal. \n The
+                        default value is \"Horizontal\" for cpu, and \"Vertical\"
                         for memory."
                       type: object
                     containerName:
@@ -522,7 +524,7 @@ spec:
                                 type: string
                             type: object
                           description: MaxRecommendation is the max recommendation
-                            value from VPA among certain period (1 week). Tortoise
+                            value from VPA in a certain period (1 week). Tortoise
                             generates all recommendation based on this MaxRecommendation.
                           type: object
                         recommendation:

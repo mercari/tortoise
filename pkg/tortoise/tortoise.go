@@ -209,21 +209,28 @@ func (s *Service) UpdateUpperRecommendation(tortoise *v1beta1.Tortoise, vpa *v1.
 
 	for k, r := range tortoise.Status.Conditions.ContainerRecommendationFromVPA {
 		for rn, max := range r.MaxRecommendation {
-			currentUpper := upperMap[r.ContainerName][rn]
-			currentTarget := targetMap[r.ContainerName][rn]
-			recommendation := max.Quantity
+			currentUpperFromVPA := upperMap[r.ContainerName][rn]
+			currentTargetFromVPA := targetMap[r.ContainerName][rn]
+			currentMaxRecommendation := max.Quantity
 
 			rq := v1beta1.ResourceQuantity{
-				Quantity:  currentTarget,
+				Quantity:  currentTargetFromVPA,
 				UpdatedAt: metav1.Now(),
 			}
 
+			// Always replace Recommendation with the current recommendation.
 			tortoise.Status.Conditions.ContainerRecommendationFromVPA[k].Recommendation[rn] = rq
-			if recommendation.Cmp(currentTarget) > 0 && recommendation.Cmp(currentUpper) < 0 {
+
+			// And then, check if we need to replace MaxRecommendation with the current recommendation.
+			if currentMaxRecommendation.Cmp(currentTargetFromVPA) > 0 && currentMaxRecommendation.Cmp(currentUpperFromVPA) < 0 {
+				// currentTargetFromVPA < currentMaxRecommendation < currentUpperFromVPA
+
 				// This case, recommendation is in the acceptable range. We don't update maxRecommendation.
 				continue
 			}
+			// currentMaxRecommendation < currentTargetFromVPA || currentUpperFromVPA < currentMaxRecommendation
 
+			// replace with currentTargetFromVPA
 			tortoise.Status.Conditions.ContainerRecommendationFromVPA[k].MaxRecommendation[rn] = rq
 		}
 	}
