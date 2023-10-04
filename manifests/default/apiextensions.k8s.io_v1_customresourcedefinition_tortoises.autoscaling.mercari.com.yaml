@@ -399,6 +399,7 @@ spec:
               conditions:
                 properties:
                   containerRecommendationFromVPA:
+                    description: ContainerRecommendationFromVPA is the condition of container recommendation from VPA, which is observed last time.
                     items:
                       properties:
                         containerName:
@@ -440,6 +441,38 @@ spec:
                       - recommendation
                       type: object
                     type: array
+                  tortoiseConditions:
+                    description: TortoiseConditions is the condition of this tortoise.
+                    items:
+                      properties:
+                        lastTransitionTime:
+                          description: lastTransitionTime is the last time the condition transitioned from one status to another
+                          format: date-time
+                          type: string
+                        lastUpdateTime:
+                          description: The last time this condition was updated.
+                          format: date-time
+                          type: string
+                        message:
+                          description: message is a human-readable explanation containing details about the transition
+                          type: string
+                        reason:
+                          description: reason is the reason for the condition's last transition.
+                          type: string
+                        status:
+                          description: Status is the status of the condition. (True, False, Unknown)
+                          type: string
+                        type:
+                          description: Type is the type of the condition.
+                          type: string
+                      required:
+                      - status
+                      - type
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - type
+                    x-kubernetes-list-type: map
                 type: object
               recommendations:
                 properties:

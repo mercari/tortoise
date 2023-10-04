@@ -247,8 +247,44 @@ type HPATargetUtilizationRecommendationPerContainer struct {
 }
 
 type Conditions struct {
+	// TortoiseConditions is the condition of this tortoise.
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	// +optional
+	TortoiseConditions []TortoiseCondition `json:"tortoiseConditions" protobuf:"bytes,1,name=tortoiseConditions"`
+	// ContainerRecommendationFromVPA is the condition of container recommendation from VPA, which is observed last time.
 	// +optional
 	ContainerRecommendationFromVPA []ContainerRecommendationFromVPA `json:"containerRecommendationFromVPA,omitempty" protobuf:"bytes,1,opt,name=containerRecommendationFromVPA"`
+}
+
+// TortoiseConditionType are the valid conditions of a Tortoise.
+type TortoiseConditionType string
+
+const (
+	// TortoiseConditionTypeFailedToReconcile means tortoise failed to reconcile due to some reasons.
+	TortoiseConditionTypeFailedToReconcile TortoiseConditionType = "FailedToReconcile"
+)
+
+type TortoiseCondition struct {
+	// Type is the type of the condition.
+	Type TortoiseConditionType `json:"type" protobuf:"bytes,1,name=type"`
+	// Status is the status of the condition. (True, False, Unknown)
+	Status v1.ConditionStatus `json:"status" protobuf:"bytes,2,name=status"`
+	// The last time this condition was updated.
+	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty" protobuf:"bytes,6,opt,name=lastUpdateTime"`
+	// lastTransitionTime is the last time the condition transitioned from
+	// one status to another
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,3,opt,name=lastTransitionTime"`
+	// reason is the reason for the condition's last transition.
+	// +optional
+	Reason string `json:"reason,omitempty" protobuf:"bytes,4,opt,name=reason"`
+	// message is a human-readable explanation containing details about
+	// the transition
+	// +optional
+	Message string `json:"message,omitempty" protobuf:"bytes,5,opt,name=message"`
 }
 
 type ContainerRecommendationFromVPA struct {

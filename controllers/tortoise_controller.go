@@ -84,8 +84,10 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 	defer func() {
-		if reterr != nil {
-			r.EventRecorder.Event(tortoise, "Warning", "ReconcileError", reterr.Error())
+		tortoise = r.TortoiseService.RecordReconciliationFailure(tortoise, reterr, now)
+		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
+		if err != nil {
+			logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
 		}
 	}()
 
