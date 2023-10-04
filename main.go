@@ -86,6 +86,8 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
 	config, err := config.ParseConfig(configPath)
 	if err != nil {
 		setupLog.Error(err, "failed to load config")
@@ -93,8 +95,6 @@ func main() {
 	}
 
 	setupLog.Info("config", "config", *config)
-
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
