@@ -72,6 +72,7 @@ type TortoiseReconciler struct {
 func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	logger := log.FromContext(ctx)
 	now := time.Now()
+	logger.V(4).Info("the reconciliation is started", "tortoise", req.NamespacedName)
 
 	tortoise, err := r.TortoiseService.GetTortoise(ctx, req.NamespacedName)
 	if err != nil {
@@ -111,6 +112,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	reconcileNow, requeueAfter := r.TortoiseService.ShouldReconcileTortoiseNow(tortoise, now)
 	if !reconcileNow {
+		logger.V(4).Info("the reconciliation is skipped because this tortoise is recently updated", "tortoise", req.NamespacedName)
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
