@@ -320,3 +320,43 @@ func (s *Service) updateLastTimeUpdateTortoise(tortoise *v1beta1.Tortoise, now t
 
 	s.lastTimeUpdateTortoise[client.ObjectKeyFromObject(tortoise)] = now
 }
+
+func (s *Service) RecordReconciliationFailure(t *v1beta1.Tortoise, err error, now time.Time) *v1beta1.Tortoise {
+	if err != nil {
+		s.recorder.Event(t, "Warning", "ReconcileError", err.Error())
+		for i := range t.Status.Conditions.TortoiseConditions {
+			if t.Status.Conditions.TortoiseConditions[i].Type == v1beta1.TortoiseConditionTypeFailedToReconcile {
+				// TODO: have a clear reason and utilize it to have a better reconciliation next.
+				// For example, in some cases, the reconciliation may keep failing until people fix some problems manually.
+				t.Status.Conditions.TortoiseConditions[i].Reason = "ReconcileError"
+				t.Status.Conditions.TortoiseConditions[i].Message = err.Error()
+				t.Status.Conditions.TortoiseConditions[i].Status = corev1.ConditionTrue
+				t.Status.Conditions.TortoiseConditions[i].LastTransitionTime = metav1.NewTime(now)
+				t.Status.Conditions.TortoiseConditions[i].LastUpdateTime = metav1.NewTime(now)
+				return t
+			}
+		}
+		// add as a new condition if not found.
+		t.Status.Conditions.TortoiseConditions = append(t.Status.Conditions.TortoiseConditions, v1beta1.TortoiseCondition{
+			Type:               v1beta1.TortoiseConditionTypeFailedToReconcile,
+			Status:             corev1.ConditionTrue,
+			Reason:             "ReconcileError",
+			Message:            err.Error(),
+			LastTransitionTime: metav1.NewTime(now),
+			LastUpdateTime:     metav1.NewTime(now),
+		})
+		return t
+	}
+
+	for i := range t.Status.Conditions.TortoiseConditions {
+		if t.Status.Conditions.TortoiseConditions[i].Type == v1beta1.TortoiseConditionTypeFailedToReconcile {
+			t.Status.Conditions.TortoiseConditions[i].Reason = ""
+			t.Status.Conditions.TortoiseConditions[i].Message = ""
+			t.Status.Conditions.TortoiseConditions[i].Status = corev1.ConditionFalse
+			t.Status.Conditions.TortoiseConditions[i].LastTransitionTime = metav1.NewTime(now)
+			t.Status.Conditions.TortoiseConditions[i].LastUpdateTime = metav1.NewTime(now)
+			return t
+		}
+	}
+	return t
+}

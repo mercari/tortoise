@@ -2,6 +2,8 @@ package tortoise
 
 import (
 	"context"
+	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -771,6 +774,137 @@ func TestService_UpdateTortoiseStatus(t *testing.T) {
 			s.updateLastTimeUpdateTortoise(tt.args.t, tt.args.now)
 			if d := cmp.Diff(s.lastTimeUpdateTortoise, tt.wantLastTimeUpdateTortoise); d != "" {
 				t.Errorf("UpdateTortoiseStatus() diff = %v", d)
+			}
+		})
+	}
+}
+
+func TestService_RecordReconciliationFailure(t *testing.T) {
+	now := time.Now()
+	type args struct {
+		t   *v1beta1.Tortoise
+		err error
+	}
+	tests := []struct {
+		name string
+		args args
+		want *v1beta1.Tortoise
+	}{
+		{
+			name: "success reconciliation",
+			args: args{
+				t: &v1beta1.Tortoise{
+					Status: v1beta1.TortoiseStatus{
+						Conditions: v1beta1.Conditions{
+							TortoiseConditions: []v1beta1.TortoiseCondition{
+								{
+									Type:               v1beta1.TortoiseConditionTypeFailedToReconcile,
+									Status:             corev1.ConditionTrue,
+									Message:            "failed to reconcile",
+									Reason:             "ReconcileError",
+									LastUpdateTime:     metav1.NewTime(now.Add(-1 * time.Minute)),
+									LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Minute)),
+								},
+							},
+						},
+					},
+				},
+				err: nil,
+			},
+			want: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					Conditions: v1beta1.Conditions{
+						TortoiseConditions: []v1beta1.TortoiseCondition{
+							{
+								Type:               v1beta1.TortoiseConditionTypeFailedToReconcile,
+								Status:             corev1.ConditionFalse,
+								Message:            "",
+								Reason:             "",
+								LastUpdateTime:     metav1.NewTime(now),
+								LastTransitionTime: metav1.NewTime(now),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "failed reconciliation and tortoise doens't have TortoiseConditionTypeFailedToReconcile",
+			args: args{
+				t: &v1beta1.Tortoise{
+					Status: v1beta1.TortoiseStatus{
+						Conditions: v1beta1.Conditions{
+							TortoiseConditions: []v1beta1.TortoiseCondition{
+								// TortoiseConditionTypeFailedToReconcile isn't recorded yet.
+							},
+						},
+					},
+				},
+				err: errors.New("failed to reconcile"),
+			},
+			want: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					Conditions: v1beta1.Conditions{
+						TortoiseConditions: []v1beta1.TortoiseCondition{
+							{
+								Type:               v1beta1.TortoiseConditionTypeFailedToReconcile,
+								Status:             corev1.ConditionTrue,
+								Message:            "failed to reconcile",
+								Reason:             "ReconcileError",
+								LastUpdateTime:     metav1.NewTime(now),
+								LastTransitionTime: metav1.NewTime(now),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "failed reconciliation and tortoise has TortoiseConditionTypeFailedToReconcile",
+			args: args{
+				t: &v1beta1.Tortoise{
+					Status: v1beta1.TortoiseStatus{
+						Conditions: v1beta1.Conditions{
+							TortoiseConditions: []v1beta1.TortoiseCondition{
+								{
+									Type:               v1beta1.TortoiseConditionTypeFailedToReconcile,
+									Status:             corev1.ConditionFalse,
+									Message:            "",
+									Reason:             "",
+									LastUpdateTime:     metav1.NewTime(now.Add(-1 * time.Minute)),
+									LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Minute)),
+								},
+							},
+						},
+					},
+				},
+				err: errors.New("failed to reconcile"),
+			},
+			want: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					Conditions: v1beta1.Conditions{
+						TortoiseConditions: []v1beta1.TortoiseCondition{
+							{
+								Type:               v1beta1.TortoiseConditionTypeFailedToReconcile,
+								Status:             corev1.ConditionTrue,
+								Message:            "failed to reconcile",
+								Reason:             "ReconcileError",
+								LastUpdateTime:     metav1.NewTime(now),
+								LastTransitionTime: metav1.NewTime(now),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Service{
+				recorder: record.NewFakeRecorder(10),
+			}
+			if got := s.RecordReconciliationFailure(tt.args.t, tt.args.err, now); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Service.RecordReconciliationFailure() = %v, want %v", got, tt.want)
 			}
 		})
 	}
