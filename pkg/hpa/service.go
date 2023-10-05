@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"time"
 
 	v1 "k8s.io/api/apps/v1"
@@ -13,6 +14,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
@@ -120,6 +122,72 @@ func (c *Service) DeleteHPACreatedByTortoise(ctx context.Context, tortoise *auto
 	return nil
 }
 
+type resourceNameAndContainerName struct {
+	rn            corev1.ResourceName
+	containerName string
+}
+
+// addHPAMetricsFromTortoiseAutoscalingPolicy adds metrics to the HPA based on the autoscaling policy in the tortoise.
+// Note that it doesn't update the HPA in kube-apiserver, you have to do that after this function.
+func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, currenthpa *v2.HorizontalPodAutoscaler) *v2.HorizontalPodAutoscaler {
+	policies := sets.New[string]()
+	horizontalResourceAndContainer := sets.New[resourceNameAndContainerName]()
+	for _, p := range tortoise.Spec.ResourcePolicy {
+		policies.Insert(p.ContainerName)
+		for rn, ap := range p.AutoscalingPolicy {
+			if ap == autoscalingv1beta1.AutoscalingTypeHorizontal {
+				horizontalResourceAndContainer.Insert(resourceNameAndContainerName{rn, p.ContainerName})
+			}
+		}
+	}
+
+	hpaManagedResourceAndContainer := sets.New[resourceNameAndContainerName]()
+	for _, m := range currenthpa.Spec.Metrics {
+		if m.Type != v2.ContainerResourceMetricSourceType {
+			continue
+		}
+		hpaManagedResourceAndContainer.Insert(resourceNameAndContainerName{m.ContainerResource.Name, m.ContainerResource.Container})
+	}
+
+	needToAddToHPA := horizontalResourceAndContainer.Difference(hpaManagedResourceAndContainer)
+	needToRemoveFromHPA := hpaManagedResourceAndContainer.Difference(horizontalResourceAndContainer)
+
+	sortedList := needToAddToHPA.UnsortedList()
+	sort.SliceStable(sortedList, func(i, j int) bool {
+		return sortedList[i].containerName < sortedList[j].containerName
+	})
+
+	// add metrics
+	for _, d := range sortedList {
+		m := v2.MetricSpec{
+			Type: v2.ContainerResourceMetricSourceType,
+			ContainerResource: &v2.ContainerResourceMetricSource{
+				Name:      d.rn,
+				Container: d.containerName,
+				Target: v2.MetricTarget{
+					Type: v2.UtilizationMetricType,
+					// we always start from a conservative value. and later will be adjusted by the recommendation.
+					AverageUtilization: pointer.Int32(50),
+				},
+			},
+		}
+		currenthpa.Spec.Metrics = append(currenthpa.Spec.Metrics, m)
+	}
+
+	// remove metrics
+	for i, m := range currenthpa.Spec.Metrics {
+		if m.Type != v2.ContainerResourceMetricSourceType {
+			continue
+		}
+		if needToRemoveFromHPA.Has(resourceNameAndContainerName{m.ContainerResource.Name, m.ContainerResource.Container}) {
+			currenthpa.Spec.Metrics = append(currenthpa.Spec.Metrics[:i], currenthpa.Spec.Metrics[i+1:]...)
+			continue
+		}
+	}
+
+	return currenthpa
+}
+
 func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
 	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
 		// we don't have to create HPA as the user specified the existing HPA.
@@ -166,27 +234,8 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta1.To
 		},
 	}
 
-	m := make([]v2.MetricSpec, 0, len(tortoise.Spec.ResourcePolicy))
-	for _, policy := range tortoise.Spec.ResourcePolicy {
-		for r, p := range policy.AutoscalingPolicy {
-			value := pointer.Int32(50)
-			if p == autoscalingv1beta1.AutoscalingTypeVertical {
-				value = pointer.Int32(c.upperTargetResourceUtilization)
-			}
-			m = append(m, v2.MetricSpec{
-				Type: v2.ContainerResourceMetricSourceType,
-				ContainerResource: &v2.ContainerResourceMetricSource{
-					Name:      r,
-					Container: policy.ContainerName,
-					Target: v2.MetricTarget{
-						Type:               v2.UtilizationMetricType,
-						AverageUtilization: value,
-					},
-				},
-			})
-		}
-	}
-	hpa.Spec.Metrics = m
+	hpa = c.addHPAMetricsFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa)
+
 	tortoise.Status.Targets.HorizontalPodAutoscaler = hpa.Name
 
 	err := c.c.Create(ctx, hpa)
@@ -247,6 +296,31 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	metrics.ProposedHPAMaxReplicass.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(hpa.Spec.MaxReplicas))
 
 	return hpa, tortoise, nil
+}
+
+func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
+	hpa := &v2.HorizontalPodAutoscaler{}
+	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Status.Targets.HorizontalPodAutoscaler}, hpa); err != nil {
+		return nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
+	}
+
+	newhpa := c.addHPAMetricsFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa)
+	updateFn := func() error {
+		hpa := &v2.HorizontalPodAutoscaler{}
+		if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Status.Targets.HorizontalPodAutoscaler}, hpa); err != nil {
+			return fmt.Errorf("failed to get hpa on tortoise: %w", err)
+		}
+
+		hpa.Spec.Metrics = newhpa.Spec.Metrics
+
+		return c.c.Update(ctx, newhpa)
+	}
+
+	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
+		return nil, err
+	}
+
+	return hpa, nil
 }
 
 func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
