@@ -118,6 +118,12 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		}
 	}()
 
+	_, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise)
+	if err != nil {
+		logger.Error(err, "update HPA spec from Tortoise autoscaling policy", "tortoise", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+
 	dm, err := r.DeploymentService.GetDeploymentOnTortoise(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get deployment", "tortoise", req.NamespacedName)
