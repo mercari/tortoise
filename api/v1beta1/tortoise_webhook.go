@@ -119,6 +119,17 @@ func (r *Tortoise) Default() {
 
 var _ webhook.Validator = &Tortoise{}
 
+func hasHorizontal(tortoise *Tortoise) bool {
+	for _, r := range tortoise.Spec.ResourcePolicy {
+		for _, p := range r.AutoscalingPolicy {
+			if p == AutoscalingTypeHorizontal {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func validateTortoise(t *Tortoise) error {
 	fieldPath := field.NewPath("spec")
 
@@ -129,20 +140,16 @@ func validateTortoise(t *Tortoise) error {
 		return fmt.Errorf("%s: shouldn't be empty", fieldPath.Child("targetRefs", "scaleTargetRef", "kind"))
 	}
 
-	for _, p := range t.Spec.ResourcePolicy {
-		for _, ap := range p.AutoscalingPolicy {
-			if ap == AutoscalingTypeHorizontal {
-				return nil
-			}
-		}
-	}
-
 	if t.Spec.UpdateMode == UpdateModeEmergency &&
 		t.Status.TortoisePhase != TortoisePhaseWorking && t.Status.TortoisePhase != TortoisePhaseEmergency && t.Status.TortoisePhase != TortoisePhaseBackToNormal {
 		return fmt.Errorf("%s: emergency mode is only available for tortoises with Running phase", fieldPath.Child("updateMode"))
 	}
 
-	return fmt.Errorf("%s: at least one policy should be Horizontal", fieldPath.Child("resourcePolicy", "autoscalingPolicy"))
+	if !hasHorizontal(t) && t.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
+		return fmt.Errorf("%s: at least one policy should be Horizontal when HorizontalPodAutoscalerName isn't nil", fieldPath.Child("resourcePolicy", "autoscalingPolicy"))
+	}
+
+	return nil
 }
 
 type resourceNameAndContainerName struct {

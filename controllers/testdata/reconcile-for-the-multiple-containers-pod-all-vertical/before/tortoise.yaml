@@ -2,15 +2,14 @@ metadata:
   name: mercari
   namespace: default
 spec:
-  deletionPolicy: NoDelete
   resourcePolicy:
   - autoscalingPolicy:
-      cpu: Horizontal
-      memory: Vertical
+      cpu: "Vertical"
+      memory: "Vertical"
     containerName: app
   - autoscalingPolicy:
-      cpu: Horizontal
-      memory: Vertical
+      cpu: "Vertical"
+      memory: "Vertical"
     containerName: istio-proxy
   targetRefs:
     scaleTargetRef:
@@ -57,28 +56,23 @@ status:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:32:21Z"
+        updatedAt: "2023-10-06T01:15:47Z"
         value: 15
-        weekday: Friday
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:32:21Z"
+        updatedAt: "2023-10-06T01:15:47Z"
         value: 3
-        weekday: Friday
       targetUtilizations:
       - containerName: app
-        targetUtilization:
-          cpu: 50
+        targetUtilization: {}
       - containerName: istio-proxy
-        targetUtilization:
-          cpu: 50
+        targetUtilization: {}
     vertical:
       containerResourceRecommendation: null
   targets:
     deployment: ""
-    horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
     - name: tortoise-updater-mercari
       role: Updater

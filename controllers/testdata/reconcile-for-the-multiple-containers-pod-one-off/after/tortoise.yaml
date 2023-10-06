@@ -1,5 +1,4 @@
 metadata:
-  creationTimestamp: null
   name: mercari
   namespace: default
 spec:
@@ -71,7 +70,6 @@ status:
       - containerName: app
         targetUtilization:
           cpu: 50
-          memory: 90
       - containerName: istio-proxy
         targetUtilization: {}
     vertical:

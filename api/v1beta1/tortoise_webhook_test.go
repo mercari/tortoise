@@ -150,5 +150,8 @@ var _ = Describe("MarkdownTortoise Webhook", func() {
 		It("invalid: Tortoise has resource policy for non-existing container", func() {
 			validateTest(filepath.Join("testdata", "validating", "useless-policy", "tortoise.yaml"), filepath.Join("testdata", "validating", "useless-policy", "hpa.yaml"), filepath.Join("testdata", "validating", "useless-policy", "deployment.yaml"), false)
 		})
+		It("invalid: Tortoise has HPA specified, but no Horizoltal in autoscalingPolicy", func() {
+			validateTest(filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "tortoise.yaml"), filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "hpa.yaml"), filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "deployment.yaml"), false)
+		})
 	})
 })

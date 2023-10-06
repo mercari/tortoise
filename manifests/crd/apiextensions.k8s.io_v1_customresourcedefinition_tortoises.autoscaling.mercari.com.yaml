@@ -602,7 +602,6 @@ spec:
                     type: array
                 required:
                 - deployment
-                - horizontalPodAutoscaler
                 - verticalPodAutoscalers
                 type: object
               tortoisePhase:

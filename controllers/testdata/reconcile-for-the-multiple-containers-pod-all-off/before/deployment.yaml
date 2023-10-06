@@ -1,5 +1,4 @@
 metadata:
-  creationTimestamp: null
   name: mercari-app
   namespace: default
 spec:
