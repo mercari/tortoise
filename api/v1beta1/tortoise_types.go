@@ -150,7 +150,8 @@ type TortoiseStatus struct {
 }
 
 type TargetsStatus struct {
-	HorizontalPodAutoscaler string                              `json:"horizontalPodAutoscaler" protobuf:"bytes,1,name=horizontalPodAutoscaler"`
+	// +optional
+	HorizontalPodAutoscaler string                              `json:"horizontalPodAutoscaler" protobuf:"bytes,1,opt,name=horizontalPodAutoscaler"`
 	Deployment              string                              `json:"deployment" protobuf:"bytes,2,name=deployment"`
 	VerticalPodAutoscalers  []TargetStatusVerticalPodAutoscaler `json:"verticalPodAutoscalers" protobuf:"bytes,3,name=verticalPodAutoscalers"`
 }

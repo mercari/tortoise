@@ -269,12 +269,8 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 			continue
 		}
 		for k, p := range r.AutoscalingPolicy {
-			if p == v1beta1.AutoscalingTypeOff {
+			if p != v1beta1.AutoscalingTypeHorizontal {
 				// nothing to do.
-				continue
-			}
-			if p == v1beta1.AutoscalingTypeVertical {
-				targetMap[k] = s.upperTargetResourceUtilization
 				continue
 			}
 

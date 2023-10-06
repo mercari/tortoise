@@ -2,7 +2,6 @@ metadata:
   annotations:
     tortoise.autoscaling.mercari.com/managed-by-tortoise: "true"
     tortoises.autoscaling.mercari.com/tortoise-name: mercari
-  creationTimestamp: null
   name: tortoise-monitor-mercari
   namespace: default
 spec:

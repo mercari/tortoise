@@ -1,5 +1,4 @@
 metadata:
-  creationTimestamp: null
   name: mercari
   namespace: default
 spec:
@@ -53,7 +52,6 @@ status:
       - containerName: app
         targetUtilization:
           cpu: 75
-          memory: 90
     vertical:
       containerResourceRecommendation:
       - RecommendedResource:

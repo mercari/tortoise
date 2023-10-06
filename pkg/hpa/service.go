@@ -43,6 +43,11 @@ func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor 
 }
 
 func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment) (*autoscalingv1beta1.Tortoise, error) {
+	// if all policy is off or Vertical, we don't need HPA.
+	if !hasHorizontal(tortoise) {
+		return tortoise, nil
+	}
+
 	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
 		// update the existing HPA that the user set on tortoise.
 		tortoise, err := c.giveAnnotationsOnExistingHPA(ctx, tortoise)
@@ -84,9 +89,9 @@ func (c *Service) giveAnnotationsOnExistingHPA(ctx context.Context, tortoise *au
 		}
 		hpa.Annotations[annotation.TortoiseNameAnnotation] = tortoise.Name
 		hpa.Annotations[annotation.ManagedByTortoiseAnnotation] = "true"
-		tortoise.Status.Targets.HorizontalPodAutoscaler = hpa.Name
 		return c.c.Update(ctx, hpa)
 	}
+	tortoise.Status.Targets.HorizontalPodAutoscaler = *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName
 
 	return tortoise, retry.RetryOnConflict(retry.DefaultRetry, updateFn)
 }
@@ -189,6 +194,10 @@ func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context
 }
 
 func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
+	if !hasHorizontal(tortoise) {
+		// no need to create HPA
+		return nil, tortoise, nil
+	}
 	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
 		// we don't have to create HPA as the user specified the existing HPA.
 		return nil, tortoise, nil
@@ -243,6 +252,10 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta1.To
 }
 
 func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
+	if !hasHorizontal(tortoise) {
+		// there should be no HPA
+		return nil, nil
+	}
 	hpa := &v2.HorizontalPodAutoscaler{}
 	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Status.Targets.HorizontalPodAutoscaler}, hpa); err != nil {
 		return nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
@@ -323,18 +336,20 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context
 	return hpa, nil
 }
 
-func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
-	// if all policy is off or Vertical, we don't update HPA.
-	foundHorizontal := false
+func hasHorizontal(tortoise *autoscalingv1beta1.Tortoise) bool {
 	for _, r := range tortoise.Spec.ResourcePolicy {
 		for _, p := range r.AutoscalingPolicy {
 			if p == autoscalingv1beta1.AutoscalingTypeHorizontal {
-				foundHorizontal = true
-				break
+				return true
 			}
 		}
 	}
-	if !foundHorizontal {
+	return false
+}
+
+func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
+	// if all policy is off or Vertical, we don't update HPA.
+	if !hasHorizontal(tortoise) {
 		return nil, tortoise, nil
 	}
 

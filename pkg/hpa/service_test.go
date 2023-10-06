@@ -963,6 +963,15 @@ func TestService_InitializeHPA(t *testing.T) {
 								Name: "deployment",
 							},
 						},
+						ResourcePolicy: []autoscalingv1beta1.ContainerResourcePolicy{
+							{
+								ContainerName: "app",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								},
+							},
+						},
 					},
 				},
 				dm: &appv1.Deployment{

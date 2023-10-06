@@ -1,0 +1,23 @@
+apiVersion: autoscaling.mercari.com/v1beta1
+kind: Tortoise
+metadata:
+  name: tortoise-sample
+  namespace: default
+spec:
+  updateMode: "Off"
+  deletionPolicy: "DeleteAll"
+  targetRefs:
+    # All vertical, but HPA is specified.
+    horizontalPodAutoscalerName: sample
+    scaleTargetRef:
+      kind: Deployment
+      name: sample
+  resourcePolicy:
+    - containerName: istio-proxy
+      autoscalingPolicy:
+        cpu: Vertical
+        memory: Vertical
+    - containerName: nginx
+      autoscalingPolicy:
+        cpu: Vertical
+        memory: Vertical

@@ -118,12 +118,6 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		}
 	}()
 
-	_, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise)
-	if err != nil {
-		logger.Error(err, "update HPA spec from Tortoise autoscaling policy", "tortoise", req.NamespacedName)
-		return ctrl.Result{}, err
-	}
-
 	dm, err := r.DeploymentService.GetDeploymentOnTortoise(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get deployment", "tortoise", req.NamespacedName)
@@ -139,6 +133,27 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		}
 
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
+	}
+
+	_, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			logger.Error(err, "update HPA spec from Tortoise autoscaling policy", "tortoise", req.NamespacedName)
+			return ctrl.Result{}, err
+		}
+
+		// If not found, it's one of:
+		// - the user don't specify Horizontal in any autoscalingPolicy.
+		//   - In that case, we don't need to create an initial HPA.
+		// - the user didn't specify Horizontal in any autoscalingPolicy previously,
+		//   but just updated tortoise to have Horizontal in some.
+		//   - In that case, we need to create an initial HPA.
+		//
+		// In both cases, we just need to call `InitializeHPA` and it handles both cases.
+		tortoise, err = r.HpaService.InitializeHPA(ctx, tortoise, dm)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	vpa, ready, err := r.VpaService.GetTortoiseMonitorVPA(ctx, tortoise)

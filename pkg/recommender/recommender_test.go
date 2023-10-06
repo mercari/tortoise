@@ -178,15 +178,13 @@ func TestUpdateRecommendation(t *testing.T) {
 								{
 									ContainerName: "app",
 									TargetUtilization: map[corev1.ResourceName]int32{
-										corev1.ResourceCPU:    90,
 										corev1.ResourceMemory: 80,
 									},
 								},
 								{
 									ContainerName: "istio-proxy",
 									TargetUtilization: map[corev1.ResourceName]int32{
-										corev1.ResourceCPU:    90,
-										corev1.ResourceMemory: 90,
+										corev1.ResourceCPU: 90,
 									},
 								},
 							},
@@ -358,16 +356,13 @@ func TestUpdateRecommendation(t *testing.T) {
 						Horizontal: v1beta1.HorizontalRecommendations{
 							TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
 								{
-									ContainerName: "app",
-									TargetUtilization: map[corev1.ResourceName]int32{
-										corev1.ResourceCPU: 90,
-									},
+									ContainerName:     "app",
+									TargetUtilization: map[corev1.ResourceName]int32{},
 								},
 								{
 									ContainerName: "istio-proxy",
 									TargetUtilization: map[corev1.ResourceName]int32{
-										corev1.ResourceCPU:    90,
-										corev1.ResourceMemory: 90,
+										corev1.ResourceCPU: 90,
 									},
 								},
 							},
