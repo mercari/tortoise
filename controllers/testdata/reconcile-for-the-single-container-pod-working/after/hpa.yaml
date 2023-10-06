@@ -1,0 +1,39 @@
+metadata:
+  annotations:
+    tortoise.autoscaling.mercari.com/managed-by-tortoise: "true"
+    tortoises.autoscaling.mercari.com/tortoise-name: mercari
+  creationTimestamp: null
+  name: tortoise-hpa-mercari
+  namespace: default
+spec:
+  behavior:
+    scaleDown:
+      policies:
+      - periodSeconds: 90
+        type: Percent
+        value: 2
+      selectPolicy: Max
+    scaleUp:
+      policies:
+      - periodSeconds: 60
+        type: Percent
+        value: 100
+      selectPolicy: Max
+      stabilizationWindowSeconds: 0
+  maxReplicas: 20
+  metrics:
+  - containerResource:
+      container: app
+      name: cpu
+      target:
+        averageUtilization: 75
+        type: Utilization
+    type: ContainerResource
+  minReplicas: 5
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mercari-app
+status:
+  currentMetrics: null
+  desiredReplicas: 0

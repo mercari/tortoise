@@ -4,7 +4,6 @@ metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes/kubernetes/pull/63797
     controller-gen.kubebuilder.io/version: v0.9.2
-  creationTimestamp: null
   name: verticalpodautoscalercheckpoints.autoscaling.k8s.io
 spec:
   group: autoscaling.k8s.io
@@ -210,7 +209,6 @@ metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes/kubernetes/pull/63797
     controller-gen.kubebuilder.io/version: v0.9.2
-  creationTimestamp: null
   name: verticalpodautoscalers.autoscaling.k8s.io
 spec:
   group: autoscaling.k8s.io
