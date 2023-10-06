@@ -527,6 +527,9 @@ func TestUpdateRecommendation(t *testing.T) {
 				t.Errorf("updateHPATargetUtilizationRecommendations() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+			if tt.wantErr {
+				return
+			}
 			if d := cmp.Diff(tt.want, got); d != "" {
 				t.Errorf("unexpected result from updateHPARecommendation; diff = %s", d)
 			}

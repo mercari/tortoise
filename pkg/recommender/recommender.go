@@ -172,11 +172,11 @@ func (s *Service) updateHPARecommendation(ctx context.Context, tortoise *v1beta1
 	var err error
 	tortoise, err = s.updateHPATargetUtilizationRecommendations(ctx, tortoise, hpa, deployment)
 	if err != nil {
-		return nil, fmt.Errorf("update HPA target utilization recommendations: %w", err)
+		return tortoise, fmt.Errorf("update HPA target utilization recommendations: %w", err)
 	}
 	tortoise, err = s.updateHPAMinMaxReplicasRecommendations(tortoise, deployment, now)
 	if err != nil {
-		return nil, err
+		return tortoise, err
 	}
 
 	return tortoise, nil
@@ -186,11 +186,11 @@ func (s *Service) UpdateRecommendations(ctx context.Context, tortoise *v1beta1.T
 	var err error
 	tortoise, err = s.updateHPARecommendation(ctx, tortoise, hpa, deployment, now)
 	if err != nil {
-		return nil, fmt.Errorf("update HPA recommendations: %w", err)
+		return tortoise, fmt.Errorf("update HPA recommendations: %w", err)
 	}
 	tortoise, err = s.updateVPARecommendation(tortoise, deployment, hpa)
 	if err != nil {
-		return nil, fmt.Errorf("update VPA recommendations: %w", err)
+		return tortoise, fmt.Errorf("update VPA recommendations: %w", err)
 	}
 
 	return tortoise, nil
@@ -286,16 +286,16 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 
 			targetValue, err := getHPATargetValue(hpa, r.ContainerName, k, len(tortoise.Spec.ResourcePolicy) == 1)
 			if err != nil {
-				return nil, fmt.Errorf("try to find the metric for the conainter which is configured to be scale by Horizontal: %w", err)
+				return tortoise, fmt.Errorf("try to find the metric for the conainter which is configured to be scale by Horizontal: %w", err)
 			}
 
 			recomMap, ok := recommendationMap[r.ContainerName]
 			if !ok {
-				return nil, fmt.Errorf("no resource recommendation from VPA for the container %s", r.ContainerName)
+				return tortoise, fmt.Errorf("no resource recommendation from VPA for the container %s", r.ContainerName)
 			}
 			recom, ok := recomMap[k]
 			if !ok {
-				return nil, fmt.Errorf("no %s recommendation from VPA for the container %s", k, r.ContainerName)
+				return tortoise, fmt.Errorf("no %s recommendation from VPA for the container %s", k, r.ContainerName)
 			}
 
 			upperUsage := math.Ceil((float64(recom.MilliValue()) / float64(req.MilliValue())) * 100)

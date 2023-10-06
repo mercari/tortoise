@@ -1,0 +1,93 @@
+metadata:
+  creationTimestamp: null
+  name: mercari
+  namespace: default
+spec:
+  resourcePolicy:
+  - autoscalingPolicy:
+      cpu: "Off"
+      memory: "Off"
+    containerName: app
+  - autoscalingPolicy:
+      cpu: "Off"
+      memory: "Off"
+    containerName: istio-proxy
+  targetRefs:
+    scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: mercari-app
+status:
+  conditions:
+    containerRecommendationFromVPA:
+    - containerName: app
+      maxRecommendation:
+        cpu:
+          quantity: "3"
+          updatedAt: null
+        memory:
+          quantity: 3Gi
+          updatedAt: null
+      recommendation:
+        cpu:
+          quantity: "3"
+          updatedAt: null
+        memory:
+          quantity: 3Gi
+          updatedAt: null
+    - containerName: istio-proxy
+      maxRecommendation:
+        cpu:
+          quantity: "3"
+          updatedAt: null
+        memory:
+          quantity: 3Gi
+          updatedAt: null
+      recommendation:
+        cpu:
+          quantity: "3"
+          updatedAt: null
+        memory:
+          quantity: 3Gi
+          updatedAt: null
+    tortoiseConditions: null
+  recommendations:
+    horizontal:
+      maxReplicas:
+      - from: 0
+        timezone: Local
+        to: 24
+        updatedAt: "2023-10-06T01:15:47Z"
+        value: 20
+        weekday: Friday
+      minReplicas:
+      - from: 0
+        timezone: Local
+        to: 24
+        updatedAt: "2023-10-06T01:15:47Z"
+        value: 5
+        weekday: Friday
+      targetUtilizations:
+      - containerName: app
+        targetUtilization: {}
+      - containerName: istio-proxy
+        targetUtilization: {}
+    vertical:
+      containerResourceRecommendation:
+      - RecommendedResource:
+          cpu: "10"
+          memory: 10Gi
+        containerName: app
+      - RecommendedResource:
+          cpu: "4"
+          memory: 4Gi
+        containerName: istio-proxy
+  targets:
+    deployment: ""
+    horizontalPodAutoscaler: tortoise-hpa-mercari
+    verticalPodAutoscalers:
+    - name: tortoise-updater-mercari
+      role: Updater
+    - name: tortoise-monitor-mercari
+      role: Monitor
+  tortoisePhase: Working
