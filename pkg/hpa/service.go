@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	autoscalingv1beta1 "github.com/mercari/tortoise/api/v1beta1"
 	"github.com/mercari/tortoise/pkg/annotation"
@@ -43,12 +44,16 @@ func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor 
 }
 
 func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment) (*autoscalingv1beta1.Tortoise, error) {
+	logger := log.FromContext(ctx)
 	// if all policy is off or Vertical, we don't need HPA.
 	if !hasHorizontal(tortoise) {
+		logger.V(4).Info("no horizontal policy, no need to create HPA")
 		return tortoise, nil
 	}
 
 	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
+		logger.V(4).Info("user specified the existing HPA, no need to create HPA")
+
 		// update the existing HPA that the user set on tortoise.
 		tortoise, err := c.giveAnnotationsOnExistingHPA(ctx, tortoise)
 		if err != nil {
@@ -59,6 +64,7 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta
 
 		return tortoise, nil
 	}
+	logger.V(4).Info("no existing HPA specified, creating HPA")
 
 	// create default HPA.
 	_, tortoise, err := c.CreateHPA(ctx, tortoise, dm)
@@ -97,7 +103,7 @@ func (c *Service) giveAnnotationsOnExistingHPA(ctx context.Context, tortoise *au
 }
 
 func (c *Service) DeleteHPACreatedByTortoise(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) error {
-	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil || tortoise.Spec.DeletionPolicy == autoscalingv1beta1.DeletionPolicyNoDelete {
+	if tortoise.Spec.DeletionPolicy == autoscalingv1beta1.DeletionPolicyNoDelete {
 		// A user specified the existing HPA and tortoise didn't create HPA by itself.
 		return nil
 	}
@@ -180,15 +186,17 @@ func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context
 	}
 
 	// remove metrics
-	for i, m := range currenthpa.Spec.Metrics {
+	newMetrics := []v2.MetricSpec{}
+	for _, m := range currenthpa.Spec.Metrics {
 		if m.Type != v2.ContainerResourceMetricSourceType {
 			continue
 		}
-		if needToRemoveFromHPA.Has(resourceNameAndContainerName{m.ContainerResource.Name, m.ContainerResource.Container}) {
-			currenthpa.Spec.Metrics = append(currenthpa.Spec.Metrics[:i], currenthpa.Spec.Metrics[i+1:]...)
+		if !needToRemoveFromHPA.Has(resourceNameAndContainerName{m.ContainerResource.Name, m.ContainerResource.Container}) {
+			newMetrics = append(newMetrics, m)
 			continue
 		}
 	}
+	currenthpa.Spec.Metrics = newMetrics
 
 	return currenthpa
 }
@@ -312,6 +320,14 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 }
 
 func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
+	if !hasHorizontal(tortoise) {
+		err := c.DeleteHPACreatedByTortoise(ctx, tortoise)
+		if err != nil {
+			return nil, fmt.Errorf("delete hpa created by tortoise: %w", err)
+		}
+		return nil, nil
+	}
+
 	hpa := &v2.HorizontalPodAutoscaler{}
 	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Status.Targets.HorizontalPodAutoscaler}, hpa); err != nil {
 		return nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)

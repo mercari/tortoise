@@ -307,7 +307,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 					targetMap[k] = s.upperTargetResourceUtilization
 				}
 			}
-			logger.Info("HPA target utilization recommendation is created", "current target utilization", targetValue, "recommended target utilization", targetMap[k], "upper usage", upperUsage)
+			logger.Info("HPA target utilization recommendation is created", "current target utilization", targetValue, "recommended target utilization", targetMap[k], "upper usage", upperUsage, "container name", r.ContainerName, "resource name", k)
 		}
 		newHPATargetUtilizationRecommendationPerContainer = append(newHPATargetUtilizationRecommendationPerContainer, v1beta1.HPATargetUtilizationRecommendationPerContainer{
 			ContainerName:     r.ContainerName,

@@ -292,7 +292,7 @@ func (s *Service) RemoveFinalizer(ctx context.Context, tortoise *v1beta1.Tortois
 	return nil
 }
 
-func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1beta1.Tortoise, now time.Time) (*v1beta1.Tortoise, error) {
+func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1beta1.Tortoise, now time.Time, timeRecord bool) (*v1beta1.Tortoise, error) {
 	logger := log.FromContext(ctx)
 	logger.V(4).Info("update tortoise status", "tortoise", klog.KObj(originalTortoise))
 	retTortoise := &v1beta1.Tortoise{}
@@ -317,7 +317,9 @@ func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1
 		return originalTortoise, err
 	}
 
-	s.updateLastTimeUpdateTortoise(originalTortoise, now)
+	if timeRecord {
+		s.updateLastTimeUpdateTortoise(originalTortoise, now)
+	}
 
 	return originalTortoise, nil
 }

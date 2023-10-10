@@ -10,6 +10,7 @@ import (
 	appv1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
@@ -1394,6 +1395,124 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "remove all metrics from hpa",
+			args: args{
+				tortoise: &autoscalingv1beta1.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+					},
+					Spec: autoscalingv1beta1.TortoiseSpec{
+						DeletionPolicy: autoscalingv1beta1.DeletionPolicyDeleteAll,
+						ResourcePolicy: []autoscalingv1beta1.ContainerResourcePolicy{
+							{
+								ContainerName: "app",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta1.AutoscalingTypeVertical,
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta1.AutoscalingTypeVertical,
+								},
+							},
+						},
+						TargetRefs: autoscalingv1beta1.TargetRefs{
+							HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+							ScaleTargetRef: autoscalingv1beta1.CrossVersionObjectReference{
+								Kind: "Deployment",
+								Name: "deployment",
+							},
+						},
+					},
+					Status: autoscalingv1beta1.TortoiseStatus{
+						Targets: autoscalingv1beta1.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+					},
+				},
+				dm: &appv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "deployment",
+						Namespace: "default",
+					},
+					Spec: appv1.DeploymentSpec{
+						Replicas: pointer.Int32(4),
+						Template: v1.PodTemplateSpec{
+							Spec: v1.PodSpec{
+								Containers: []v1.Container{
+									{
+										Name: "app",
+									},
+								},
+							},
+						},
+					},
+					Status: appv1.DeploymentStatus{
+						Replicas: 4,
+					},
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annotation.TortoiseNameAnnotation:      "tortoise",
+						annotation.ManagedByTortoiseAnnotation: "true",
+					},
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					ScaleTargetRef: v2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name:      v1.ResourceCPU,
+								Container: "app",
+								Target: v2.MetricTarget{
+									AverageUtilization: pointer.Int32(50),
+									Type:               v2.UtilizationMetricType,
+								},
+							},
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name:      v1.ResourceCPU,
+								Container: "istio-proxy",
+								Target: v2.MetricTarget{
+									AverageUtilization: pointer.Int32(50),
+									Type:               v2.UtilizationMetricType,
+								},
+							},
+						},
+					},
+					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleDown: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         2,
+									PeriodSeconds: 90,
+								},
+							},
+						},
+					},
+				},
+			},
+			afterHPA: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1406,12 +1525,21 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				t.Errorf("Service.UpdateHPASpecFromTortoiseAutoscalingPolicy() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+			if tt.afterHPA == nil {
+				// hpa should be removed
+				hpa := &v2.HorizontalPodAutoscaler{}
+				err = c.c.Get(context.Background(), client.ObjectKey{Name: tt.initialHPA.Name, Namespace: tt.initialHPA.Namespace}, hpa)
+				if err == nil || !apierrors.IsNotFound(err) {
+					t.Errorf("hpa should be removed")
+				}
+				return
+			}
+
 			hpa := &v2.HorizontalPodAutoscaler{}
 			err = c.c.Get(context.Background(), client.ObjectKey{Name: tt.afterHPA.Name, Namespace: tt.afterHPA.Namespace}, hpa)
 			if err != nil {
 				t.Errorf("get hpa error = %v", err)
 			}
-
 			if d := cmp.Diff(tt.afterHPA, hpa, cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "TypeMeta"), cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion")); d != "" {
 				t.Errorf("Service.UpdateHPASpecFromTortoiseAutoscalingPolicy() hpa diff = %v", d)
 			}

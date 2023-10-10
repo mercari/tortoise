@@ -261,6 +261,13 @@ func (r *Tortoise) ValidateUpdate(old runtime.Object) (admission.Warnings, error
 		}
 	}
 
+	if hasHorizontal(oldTortoise) && !hasHorizontal(r) && r.Spec.DeletionPolicy == DeletionPolicyNoDelete {
+		// TODO: add test for this.
+
+		// Old has horizontal, but the new one doesn't have any.
+		return nil, fmt.Errorf("%s: no horizontal policy exists. It will cause the deletion of HPA and you need to specify DeleteAll to allow the deletion.", fieldPath.Child("targetRefs", "resourcePolicy", "autoscalingPolicy"))
+	}
+
 	if reflect.DeepEqual(oldTortoise.Spec.ResourcePolicy, r.Spec.ResourcePolicy) {
 		return nil, fmt.Errorf("%s: immutable field get changed", fieldPath.Child("resourcePolicy"))
 	}

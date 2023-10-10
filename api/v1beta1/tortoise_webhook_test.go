@@ -131,7 +131,7 @@ func validateTest(tortoise, hpa, deployment string, valid bool) {
 	}
 }
 
-var _ = Describe("MarkdownTortoise Webhook", func() {
+var _ = Describe("Tortoise Webhook", func() {
 	Context("mutating", func() {
 		It("should mutate a Tortoise", func() {
 			mutateTest(filepath.Join("testdata", "mutating", "before.yaml"), filepath.Join("testdata", "mutating", "after.yaml"), filepath.Join("testdata", "mutating", "deployment.yaml"))
