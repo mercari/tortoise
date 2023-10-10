@@ -82,7 +82,7 @@ func mutateTest(before, after, deployment string) {
 	Expect(ret.Spec).Should(Equal(afterTortoise.Spec))
 }
 
-func validateTest(tortoise, hpa, deployment string, valid bool) {
+func validateCreationTest(tortoise, hpa, deployment string, valid bool) {
 	ctx := context.Background()
 
 	y, err := os.ReadFile(deployment)
@@ -131,27 +131,99 @@ func validateTest(tortoise, hpa, deployment string, valid bool) {
 	}
 }
 
+func validateUpdateTest(tortoise, existingTortoise, hpa, deployment string, valid bool) {
+	ctx := context.Background()
+
+	y, err := os.ReadFile(deployment)
+	Expect(err).NotTo(HaveOccurred())
+	deploy := &v1.Deployment{}
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(deploy)
+	Expect(err).NotTo(HaveOccurred())
+	err = k8sClient.Create(ctx, deploy)
+	Expect(err).NotTo(HaveOccurred())
+	defer func() {
+		err = k8sClient.Delete(ctx, deploy)
+		Expect(err).NotTo(HaveOccurred())
+	}()
+
+	y, err = os.ReadFile(hpa)
+	Expect(err).NotTo(HaveOccurred())
+	hpaObj := &autoscalingv2.HorizontalPodAutoscaler{}
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(hpaObj)
+	Expect(err).NotTo(HaveOccurred())
+	err = k8sClient.Create(ctx, hpaObj)
+	Expect(err).NotTo(HaveOccurred())
+	defer func() {
+		err = k8sClient.Delete(ctx, hpaObj)
+		Expect(err).NotTo(HaveOccurred())
+	}()
+
+	y, err = os.ReadFile(existingTortoise)
+	Expect(err).NotTo(HaveOccurred())
+	tortoiseObj := &Tortoise{}
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(tortoiseObj)
+	Expect(err).NotTo(HaveOccurred())
+	err = k8sClient.Create(ctx, tortoiseObj)
+
+	y, err = os.ReadFile(tortoise)
+	Expect(err).NotTo(HaveOccurred())
+	tortoiseObj = &Tortoise{}
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(tortoiseObj)
+	Expect(err).NotTo(HaveOccurred())
+
+	t := &Tortoise{}
+	err = k8sClient.Get(ctx, types.NamespacedName{Name: tortoiseObj.GetName(), Namespace: tortoiseObj.GetNamespace()}, t)
+	Expect(err).NotTo(HaveOccurred())
+	t.Spec = tortoiseObj.Spec
+	err = k8sClient.Update(ctx, t)
+
+	if valid {
+		Expect(err).NotTo(HaveOccurred(), "Tortoise: %v", tortoiseObj)
+
+		// cleanup
+		err = k8sClient.Delete(ctx, tortoiseObj)
+		Expect(err).NotTo(HaveOccurred())
+	} else {
+		Expect(err).To(HaveOccurred(), "Tortoise: %v", tortoiseObj)
+		statusErr := &apierrors.StatusError{}
+		Expect(errors.As(err, &statusErr)).To(BeTrue())
+		expected := tortoiseObj.Annotations["message"]
+		Expect(statusErr.ErrStatus.Message).To(ContainSubstring(expected))
+	}
+}
+
 var _ = Describe("Tortoise Webhook", func() {
 	Context("mutating", func() {
 		It("should mutate a Tortoise", func() {
 			mutateTest(filepath.Join("testdata", "mutating", "before.yaml"), filepath.Join("testdata", "mutating", "after.yaml"), filepath.Join("testdata", "mutating", "deployment.yaml"))
 		})
 	})
-	Context("validating", func() {
+	Context("validating(creation)", func() {
 		It("should create a valid Tortoise", func() {
-			validateTest(filepath.Join("testdata", "validating", "success", "tortoise.yaml"), filepath.Join("testdata", "validating", "success", "hpa.yaml"), filepath.Join("testdata", "validating", "success", "deployment.yaml"), true)
+			validateCreationTest(filepath.Join("testdata", "validating", "success", "tortoise.yaml"), filepath.Join("testdata", "validating", "success", "hpa.yaml"), filepath.Join("testdata", "validating", "success", "deployment.yaml"), true)
 		})
 		It("invalid: Tortoise has Horizontal for the container, but HPA doens't have ContainerResource metric for that container", func() {
-			validateTest(filepath.Join("testdata", "validating", "no-metric-in-hpa", "tortoise.yaml"), filepath.Join("testdata", "validating", "no-metric-in-hpa", "hpa.yaml"), filepath.Join("testdata", "validating", "no-metric-in-hpa", "deployment.yaml"), false)
+			validateCreationTest(filepath.Join("testdata", "validating", "no-metric-in-hpa", "tortoise.yaml"), filepath.Join("testdata", "validating", "no-metric-in-hpa", "hpa.yaml"), filepath.Join("testdata", "validating", "no-metric-in-hpa", "deployment.yaml"), false)
 		})
 		It("invalid: HPA has ContainerResource metric for the container, but autoscalingPolicy in tortoise isn't Horizontal", func() {
-			validateTest(filepath.Join("testdata", "validating", "no-horizontal-in-tortoise", "tortoise.yaml"), filepath.Join("testdata", "validating", "no-horizontal-in-tortoise", "hpa.yaml"), filepath.Join("testdata", "validating", "no-horizontal-in-tortoise", "deployment.yaml"), false)
+			validateCreationTest(filepath.Join("testdata", "validating", "no-horizontal-in-tortoise", "tortoise.yaml"), filepath.Join("testdata", "validating", "no-horizontal-in-tortoise", "hpa.yaml"), filepath.Join("testdata", "validating", "no-horizontal-in-tortoise", "deployment.yaml"), false)
 		})
 		It("invalid: Tortoise has resource policy for non-existing container", func() {
-			validateTest(filepath.Join("testdata", "validating", "useless-policy", "tortoise.yaml"), filepath.Join("testdata", "validating", "useless-policy", "hpa.yaml"), filepath.Join("testdata", "validating", "useless-policy", "deployment.yaml"), false)
+			validateCreationTest(filepath.Join("testdata", "validating", "useless-policy", "tortoise.yaml"), filepath.Join("testdata", "validating", "useless-policy", "hpa.yaml"), filepath.Join("testdata", "validating", "useless-policy", "deployment.yaml"), false)
 		})
 		It("invalid: Tortoise has HPA specified, but no Horizoltal in autoscalingPolicy", func() {
-			validateTest(filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "tortoise.yaml"), filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "hpa.yaml"), filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "deployment.yaml"), false)
+			validateCreationTest(filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "tortoise.yaml"), filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "hpa.yaml"), filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "deployment.yaml"), false)
+		})
+	})
+	Context("validating(updating)", func() {
+		It("successfully remove horizontal", func() {
+			validateUpdateTest(filepath.Join("testdata", "validating", "success-remove-all-horizontal", "updating-tortoise.yaml"), filepath.Join("testdata", "validating", "success-remove-all-horizontal", "before-tortoise.yaml"), filepath.Join("testdata", "validating", "success-remove-all-horizontal", "hpa.yaml"), filepath.Join("testdata", "validating", "success-remove-all-horizontal", "deployment.yaml"), true)
+		})
+		It("no horizontal policy exists and the deletion policy is NoDelete", func() {
+			validateUpdateTest(filepath.Join("testdata", "validating", "no-horizontal-with-no-deletion", "updating-tortoise.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-no-deletion", "before-tortoise.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-no-deletion", "hpa.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-no-deletion", "deployment.yaml"), false)
+		})
+		It("no horizontal policy exists and HPA is specified", func() {
+			validateUpdateTest(filepath.Join("testdata", "validating", "no-horizontal-with-hpa", "updating-tortoise.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-hpa", "before-tortoise.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-no-deletion", "hpa.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-no-deletion", "deployment.yaml"), false)
 		})
 	})
 })
