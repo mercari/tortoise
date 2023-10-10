@@ -253,19 +253,17 @@ func (r *Tortoise) ValidateUpdate(old runtime.Object) (admission.Warnings, error
 			// newly specified or updated.
 			return nil, fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
 		}
-	} else {
-		if oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
-			// Old has HorizontalPodAutoscalerName, but the new one doesn't.
-			// removed.
-			return nil, fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
-		}
 	}
 
-	if hasHorizontal(oldTortoise) && !hasHorizontal(r) && r.Spec.DeletionPolicy == DeletionPolicyNoDelete {
-		// TODO: add test for this.
+	if hasHorizontal(oldTortoise) && !hasHorizontal(r) {
+		if r.Spec.DeletionPolicy == DeletionPolicyNoDelete {
+			// The old one has horizontal, but the new one doesn't have any.
+			return nil, fmt.Errorf("%s: no horizontal policy exists. It will cause the deletion of HPA and you need to specify DeleteAll to allow the deletion.", fieldPath.Child("targetRefs", "resourcePolicy", "autoscalingPolicy"))
+		}
 
-		// Old has horizontal, but the new one doesn't have any.
-		return nil, fmt.Errorf("%s: no horizontal policy exists. It will cause the deletion of HPA and you need to specify DeleteAll to allow the deletion.", fieldPath.Child("targetRefs", "resourcePolicy", "autoscalingPolicy"))
+		if r.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
+			return nil, fmt.Errorf("%s: no horizontal policy exists. It will cause the deletion of HPA and you need to remove horizontalPodAutoscalerName to allow the deletion.", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
+		}
 	}
 
 	if reflect.DeepEqual(oldTortoise.Spec.ResourcePolicy, r.Spec.ResourcePolicy) {
