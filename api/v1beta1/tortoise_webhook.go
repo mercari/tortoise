@@ -73,7 +73,7 @@ func (r *Tortoise) Default() {
 		r.Spec.UpdateMode = UpdateModeOff
 	}
 	if r.Spec.DeletionPolicy == "" {
-		r.Spec.DeletionPolicy = DeletionPolicyDeleteAll
+		r.Spec.DeletionPolicy = DeletionPolicyNoDelete
 	}
 
 	if r.Spec.TargetRefs.ScaleTargetRef.Kind == "Deployment" {

@@ -5,7 +5,7 @@ metadata:
   namespace: default
 spec:
   updateMode: "Off"
-  deletionPolicy: "DeleteAll"
+  deletionPolicy: "NoDelete"
   targetRefs:
     scaleTargetRef:
       kind: Deployment

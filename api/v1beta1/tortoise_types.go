@@ -59,7 +59,7 @@ type TortoiseSpec struct {
 	// which is associated by spec.targetRefs.horizontalPodAutoscalerName, tortoise never delete the HPA.
 	// If "NoDelete", tortoise doesn't delete any associated HPA and VPAs.
 	//
-	// "DeleteAll" is the default value.
+	// "NoDelete" is the default value.
 	// +optional
 	DeletionPolicy DeletionPolicy `json:"deletionPolicy,omitempty" protobuf:"bytes,4,opt,name=deletionPolicy"`
 }
