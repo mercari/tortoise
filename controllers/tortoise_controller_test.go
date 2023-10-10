@@ -37,27 +37,32 @@ func newResource(path string) resources {
 	updaterVPAPath := fmt.Sprintf("%s/vpa-Updater.yaml", path)
 	monitorVPAPath := fmt.Sprintf("%s/vpa-Monitor.yaml", path)
 
+	var tortoise *v1beta1.Tortoise
 	y, err := os.ReadFile(tortoisePath)
-	Expect(err).NotTo(HaveOccurred())
-	tortoise := &v1beta1.Tortoise{}
-	err = yaml.Unmarshal(y, tortoise)
-	Expect(err).NotTo(HaveOccurred())
+	if err == nil {
+		tortoise = &v1beta1.Tortoise{}
+		err = yaml.Unmarshal(y, tortoise)
+		Expect(err).NotTo(HaveOccurred())
+	}
 
+	var vpa *autoscalingv1.VerticalPodAutoscaler
 	y, err = os.ReadFile(updaterVPAPath)
-	Expect(err).NotTo(HaveOccurred())
-	vpa := &autoscalingv1.VerticalPodAutoscaler{}
-	err = yaml.Unmarshal(y, vpa)
-	Expect(err).NotTo(HaveOccurred())
+	if err == nil {
+		vpa = &autoscalingv1.VerticalPodAutoscaler{}
+		err = yaml.Unmarshal(y, vpa)
+		Expect(err).NotTo(HaveOccurred())
+	}
 
+	var vpa2 *autoscalingv1.VerticalPodAutoscaler
 	y, err = os.ReadFile(monitorVPAPath)
-	Expect(err).NotTo(HaveOccurred())
-	vpa2 := &autoscalingv1.VerticalPodAutoscaler{}
-	err = yaml.Unmarshal(y, vpa2)
-	Expect(err).NotTo(HaveOccurred())
+	if err == nil {
+		vpa2 = &autoscalingv1.VerticalPodAutoscaler{}
+		err = yaml.Unmarshal(y, vpa2)
+		Expect(err).NotTo(HaveOccurred())
+	}
 
 	var deploy *v1.Deployment
 	y, err = os.ReadFile(deploymentPath)
-	// maybe deployment file is not exist
 	if err == nil {
 		deploy = &v1.Deployment{}
 		err = yaml.Unmarshal(y, deploy)
@@ -66,9 +71,7 @@ func newResource(path string) resources {
 
 	var hpa *v2.HorizontalPodAutoscaler
 	y, err = os.ReadFile(hpaPath)
-	// maybe hpa file is not exist
 	if err == nil {
-		Expect(err).NotTo(HaveOccurred())
 		hpa = &v2.HorizontalPodAutoscaler{}
 		err = yaml.Unmarshal(y, hpa)
 		Expect(err).NotTo(HaveOccurred())
@@ -84,7 +87,6 @@ func newResource(path string) resources {
 		},
 	}
 }
-
 func createDeploymentWithStatus(ctx context.Context, k8sClient client.Client, deploy *v1.Deployment) {
 	err := k8sClient.Create(ctx, deploy.DeepCopy())
 	Expect(err).NotTo(HaveOccurred())
@@ -147,6 +149,7 @@ func startController(ctx context.Context) func() {
 	})
 	Expect(err).ShouldNot(HaveOccurred())
 
+	// We only reconcile once.
 	tortoiseService, err := tortoise.New(mgr.GetClient(), record.NewFakeRecorder(10), 1, "Asia/Tokyo", 1000*time.Minute, "weekly")
 	Expect(err).ShouldNot(HaveOccurred())
 	cli, err := vpa.New(mgr.GetConfig(), record.NewFakeRecorder(10))
@@ -204,6 +207,7 @@ var _ = Describe("Test TortoiseController", func() {
 		initializeResourcesFromFiles(ctx, k8sClient, filepath.Join(path, "before"))
 		stopFunc = startController(ctx)
 		tc := testCase{want: newResource(filepath.Join(path, "after"))}
+		time.Sleep(1 * time.Second)
 		Eventually(func(g Gomega) {
 			gotTortoise := &v1beta1.Tortoise{}
 			err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
@@ -213,6 +217,12 @@ var _ = Describe("Test TortoiseController", func() {
 				gotHPA = &v2.HorizontalPodAutoscaler{}
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, gotHPA)
 				g.Expect(err).ShouldNot(HaveOccurred())
+			} else {
+				// HPA should not exist.
+				gotHPA = &v2.HorizontalPodAutoscaler{}
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, gotHPA)
+				Expect(apierrors.IsNotFound(err)).To(Equal(true))
+				gotHPA = nil
 			}
 			gotUpdaterVPA := &autoscalingv1.VerticalPodAutoscaler{}
 			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, gotUpdaterVPA)
@@ -277,6 +287,17 @@ var _ = Describe("Test TortoiseController", func() {
 		})
 		It("TortoisePhaseEmergency", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-multiple-containers-pod-emergency"))
+		})
+	})
+	Context("mutable AutoscalingPolicy", func() {
+		It("Tortoise get Horizontal and create HPA", func() {
+			runTest(filepath.Join("testdata", "mutable-autoscalingpolicy-no-hpa-and-add-horizontal"))
+		})
+		It("Tortoise get another Horizontal and modify the existing HPA", func() {
+			runTest(filepath.Join("testdata", "mutable-autoscalingpolicy-add-another-horizontal"))
+		})
+		It("Horizontal is removed and modify the existing HPA", func() {
+			runTest(filepath.Join("testdata", "mutable-autoscalingpolicy-remove-horizontal"))
 		})
 	})
 	Context("DeletionPolicy is handled correctly", func() {

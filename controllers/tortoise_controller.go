@@ -98,6 +98,14 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
+	defer func() {
+		tortoise = r.TortoiseService.RecordReconciliationFailure(tortoise, reterr, now)
+		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, false)
+		if err != nil {
+			logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
+		}
+	}()
+
 	// tortoise is not deleted. Make sure finalizer is added to tortoise.
 	if err := r.TortoiseService.AddFinalizer(ctx, tortoise); err != nil {
 		return ctrl.Result{}, fmt.Errorf("add finalizer: %w", err)
@@ -108,15 +116,6 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		logger.V(4).Info("the reconciliation is skipped because this tortoise is recently updated", "tortoise", req.NamespacedName)
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
-
-	// Need to register defer after `ShouldReconcileTortoiseNow` because it updates the tortoise status in it.
-	defer func() {
-		tortoise = r.TortoiseService.RecordReconciliationFailure(tortoise, reterr, now)
-		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
-		if err != nil {
-			logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
-		}
-	}()
 
 	dm, err := r.DeploymentService.GetDeploymentOnTortoise(ctx, tortoise)
 	if err != nil {
@@ -135,12 +134,16 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
+	// TODO: If HPA is modified, we need to change the tortoise phase.
+	// How to scale during that time?
 	_, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			logger.Error(err, "update HPA spec from Tortoise autoscaling policy", "tortoise", req.NamespacedName)
 			return ctrl.Result{}, err
 		}
+
+		logger.V(4).Info("HPA doesn't exist for this tortoise. We may need to recreate hpa", "tortoise", req.NamespacedName)
 
 		// If not found, it's one of:
 		// - the user don't specify Horizontal in any autoscalingPolicy.
@@ -164,7 +167,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	if !ready {
 		logger.V(4).Info("VPA created by tortoise isn't ready yet", "tortoise", req.NamespacedName)
 		tortoise.Status.TortoisePhase = autoscalingv1beta1.TortoisePhaseInitializing
-		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
+		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, true)
 		if err != nil {
 			logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
 			return ctrl.Result{}, err
@@ -187,7 +190,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
+	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, true)
 	if err != nil {
 		logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -212,7 +215,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
+	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, true)
 	if err != nil {
 		logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -262,7 +265,7 @@ func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *
 	if err != nil {
 		return fmt.Errorf("create tortoise updater VPA: %w", err)
 	}
-	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now)
+	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, true)
 	if err != nil {
 		return fmt.Errorf("update Tortoise status: %w", err)
 	}

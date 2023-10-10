@@ -4,12 +4,12 @@ metadata:
 spec:
   resourcePolicy:
   - autoscalingPolicy:
-      cpu: "Off"
-      memory: "Off"
+      cpu: Horizontal
+      memory: Vertical
     containerName: app
   - autoscalingPolicy:
-      cpu: "Off"
-      memory: "Off"
+      cpu: Horizontal
+      memory: Horizontal
     containerName: istio-proxy
   targetRefs:
     scaleTargetRef:
@@ -56,22 +56,26 @@ status:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:15:47Z"
+        updatedAt: "2023-10-06T01:15:46Z"
         value: 15
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:15:47Z"
+        updatedAt: "2023-10-06T01:15:46Z"
         value: 3
       targetUtilizations:
       - containerName: app
-        targetUtilization: {}
+        targetUtilization:
+          cpu: 50
       - containerName: istio-proxy
-        targetUtilization: {}
+        targetUtilization:
+          cpu: 50
     vertical:
       containerResourceRecommendation: null
   targets:
+    deployment: ""
+    horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
     - name: tortoise-updater-mercari
       role: Updater
