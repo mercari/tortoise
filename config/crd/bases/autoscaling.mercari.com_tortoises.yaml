@@ -447,7 +447,7 @@ spec:
                 properties:
                   horizontalPodAutoscalerName:
                     description: "HorizontalPodAutoscalerName is the name of the target
-                      HPA. The target of this HPA should be the same as the DeploymentName
+                      HPA. The target of this HPA should be the same as the ScaleTargetRef
                       above. The target HPA should have the ContainerResource type
                       metric or the external metric refers to the container resource
                       utilization. Please check out the document for more detail:
@@ -585,6 +585,23 @@ spec:
                     - type
                     x-kubernetes-list-type: map
                 type: object
+              containerResourcePhases:
+                items:
+                  properties:
+                    containerName:
+                      description: ContainerName is the name of target container.
+                      type: string
+                    resourcePhases:
+                      additionalProperties:
+                        type: string
+                      description: ResourcePhases is the phase of each resource of
+                        this container.
+                      type: object
+                  required:
+                  - containerName
+                  - resourcePhases
+                  type: object
+                type: array
               recommendations:
                 properties:
                   horizontal:
@@ -737,6 +754,7 @@ spec:
                 type: string
             required:
             - conditions
+            - containerResourcePhases
             - recommendations
             - targets
             - tortoisePhase
