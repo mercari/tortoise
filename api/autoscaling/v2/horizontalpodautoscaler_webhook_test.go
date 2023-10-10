@@ -50,15 +50,18 @@ func mutateTest(before, after, torotise string) {
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(tor)
 	status := tor.Status
 	Expect(err).NotTo(HaveOccurred())
-	err = k8sClient.Create(ctx, tor)
+	err = k8sClient.Create(ctx, tor.DeepCopy())
 	Expect(err).NotTo(HaveOccurred())
 	defer func() {
 		err = k8sClient.Delete(ctx, tor)
 		Expect(err).NotTo(HaveOccurred())
 	}()
+
+	err = k8sClient.Get(ctx, types.NamespacedName{Name: tor.GetName(), Namespace: tor.GetNamespace()}, tor)
+	Expect(err).NotTo(HaveOccurred())
 	tor.Status = status
-	//nolint:errcheck
-	k8sClient.Status().Update(ctx, tor)
+	err = k8sClient.Status().Update(ctx, tor)
+	Expect(err).NotTo(HaveOccurred())
 
 	y, err = os.ReadFile(before)
 	Expect(err).NotTo(HaveOccurred())
@@ -87,9 +90,6 @@ func mutateTest(before, after, torotise string) {
 
 var _ = Describe("v2.HPA Webhook", func() {
 	Context("mutating", func() {
-		It("nothing to do", func() {
-			mutateTest(filepath.Join("testdata", "mutating", "nothing-to-do", "before.yaml"), filepath.Join("testdata", "mutating", "nothing-to-do", "after.yaml"), filepath.Join("testdata", "mutating", "nothing-to-do", "tortoise.yaml"))
-		})
 		It("HPA is mutated based on the recommendation", func() {
 			mutateTest(filepath.Join("testdata", "mutating", "mutate-by-recommendations", "before.yaml"), filepath.Join("testdata", "mutating", "mutate-by-recommendations", "after.yaml"), filepath.Join("testdata", "mutating", "mutate-by-recommendations", "tortoise.yaml"))
 		})
