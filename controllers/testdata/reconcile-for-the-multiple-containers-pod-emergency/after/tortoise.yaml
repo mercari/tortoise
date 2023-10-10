@@ -59,14 +59,12 @@ status:
         to: 24
         updatedAt: "2023-10-06T01:15:47Z"
         value: 20
-        weekday: Friday
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
         updatedAt: "2023-10-06T01:15:47Z"
         value: 5
-        weekday: Friday
       targetUtilizations:
       - containerName: app
         targetUtilization:
