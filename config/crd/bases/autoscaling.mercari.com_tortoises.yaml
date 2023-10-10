@@ -391,7 +391,7 @@ spec:
                   If the associated HPA is not created by tortoise, which is associated
                   by spec.targetRefs.horizontalPodAutoscalerName, tortoise never delete
                   the HPA. If \"NoDelete\", tortoise doesn't delete any associated
-                  HPA and VPAs. \n \"DeleteAll\" is the default value."
+                  HPA and VPAs. \n \"NoDelete\" is the default value."
                 enum:
                 - DeleteAll
                 - NoDelete
