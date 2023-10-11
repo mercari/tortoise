@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/mercari/tortoise/api/v1beta1"
-	autoscalingv1beta1 "github.com/mercari/tortoise/api/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/mercari/tortoise/api/v1beta1"
+	autoscalingv1beta1 "github.com/mercari/tortoise/api/v1beta1"
 )
 
 func TestMakeAllVerticalContainerResourcePhaseRunning(t *testing.T) {
