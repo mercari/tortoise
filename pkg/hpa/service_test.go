@@ -1171,9 +1171,11 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 			},
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "hpa",
-					Namespace:   "default",
-					Annotations: map[string]string{},
+					Name:      "hpa",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annotation.ManagedByTortoiseAnnotation: "true",
+					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -1265,6 +1267,9 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hpa",
 					Namespace: "default",
+					Annotations: map[string]string{
+						annotation.ManagedByTortoiseAnnotation: "true",
+					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -1391,9 +1396,11 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 			},
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "hpa",
-					Namespace:   "default",
-					Annotations: map[string]string{},
+					Name:      "hpa",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annotation.ManagedByTortoiseAnnotation: "true",
+					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -1496,6 +1503,9 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hpa",
 					Namespace: "default",
+					Annotations: map[string]string{
+						annotation.ManagedByTortoiseAnnotation: "true",
+					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
