@@ -90,9 +90,9 @@ status:
       role: Monitor
   tortoisePhase: Working
   containerResourcePhases:
-    - containerName: "nginx"
+    - containerName: "app"
       resourcePhases:
-        cpu: Working 
+        cpu: GatheringData
         memory: Working
     - containerName: "istio-proxy"
       resourcePhases: 

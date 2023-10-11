@@ -221,12 +221,31 @@ func TestService_InitializeTortoise(t *testing.T) {
 		want       *v1beta1.Tortoise
 	}{
 		{
+			name: "weekly minMaxReplicasRoutine",
 			fields: fields{
 				rangeOfMinMaxReplicasRecommendationHour: 8,
 				minMaxReplicasRoutine:                   "weekly",
 				timeZone:                                jst,
 			},
 			tortoise: &v1beta1.Tortoise{
+				Spec: v1beta1.TortoiseSpec{
+					ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+						{
+							ContainerName: "app",
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "istio",
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeOff,
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+				},
 				Status: v1beta1.TortoiseStatus{},
 			},
 			deployment: &appv1.Deployment{
@@ -240,12 +259,33 @@ func TestService_InitializeTortoise(t *testing.T) {
 								{
 									Name: "app",
 								},
+								{
+									Name: "istio",
+								},
 							},
 						},
 					},
 				},
 			},
 			want: &v1beta1.Tortoise{
+				Spec: v1beta1.TortoiseSpec{
+					ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+						{
+							ContainerName: "app",
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "istio",
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeOff,
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+				},
 				Status: v1beta1.TortoiseStatus{
 					TortoisePhase: v1beta1.TortoisePhaseInitializing,
 					Targets:       v1beta1.TargetsStatus{Deployment: "deployment"},
@@ -261,6 +301,33 @@ func TestService_InitializeTortoise(t *testing.T) {
 									corev1.ResourceCPU:    {},
 									corev1.ResourceMemory: {},
 								},
+							},
+							{
+								ContainerName: "istio",
+								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+									corev1.ResourceCPU:    {},
+									corev1.ResourceMemory: {},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+									corev1.ResourceCPU:    {},
+									corev1.ResourceMemory: {},
+								},
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ContainerResourcePhase{
+								corev1.ResourceMemory: v1beta1.ContainerResourcePhaseGatheringData,
+								corev1.ResourceCPU:    v1beta1.ContainerResourcePhaseGatheringData,
+							},
+						},
+						{
+							ContainerName: "istio",
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ContainerResourcePhase{
+								corev1.ResourceMemory: v1beta1.ContainerResourcePhaseOff,
+								corev1.ResourceCPU:    v1beta1.ContainerResourcePhaseGatheringData,
 							},
 						},
 					},
@@ -528,12 +595,24 @@ func TestService_InitializeTortoise(t *testing.T) {
 			},
 		},
 		{
+			name: "daily minMaxReplicasRoutine",
 			fields: fields{
 				minMaxReplicasRoutine:                   "daily",
 				rangeOfMinMaxReplicasRecommendationHour: 8,
 				timeZone:                                jst,
 			},
 			tortoise: &v1beta1.Tortoise{
+				Spec: v1beta1.TortoiseSpec{
+					ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+						{
+							ContainerName: "app",
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+				},
 				Status: v1beta1.TortoiseStatus{},
 			},
 			deployment: &appv1.Deployment{
@@ -553,6 +632,17 @@ func TestService_InitializeTortoise(t *testing.T) {
 				},
 			},
 			want: &v1beta1.Tortoise{
+				Spec: v1beta1.TortoiseSpec{
+					ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+						{
+							ContainerName: "app",
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
+								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+				},
 				Status: v1beta1.TortoiseStatus{
 					TortoisePhase: v1beta1.TortoisePhaseInitializing,
 					Targets:       v1beta1.TargetsStatus{Deployment: "deployment"},
@@ -568,6 +658,15 @@ func TestService_InitializeTortoise(t *testing.T) {
 									corev1.ResourceCPU:    {},
 									corev1.ResourceMemory: {},
 								},
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ContainerResourcePhase{
+								corev1.ResourceCPU:    v1beta1.ContainerResourcePhaseGatheringData,
+								corev1.ResourceMemory: v1beta1.ContainerResourcePhaseGatheringData,
 							},
 						},
 					},

@@ -134,32 +134,13 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
-	// TODO: If HPA is modified, we need to change the tortoise phase.
-	// How to scale during that time?
-	_, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise)
+	tortoise, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, dm)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			logger.Error(err, "update HPA spec from Tortoise autoscaling policy", "tortoise", req.NamespacedName)
-			return ctrl.Result{}, err
-		}
-
-		logger.V(4).Info("HPA doesn't exist for this tortoise. We may need to recreate hpa", "tortoise", req.NamespacedName)
-
-		// If not found, it's one of:
-		// - the user don't specify Horizontal in any autoscalingPolicy.
-		//   - In that case, we don't need to create an initial HPA.
-		// - the user didn't specify Horizontal in any autoscalingPolicy previously,
-		//   but just updated tortoise to have Horizontal in some.
-		//   - In that case, we need to create an initial HPA.
-		//
-		// In both cases, we just need to call `InitializeHPA` and it handles both cases.
-		tortoise, err = r.HpaService.InitializeHPA(ctx, tortoise, dm)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+		logger.Error(err, "update HPA spec from Tortoise autoscaling policy", "tortoise", req.NamespacedName)
+		return ctrl.Result{}, err
 	}
 
-	vpa, ready, err := r.VpaService.GetTortoiseMonitorVPA(ctx, tortoise)
+	monitorvpa, ready, err := r.VpaService.GetTortoiseMonitorVPA(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get tortoise VPA", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -175,6 +156,9 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
+	// VPA is ready, we mark all Vertical scaling resources as Running.
+	tortoise = vpa.MakeAllVerticalContainerResourcePhaseWorking(tortoise)
+
 	logger.V(4).Info("VPA created by tortoise is ready, proceeding to generate the recommendation", "tortoise", req.NamespacedName)
 	hpa, err := r.HpaService.GetHPAOnTortoise(ctx, tortoise)
 	if err != nil {
@@ -182,7 +166,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	tortoise = r.TortoiseService.UpdateUpperRecommendation(tortoise, vpa)
+	tortoise = r.TortoiseService.UpdateUpperRecommendation(tortoise, monitorvpa)
 
 	tortoise, err = r.RecommenderService.UpdateRecommendations(ctx, tortoise, hpa, dm, now)
 	if err != nil {

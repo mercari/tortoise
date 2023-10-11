@@ -90,7 +90,7 @@ status:
       role: Monitor
   tortoisePhase: Working
   containerResourcePhases:
-    - containerName: "nginx"
+    - containerName: "app"
       resourcePhases:
         cpu: Working 
         memory: Working

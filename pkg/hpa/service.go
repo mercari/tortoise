@@ -140,7 +140,9 @@ type resourceNameAndContainerName struct {
 
 // addHPAMetricsFromTortoiseAutoscalingPolicy adds metrics to the HPA based on the autoscaling policy in the tortoise.
 // Note that it doesn't update the HPA in kube-apiserver, you have to do that after this function.
-func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, currenthpa *v2.HorizontalPodAutoscaler) *v2.HorizontalPodAutoscaler {
+func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, currenthpa *v2.HorizontalPodAutoscaler) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, bool) {
+	hpaEdited := false
+
 	policies := sets.New[string]()
 	horizontalResourceAndContainer := sets.New[resourceNameAndContainerName]()
 	for _, p := range tortoise.Spec.ResourcePolicy {
@@ -163,13 +165,13 @@ func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context
 	needToAddToHPA := horizontalResourceAndContainer.Difference(hpaManagedResourceAndContainer)
 	needToRemoveFromHPA := hpaManagedResourceAndContainer.Difference(horizontalResourceAndContainer)
 
-	sortedList := needToAddToHPA.UnsortedList()
-	sort.SliceStable(sortedList, func(i, j int) bool {
-		return sortedList[i].containerName < sortedList[j].containerName
+	sortedNeedToAddToHPA := needToAddToHPA.UnsortedList()
+	sort.SliceStable(sortedNeedToAddToHPA, func(i, j int) bool {
+		return sortedNeedToAddToHPA[i].containerName < sortedNeedToAddToHPA[j].containerName
 	})
 
 	// add metrics
-	for _, d := range sortedList {
+	for _, d := range sortedNeedToAddToHPA {
 		m := v2.MetricSpec{
 			Type: v2.ContainerResourceMetricSourceType,
 			ContainerResource: &v2.ContainerResourceMetricSource{
@@ -183,6 +185,23 @@ func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context
 			},
 		}
 		currenthpa.Spec.Metrics = append(currenthpa.Spec.Metrics, m)
+		hpaEdited = true
+		found := false
+		for i, p := range tortoise.Status.ContainerResourcePhases {
+			if p.ContainerName == d.containerName {
+				tortoise.Status.ContainerResourcePhases[i].ResourcePhases[d.rn] = autoscalingv1beta1.ContainerResourcePhaseGatheringData
+				found = true
+				break
+			}
+		}
+		if !found {
+			tortoise.Status.ContainerResourcePhases = append(tortoise.Status.ContainerResourcePhases, autoscalingv1beta1.ContainerResourcePhases{
+				ContainerName: d.containerName,
+				ResourcePhases: map[corev1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
+					d.rn: autoscalingv1beta1.ContainerResourcePhaseGatheringData,
+				},
+			})
+		}
 	}
 
 	// remove metrics
@@ -193,12 +212,13 @@ func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context
 		}
 		if !needToRemoveFromHPA.Has(resourceNameAndContainerName{m.ContainerResource.Name, m.ContainerResource.Container}) {
 			newMetrics = append(newMetrics, m)
+			hpaEdited = true
 			continue
 		}
 	}
 	currenthpa.Spec.Metrics = newMetrics
 
-	return currenthpa
+	return currenthpa, tortoise, hpaEdited
 }
 
 func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
@@ -251,7 +271,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta1.To
 		},
 	}
 
-	hpa = c.addHPAMetricsFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa)
+	hpa, tortoise, _ = c.addHPAMetricsFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa)
 
 	tortoise.Status.Targets.HorizontalPodAutoscaler = hpa.Name
 
@@ -319,21 +339,41 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	return hpa, tortoise, nil
 }
 
-func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
+func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment) (*autoscalingv1beta1.Tortoise, error) {
 	if !hasHorizontal(tortoise) {
 		err := c.DeleteHPACreatedByTortoise(ctx, tortoise)
-		if err != nil {
-			return nil, fmt.Errorf("delete hpa created by tortoise: %w", err)
+		if err != nil && !apierrors.IsNotFound(err) {
+			return tortoise, fmt.Errorf("delete hpa created by tortoise: %w", err)
 		}
-		return nil, nil
+		// No need to edit container resource phase.
+
+		return tortoise, nil
 	}
 
 	hpa := &v2.HorizontalPodAutoscaler{}
 	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Status.Targets.HorizontalPodAutoscaler}, hpa); err != nil {
-		return nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
+		if apierrors.IsNotFound(err) {
+			// If not found, it's one of:
+			// - the user didn't specify Horizontal in any autoscalingPolicy previously,
+			//   but just updated tortoise to have Horizontal in some.
+			//   - In that case, we need to create an initial HPA.
+			tortoise, err = c.InitializeHPA(ctx, tortoise, dm)
+			if err != nil {
+				return tortoise, fmt.Errorf("initialize hpa: %w", err)
+			}
+			return tortoise, nil
+		}
+		return tortoise, fmt.Errorf("failed to get hpa on tortoise: %w", err)
 	}
 
-	newhpa := c.addHPAMetricsFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa)
+	var newhpa *v2.HorizontalPodAutoscaler
+	var isHpaEdited bool
+	newhpa, tortoise, isHpaEdited = c.addHPAMetricsFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa)
+	if !isHpaEdited {
+		// User didn't change anything.
+		return tortoise, nil
+	}
+
 	updateFn := func() error {
 		hpa := &v2.HorizontalPodAutoscaler{}
 		if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Status.Targets.HorizontalPodAutoscaler}, hpa); err != nil {
@@ -346,10 +386,10 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context
 	}
 
 	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
-		return nil, err
+		return tortoise, err
 	}
 
-	return hpa, nil
+	return tortoise, nil
 }
 
 func hasHorizontal(tortoise *autoscalingv1beta1.Tortoise) bool {
