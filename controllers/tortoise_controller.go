@@ -99,6 +99,11 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 
 	defer func() {
+		if tortoise == nil {
+			logger.Error(reterr, "get error during the reconciliation, but cannot record the event because tortoise object is nil", "tortoise", req.NamespacedName)
+			return
+		}
+
 		tortoise = r.TortoiseService.RecordReconciliationFailure(tortoise, reterr, now)
 		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, false)
 		if err != nil {
