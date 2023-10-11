@@ -72,7 +72,7 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta
 		return tortoise, fmt.Errorf("create hpa: %w", err)
 	}
 
-	c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPACreated", fmt.Sprintf("Initialized a HPA %s/%s", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
+	c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPACreated", fmt.Sprintf("Initialized a HPA %s/%s for a created tortoise", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
 
 	return tortoise, nil
 }
@@ -354,6 +354,8 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context
 		}
 		// No need to edit container resource phase.
 
+		c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPADeleted", fmt.Sprintf("Deleted a HPA %s/%s because tortoise has no resource to scale horizontally", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
+
 		return tortoise, nil
 	}
 
@@ -368,9 +370,16 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context
 			if err != nil {
 				return tortoise, fmt.Errorf("initialize hpa: %w", err)
 			}
+
+			c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPACreated", fmt.Sprintf("Initialized a HPA %s/%s because tortoise has resource to scale horizontally", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
 			return tortoise, nil
 		}
 		return tortoise, fmt.Errorf("failed to get hpa on tortoise: %w", err)
+	}
+
+	// make sure it's managed by tortoise
+	if v, ok := hpa.Annotations[annotation.ManagedByTortoiseAnnotation]; !ok || v != "true" {
+		return tortoise, fmt.Errorf("the HPA %s/%s is specified in tortoise, but not managed by tortoise", hpa.Namespace, hpa.Name)
 	}
 
 	var newhpa *v2.HorizontalPodAutoscaler
@@ -395,6 +404,8 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context
 	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
 		return tortoise, err
 	}
+
+	c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPAUpdated", fmt.Sprintf("Updated a HPA %s/%s because the autoscaling policy is changed in the tortoise", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
 
 	return tortoise, nil
 }
