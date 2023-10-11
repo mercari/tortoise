@@ -20,25 +20,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/mercari/tortoise/api/v1beta1"
+	"github.com/mercari/tortoise/api/v1beta2"
 )
 
 func TestService_updateUpperRecommendation(t *testing.T) {
 	tests := []struct {
 		name     string
-		tortoise *v1beta1.Tortoise
+		tortoise *v1beta2.Tortoise
 		vpa      *v1.VerticalPodAutoscaler
-		want     *v1beta1.Tortoise
+		want     *v1beta2.Tortoise
 	}{
 		{
 			name: "success: the current recommendation on tortoise is less than the one on the current VPA",
-			tortoise: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					Conditions: v1beta1.Conditions{
-						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
+			tortoise: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					Conditions: v1beta2.Conditions{
+						ContainerRecommendationFromVPA: []v1beta2.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								Recommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("1"),
 									},
@@ -46,7 +46,7 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 										Quantity: resource.MustParse("1"),
 									},
 								},
-								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("5"),
 									},
@@ -82,13 +82,13 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					Conditions: v1beta1.Conditions{
-						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
+			want: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					Conditions: v1beta2.Conditions{
+						ContainerRecommendationFromVPA: []v1beta2.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								Recommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("5"),
 									},
@@ -96,7 +96,7 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 										Quantity: resource.MustParse("8"),
 									},
 								},
-								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("5"),
 									},
@@ -112,13 +112,13 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 		},
 		{
 			name: "success: the current recommendation on tortoise is more than the upper bound on the current VPA",
-			tortoise: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					Conditions: v1beta1.Conditions{
-						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
+			tortoise: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					Conditions: v1beta2.Conditions{
+						ContainerRecommendationFromVPA: []v1beta2.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								Recommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("1"),
 									},
@@ -126,7 +126,7 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 										Quantity: resource.MustParse("1"),
 									},
 								},
-								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("5"),
 									},
@@ -162,13 +162,13 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					Conditions: v1beta1.Conditions{
-						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
+			want: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					Conditions: v1beta2.Conditions{
+						ContainerRecommendationFromVPA: []v1beta2.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								Recommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("2"),
 									},
@@ -176,7 +176,7 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 										Quantity: resource.MustParse("2"),
 									},
 								},
-								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									"cpu": {
 										Quantity: resource.MustParse("5"),
 									},
@@ -216,9 +216,9 @@ func TestService_InitializeTortoise(t *testing.T) {
 	tests := []struct {
 		name       string
 		fields     fields
-		tortoise   *v1beta1.Tortoise
+		tortoise   *v1beta2.Tortoise
 		deployment *appv1.Deployment
-		want       *v1beta1.Tortoise
+		want       *v1beta2.Tortoise
 	}{
 		{
 			name: "weekly minMaxReplicasRoutine",
@@ -227,26 +227,26 @@ func TestService_InitializeTortoise(t *testing.T) {
 				minMaxReplicasRoutine:                   "weekly",
 				timeZone:                                jst,
 			},
-			tortoise: &v1beta1.Tortoise{
-				Spec: v1beta1.TortoiseSpec{
-					ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+			tortoise: &v1beta2.Tortoise{
+				Spec: v1beta2.TortoiseSpec{
+					ResourcePolicy: []v1beta2.ContainerResourcePolicy{
 						{
 							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
-								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+								corev1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
 							},
 						},
 						{
 							ContainerName: "istio",
-							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-								corev1.ResourceMemory: v1beta1.AutoscalingTypeOff,
-								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+								corev1.ResourceMemory: v1beta2.AutoscalingTypeOff,
+								corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
 							},
 						},
 					},
 				},
-				Status: v1beta1.TortoiseStatus{},
+				Status: v1beta2.TortoiseStatus{},
 			},
 			deployment: &appv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
@@ -267,81 +267,80 @@ func TestService_InitializeTortoise(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.Tortoise{
-				Spec: v1beta1.TortoiseSpec{
-					ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+			want: &v1beta2.Tortoise{
+				Spec: v1beta2.TortoiseSpec{
+					ResourcePolicy: []v1beta2.ContainerResourcePolicy{
 						{
 							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
-								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+								corev1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
 							},
 						},
 						{
 							ContainerName: "istio",
-							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-								corev1.ResourceMemory: v1beta1.AutoscalingTypeOff,
-								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+								corev1.ResourceMemory: v1beta2.AutoscalingTypeOff,
+								corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
 							},
 						},
 					},
 				},
-				Status: v1beta1.TortoiseStatus{
-					TortoisePhase: v1beta1.TortoisePhaseInitializing,
-					Targets:       v1beta1.TargetsStatus{Deployment: "deployment"},
-					Conditions: v1beta1.Conditions{
-						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
+				Status: v1beta2.TortoiseStatus{
+					TortoisePhase: v1beta2.TortoisePhaseInitializing,
+					Conditions: v1beta2.Conditions{
+						ContainerRecommendationFromVPA: []v1beta2.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								Recommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									corev1.ResourceCPU:    {},
 									corev1.ResourceMemory: {},
 								},
-								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									corev1.ResourceCPU:    {},
 									corev1.ResourceMemory: {},
 								},
 							},
 							{
 								ContainerName: "istio",
-								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								Recommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									corev1.ResourceCPU:    {},
 									corev1.ResourceMemory: {},
 								},
-								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									corev1.ResourceCPU:    {},
 									corev1.ResourceMemory: {},
 								},
 							},
 						},
 					},
-					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
+					ContainerResourcePhases: []v1beta2.ContainerResourcePhases{
 						{
 							ContainerName: "app",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
-								corev1.ResourceMemory: v1beta1.ResourcePhase{
-									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+							ResourcePhases: map[corev1.ResourceName]v1beta2.ResourcePhase{
+								corev1.ResourceMemory: v1beta2.ResourcePhase{
+									Phase: v1beta2.ContainerResourcePhaseGatheringData,
 								},
-								corev1.ResourceCPU: v1beta1.ResourcePhase{
-									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+								corev1.ResourceCPU: v1beta2.ResourcePhase{
+									Phase: v1beta2.ContainerResourcePhaseGatheringData,
 								},
 							},
 						},
 						{
 							ContainerName: "istio",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
-								corev1.ResourceMemory: v1beta1.ResourcePhase{
-									Phase: v1beta1.ContainerResourcePhaseOff,
+							ResourcePhases: map[corev1.ResourceName]v1beta2.ResourcePhase{
+								corev1.ResourceMemory: v1beta2.ResourcePhase{
+									Phase: v1beta2.ContainerResourcePhaseOff,
 								},
-								corev1.ResourceCPU: v1beta1.ResourcePhase{
-									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+								corev1.ResourceCPU: v1beta2.ResourcePhase{
+									Phase: v1beta2.ContainerResourcePhaseGatheringData,
 								},
 							},
 						},
 					},
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							MinReplicas: []v1beta1.ReplicasRecommendation{
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							MinReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -469,7 +468,7 @@ func TestService_InitializeTortoise(t *testing.T) {
 									TimeZone: timeZone,
 								},
 							},
-							MaxReplicas: []v1beta1.ReplicasRecommendation{
+							MaxReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -609,19 +608,19 @@ func TestService_InitializeTortoise(t *testing.T) {
 				rangeOfMinMaxReplicasRecommendationHour: 8,
 				timeZone:                                jst,
 			},
-			tortoise: &v1beta1.Tortoise{
-				Spec: v1beta1.TortoiseSpec{
-					ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+			tortoise: &v1beta2.Tortoise{
+				Spec: v1beta2.TortoiseSpec{
+					ResourcePolicy: []v1beta2.ContainerResourcePolicy{
 						{
 							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
-								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+								corev1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
 							},
 						},
 					},
 				},
-				Status: v1beta1.TortoiseStatus{},
+				Status: v1beta2.TortoiseStatus{},
 			},
 			deployment: &appv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
@@ -639,52 +638,51 @@ func TestService_InitializeTortoise(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.Tortoise{
-				Spec: v1beta1.TortoiseSpec{
-					ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+			want: &v1beta2.Tortoise{
+				Spec: v1beta2.TortoiseSpec{
+					ResourcePolicy: []v1beta2.ContainerResourcePolicy{
 						{
 							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
-								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+								corev1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
 							},
 						},
 					},
 				},
-				Status: v1beta1.TortoiseStatus{
-					TortoisePhase: v1beta1.TortoisePhaseInitializing,
-					Targets:       v1beta1.TargetsStatus{Deployment: "deployment"},
-					Conditions: v1beta1.Conditions{
-						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
+				Status: v1beta2.TortoiseStatus{
+					TortoisePhase: v1beta2.TortoisePhaseInitializing,
+					Conditions: v1beta2.Conditions{
+						ContainerRecommendationFromVPA: []v1beta2.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								Recommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								Recommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									corev1.ResourceCPU:    {},
 									corev1.ResourceMemory: {},
 								},
-								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									corev1.ResourceCPU:    {},
 									corev1.ResourceMemory: {},
 								},
 							},
 						},
 					},
-					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
+					ContainerResourcePhases: []v1beta2.ContainerResourcePhases{
 						{
 							ContainerName: "app",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
-								corev1.ResourceCPU: v1beta1.ResourcePhase{
-									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+							ResourcePhases: map[corev1.ResourceName]v1beta2.ResourcePhase{
+								corev1.ResourceCPU: v1beta2.ResourcePhase{
+									Phase: v1beta2.ContainerResourcePhaseGatheringData,
 								},
-								corev1.ResourceMemory: v1beta1.ResourcePhase{
-									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+								corev1.ResourceMemory: v1beta2.ResourcePhase{
+									Phase: v1beta2.ContainerResourcePhaseGatheringData,
 								},
 							},
 						},
 					},
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							MinReplicas: []v1beta1.ReplicasRecommendation{
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							MinReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -701,7 +699,7 @@ func TestService_InitializeTortoise(t *testing.T) {
 									TimeZone: timeZone,
 								},
 							},
-							MaxReplicas: []v1beta1.ReplicasRecommendation{
+							MaxReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -744,7 +742,7 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 	tests := []struct {
 		name                   string
 		lastTimeUpdateTortoise map[client.ObjectKey]time.Time
-		tortoise               *v1beta1.Tortoise
+		tortoise               *v1beta2.Tortoise
 		want                   bool
 		wantDuration           time.Duration
 	}{
@@ -753,13 +751,13 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 			lastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
 				client.ObjectKey{Name: "t2", Namespace: "default"}: now.Add(-1 * time.Second),
 			},
-			tortoise: &v1beta1.Tortoise{
+			tortoise: &v1beta2.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "t",
 					Namespace: "default",
 				},
-				Spec: v1beta1.TortoiseSpec{
-					UpdateMode: v1beta1.UpdateModeAuto,
+				Spec: v1beta2.TortoiseSpec{
+					UpdateMode: v1beta2.UpdateModeAuto,
 				},
 			},
 			want: true,
@@ -769,13 +767,13 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 			lastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
 				client.ObjectKey{Name: "t", Namespace: "default"}: now.Add(-1 * time.Second),
 			},
-			tortoise: &v1beta1.Tortoise{
+			tortoise: &v1beta2.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "t",
 					Namespace: "default",
 				},
-				Spec: v1beta1.TortoiseSpec{
-					UpdateMode: v1beta1.UpdateModeAuto,
+				Spec: v1beta2.TortoiseSpec{
+					UpdateMode: v1beta2.UpdateModeAuto,
 				},
 			},
 			want:         false,
@@ -786,13 +784,13 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 			lastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
 				client.ObjectKey{Name: "t", Namespace: "default"}: now.Add(-1 * time.Second),
 			},
-			tortoise: &v1beta1.Tortoise{
+			tortoise: &v1beta2.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "t",
 					Namespace: "default",
 				},
-				Spec: v1beta1.TortoiseSpec{
-					UpdateMode: v1beta1.UpdateModeEmergency,
+				Spec: v1beta2.TortoiseSpec{
+					UpdateMode: v1beta2.UpdateModeEmergency,
 				},
 			},
 			want: true,
@@ -802,16 +800,16 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 			lastTimeUpdateTortoise: map[client.ObjectKey]time.Time{
 				client.ObjectKey{Name: "t", Namespace: "default"}: now.Add(-1 * time.Second),
 			},
-			tortoise: &v1beta1.Tortoise{
+			tortoise: &v1beta2.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "t",
 					Namespace: "default",
 				},
-				Spec: v1beta1.TortoiseSpec{
-					UpdateMode: v1beta1.UpdateModeEmergency,
+				Spec: v1beta2.TortoiseSpec{
+					UpdateMode: v1beta2.UpdateModeEmergency,
 				},
-				Status: v1beta1.TortoiseStatus{
-					TortoisePhase: v1beta1.TortoisePhaseEmergency,
+				Status: v1beta2.TortoiseStatus{
+					TortoisePhase: v1beta2.TortoisePhaseEmergency,
 				},
 			},
 			want: false,
@@ -837,25 +835,25 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 func TestService_UpdateTortoiseStatus(t *testing.T) {
 	now := time.Now()
 	type args struct {
-		t   *v1beta1.Tortoise
+		t   *v1beta2.Tortoise
 		now time.Time
 	}
 	tests := []struct {
 		name                       string
-		originalTortoise           *v1beta1.Tortoise
+		originalTortoise           *v1beta2.Tortoise
 		args                       args
 		wantLastTimeUpdateTortoise map[client.ObjectKey]time.Time
 	}{
 		{
 			name: "success",
-			originalTortoise: &v1beta1.Tortoise{
+			originalTortoise: &v1beta2.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test"},
 			},
 			args: args{
-				t: &v1beta1.Tortoise{
+				t: &v1beta2.Tortoise{
 					ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test"},
-					Status: v1beta1.TortoiseStatus{
-						TortoisePhase: v1beta1.TortoisePhaseInitializing,
+					Status: v1beta2.TortoiseStatus{
+						TortoisePhase: v1beta2.TortoisePhaseInitializing,
 					},
 				},
 				now: now,
@@ -868,7 +866,7 @@ func TestService_UpdateTortoiseStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			scheme := runtime.NewScheme()
-			err := v1beta1.AddToScheme(scheme)
+			err := v1beta2.AddToScheme(scheme)
 			if err != nil {
 				t.Fatalf("failed to add to scheme: %v", err)
 			}
@@ -893,23 +891,23 @@ func TestService_UpdateTortoiseStatus(t *testing.T) {
 func TestService_RecordReconciliationFailure(t *testing.T) {
 	now := time.Now()
 	type args struct {
-		t   *v1beta1.Tortoise
+		t   *v1beta2.Tortoise
 		err error
 	}
 	tests := []struct {
 		name string
 		args args
-		want *v1beta1.Tortoise
+		want *v1beta2.Tortoise
 	}{
 		{
 			name: "success reconciliation",
 			args: args{
-				t: &v1beta1.Tortoise{
-					Status: v1beta1.TortoiseStatus{
-						Conditions: v1beta1.Conditions{
-							TortoiseConditions: []v1beta1.TortoiseCondition{
+				t: &v1beta2.Tortoise{
+					Status: v1beta2.TortoiseStatus{
+						Conditions: v1beta2.Conditions{
+							TortoiseConditions: []v1beta2.TortoiseCondition{
 								{
-									Type:               v1beta1.TortoiseConditionTypeFailedToReconcile,
+									Type:               v1beta2.TortoiseConditionTypeFailedToReconcile,
 									Status:             corev1.ConditionTrue,
 									Message:            "failed to reconcile",
 									Reason:             "ReconcileError",
@@ -922,12 +920,12 @@ func TestService_RecordReconciliationFailure(t *testing.T) {
 				},
 				err: nil,
 			},
-			want: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					Conditions: v1beta1.Conditions{
-						TortoiseConditions: []v1beta1.TortoiseCondition{
+			want: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					Conditions: v1beta2.Conditions{
+						TortoiseConditions: []v1beta2.TortoiseCondition{
 							{
-								Type:               v1beta1.TortoiseConditionTypeFailedToReconcile,
+								Type:               v1beta2.TortoiseConditionTypeFailedToReconcile,
 								Status:             corev1.ConditionFalse,
 								Message:            "",
 								Reason:             "",
@@ -942,10 +940,10 @@ func TestService_RecordReconciliationFailure(t *testing.T) {
 		{
 			name: "failed reconciliation and tortoise doens't have TortoiseConditionTypeFailedToReconcile",
 			args: args{
-				t: &v1beta1.Tortoise{
-					Status: v1beta1.TortoiseStatus{
-						Conditions: v1beta1.Conditions{
-							TortoiseConditions: []v1beta1.TortoiseCondition{
+				t: &v1beta2.Tortoise{
+					Status: v1beta2.TortoiseStatus{
+						Conditions: v1beta2.Conditions{
+							TortoiseConditions: []v1beta2.TortoiseCondition{
 								// TortoiseConditionTypeFailedToReconcile isn't recorded yet.
 							},
 						},
@@ -953,12 +951,12 @@ func TestService_RecordReconciliationFailure(t *testing.T) {
 				},
 				err: errors.New("failed to reconcile"),
 			},
-			want: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					Conditions: v1beta1.Conditions{
-						TortoiseConditions: []v1beta1.TortoiseCondition{
+			want: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					Conditions: v1beta2.Conditions{
+						TortoiseConditions: []v1beta2.TortoiseCondition{
 							{
-								Type:               v1beta1.TortoiseConditionTypeFailedToReconcile,
+								Type:               v1beta2.TortoiseConditionTypeFailedToReconcile,
 								Status:             corev1.ConditionTrue,
 								Message:            "failed to reconcile",
 								Reason:             "ReconcileError",
@@ -973,12 +971,12 @@ func TestService_RecordReconciliationFailure(t *testing.T) {
 		{
 			name: "failed reconciliation and tortoise has TortoiseConditionTypeFailedToReconcile",
 			args: args{
-				t: &v1beta1.Tortoise{
-					Status: v1beta1.TortoiseStatus{
-						Conditions: v1beta1.Conditions{
-							TortoiseConditions: []v1beta1.TortoiseCondition{
+				t: &v1beta2.Tortoise{
+					Status: v1beta2.TortoiseStatus{
+						Conditions: v1beta2.Conditions{
+							TortoiseConditions: []v1beta2.TortoiseCondition{
 								{
-									Type:               v1beta1.TortoiseConditionTypeFailedToReconcile,
+									Type:               v1beta2.TortoiseConditionTypeFailedToReconcile,
 									Status:             corev1.ConditionFalse,
 									Message:            "",
 									Reason:             "",
@@ -991,12 +989,12 @@ func TestService_RecordReconciliationFailure(t *testing.T) {
 				},
 				err: errors.New("failed to reconcile"),
 			},
-			want: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					Conditions: v1beta1.Conditions{
-						TortoiseConditions: []v1beta1.TortoiseCondition{
+			want: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					Conditions: v1beta2.Conditions{
+						TortoiseConditions: []v1beta2.TortoiseCondition{
 							{
-								Type:               v1beta1.TortoiseConditionTypeFailedToReconcile,
+								Type:               v1beta2.TortoiseConditionTypeFailedToReconcile,
 								Status:             corev1.ConditionTrue,
 								Message:            "failed to reconcile",
 								Reason:             "ReconcileError",
@@ -1026,17 +1024,17 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 	now := time.Now()
 	tests := []struct {
 		name     string
-		tortoise *v1beta1.Tortoise
-		want     *v1beta1.Tortoise
+		tortoise *v1beta2.Tortoise
+		want     *v1beta2.Tortoise
 	}{
 		{
 			name: "minReplicas/maxReplicas recommendation is not yet gathered",
-			tortoise: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					TortoisePhase: v1beta1.TortoisePhaseGatheringData,
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							MinReplicas: []v1beta1.ReplicasRecommendation{
+			tortoise: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					TortoisePhase: v1beta2.TortoisePhaseGatheringData,
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							MinReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -1056,7 +1054,7 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 									// empty
 								},
 							},
-							MaxReplicas: []v1beta1.ReplicasRecommendation{
+							MaxReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -1080,12 +1078,12 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 					},
 				},
 			},
-			want: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					TortoisePhase: v1beta1.TortoisePhaseGatheringData,
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							MinReplicas: []v1beta1.ReplicasRecommendation{
+			want: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					TortoisePhase: v1beta2.TortoisePhaseGatheringData,
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							MinReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -1105,7 +1103,7 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 									// empty
 								},
 							},
-							MaxReplicas: []v1beta1.ReplicasRecommendation{
+							MaxReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -1132,12 +1130,12 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 		},
 		{
 			name: "some container resource need to gather more data",
-			tortoise: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					TortoisePhase: v1beta1.TortoisePhaseGatheringData,
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							MinReplicas: []v1beta1.ReplicasRecommendation{
+			tortoise: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					TortoisePhase: v1beta2.TortoisePhaseGatheringData,
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							MinReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -1157,7 +1155,7 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 									Value:    3,
 								},
 							},
-							MaxReplicas: []v1beta1.ReplicasRecommendation{
+							MaxReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -1179,16 +1177,16 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 							},
 						},
 					},
-					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
+					ContainerResourcePhases: []v1beta2.ContainerResourcePhases{
 						{
 							ContainerName: "app",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+							ResourcePhases: map[corev1.ResourceName]v1beta2.ResourcePhase{
 								corev1.ResourceCPU: {
-									Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+									Phase:              v1beta2.ContainerResourcePhaseGatheringData,
 									LastTransitionTime: metav1.NewTime(now.Add(-24 * 1 * time.Hour)),
 								},
 								corev1.ResourceMemory: {
-									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+									Phase: v1beta2.ContainerResourcePhaseGatheringData,
 									// finish gathering
 									LastTransitionTime: metav1.NewTime(now.Add(-24 * 8 * time.Hour)),
 								},
@@ -1196,13 +1194,13 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 						},
 						{
 							ContainerName: "istio-proxy",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+							ResourcePhases: map[corev1.ResourceName]v1beta2.ResourcePhase{
 								corev1.ResourceCPU: {
-									Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+									Phase:              v1beta2.ContainerResourcePhaseGatheringData,
 									LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Minute)),
 								},
 								corev1.ResourceMemory: {
-									Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+									Phase:              v1beta2.ContainerResourcePhaseGatheringData,
 									LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Minute)),
 								},
 							},
@@ -1210,12 +1208,12 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 					},
 				},
 			},
-			want: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					TortoisePhase: v1beta1.TortoisePhasePartlyWorking,
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							MinReplicas: []v1beta1.ReplicasRecommendation{
+			want: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					TortoisePhase: v1beta2.TortoisePhasePartlyWorking,
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							MinReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -1235,7 +1233,7 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 									Value:    3,
 								},
 							},
-							MaxReplicas: []v1beta1.ReplicasRecommendation{
+							MaxReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -1257,29 +1255,29 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 							},
 						},
 					},
-					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
+					ContainerResourcePhases: []v1beta2.ContainerResourcePhases{
 						{
 							ContainerName: "app",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+							ResourcePhases: map[corev1.ResourceName]v1beta2.ResourcePhase{
 								corev1.ResourceCPU: {
-									Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+									Phase:              v1beta2.ContainerResourcePhaseGatheringData,
 									LastTransitionTime: metav1.NewTime(now.Add(-24 * 1 * time.Hour)),
 								},
 								corev1.ResourceMemory: {
-									Phase:              v1beta1.ContainerResourcePhaseWorking,
+									Phase:              v1beta2.ContainerResourcePhaseWorking,
 									LastTransitionTime: metav1.NewTime(now),
 								},
 							},
 						},
 						{
 							ContainerName: "istio-proxy",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+							ResourcePhases: map[corev1.ResourceName]v1beta2.ResourcePhase{
 								corev1.ResourceCPU: {
-									Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+									Phase:              v1beta2.ContainerResourcePhaseGatheringData,
 									LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Minute)),
 								},
 								corev1.ResourceMemory: {
-									Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+									Phase:              v1beta2.ContainerResourcePhaseGatheringData,
 									LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Minute)),
 								},
 							},
@@ -1290,12 +1288,12 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 		},
 		{
 			name: "all container resource gathered the data",
-			tortoise: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					TortoisePhase: v1beta1.TortoisePhaseGatheringData,
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							MinReplicas: []v1beta1.ReplicasRecommendation{
+			tortoise: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					TortoisePhase: v1beta2.TortoisePhaseGatheringData,
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							MinReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -1315,7 +1313,7 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 									Value:    3,
 								},
 							},
-							MaxReplicas: []v1beta1.ReplicasRecommendation{
+							MaxReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -1337,15 +1335,15 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 							},
 						},
 					},
-					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
+					ContainerResourcePhases: []v1beta2.ContainerResourcePhases{
 						{
 							ContainerName: "app",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+							ResourcePhases: map[corev1.ResourceName]v1beta2.ResourcePhase{
 								corev1.ResourceCPU: {
-									Phase: v1beta1.ContainerResourcePhaseWorking,
+									Phase: v1beta2.ContainerResourcePhaseWorking,
 								},
 								corev1.ResourceMemory: {
-									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+									Phase: v1beta2.ContainerResourcePhaseGatheringData,
 									// finish gathering
 									LastTransitionTime: metav1.NewTime(now.Add(-24 * 8 * time.Hour)),
 								},
@@ -1353,26 +1351,26 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 						},
 						{
 							ContainerName: "istio-proxy",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+							ResourcePhases: map[corev1.ResourceName]v1beta2.ResourcePhase{
 								corev1.ResourceCPU: {
-									Phase:              v1beta1.ContainerResourcePhaseWorking,
+									Phase:              v1beta2.ContainerResourcePhaseWorking,
 									LastTransitionTime: metav1.NewTime(now.Add(-24 * 2 * time.Hour)),
 								},
 								corev1.ResourceMemory: {
 									// off is ignored
-									Phase: v1beta1.ContainerResourcePhaseOff,
+									Phase: v1beta2.ContainerResourcePhaseOff,
 								},
 							},
 						},
 					},
 				},
 			},
-			want: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					TortoisePhase: v1beta1.TortoisePhaseWorking,
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							MinReplicas: []v1beta1.ReplicasRecommendation{
+			want: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					TortoisePhase: v1beta2.TortoisePhaseWorking,
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							MinReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -1392,7 +1390,7 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 									Value:    3,
 								},
 							},
-							MaxReplicas: []v1beta1.ReplicasRecommendation{
+							MaxReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:     0,
 									To:       8,
@@ -1414,28 +1412,28 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 							},
 						},
 					},
-					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
+					ContainerResourcePhases: []v1beta2.ContainerResourcePhases{
 						{
 							ContainerName: "app",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+							ResourcePhases: map[corev1.ResourceName]v1beta2.ResourcePhase{
 								corev1.ResourceCPU: {
-									Phase: v1beta1.ContainerResourcePhaseWorking,
+									Phase: v1beta2.ContainerResourcePhaseWorking,
 								},
 								corev1.ResourceMemory: {
-									Phase: v1beta1.ContainerResourcePhaseWorking,
+									Phase: v1beta2.ContainerResourcePhaseWorking,
 								},
 							},
 						},
 						{
 							ContainerName: "istio-proxy",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+							ResourcePhases: map[corev1.ResourceName]v1beta2.ResourcePhase{
 								corev1.ResourceCPU: {
-									Phase:              v1beta1.ContainerResourcePhaseWorking,
+									Phase:              v1beta2.ContainerResourcePhaseWorking,
 									LastTransitionTime: metav1.NewTime(now.Add(-24 * 2 * time.Hour)),
 								},
 								corev1.ResourceMemory: {
 									// off is ignored
-									Phase: v1beta1.ContainerResourcePhaseOff,
+									Phase: v1beta2.ContainerResourcePhaseOff,
 								},
 							},
 						},

@@ -80,7 +80,6 @@ status:
           memory: 3Gi
         containerName: istio-proxy
   targets:
-    deployment: ""
     verticalPodAutoscalers:
     - name: tortoise-updater-mercari
       role: Updater

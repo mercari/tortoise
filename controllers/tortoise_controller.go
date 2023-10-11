@@ -38,7 +38,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	autoscalingv1beta1 "github.com/mercari/tortoise/api/v1beta1"
+	autoscalingv1beta2 "github.com/mercari/tortoise/api/v1beta2"
 	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/hpa"
 	"github.com/mercari/tortoise/pkg/recommender"
@@ -129,7 +129,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 
 	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, dm, now)
-	if tortoise.Status.TortoisePhase == autoscalingv1beta1.TortoisePhaseInitializing {
+	if tortoise.Status.TortoisePhase == autoscalingv1beta2.TortoisePhaseInitializing {
 		logger.V(4).Info("initializing tortoise", "tortoise", req.NamespacedName)
 		// need to initialize HPA and VPA.
 		if err := r.initializeVPAAndHPA(ctx, tortoise, dm, now); err != nil {
@@ -152,7 +152,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 	if !ready {
 		logger.V(4).Info("VPA created by tortoise isn't ready yet", "tortoise", req.NamespacedName)
-		tortoise.Status.TortoisePhase = autoscalingv1beta1.TortoisePhaseInitializing
+		tortoise.Status.TortoisePhase = autoscalingv1beta2.TortoisePhaseInitializing
 		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, true)
 		if err != nil {
 			logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
@@ -187,7 +187,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	r.EventRecorder.Event(tortoise, corev1.EventTypeNormal, "RecommendationUpdated", "The recommendation on Tortoise status is updated")
 
-	if tortoise.Status.TortoisePhase == autoscalingv1beta1.TortoisePhaseGatheringData {
+	if tortoise.Status.TortoisePhase == autoscalingv1beta2.TortoisePhaseGatheringData {
 		logger.V(4).Info("tortoise is GatheringData phase; skip applying the recommendation to HPA or VPAs")
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
@@ -213,8 +213,8 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	return ctrl.Result{RequeueAfter: r.Interval}, nil
 }
 
-func (r *TortoiseReconciler) deleteVPAAndHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, now time.Time) error {
-	if tortoise.Spec.DeletionPolicy == autoscalingv1beta1.DeletionPolicyNoDelete {
+func (r *TortoiseReconciler) deleteVPAAndHPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, now time.Time) error {
+	if tortoise.Spec.DeletionPolicy == autoscalingv1beta2.DeletionPolicyNoDelete {
 		// don't delete anything.
 		return nil
 	}
@@ -239,7 +239,7 @@ func (r *TortoiseReconciler) deleteVPAAndHPA(ctx context.Context, tortoise *auto
 	return nil
 }
 
-func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment, now time.Time) error {
+func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, dm *v1.Deployment, now time.Time) error {
 	// need to initialize HPA and VPA.
 	tortoise, err := r.HpaService.InitializeHPA(ctx, tortoise, dm, now)
 	if err != nil {
@@ -264,6 +264,6 @@ func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *
 // SetupWithManager sets up the controller with the Manager.
 func (r *TortoiseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&autoscalingv1beta1.Tortoise{}).
+		For(&autoscalingv1beta2.Tortoise{}).
 		Complete(r)
 }

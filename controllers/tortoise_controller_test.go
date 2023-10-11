@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	"github.com/mercari/tortoise/api/v1beta1"
+	"github.com/mercari/tortoise/api/v1beta2"
 	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/hpa"
 	"github.com/mercari/tortoise/pkg/recommender"
@@ -38,10 +38,10 @@ func newResource(path string) resources {
 	updaterVPAPath := fmt.Sprintf("%s/vpa-Updater.yaml", path)
 	monitorVPAPath := fmt.Sprintf("%s/vpa-Monitor.yaml", path)
 
-	var tortoise *v1beta1.Tortoise
+	var tortoise *v1beta2.Tortoise
 	y, err := os.ReadFile(tortoisePath)
 	if err == nil {
-		tortoise = &v1beta1.Tortoise{}
+		tortoise = &v1beta2.Tortoise{}
 		err = yaml.Unmarshal(y, tortoise)
 		Expect(err).NotTo(HaveOccurred())
 	}
@@ -82,9 +82,9 @@ func newResource(path string) resources {
 		tortoise:   tortoise,
 		hpa:        hpa,
 		deployment: deploy,
-		vpa: map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
-			v1beta1.VerticalPodAutoscalerRoleUpdater: vpa,
-			v1beta1.VerticalPodAutoscalerRoleMonitor: vpa2,
+		vpa: map[v1beta2.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
+			v1beta2.VerticalPodAutoscalerRoleUpdater: vpa,
+			v1beta2.VerticalPodAutoscalerRoleMonitor: vpa2,
 		},
 	}
 }
@@ -114,11 +114,11 @@ func createVPAWithStatus(ctx context.Context, k8sClient client.Client, vpa *auto
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func createTortoiseWithStatus(ctx context.Context, k8sClient client.Client, tortoise *v1beta1.Tortoise) {
+func createTortoiseWithStatus(ctx context.Context, k8sClient client.Client, tortoise *v1beta2.Tortoise) {
 	err := k8sClient.Create(ctx, tortoise.DeepCopy())
 	Expect(err).NotTo(HaveOccurred())
 
-	v := &v1beta1.Tortoise{}
+	v := &v1beta2.Tortoise{}
 	err = k8sClient.Get(ctx, client.ObjectKey{Namespace: tortoise.Namespace, Name: tortoise.Name}, v)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -135,8 +135,8 @@ func initializeResourcesFromFiles(ctx context.Context, k8sClient client.Client, 
 	}
 
 	createDeploymentWithStatus(ctx, k8sClient, resource.deployment)
-	createVPAWithStatus(ctx, k8sClient, resource.vpa[v1beta1.VerticalPodAutoscalerRoleUpdater])
-	createVPAWithStatus(ctx, k8sClient, resource.vpa[v1beta1.VerticalPodAutoscalerRoleMonitor])
+	createVPAWithStatus(ctx, k8sClient, resource.vpa[v1beta2.VerticalPodAutoscalerRoleUpdater])
+	createVPAWithStatus(ctx, k8sClient, resource.vpa[v1beta2.VerticalPodAutoscalerRoleMonitor])
 	createTortoiseWithStatus(ctx, k8sClient, resource.tortoise)
 
 	return resource
@@ -182,7 +182,7 @@ var _ = Describe("Test TortoiseController", func() {
 	ctx := context.Background()
 	var stopFunc func()
 	cleanUp := func() {
-		err := deleteObj(ctx, &v1beta1.Tortoise{}, "mercari")
+		err := deleteObj(ctx, &v1beta2.Tortoise{}, "mercari")
 		if err != nil {
 			Expect(apierrors.IsNotFound(err)).To(Equal(true))
 		}
@@ -209,7 +209,7 @@ var _ = Describe("Test TortoiseController", func() {
 		time.Sleep(1 * time.Second)
 		tc := testCase{want: newResource(filepath.Join(path, "after"))}
 		Eventually(func(g Gomega) {
-			gotTortoise := &v1beta1.Tortoise{}
+			gotTortoise := &v1beta2.Tortoise{}
 			err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
 			g.Expect(err).ShouldNot(HaveOccurred())
 			var gotHPA *v2.HorizontalPodAutoscaler
@@ -231,9 +231,9 @@ var _ = Describe("Test TortoiseController", func() {
 			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, gotMonitorVPA)
 			g.Expect(err).ShouldNot(HaveOccurred())
 
-			err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
-				v1beta1.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
-				v1beta1.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
+			err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1beta2.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
+				v1beta2.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
+				v1beta2.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
 			}})
 			g.Expect(err).ShouldNot(HaveOccurred())
 		}).Should(Succeed())
@@ -254,7 +254,7 @@ var _ = Describe("Test TortoiseController", func() {
 			cleanUp()
 			for {
 				// make sure all resources are deleted
-				t := &v1beta1.Tortoise{}
+				t := &v1beta2.Tortoise{}
 				err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, t)
 				if apierrors.IsNotFound(err) {
 					break
@@ -274,12 +274,12 @@ var _ = Describe("Test TortoiseController", func() {
 			path := filepath.Join("testdata", "reconcile-for-the-single-container-pod-partly-working")
 			r := initializeResourcesFromFiles(ctx, k8sClient, filepath.Join(path, "before"))
 			// We need to dynamically modify the status of the Tortoise object from the file because we need to set time.
-			r.tortoise.Status.ContainerResourcePhases[0].ResourcePhases[corev1.ResourceCPU] = v1beta1.ResourcePhase{
-				Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+			r.tortoise.Status.ContainerResourcePhases[0].ResourcePhases[corev1.ResourceCPU] = v1beta2.ResourcePhase{
+				Phase:              v1beta2.ContainerResourcePhaseGatheringData,
 				LastTransitionTime: metav1.Now(),
 			}
 
-			v := &v1beta1.Tortoise{}
+			v := &v1beta2.Tortoise{}
 			err := k8sClient.Get(ctx, client.ObjectKey{Namespace: r.tortoise.Namespace, Name: r.tortoise.Name}, v)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -295,16 +295,16 @@ var _ = Describe("Test TortoiseController", func() {
 			path := filepath.Join("testdata", "reconcile-for-the-single-container-pod-gathering-data")
 			r := initializeResourcesFromFiles(ctx, k8sClient, filepath.Join(path, "before"))
 			// We need to dynamically modify the status of the Tortoise object from the file because we need to set time.
-			r.tortoise.Status.ContainerResourcePhases[0].ResourcePhases[corev1.ResourceCPU] = v1beta1.ResourcePhase{
-				Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+			r.tortoise.Status.ContainerResourcePhases[0].ResourcePhases[corev1.ResourceCPU] = v1beta2.ResourcePhase{
+				Phase:              v1beta2.ContainerResourcePhaseGatheringData,
 				LastTransitionTime: metav1.Now(),
 			}
-			r.tortoise.Status.ContainerResourcePhases[0].ResourcePhases[corev1.ResourceMemory] = v1beta1.ResourcePhase{
-				Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+			r.tortoise.Status.ContainerResourcePhases[0].ResourcePhases[corev1.ResourceMemory] = v1beta2.ResourcePhase{
+				Phase:              v1beta2.ContainerResourcePhaseGatheringData,
 				LastTransitionTime: metav1.Now(),
 			}
 
-			v := &v1beta1.Tortoise{}
+			v := &v1beta2.Tortoise{}
 			err := k8sClient.Get(ctx, client.ObjectKey{Namespace: r.tortoise.Namespace, Name: r.tortoise.Name}, v)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -368,7 +368,7 @@ var _ = Describe("Test TortoiseController", func() {
 
 			Eventually(func(g Gomega) {
 				// make sure all resources are deleted
-				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, &v1beta1.Tortoise{})
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, &v1beta2.Tortoise{})
 				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, &v2.HorizontalPodAutoscaler{})
 				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
@@ -393,7 +393,7 @@ var _ = Describe("Test TortoiseController", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, &autoscalingv1.VerticalPodAutoscaler{})
 				Expect(err).ShouldNot(HaveOccurred())
-				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, &v1beta1.Tortoise{})
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, &v1beta2.Tortoise{})
 				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
 			}).Should(Succeed())
 		})
@@ -405,14 +405,14 @@ type testCase struct {
 }
 
 type resources struct {
-	tortoise   *v1beta1.Tortoise
+	tortoise   *v1beta2.Tortoise
 	deployment *v1.Deployment
 	hpa        *v2.HorizontalPodAutoscaler
-	vpa        map[v1beta1.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler
+	vpa        map[v1beta2.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler
 }
 
 func (t *testCase) compare(got resources) error {
-	if d := cmp.Diff(t.want.tortoise, got.tortoise, cmpopts.IgnoreFields(v1beta1.Tortoise{}, "ObjectMeta"), cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
+	if d := cmp.Diff(t.want.tortoise, got.tortoise, cmpopts.IgnoreFields(v1beta2.Tortoise{}, "ObjectMeta"), cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
 		return fmt.Errorf("unexpected tortoise: diff = %s", d)
 	}
 	if d := cmp.Diff(t.want.hpa, got.hpa, cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "ObjectMeta"), cmpopts.IgnoreTypes(metav1.Time{})); d != "" {

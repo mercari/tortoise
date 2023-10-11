@@ -14,49 +14,49 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
-	"github.com/mercari/tortoise/api/v1beta1"
+	"github.com/mercari/tortoise/api/v1beta2"
 )
 
 func TestUpdateRecommendation(t *testing.T) {
 	type args struct {
-		tortoise   *v1beta1.Tortoise
+		tortoise   *v1beta2.Tortoise
 		hpa        *v2.HorizontalPodAutoscaler
 		deployment *v1.Deployment
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    *v1beta1.Tortoise
+		want    *v1beta2.Tortoise
 		wantErr bool
 	}{
 		{
 			name: "HPA has the container resource metrics",
 			args: args{
-				tortoise: &v1beta1.Tortoise{
-					Spec: v1beta1.TortoiseSpec{
-						ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+				tortoise: &v1beta2.Tortoise{
+					Spec: v1beta2.TortoiseSpec{
+						ResourcePolicy: []v1beta2.ContainerResourcePolicy{
 							{
 								ContainerName: "app",
-								AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-									corev1.ResourceMemory: v1beta1.AutoscalingTypeHorizontal,
-									corev1.ResourceCPU:    v1beta1.AutoscalingTypeVertical,
+								AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+									corev1.ResourceMemory: v1beta2.AutoscalingTypeHorizontal,
+									corev1.ResourceCPU:    v1beta2.AutoscalingTypeVertical,
 								},
 							},
 							{
 								ContainerName: "istio-proxy",
-								AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-									corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
-									corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+									corev1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
+									corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
 								},
 							},
 						},
 					},
-					Status: v1beta1.TortoiseStatus{
-						Conditions: v1beta1.Conditions{
-							ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
+					Status: v1beta2.TortoiseStatus{
+						Conditions: v1beta2.Conditions{
+							ContainerRecommendationFromVPA: []v1beta2.ContainerRecommendationFromVPA{
 								{
 									ContainerName: "app",
-									MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+									MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 										corev1.ResourceMemory: {
 											Quantity: resource.MustParse("4Gi"),
 										},
@@ -67,7 +67,7 @@ func TestUpdateRecommendation(t *testing.T) {
 								},
 								{
 									ContainerName: "istio-proxy",
-									MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+									MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 										corev1.ResourceMemory: {
 											Quantity: resource.MustParse("0.6Gi"),
 										},
@@ -152,29 +152,29 @@ func TestUpdateRecommendation(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.Tortoise{
-				Spec: v1beta1.TortoiseSpec{
-					ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+			want: &v1beta2.Tortoise{
+				Spec: v1beta2.TortoiseSpec{
+					ResourcePolicy: []v1beta2.ContainerResourcePolicy{
 						{
 							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-								corev1.ResourceMemory: v1beta1.AutoscalingTypeHorizontal,
-								corev1.ResourceCPU:    v1beta1.AutoscalingTypeVertical,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+								corev1.ResourceMemory: v1beta2.AutoscalingTypeHorizontal,
+								corev1.ResourceCPU:    v1beta2.AutoscalingTypeVertical,
 							},
 						},
 						{
 							ContainerName: "istio-proxy",
-							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
-								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+								corev1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
 							},
 						},
 					},
 				},
-				Status: v1beta1.TortoiseStatus{
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
+				Status: v1beta2.TortoiseStatus{
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							TargetUtilizations: []v1beta2.HPATargetUtilizationRecommendationPerContainer{
 								{
 									ContainerName: "app",
 									TargetUtilization: map[corev1.ResourceName]int32{
@@ -190,11 +190,11 @@ func TestUpdateRecommendation(t *testing.T) {
 							},
 						},
 					},
-					Conditions: v1beta1.Conditions{
-						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
+					Conditions: v1beta2.Conditions{
+						ContainerRecommendationFromVPA: []v1beta2.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("4Gi"),
 									},
@@ -205,7 +205,7 @@ func TestUpdateRecommendation(t *testing.T) {
 							},
 							{
 								ContainerName: "istio-proxy",
-								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("0.6Gi"),
 									},
@@ -222,31 +222,31 @@ func TestUpdateRecommendation(t *testing.T) {
 		{
 			name: "Tortoise has some AutoscalingTypeOff policy",
 			args: args{
-				tortoise: &v1beta1.Tortoise{
-					Spec: v1beta1.TortoiseSpec{
-						ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+				tortoise: &v1beta2.Tortoise{
+					Spec: v1beta2.TortoiseSpec{
+						ResourcePolicy: []v1beta2.ContainerResourcePolicy{
 							{
 								ContainerName: "app",
-								AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-									corev1.ResourceMemory: v1beta1.AutoscalingTypeOff,
-									corev1.ResourceCPU:    v1beta1.AutoscalingTypeVertical,
+								AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+									corev1.ResourceMemory: v1beta2.AutoscalingTypeOff,
+									corev1.ResourceCPU:    v1beta2.AutoscalingTypeVertical,
 								},
 							},
 							{
 								ContainerName: "istio-proxy",
-								AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-									corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
-									corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+									corev1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
+									corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
 								},
 							},
 						},
 					},
-					Status: v1beta1.TortoiseStatus{
-						Conditions: v1beta1.Conditions{
-							ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
+					Status: v1beta2.TortoiseStatus{
+						Conditions: v1beta2.Conditions{
+							ContainerRecommendationFromVPA: []v1beta2.ContainerRecommendationFromVPA{
 								{
 									ContainerName: "app",
-									MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+									MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 										corev1.ResourceMemory: {
 											Quantity: resource.MustParse("4Gi"),
 										},
@@ -257,7 +257,7 @@ func TestUpdateRecommendation(t *testing.T) {
 								},
 								{
 									ContainerName: "istio-proxy",
-									MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+									MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 										corev1.ResourceMemory: {
 											Quantity: resource.MustParse("0.6Gi"),
 										},
@@ -332,29 +332,29 @@ func TestUpdateRecommendation(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.Tortoise{
-				Spec: v1beta1.TortoiseSpec{
-					ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+			want: &v1beta2.Tortoise{
+				Spec: v1beta2.TortoiseSpec{
+					ResourcePolicy: []v1beta2.ContainerResourcePolicy{
 						{
 							ContainerName: "app",
-							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-								corev1.ResourceMemory: v1beta1.AutoscalingTypeOff,
-								corev1.ResourceCPU:    v1beta1.AutoscalingTypeVertical,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+								corev1.ResourceMemory: v1beta2.AutoscalingTypeOff,
+								corev1.ResourceCPU:    v1beta2.AutoscalingTypeVertical,
 							},
 						},
 						{
 							ContainerName: "istio-proxy",
-							AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-								corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
-								corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+							AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+								corev1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
 							},
 						},
 					},
 				},
-				Status: v1beta1.TortoiseStatus{
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							TargetUtilizations: []v1beta1.HPATargetUtilizationRecommendationPerContainer{
+				Status: v1beta2.TortoiseStatus{
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							TargetUtilizations: []v1beta2.HPATargetUtilizationRecommendationPerContainer{
 								{
 									ContainerName:     "app",
 									TargetUtilization: map[corev1.ResourceName]int32{},
@@ -368,11 +368,11 @@ func TestUpdateRecommendation(t *testing.T) {
 							},
 						},
 					},
-					Conditions: v1beta1.Conditions{
-						ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
+					Conditions: v1beta2.Conditions{
+						ContainerRecommendationFromVPA: []v1beta2.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
-								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("4Gi"),
 									},
@@ -383,7 +383,7 @@ func TestUpdateRecommendation(t *testing.T) {
 							},
 							{
 								ContainerName: "istio-proxy",
-								MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+								MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("0.6Gi"),
 									},
@@ -400,31 +400,31 @@ func TestUpdateRecommendation(t *testing.T) {
 		{
 			name: "HPA should have the container resource metrics, but doesn't",
 			args: args{
-				tortoise: &v1beta1.Tortoise{
-					Spec: v1beta1.TortoiseSpec{
-						ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+				tortoise: &v1beta2.Tortoise{
+					Spec: v1beta2.TortoiseSpec{
+						ResourcePolicy: []v1beta2.ContainerResourcePolicy{
 							{
 								ContainerName: "app",
-								AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-									corev1.ResourceMemory: v1beta1.AutoscalingTypeHorizontal,
-									corev1.ResourceCPU:    v1beta1.AutoscalingTypeVertical,
+								AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+									corev1.ResourceMemory: v1beta2.AutoscalingTypeHorizontal,
+									corev1.ResourceCPU:    v1beta2.AutoscalingTypeVertical,
 								},
 							},
 							{
 								ContainerName: "istio-proxy",
-								AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-									corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
-									corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
+								AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+									corev1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
+									corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
 								},
 							},
 						},
 					},
-					Status: v1beta1.TortoiseStatus{
-						Conditions: v1beta1.Conditions{
-							ContainerRecommendationFromVPA: []v1beta1.ContainerRecommendationFromVPA{
+					Status: v1beta2.TortoiseStatus{
+						Conditions: v1beta2.Conditions{
+							ContainerRecommendationFromVPA: []v1beta2.ContainerRecommendationFromVPA{
 								{
 									ContainerName: "app",
-									MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+									MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 										corev1.ResourceMemory: {
 											Quantity: resource.MustParse("4Gi"),
 										},
@@ -435,7 +435,7 @@ func TestUpdateRecommendation(t *testing.T) {
 								},
 								{
 									ContainerName: "istio-proxy",
-									MaxRecommendation: map[corev1.ResourceName]v1beta1.ResourceQuantity{
+									MaxRecommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 										corev1.ResourceMemory: {
 											Quantity: resource.MustParse("0.6Gi"),
 										},
@@ -543,24 +543,24 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 		t.Fatal(err)
 	}
 	type args struct {
-		tortoise   *v1beta1.Tortoise
+		tortoise   *v1beta2.Tortoise
 		deployment *v1.Deployment
 		now        time.Time
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    *v1beta1.Tortoise
+		want    *v1beta2.Tortoise
 		wantErr bool
 	}{
 		{
 			name: "Basic case",
 			args: args{
-				tortoise: &v1beta1.Tortoise{
-					Status: v1beta1.TortoiseStatus{
-						Recommendations: v1beta1.Recommendations{
-							Horizontal: v1beta1.HorizontalRecommendations{
-								MinReplicas: []v1beta1.ReplicasRecommendation{
+				tortoise: &v1beta2.Tortoise{
+					Status: v1beta2.TortoiseStatus{
+						Recommendations: v1beta2.Recommendations{
+							Horizontal: v1beta2.HorizontalRecommendations{
+								MinReplicas: []v1beta2.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        1,
@@ -570,7 +570,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										WeekDay:   pointer.String(time.Sunday.String()),
 									},
 								},
-								MaxReplicas: []v1beta1.ReplicasRecommendation{
+								MaxReplicas: []v1beta2.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        1,
@@ -591,11 +591,11 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				},
 				now: time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
 			},
-			want: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							MinReplicas: []v1beta1.ReplicasRecommendation{
+			want: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							MinReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        1,
@@ -605,7 +605,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
 							},
-							MaxReplicas: []v1beta1.ReplicasRecommendation{
+							MaxReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        1,
@@ -624,12 +624,12 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 		{
 			name: "No recommendation slot",
 			args: args{
-				tortoise: &v1beta1.Tortoise{
-					Status: v1beta1.TortoiseStatus{
-						Recommendations: v1beta1.Recommendations{
-							Horizontal: v1beta1.HorizontalRecommendations{
-								MinReplicas: []v1beta1.ReplicasRecommendation{},
-								MaxReplicas: []v1beta1.ReplicasRecommendation{},
+				tortoise: &v1beta2.Tortoise{
+					Status: v1beta2.TortoiseStatus{
+						Recommendations: v1beta2.Recommendations{
+							Horizontal: v1beta2.HorizontalRecommendations{
+								MinReplicas: []v1beta2.ReplicasRecommendation{},
+								MaxReplicas: []v1beta2.ReplicasRecommendation{},
 							},
 						},
 					},
@@ -641,12 +641,12 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				},
 				now: time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
 			},
-			want: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							MinReplicas: []v1beta1.ReplicasRecommendation{},
-							MaxReplicas: []v1beta1.ReplicasRecommendation{},
+			want: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							MinReplicas: []v1beta2.ReplicasRecommendation{},
+							MaxReplicas: []v1beta2.ReplicasRecommendation{},
 						},
 					},
 				},
@@ -656,11 +656,11 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 		{
 			name: "Lower recommendation value",
 			args: args{
-				tortoise: &v1beta1.Tortoise{
-					Status: v1beta1.TortoiseStatus{
-						Recommendations: v1beta1.Recommendations{
-							Horizontal: v1beta1.HorizontalRecommendations{
-								MinReplicas: []v1beta1.ReplicasRecommendation{
+				tortoise: &v1beta2.Tortoise{
+					Status: v1beta2.TortoiseStatus{
+						Recommendations: v1beta2.Recommendations{
+							Horizontal: v1beta2.HorizontalRecommendations{
+								MinReplicas: []v1beta2.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        1,
@@ -670,7 +670,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										WeekDay:   pointer.String(time.Sunday.String()),
 									},
 								},
-								MaxReplicas: []v1beta1.ReplicasRecommendation{
+								MaxReplicas: []v1beta2.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        1,
@@ -691,11 +691,11 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				},
 				now: time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
 			},
-			want: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							MinReplicas: []v1beta1.ReplicasRecommendation{
+			want: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							MinReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From: 0,
 									To:   1,
@@ -706,7 +706,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
 							},
-							MaxReplicas: []v1beta1.ReplicasRecommendation{
+							MaxReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From: 0,
 									To:   1,
@@ -726,11 +726,11 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 		{
 			name: "Same recommendation value",
 			args: args{
-				tortoise: &v1beta1.Tortoise{
-					Status: v1beta1.TortoiseStatus{
-						Recommendations: v1beta1.Recommendations{
-							Horizontal: v1beta1.HorizontalRecommendations{
-								MinReplicas: []v1beta1.ReplicasRecommendation{
+				tortoise: &v1beta2.Tortoise{
+					Status: v1beta2.TortoiseStatus{
+						Recommendations: v1beta2.Recommendations{
+							Horizontal: v1beta2.HorizontalRecommendations{
+								MinReplicas: []v1beta2.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        1,
@@ -740,7 +740,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										WeekDay:   pointer.String(time.Sunday.String()),
 									},
 								},
-								MaxReplicas: []v1beta1.ReplicasRecommendation{
+								MaxReplicas: []v1beta2.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        1,
@@ -761,11 +761,11 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				},
 				now: time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
 			},
-			want: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							MinReplicas: []v1beta1.ReplicasRecommendation{
+			want: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							MinReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        1,
@@ -775,7 +775,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
 							},
-							MaxReplicas: []v1beta1.ReplicasRecommendation{
+							MaxReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        1,
@@ -794,11 +794,11 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 		{
 			name: "minimum MinReplicas and minimum MaxReplicas",
 			args: args{
-				tortoise: &v1beta1.Tortoise{
-					Status: v1beta1.TortoiseStatus{
-						Recommendations: v1beta1.Recommendations{
-							Horizontal: v1beta1.HorizontalRecommendations{
-								MinReplicas: []v1beta1.ReplicasRecommendation{
+				tortoise: &v1beta2.Tortoise{
+					Status: v1beta2.TortoiseStatus{
+						Recommendations: v1beta2.Recommendations{
+							Horizontal: v1beta2.HorizontalRecommendations{
+								MinReplicas: []v1beta2.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        1,
@@ -808,7 +808,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										WeekDay:   pointer.String(time.Sunday.String()),
 									},
 								},
-								MaxReplicas: []v1beta1.ReplicasRecommendation{
+								MaxReplicas: []v1beta2.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        1,
@@ -829,11 +829,11 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 				},
 				now: time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
 			},
-			want: &v1beta1.Tortoise{
-				Status: v1beta1.TortoiseStatus{
-					Recommendations: v1beta1.Recommendations{
-						Horizontal: v1beta1.HorizontalRecommendations{
-							MinReplicas: []v1beta1.ReplicasRecommendation{
+			want: &v1beta2.Tortoise{
+				Status: v1beta2.TortoiseStatus{
+					Recommendations: v1beta2.Recommendations{
+						Horizontal: v1beta2.HorizontalRecommendations{
+							MinReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        1,
@@ -843,7 +843,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
 							},
-							MaxReplicas: []v1beta1.ReplicasRecommendation{
+							MaxReplicas: []v1beta2.ReplicasRecommendation{
 								{
 									From:      0,
 									To:        1,
@@ -882,7 +882,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		suggestedResourceSizeAtMax    corev1.ResourceList
 	}
 	type args struct {
-		tortoise   *v1beta1.Tortoise
+		tortoise   *v1beta2.Tortoise
 		deployment *v1.Deployment
 		hpa        *v2.HorizontalPodAutoscaler
 	}
@@ -890,7 +890,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    *v1beta1.Tortoise
+		want    *v1beta2.Tortoise
 		wantErr bool
 	}{
 		{
@@ -900,7 +900,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise: createTortoiseWithCondition(map[corev1.ResourceName]v1beta1.ResourceQuantity{
+				tortoise: createTortoiseWithCondition(map[corev1.ResourceName]v1beta2.ResourceQuantity{
 					corev1.ResourceCPU: {
 						Quantity: resource.MustParse("500m"),
 					},
@@ -920,7 +920,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise: createTortoiseWithCondition(map[corev1.ResourceName]v1beta1.ResourceQuantity{
+				tortoise: createTortoiseWithCondition(map[corev1.ResourceName]v1beta2.ResourceQuantity{
 					corev1.ResourceCPU: {
 						Quantity: resource.MustParse("1500m"),
 					},
@@ -941,7 +941,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				minimumMinReplicas:            3,
 			},
 			args: args{
-				tortoise: createTortoiseWithCondition(map[corev1.ResourceName]v1beta1.ResourceQuantity{
+				tortoise: createTortoiseWithCondition(map[corev1.ResourceName]v1beta2.ResourceQuantity{
 					corev1.ResourceCPU: {
 						Quantity: resource.MustParse("120m"),
 					},
@@ -961,7 +961,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise: createVerticalTortoiseWithCondition(map[corev1.ResourceName]v1beta1.ResourceQuantity{
+				tortoise: createVerticalTortoiseWithCondition(map[corev1.ResourceName]v1beta2.ResourceQuantity{
 					corev1.ResourceCPU: {
 						Quantity: resource.MustParse("120m"),
 					},
@@ -982,7 +982,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			},
 			args: args{
 				tortoise: createTortoiseWithMultipleContainersWithCondition(
-					map[corev1.ResourceName]v1beta1.ResourceQuantity{
+					map[corev1.ResourceName]v1beta2.ResourceQuantity{
 						corev1.ResourceCPU: {
 							Quantity: resource.MustParse("80m"),
 						},
@@ -990,7 +990,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 							Quantity: resource.MustParse("9Gi"),
 						},
 					},
-					map[corev1.ResourceName]v1beta1.ResourceQuantity{
+					map[corev1.ResourceName]v1beta2.ResourceQuantity{
 						corev1.ResourceCPU: {
 							Quantity: resource.MustParse("800m"),
 						},
@@ -1062,7 +1062,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				t.Errorf("updateVPARecommendation() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if d := cmp.Diff(got, tt.want, cmpopts.IgnoreTypes(metav1.Time{}, v1beta1.Conditions{})); d != "" {
+			if d := cmp.Diff(got, tt.want, cmpopts.IgnoreTypes(metav1.Time{}, v1beta2.Conditions{})); d != "" {
 				t.Errorf("updateVPARecommendation() diff = %s", d)
 			}
 		})
@@ -1076,15 +1076,15 @@ func createResourceList(cpu, memory string) corev1.ResourceList {
 		corev1.ResourceMemory: resource.MustParse(memory),
 	}
 }
-func createVerticalTortoise() *v1beta1.Tortoise {
-	return &v1beta1.Tortoise{
-		Spec: v1beta1.TortoiseSpec{
-			ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+func createVerticalTortoise() *v1beta2.Tortoise {
+	return &v1beta2.Tortoise{
+		Spec: v1beta2.TortoiseSpec{
+			ResourcePolicy: []v1beta2.ContainerResourcePolicy{
 				{
 					ContainerName: "test-container",
-					AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-						corev1.ResourceCPU:    v1beta1.AutoscalingTypeVertical,
-						corev1.ResourceMemory: v1beta1.AutoscalingTypeVertical,
+					AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+						corev1.ResourceCPU:    v1beta2.AutoscalingTypeVertical,
+						corev1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
 					},
 					MinAllocatedResources: createResourceList("100m", "100Mi"),
 				},
@@ -1092,9 +1092,9 @@ func createVerticalTortoise() *v1beta1.Tortoise {
 		},
 	}
 }
-func createVerticalTortoiseWithCondition(vpaRecommendation map[corev1.ResourceName]v1beta1.ResourceQuantity) *v1beta1.Tortoise {
+func createVerticalTortoiseWithCondition(vpaRecommendation map[corev1.ResourceName]v1beta2.ResourceQuantity) *v1beta2.Tortoise {
 	tortoise := createVerticalTortoise()
-	tortoise.Status.Conditions.ContainerRecommendationFromVPA = []v1beta1.ContainerRecommendationFromVPA{
+	tortoise.Status.Conditions.ContainerRecommendationFromVPA = []v1beta2.ContainerRecommendationFromVPA{
 		{
 			ContainerName:  "test-container",
 			Recommendation: vpaRecommendation,
@@ -1102,15 +1102,15 @@ func createVerticalTortoiseWithCondition(vpaRecommendation map[corev1.ResourceNa
 	}
 	return tortoise
 }
-func createTortoise() *v1beta1.Tortoise {
-	return &v1beta1.Tortoise{
-		Spec: v1beta1.TortoiseSpec{
-			ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+func createTortoise() *v1beta2.Tortoise {
+	return &v1beta2.Tortoise{
+		Spec: v1beta2.TortoiseSpec{
+			ResourcePolicy: []v1beta2.ContainerResourcePolicy{
 				{
 					ContainerName: "test-container",
-					AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-						corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
-						corev1.ResourceMemory: v1beta1.AutoscalingTypeHorizontal,
+					AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+						corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta2.AutoscalingTypeHorizontal,
 					},
 					MinAllocatedResources: createResourceList("100m", "100Mi"),
 				},
@@ -1139,23 +1139,23 @@ func createDeployment(replicas int32, cpu, memory string) *v1.Deployment {
 		},
 	}
 }
-func createTortoiseWithMultipleContainers() *v1beta1.Tortoise {
-	return &v1beta1.Tortoise{
-		Spec: v1beta1.TortoiseSpec{
-			ResourcePolicy: []v1beta1.ContainerResourcePolicy{
+func createTortoiseWithMultipleContainers() *v1beta2.Tortoise {
+	return &v1beta2.Tortoise{
+		Spec: v1beta2.TortoiseSpec{
+			ResourcePolicy: []v1beta2.ContainerResourcePolicy{
 				{
 					ContainerName: "test-container",
-					AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-						corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
-						corev1.ResourceMemory: v1beta1.AutoscalingTypeHorizontal,
+					AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+						corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta2.AutoscalingTypeHorizontal,
 					},
 					MinAllocatedResources: createResourceList("100m", "100Mi"),
 				},
 				{
 					ContainerName: "test-container2",
-					AutoscalingPolicy: map[corev1.ResourceName]v1beta1.AutoscalingType{
-						corev1.ResourceCPU:    v1beta1.AutoscalingTypeHorizontal,
-						corev1.ResourceMemory: v1beta1.AutoscalingTypeHorizontal,
+					AutoscalingPolicy: map[corev1.ResourceName]v1beta2.AutoscalingType{
+						corev1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta2.AutoscalingTypeHorizontal,
 					},
 					MinAllocatedResources: createResourceList("100m", "100Mi"),
 				},
@@ -1191,9 +1191,9 @@ func createMultipleContainersDeployment(replicas int32, cpu1, cpu2, memory1, mem
 	}
 }
 
-func createTortoiseWithMultipleContainersWithCondition(vpaRecommendation1, vpaRecommendation2 map[corev1.ResourceName]v1beta1.ResourceQuantity) *v1beta1.Tortoise {
+func createTortoiseWithMultipleContainersWithCondition(vpaRecommendation1, vpaRecommendation2 map[corev1.ResourceName]v1beta2.ResourceQuantity) *v1beta2.Tortoise {
 	tortoise := createTortoiseWithMultipleContainers()
-	tortoise.Status.Conditions.ContainerRecommendationFromVPA = []v1beta1.ContainerRecommendationFromVPA{
+	tortoise.Status.Conditions.ContainerRecommendationFromVPA = []v1beta2.ContainerRecommendationFromVPA{
 		{
 			ContainerName:  "test-container",
 			Recommendation: vpaRecommendation1,
@@ -1206,9 +1206,9 @@ func createTortoiseWithMultipleContainersWithCondition(vpaRecommendation1, vpaRe
 	return tortoise
 }
 
-func createTortoiseWithCondition(vpaRecommendation map[corev1.ResourceName]v1beta1.ResourceQuantity) *v1beta1.Tortoise {
+func createTortoiseWithCondition(vpaRecommendation map[corev1.ResourceName]v1beta2.ResourceQuantity) *v1beta2.Tortoise {
 	tortoise := createTortoise()
-	tortoise.Status.Conditions.ContainerRecommendationFromVPA = []v1beta1.ContainerRecommendationFromVPA{
+	tortoise.Status.Conditions.ContainerRecommendationFromVPA = []v1beta2.ContainerRecommendationFromVPA{
 		{
 			ContainerName:  "test-container",
 			Recommendation: vpaRecommendation,
@@ -1217,11 +1217,11 @@ func createTortoiseWithCondition(vpaRecommendation map[corev1.ResourceName]v1bet
 	return tortoise
 }
 
-func createTortoiseWithVPARecommendation(cpu, memory string) *v1beta1.Tortoise {
+func createTortoiseWithVPARecommendation(cpu, memory string) *v1beta2.Tortoise {
 	tortoise := createTortoise()
-	tortoise.Status.Recommendations = v1beta1.Recommendations{
-		Vertical: v1beta1.VerticalRecommendations{
-			ContainerResourceRecommendation: []v1beta1.RecommendedContainerResources{
+	tortoise.Status.Recommendations = v1beta2.Recommendations{
+		Vertical: v1beta2.VerticalRecommendations{
+			ContainerResourceRecommendation: []v1beta2.RecommendedContainerResources{
 				{
 					ContainerName:       "test-container",
 					RecommendedResource: createResourceList(cpu, memory),
@@ -1232,11 +1232,11 @@ func createTortoiseWithVPARecommendation(cpu, memory string) *v1beta1.Tortoise {
 	return tortoise
 }
 
-func createVerticalTortoiseWithVPARecommendation(cpu, memory string) *v1beta1.Tortoise {
+func createVerticalTortoiseWithVPARecommendation(cpu, memory string) *v1beta2.Tortoise {
 	tortoise := createVerticalTortoise()
-	tortoise.Status.Recommendations = v1beta1.Recommendations{
-		Vertical: v1beta1.VerticalRecommendations{
-			ContainerResourceRecommendation: []v1beta1.RecommendedContainerResources{
+	tortoise.Status.Recommendations = v1beta2.Recommendations{
+		Vertical: v1beta2.VerticalRecommendations{
+			ContainerResourceRecommendation: []v1beta2.RecommendedContainerResources{
 				{
 					ContainerName:       "test-container",
 					RecommendedResource: createResourceList(cpu, memory),
@@ -1246,11 +1246,11 @@ func createVerticalTortoiseWithVPARecommendation(cpu, memory string) *v1beta1.To
 	}
 	return tortoise
 }
-func createTortoiseWithMultipleContainersWithVPARecommendation(cpu1, cpu2, memory1, memory2 string) *v1beta1.Tortoise {
+func createTortoiseWithMultipleContainersWithVPARecommendation(cpu1, cpu2, memory1, memory2 string) *v1beta2.Tortoise {
 	tortoise := createTortoiseWithMultipleContainers()
-	tortoise.Status.Recommendations = v1beta1.Recommendations{
-		Vertical: v1beta1.VerticalRecommendations{
-			ContainerResourceRecommendation: []v1beta1.RecommendedContainerResources{
+	tortoise.Status.Recommendations = v1beta2.Recommendations{
+		Vertical: v1beta2.VerticalRecommendations{
+			ContainerResourceRecommendation: []v1beta2.RecommendedContainerResources{
 				{
 					ContainerName:       "test-container",
 					RecommendedResource: createResourceList(cpu1, memory1),

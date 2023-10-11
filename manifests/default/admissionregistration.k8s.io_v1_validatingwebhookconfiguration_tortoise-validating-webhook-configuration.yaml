@@ -11,14 +11,14 @@ webhooks:
     service:
       name: tortoise-webhook-service
       namespace: tortoise-system
-      path: /validate-autoscaling-mercari-com-v1beta1-tortoise
+      path: /validate-autoscaling-mercari-com-v1beta2-tortoise
   failurePolicy: Fail
   name: vtortoise.kb.io
   rules:
   - apiGroups:
     - autoscaling.mercari.com
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE

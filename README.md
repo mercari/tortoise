@@ -30,7 +30,7 @@ Tortoise, you don't need a rearing cage, but need VPA in your Kubernetes cluster
 Tortoise, they only need the deployment name basically.
 
 ```yaml
-apiVersion: autoscaling.mercari.com/v1beta1
+apiVersion: autoscaling.mercari.com/v1beta2
 kind: Tortoise
 metadata:
   name: lovely-tortoise
@@ -55,7 +55,7 @@ Tortoise, then they'll prepare/keep adjusting HPA and VPA to achieve efficient a
 
 ## API definition
 
-- [Tortoise](./api/v1beta1/tortoise_types.go)
+- [Tortoise](./api/v1beta2/tortoise_types.go)
 
 ## Contribution
 

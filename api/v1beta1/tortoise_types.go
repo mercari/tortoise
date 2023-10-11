@@ -335,7 +335,6 @@ type ResourceQuantity struct {
 }
 
 //+kubebuilder:object:root=true
-//+kubebuilder:storageversion
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="MODE",type="string",JSONPath=".spec.updateMode"
 //+kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.tortoisePhase"

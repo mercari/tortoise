@@ -51,7 +51,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/mercari/tortoise/api/v1beta1"
+	"github.com/mercari/tortoise/api/v1beta2"
 	"github.com/mercari/tortoise/pkg/config"
 	"github.com/mercari/tortoise/pkg/hpa"
 	"github.com/mercari/tortoise/pkg/tortoise"
@@ -115,7 +115,7 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	scheme := runtime.NewScheme()
-	err = v1beta1.AddToScheme(scheme)
+	err = v1beta2.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = clientgoscheme.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
