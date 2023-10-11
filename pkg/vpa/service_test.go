@@ -23,7 +23,7 @@ func TestMakeAllVerticalContainerResourcePhaseRunning(t *testing.T) {
 		want *autoscalingv1beta1.Tortoise
 	}{
 		{
-			name: "test1",
+			name: "modified correctly",
 			args: args{
 				tortoise: &autoscalingv1beta1.Tortoise{
 					ObjectMeta: metav1.ObjectMeta{
@@ -68,8 +68,7 @@ func TestMakeAllVerticalContainerResourcePhaseRunning(t *testing.T) {
 										Phase: autoscalingv1beta1.ContainerResourcePhaseGatheringData,
 									},
 									v1.ResourceMemory: {
-										Phase:              autoscalingv1beta1.ContainerResourcePhaseGatheringData,
-										LastTransitionTime: metav1.Time{},
+										Phase: autoscalingv1beta1.ContainerResourcePhaseGatheringData,
 									},
 								},
 							},

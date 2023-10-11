@@ -25,21 +25,7 @@ spec:
       container: app
       name: cpu
       target:
-        averageUtilization: 50
-        type: Utilization
-    type: ContainerResource
-  - containerResource:
-      container: istio-proxy
-      name: cpu
-      target:
         averageUtilization: 75
-        type: Utilization
-    type: ContainerResource
-  - containerResource:
-      container: istio-proxy
-      name: memory
-      target:
-        averageUtilization: 50
         type: Utilization
     type: ContainerResource
   minReplicas: 5

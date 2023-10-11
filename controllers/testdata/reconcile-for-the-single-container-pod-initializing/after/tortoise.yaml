@@ -18,17 +18,17 @@ status:
     - containerName: app
       maxRecommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
       recommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
     tortoiseConditions: null
   recommendations:
@@ -38,19 +38,23 @@ status:
         timezone: Local
         to: 24
         updatedAt: "2023-10-06T01:01:24Z"
-        value: 15
+        value: 20
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
         updatedAt: "2023-10-06T01:01:24Z"
-        value: 3
+        value: 5
       targetUtilizations:
       - containerName: app
         targetUtilization:
-          cpu: 50
+          cpu: 75
     vertical:
-      containerResourceRecommendation: null
+      containerResourceRecommendation:
+      - RecommendedResource:
+          cpu: "4"
+          memory: 3Gi
+        containerName: app
   targets:
     deployment: ""
     horizontalPodAutoscaler: tortoise-hpa-mercari
@@ -59,11 +63,11 @@ status:
       role: Updater
     - name: tortoise-monitor-mercari
       role: Monitor
-  tortoisePhase: Working
+  tortoisePhase: GatheringData
   containerResourcePhases:
     - containerName: "app"
       resourcePhases:
         cpu: 
-          phase: Working 
+          phase: GatheringData
         memory:
-          phase: Working 
+          phase: GatheringData 

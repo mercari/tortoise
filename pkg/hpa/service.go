@@ -46,7 +46,7 @@ func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor 
 func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment, now time.Time) (*autoscalingv1beta1.Tortoise, error) {
 	logger := log.FromContext(ctx)
 	// if all policy is off or Vertical, we don't need HPA.
-	if !hasHorizontal(tortoise) {
+	if !HasHorizontal(tortoise) {
 		logger.V(4).Info("no horizontal policy, no need to create HPA")
 		return tortoise, nil
 	}
@@ -229,7 +229,7 @@ func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context
 }
 
 func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
-	if !hasHorizontal(tortoise) {
+	if !HasHorizontal(tortoise) {
 		// no need to create HPA
 		return nil, tortoise, nil
 	}
@@ -287,7 +287,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta1.To
 }
 
 func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
-	if !hasHorizontal(tortoise) {
+	if !HasHorizontal(tortoise) {
 		// there should be no HPA
 		return nil, nil
 	}
@@ -299,8 +299,28 @@ func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1b
 }
 
 func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1beta1.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time, recordMetrics bool) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
+	readyHorizontalResourceAndContainer := sets.New[resourceNameAndContainerName]()
+	for _, p := range tortoise.Spec.ResourcePolicy {
+		for rn, ap := range p.AutoscalingPolicy {
+			if ap == autoscalingv1beta1.AutoscalingTypeHorizontal {
+				readyHorizontalResourceAndContainer.Insert(resourceNameAndContainerName{rn, p.ContainerName})
+			}
+		}
+	}
+	for _, p := range tortoise.Status.ContainerResourcePhases {
+		for rn, phase := range p.ResourcePhases {
+			if phase.Phase != autoscalingv1beta1.ContainerResourcePhaseWorking {
+				readyHorizontalResourceAndContainer.Delete(resourceNameAndContainerName{rn, p.ContainerName})
+			}
+		}
+	}
+
 	for _, t := range tortoise.Status.Recommendations.Horizontal.TargetUtilizations {
 		for resourcename, targetutil := range t.TargetUtilization {
+			if !readyHorizontalResourceAndContainer.Has(resourceNameAndContainerName{resourcename, t.ContainerName}) {
+				// this recommendation is not ready. We don't want to apply it.
+				continue
+			}
 			metrics.ProposedHPATargetUtilization.WithLabelValues(tortoise.Name, tortoise.Namespace, t.ContainerName, resourcename.String(), hpa.Name).Set(float64(targetutil))
 			if err := updateHPATargetValue(hpa, t.ContainerName, resourcename, targetutil, len(tortoise.Spec.ResourcePolicy) == 1); err != nil {
 				return nil, tortoise, fmt.Errorf("update HPA from the recommendation from tortoise")
@@ -347,7 +367,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 }
 
 func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment, now time.Time) (*autoscalingv1beta1.Tortoise, error) {
-	if !hasHorizontal(tortoise) {
+	if !HasHorizontal(tortoise) {
 		err := c.DeleteHPACreatedByTortoise(ctx, tortoise)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return tortoise, fmt.Errorf("delete hpa created by tortoise: %w", err)
@@ -410,7 +430,7 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context
 	return tortoise, nil
 }
 
-func hasHorizontal(tortoise *autoscalingv1beta1.Tortoise) bool {
+func HasHorizontal(tortoise *autoscalingv1beta1.Tortoise) bool {
 	for _, r := range tortoise.Spec.ResourcePolicy {
 		for _, p := range r.AutoscalingPolicy {
 			if p == autoscalingv1beta1.AutoscalingTypeHorizontal {
@@ -423,7 +443,7 @@ func hasHorizontal(tortoise *autoscalingv1beta1.Tortoise) bool {
 
 func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
 	// if all policy is off or Vertical, we don't update HPA.
-	if !hasHorizontal(tortoise) {
+	if !HasHorizontal(tortoise) {
 		return nil, tortoise, nil
 	}
 

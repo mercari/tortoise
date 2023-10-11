@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
@@ -203,11 +204,10 @@ var _ = Describe("Test TortoiseController", func() {
 		}
 	}
 
-	runTest := func(path string) {
-		initializeResourcesFromFiles(ctx, k8sClient, filepath.Join(path, "before"))
-		stopFunc = startController(ctx)
-		tc := testCase{want: newResource(filepath.Join(path, "after"))}
+	checkWithWantedResources := func(path string) {
+		// wait for the reconciliation.
 		time.Sleep(1 * time.Second)
+		tc := testCase{want: newResource(filepath.Join(path, "after"))}
 		Eventually(func(g Gomega) {
 			gotTortoise := &v1beta1.Tortoise{}
 			err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
@@ -236,9 +236,14 @@ var _ = Describe("Test TortoiseController", func() {
 				v1beta1.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
 			}})
 			g.Expect(err).ShouldNot(HaveOccurred())
-
-			cleanUp()
 		}).Should(Succeed())
+	}
+
+	runTest := func(path string) {
+		initializeResourcesFromFiles(ctx, k8sClient, filepath.Join(path, "before"))
+		stopFunc = startController(ctx)
+		checkWithWantedResources(path)
+		cleanUp()
 	}
 
 	AfterEach(func() {
@@ -264,6 +269,55 @@ var _ = Describe("Test TortoiseController", func() {
 	Context("reconcile for the single container Pod", func() {
 		It("TortoisePhaseWorking", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-working"))
+		})
+		It("TortoisePhaseWorking (PartlyWorking)", func() {
+			path := filepath.Join("testdata", "reconcile-for-the-single-container-pod-partly-working")
+			r := initializeResourcesFromFiles(ctx, k8sClient, filepath.Join(path, "before"))
+			// We need to dynamically modify the status of the Tortoise object from the file because we need to set time.
+			r.tortoise.Status.ContainerResourcePhases[0].ResourcePhases[corev1.ResourceCPU] = v1beta1.ResourcePhase{
+				Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+				LastTransitionTime: metav1.Now(),
+			}
+
+			v := &v1beta1.Tortoise{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Namespace: r.tortoise.Namespace, Name: r.tortoise.Name}, v)
+			Expect(err).NotTo(HaveOccurred())
+
+			v.Status = r.tortoise.Status
+			err = k8sClient.Status().Update(ctx, v)
+			Expect(err).NotTo(HaveOccurred())
+
+			stopFunc = startController(ctx)
+			checkWithWantedResources(path)
+			cleanUp()
+		})
+		It("TortoisePhaseWorking (GatheringData)", func() {
+			path := filepath.Join("testdata", "reconcile-for-the-single-container-pod-gathering-data")
+			r := initializeResourcesFromFiles(ctx, k8sClient, filepath.Join(path, "before"))
+			// We need to dynamically modify the status of the Tortoise object from the file because we need to set time.
+			r.tortoise.Status.ContainerResourcePhases[0].ResourcePhases[corev1.ResourceCPU] = v1beta1.ResourcePhase{
+				Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+				LastTransitionTime: metav1.Now(),
+			}
+			r.tortoise.Status.ContainerResourcePhases[0].ResourcePhases[corev1.ResourceMemory] = v1beta1.ResourcePhase{
+				Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+				LastTransitionTime: metav1.Now(),
+			}
+
+			v := &v1beta1.Tortoise{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Namespace: r.tortoise.Namespace, Name: r.tortoise.Name}, v)
+			Expect(err).NotTo(HaveOccurred())
+
+			v.Status = r.tortoise.Status
+			err = k8sClient.Status().Update(ctx, v)
+			Expect(err).NotTo(HaveOccurred())
+
+			stopFunc = startController(ctx)
+			checkWithWantedResources(path)
+			cleanUp()
+		})
+		It("TortoisePhaseWorking (GatheringData is just finished)", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-gathering-data-finished"))
 		})
 		It("TortoisePhaseWorking (dryrun)", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-dryrun"))
