@@ -82,7 +82,6 @@ status:
           memory: 3Gi
         containerName: istio-proxy
   targets:
-    deployment: ""
     horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
     - name: tortoise-updater-mercari

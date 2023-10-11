@@ -57,7 +57,6 @@ status:
           memory: 3Gi
         containerName: app
   targets:
-    deployment: ""
     horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
     - name: tortoise-updater-mercari

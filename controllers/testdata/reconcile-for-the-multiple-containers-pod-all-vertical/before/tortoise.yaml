@@ -72,7 +72,6 @@ status:
     vertical:
       containerResourceRecommendation: null
   targets:
-    deployment: ""
     verticalPodAutoscalers:
     - name: tortoise-updater-mercari
       role: Updater

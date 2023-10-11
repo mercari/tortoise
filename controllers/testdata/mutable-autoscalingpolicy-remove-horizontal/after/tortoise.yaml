@@ -80,7 +80,9 @@ status:
           memory: 3Gi
         containerName: istio-proxy
   targets:
-    deployment: "mercari-app"
+    scaleTargetRef:
+      kind: Deployment
+      name: mercari-app
     horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
     - name: tortoise-updater-mercari

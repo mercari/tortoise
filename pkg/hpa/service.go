@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	autoscalingv1beta1 "github.com/mercari/tortoise/api/v1beta1"
+	autoscalingv1beta2 "github.com/mercari/tortoise/api/v1beta2"
 	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/metrics"
 )
@@ -43,7 +43,7 @@ func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor 
 	}
 }
 
-func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment, now time.Time) (*autoscalingv1beta1.Tortoise, error) {
+func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, dm *v1.Deployment, now time.Time) (*autoscalingv1beta2.Tortoise, error) {
 	logger := log.FromContext(ctx)
 	// if all policy is off or Vertical, we don't need HPA.
 	if !HasHorizontal(tortoise) {
@@ -77,7 +77,7 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta
 	return tortoise, nil
 }
 
-func (c *Service) giveAnnotationsOnExistingHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*autoscalingv1beta1.Tortoise, error) {
+func (c *Service) giveAnnotationsOnExistingHPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise) (*autoscalingv1beta2.Tortoise, error) {
 	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
 		// shouldn't reach here since the caller should check this.
 		return tortoise, fmt.Errorf("tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName is nil")
@@ -102,8 +102,8 @@ func (c *Service) giveAnnotationsOnExistingHPA(ctx context.Context, tortoise *au
 	return tortoise, retry.RetryOnConflict(retry.DefaultRetry, updateFn)
 }
 
-func (c *Service) DeleteHPACreatedByTortoise(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) error {
-	if tortoise.Spec.DeletionPolicy == autoscalingv1beta1.DeletionPolicyNoDelete {
+func (c *Service) DeleteHPACreatedByTortoise(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise) error {
+	if tortoise.Spec.DeletionPolicy == autoscalingv1beta2.DeletionPolicyNoDelete {
 		// A user specified the existing HPA and tortoise didn't create HPA by itself.
 		return nil
 	}
@@ -140,7 +140,7 @@ type resourceNameAndContainerName struct {
 
 // addHPAMetricsFromTortoiseAutoscalingPolicy adds metrics to the HPA based on the autoscaling policy in the tortoise.
 // Note that it doesn't update the HPA in kube-apiserver, you have to do that after this function.
-func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, currenthpa *v2.HorizontalPodAutoscaler, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, bool) {
+func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, currenthpa *v2.HorizontalPodAutoscaler, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta2.Tortoise, bool) {
 	hpaEdited := false
 
 	policies := sets.New[string]()
@@ -148,7 +148,7 @@ func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context
 	for _, p := range tortoise.Spec.ResourcePolicy {
 		policies.Insert(p.ContainerName)
 		for rn, ap := range p.AutoscalingPolicy {
-			if ap == autoscalingv1beta1.AutoscalingTypeHorizontal {
+			if ap == autoscalingv1beta2.AutoscalingTypeHorizontal {
 				horizontalResourceAndContainer.Insert(resourceNameAndContainerName{rn, p.ContainerName})
 			}
 		}
@@ -189,8 +189,8 @@ func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context
 		found := false
 		for i, p := range tortoise.Status.ContainerResourcePhases {
 			if p.ContainerName == d.containerName {
-				tortoise.Status.ContainerResourcePhases[i].ResourcePhases[d.rn] = autoscalingv1beta1.ResourcePhase{
-					Phase:              autoscalingv1beta1.ContainerResourcePhaseGatheringData,
+				tortoise.Status.ContainerResourcePhases[i].ResourcePhases[d.rn] = autoscalingv1beta2.ResourcePhase{
+					Phase:              autoscalingv1beta2.ContainerResourcePhaseGatheringData,
 					LastTransitionTime: metav1.NewTime(now),
 				}
 
@@ -199,11 +199,11 @@ func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context
 			}
 		}
 		if !found {
-			tortoise.Status.ContainerResourcePhases = append(tortoise.Status.ContainerResourcePhases, autoscalingv1beta1.ContainerResourcePhases{
+			tortoise.Status.ContainerResourcePhases = append(tortoise.Status.ContainerResourcePhases, autoscalingv1beta2.ContainerResourcePhases{
 				ContainerName: d.containerName,
-				ResourcePhases: map[corev1.ResourceName]autoscalingv1beta1.ResourcePhase{
+				ResourcePhases: map[corev1.ResourceName]autoscalingv1beta2.ResourcePhase{
 					d.rn: {
-						Phase:              autoscalingv1beta1.ContainerResourcePhaseGatheringData,
+						Phase:              autoscalingv1beta2.ContainerResourcePhaseGatheringData,
 						LastTransitionTime: metav1.NewTime(now),
 					},
 				},
@@ -228,7 +228,7 @@ func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context
 	return currenthpa, tortoise, hpaEdited
 }
 
-func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
+func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, dm *v1.Deployment, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta2.Tortoise, error) {
 	if !HasHorizontal(tortoise) {
 		// no need to create HPA
 		return nil, tortoise, nil
@@ -240,7 +240,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta1.To
 
 	hpa := &v2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      autoscalingv1beta1.TortoiseDefaultHPAName(tortoise.Name),
+			Name:      autoscalingv1beta2.TortoiseDefaultHPAName(tortoise.Name),
 			Namespace: tortoise.Namespace,
 			Annotations: map[string]string{
 				annotation.TortoiseNameAnnotation:      tortoise.Name,
@@ -286,7 +286,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta1.To
 	return hpa.DeepCopy(), tortoise, err
 }
 
-func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
+func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
 	if !HasHorizontal(tortoise) {
 		// there should be no HPA
 		return nil, nil
@@ -298,18 +298,18 @@ func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1b
 	return hpa, nil
 }
 
-func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1beta1.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time, recordMetrics bool) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
+func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1beta2.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time, recordMetrics bool) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta2.Tortoise, error) {
 	readyHorizontalResourceAndContainer := sets.New[resourceNameAndContainerName]()
 	for _, p := range tortoise.Spec.ResourcePolicy {
 		for rn, ap := range p.AutoscalingPolicy {
-			if ap == autoscalingv1beta1.AutoscalingTypeHorizontal {
+			if ap == autoscalingv1beta2.AutoscalingTypeHorizontal {
 				readyHorizontalResourceAndContainer.Insert(resourceNameAndContainerName{rn, p.ContainerName})
 			}
 		}
 	}
 	for _, p := range tortoise.Status.ContainerResourcePhases {
 		for rn, phase := range p.ResourcePhases {
-			if phase.Phase != autoscalingv1beta1.ContainerResourcePhaseWorking {
+			if phase.Phase != autoscalingv1beta2.ContainerResourcePhaseWorking {
 				readyHorizontalResourceAndContainer.Delete(resourceNameAndContainerName{rn, p.ContainerName})
 			}
 		}
@@ -336,10 +336,10 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 
 	var min int32
 	switch tortoise.Status.TortoisePhase {
-	case autoscalingv1beta1.TortoisePhaseEmergency:
+	case autoscalingv1beta2.TortoisePhaseEmergency:
 		// when emergency mode, we set the same value on minReplicas.
 		min = max
-	case autoscalingv1beta1.TortoisePhaseBackToNormal:
+	case autoscalingv1beta2.TortoisePhaseBackToNormal:
 		idealMin, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
 		if err != nil {
 			return nil, tortoise, fmt.Errorf("get minReplicas recommendation: %w", err)
@@ -349,7 +349,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		if idealMin > reduced {
 			min = idealMin
 			// BackToNormal is finished
-			tortoise.Status.TortoisePhase = autoscalingv1beta1.TortoisePhaseWorking
+			tortoise.Status.TortoisePhase = autoscalingv1beta2.TortoisePhaseWorking
 		} else {
 			min = reduced
 		}
@@ -366,7 +366,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	return hpa, tortoise, nil
 }
 
-func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment, now time.Time) (*autoscalingv1beta1.Tortoise, error) {
+func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, dm *v1.Deployment, now time.Time) (*autoscalingv1beta2.Tortoise, error) {
 	if !HasHorizontal(tortoise) {
 		err := c.DeleteHPACreatedByTortoise(ctx, tortoise)
 		if err != nil && !apierrors.IsNotFound(err) {
@@ -430,10 +430,10 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context
 	return tortoise, nil
 }
 
-func HasHorizontal(tortoise *autoscalingv1beta1.Tortoise) bool {
+func HasHorizontal(tortoise *autoscalingv1beta2.Tortoise) bool {
 	for _, r := range tortoise.Spec.ResourcePolicy {
 		for _, p := range r.AutoscalingPolicy {
-			if p == autoscalingv1beta1.AutoscalingTypeHorizontal {
+			if p == autoscalingv1beta2.AutoscalingTypeHorizontal {
 				return true
 			}
 		}
@@ -441,13 +441,13 @@ func HasHorizontal(tortoise *autoscalingv1beta1.Tortoise) bool {
 	return false
 }
 
-func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta1.Tortoise, error) {
+func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta2.Tortoise, error) {
 	// if all policy is off or Vertical, we don't update HPA.
 	if !HasHorizontal(tortoise) {
 		return nil, tortoise, nil
 	}
 
-	retTortoise := &autoscalingv1beta1.Tortoise{}
+	retTortoise := &autoscalingv1beta2.Tortoise{}
 	retHPA := &v2.HorizontalPodAutoscaler{}
 
 	// we only want to record metric once in every reconcile loop.
@@ -465,7 +465,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 		metricsRecorded = true
 		retTortoise = tortoise
-		if tortoise.Spec.UpdateMode == autoscalingv1beta1.UpdateModeOff {
+		if tortoise.Spec.UpdateMode == autoscalingv1beta2.UpdateModeOff {
 			// don't update status if update mode is off. (= dryrun)
 			return nil
 		}
@@ -477,7 +477,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		return nil, nil, err
 	}
 
-	if tortoise.Spec.UpdateMode != autoscalingv1beta1.UpdateModeOff {
+	if tortoise.Spec.UpdateMode != autoscalingv1beta2.UpdateModeOff {
 		c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPAUpdated", fmt.Sprintf("HPA %s/%s is updated by the recommendation", retHPA.Namespace, retHPA.Name))
 	}
 
@@ -485,7 +485,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 }
 
 // GetReplicasRecommendation finds the corresponding recommendations.
-func GetReplicasRecommendation(recommendations []autoscalingv1beta1.ReplicasRecommendation, now time.Time) (int32, error) {
+func GetReplicasRecommendation(recommendations []autoscalingv1beta2.ReplicasRecommendation, now time.Time) (int32, error) {
 	for _, r := range recommendations {
 		if now.Hour() < r.To && now.Hour() >= r.From && (r.WeekDay == nil || now.Weekday().String() == *r.WeekDay) {
 			return r.Value, nil

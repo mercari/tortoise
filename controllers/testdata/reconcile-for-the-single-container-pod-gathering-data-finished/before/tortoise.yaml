@@ -52,7 +52,6 @@ status:
     vertical:
       containerResourceRecommendation: null
   targets:
-    deployment: ""
     horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
     - name: tortoise-updater-mercari

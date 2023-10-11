@@ -35,7 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"github.com/mercari/tortoise/api/v1beta1"
+	"github.com/mercari/tortoise/api/v1beta2"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,7 +46,7 @@ func mutateTest(before, after, torotise string) {
 
 	y, err := os.ReadFile(torotise)
 	Expect(err).NotTo(HaveOccurred())
-	tor := &v1beta1.Tortoise{}
+	tor := &v1beta2.Tortoise{}
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(tor)
 	status := tor.Status
 	Expect(err).NotTo(HaveOccurred())
