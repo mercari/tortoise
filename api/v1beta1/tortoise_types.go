@@ -154,7 +154,15 @@ type ContainerResourcePhases struct {
 	// ContainerName is the name of target container.
 	ContainerName string `json:"containerName" protobuf:"bytes,1,name=containerName"`
 	// ResourcePhases is the phase of each resource of this container.
-	ResourcePhases map[v1.ResourceName]ContainerResourcePhase `json:"resourcePhases" protobuf:"bytes,2,name=resourcePhases"`
+	ResourcePhases map[v1.ResourceName]ResourcePhase `json:"resourcePhases" protobuf:"bytes,2,name=resourcePhases"`
+}
+
+type ResourcePhase struct {
+	Phase ContainerResourcePhase `json:"phase" protobuf:"bytes,1,name=phase"`
+	// lastTransitionTime is the last time the condition transitioned from
+	// one status to another
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,2,opt,name=lastTransitionTime"`
 }
 
 type ContainerResourcePhase string
@@ -176,6 +184,10 @@ const (
 	// TortoisePhaseWorking means tortoise is making the recommendations,
 	// and applying the recommendation values.
 	TortoisePhaseWorking TortoisePhase = "Working"
+	// TortoisePhasePartlyWorking means tortoise is making the recommendations,
+	// and applying the recommendation values.
+	// But, some of the resources are not scaled due to some reasons. (probably still gathering data)
+	TortoisePhasePartlyWorking TortoisePhase = "PartlyWorking"
 	// TortoisePhaseEmergency means tortoise is in the emergency mode.
 	TortoisePhaseEmergency TortoisePhase = "Emergency"
 	// TortoisePhaseBackToNormal means tortoise was in the emergency mode, and now it's coming back to the normal operation.

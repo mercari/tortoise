@@ -2,8 +2,10 @@ package vpa
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -50,16 +52,25 @@ func TestMakeAllVerticalContainerResourcePhaseRunning(t *testing.T) {
 						ContainerResourcePhases: []autoscalingv1beta1.ContainerResourcePhases{
 							{
 								ContainerName: "app",
-								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-									v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseGatheringData,
-									v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseGatheringData,
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseGatheringData,
+									},
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseGatheringData,
+									},
 								},
 							},
 							{
 								ContainerName: "istio-proxy",
-								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-									v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseGatheringData,
-									v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseGatheringData,
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseGatheringData,
+									},
+									v1.ResourceMemory: {
+										Phase:              autoscalingv1beta1.ContainerResourcePhaseGatheringData,
+										LastTransitionTime: metav1.Time{},
+									},
 								},
 							},
 						},
@@ -93,16 +104,24 @@ func TestMakeAllVerticalContainerResourcePhaseRunning(t *testing.T) {
 					ContainerResourcePhases: []autoscalingv1beta1.ContainerResourcePhases{
 						{
 							ContainerName: "app",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-								v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseGatheringData,
-								v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseGatheringData,
+								},
+								v1.ResourceMemory: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								},
 							},
 						},
 						{
 							ContainerName: "istio-proxy",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-								v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseGatheringData,
-								v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseGatheringData,
+								},
+								v1.ResourceMemory: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								},
 							},
 						},
 					},
@@ -112,10 +131,10 @@ func TestMakeAllVerticalContainerResourcePhaseRunning(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := MakeAllVerticalContainerResourcePhaseWorking(tt.args.tortoise)
+			got := MakeAllVerticalContainerResourcePhaseWorking(tt.args.tortoise, time.Now())
 
 			// use diff to compare
-			if diff := cmp.Diff(got, tt.want); diff != "" {
+			if diff := cmp.Diff(got, tt.want, cmpopts.IgnoreTypes(metav1.Time{})); diff != "" {
 				t.Fatalf("MakeAllVerticalContainerResourcePhaseRunning() mismatch (-want +got):\n%s", diff)
 			}
 		})

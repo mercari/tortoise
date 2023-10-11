@@ -128,7 +128,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, dm)
+	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, dm, now)
 	if tortoise.Status.TortoisePhase == autoscalingv1beta1.TortoisePhaseInitializing {
 		logger.V(4).Info("initializing tortoise", "tortoise", req.NamespacedName)
 		// need to initialize HPA and VPA.
@@ -139,7 +139,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
-	tortoise, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, dm)
+	tortoise, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, dm, now)
 	if err != nil {
 		logger.Error(err, "update HPA spec from Tortoise autoscaling policy", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -162,7 +162,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 
 	// VPA is ready, we mark all Vertical scaling resources as Running.
-	tortoise = vpa.MakeAllVerticalContainerResourcePhaseWorking(tortoise)
+	tortoise = vpa.MakeAllVerticalContainerResourcePhaseWorking(tortoise, now)
 
 	logger.V(4).Info("VPA created by tortoise is ready, proceeding to generate the recommendation", "tortoise", req.NamespacedName)
 	hpa, err := r.HpaService.GetHPAOnTortoise(ctx, tortoise)
@@ -241,7 +241,7 @@ func (r *TortoiseReconciler) deleteVPAAndHPA(ctx context.Context, tortoise *auto
 
 func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *autoscalingv1beta1.Tortoise, dm *v1.Deployment, now time.Time) error {
 	// need to initialize HPA and VPA.
-	tortoise, err := r.HpaService.InitializeHPA(ctx, tortoise, dm)
+	tortoise, err := r.HpaService.InitializeHPA(ctx, tortoise, dm, now)
 	if err != nil {
 		return err
 	}

@@ -318,16 +318,24 @@ func TestService_InitializeTortoise(t *testing.T) {
 					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
 						{
 							ContainerName: "app",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ContainerResourcePhase{
-								corev1.ResourceMemory: v1beta1.ContainerResourcePhaseGatheringData,
-								corev1.ResourceCPU:    v1beta1.ContainerResourcePhaseGatheringData,
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+								corev1.ResourceMemory: v1beta1.ResourcePhase{
+									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+								},
+								corev1.ResourceCPU: v1beta1.ResourcePhase{
+									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+								},
 							},
 						},
 						{
 							ContainerName: "istio",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ContainerResourcePhase{
-								corev1.ResourceMemory: v1beta1.ContainerResourcePhaseOff,
-								corev1.ResourceCPU:    v1beta1.ContainerResourcePhaseGatheringData,
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+								corev1.ResourceMemory: v1beta1.ResourcePhase{
+									Phase: v1beta1.ContainerResourcePhaseOff,
+								},
+								corev1.ResourceCPU: v1beta1.ResourcePhase{
+									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+								},
 							},
 						},
 					},
@@ -664,9 +672,13 @@ func TestService_InitializeTortoise(t *testing.T) {
 					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
 						{
 							ContainerName: "app",
-							ResourcePhases: map[corev1.ResourceName]v1beta1.ContainerResourcePhase{
-								corev1.ResourceCPU:    v1beta1.ContainerResourcePhaseGatheringData,
-								corev1.ResourceMemory: v1beta1.ContainerResourcePhaseGatheringData,
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+								corev1.ResourceCPU: v1beta1.ResourcePhase{
+									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+								},
+								corev1.ResourceMemory: v1beta1.ResourcePhase{
+									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+								},
 							},
 						},
 					},
@@ -719,8 +731,8 @@ func TestService_InitializeTortoise(t *testing.T) {
 				minMaxReplicasRoutine:                   tt.fields.minMaxReplicasRoutine,
 				timeZone:                                tt.fields.timeZone,
 			}
-			got := s.initializeTortoise(tt.tortoise, tt.deployment)
-			if d := cmp.Diff(got, tt.want); d != "" {
+			got := s.initializeTortoise(tt.tortoise, tt.deployment, time.Now())
+			if d := cmp.Diff(got, tt.want, cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
 				t.Errorf("initializeTortoise() diff = %v", d)
 			}
 		})
@@ -1004,6 +1016,442 @@ func TestService_RecordReconciliationFailure(t *testing.T) {
 			}
 			if got := s.RecordReconciliationFailure(tt.args.t, tt.args.err, now); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Service.RecordReconciliationFailure() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *testing.T) {
+	timeZone := "Asia/Tokyo"
+	now := time.Now()
+	tests := []struct {
+		name     string
+		tortoise *v1beta1.Tortoise
+		want     *v1beta1.Tortoise
+	}{
+		{
+			name: "minReplicas/maxReplicas recommendation is not yet gathered",
+			tortoise: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					TortoisePhase: v1beta1.TortoisePhaseGatheringData,
+					Recommendations: v1beta1.Recommendations{
+						Horizontal: v1beta1.HorizontalRecommendations{
+							MinReplicas: []v1beta1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     8,
+									To:       16,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     16,
+									To:       24,
+									TimeZone: timeZone,
+									// empty
+								},
+							},
+							MaxReplicas: []v1beta1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     8,
+									To:       16,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     16,
+									To:       24,
+									TimeZone: timeZone,
+									// empty
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					TortoisePhase: v1beta1.TortoisePhaseGatheringData,
+					Recommendations: v1beta1.Recommendations{
+						Horizontal: v1beta1.HorizontalRecommendations{
+							MinReplicas: []v1beta1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     8,
+									To:       16,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     16,
+									To:       24,
+									TimeZone: timeZone,
+									// empty
+								},
+							},
+							MaxReplicas: []v1beta1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     8,
+									To:       16,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     16,
+									To:       24,
+									TimeZone: timeZone,
+									// empty
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "some container resource need to gather more data",
+			tortoise: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					TortoisePhase: v1beta1.TortoisePhaseGatheringData,
+					Recommendations: v1beta1.Recommendations{
+						Horizontal: v1beta1.HorizontalRecommendations{
+							MinReplicas: []v1beta1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     8,
+									To:       16,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     16,
+									To:       24,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+							},
+							MaxReplicas: []v1beta1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     8,
+									To:       16,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     16,
+									To:       24,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now.Add(-24 * 1 * time.Hour)),
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+									// finish gathering
+									LastTransitionTime: metav1.NewTime(now.Add(-24 * 8 * time.Hour)),
+								},
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Minute)),
+								},
+								corev1.ResourceMemory: {
+									Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Minute)),
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					TortoisePhase: v1beta1.TortoisePhasePartlyWorking,
+					Recommendations: v1beta1.Recommendations{
+						Horizontal: v1beta1.HorizontalRecommendations{
+							MinReplicas: []v1beta1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     8,
+									To:       16,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     16,
+									To:       24,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+							},
+							MaxReplicas: []v1beta1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     8,
+									To:       16,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     16,
+									To:       24,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now.Add(-24 * 1 * time.Hour)),
+								},
+								corev1.ResourceMemory: {
+									Phase:              v1beta1.ContainerResourcePhaseWorking,
+									LastTransitionTime: metav1.NewTime(now),
+								},
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Minute)),
+								},
+								corev1.ResourceMemory: {
+									Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Minute)),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "all container resource gathered the data",
+			tortoise: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					TortoisePhase: v1beta1.TortoisePhaseGatheringData,
+					Recommendations: v1beta1.Recommendations{
+						Horizontal: v1beta1.HorizontalRecommendations{
+							MinReplicas: []v1beta1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     8,
+									To:       16,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     16,
+									To:       24,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+							},
+							MaxReplicas: []v1beta1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     8,
+									To:       16,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     16,
+									To:       24,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta1.ContainerResourcePhaseWorking,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta1.ContainerResourcePhaseGatheringData,
+									// finish gathering
+									LastTransitionTime: metav1.NewTime(now.Add(-24 * 8 * time.Hour)),
+								},
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase:              v1beta1.ContainerResourcePhaseWorking,
+									LastTransitionTime: metav1.NewTime(now.Add(-24 * 2 * time.Hour)),
+								},
+								corev1.ResourceMemory: {
+									// off is ignored
+									Phase: v1beta1.ContainerResourcePhaseOff,
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta1.Tortoise{
+				Status: v1beta1.TortoiseStatus{
+					TortoisePhase: v1beta1.TortoisePhaseWorking,
+					Recommendations: v1beta1.Recommendations{
+						Horizontal: v1beta1.HorizontalRecommendations{
+							MinReplicas: []v1beta1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     8,
+									To:       16,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     16,
+									To:       24,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+							},
+							MaxReplicas: []v1beta1.ReplicasRecommendation{
+								{
+									From:     0,
+									To:       8,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     8,
+									To:       16,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+								{
+									From:     16,
+									To:       24,
+									TimeZone: timeZone,
+									Value:    3,
+								},
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta1.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta1.ContainerResourcePhaseWorking,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta1.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase:              v1beta1.ContainerResourcePhaseWorking,
+									LastTransitionTime: metav1.NewTime(now.Add(-24 * 2 * time.Hour)),
+								},
+								corev1.ResourceMemory: {
+									// off is ignored
+									Phase: v1beta1.ContainerResourcePhaseOff,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Service{}
+			got := s.changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tt.tortoise, now)
+
+			if d := cmp.Diff(got, tt.want, cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
+				t.Errorf("initializeTortoise() diff = %v", d)
 			}
 		})
 	}

@@ -1062,7 +1062,7 @@ func TestService_InitializeHPA(t *testing.T) {
 			if tt.initialHPA != nil {
 				c = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90)
 			}
-			_, err := c.InitializeHPA(context.Background(), tt.args.tortoise, tt.args.dm)
+			_, err := c.InitializeHPA(context.Background(), tt.args.tortoise, tt.args.dm, time.Now())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Service.InitializeHPA() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -1072,7 +1072,7 @@ func TestService_InitializeHPA(t *testing.T) {
 				t.Errorf("get hpa error = %v", err)
 			}
 
-			if d := cmp.Diff(tt.afterHPA, hpa, cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "TypeMeta"), cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion")); d != "" {
+			if d := cmp.Diff(tt.afterHPA, hpa, cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "TypeMeta"), cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion"), cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
 				t.Errorf("Service.InitializeHPA() hpa diff = %v", d)
 			}
 		})
@@ -1129,16 +1129,24 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 						ContainerResourcePhases: []autoscalingv1beta1.ContainerResourcePhases{
 							{
 								ContainerName: "app",
-								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-									v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseWorking,
-									v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
 								},
 							},
 							{
 								ContainerName: "istio-proxy",
-								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-									v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseWorking,
-									v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
 								},
 							},
 						},
@@ -1245,16 +1253,24 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 					ContainerResourcePhases: []autoscalingv1beta1.ContainerResourcePhases{
 						{
 							ContainerName: "app",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-								v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseWorking,
-								v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								},
+								v1.ResourceMemory: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								},
 							},
 						},
 						{
 							ContainerName: "istio-proxy",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-								v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseGatheringData,
-								v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseGatheringData,
+								},
+								v1.ResourceMemory: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								},
 							},
 						},
 					},
@@ -1354,16 +1370,24 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 						ContainerResourcePhases: []autoscalingv1beta1.ContainerResourcePhases{
 							{
 								ContainerName: "app",
-								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-									v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseWorking,
-									v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
 								},
 							},
 							{
 								ContainerName: "istio-proxy",
-								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-									v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseWorking,
-									v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
 								},
 							},
 						},
@@ -1481,16 +1505,24 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 					ContainerResourcePhases: []autoscalingv1beta1.ContainerResourcePhases{
 						{
 							ContainerName: "app",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-								v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseWorking,
-								v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								},
+								v1.ResourceMemory: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								},
 							},
 						},
 						{
 							ContainerName: "istio-proxy",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-								v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseWorking,
-								v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								},
+								v1.ResourceMemory: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								},
 							},
 						},
 					},
@@ -1580,16 +1612,24 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 						ContainerResourcePhases: []autoscalingv1beta1.ContainerResourcePhases{
 							{
 								ContainerName: "app",
-								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-									v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseWorking,
-									v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
 								},
 							},
 							{
 								ContainerName: "istio-proxy",
-								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-									v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseWorking,
-									v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
 								},
 							},
 						},
@@ -1709,16 +1749,24 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 					ContainerResourcePhases: []autoscalingv1beta1.ContainerResourcePhases{
 						{
 							ContainerName: "app",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-								v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseWorking,
-								v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								},
+								v1.ResourceMemory: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								},
 							},
 						},
 						{
 							ContainerName: "istio-proxy",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-								v1.ResourceCPU:    autoscalingv1beta1.ContainerResourcePhaseWorking,
-								v1.ResourceMemory: autoscalingv1beta1.ContainerResourcePhaseWorking,
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								},
+								v1.ResourceMemory: {
+									Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+								},
 							},
 						},
 					},
@@ -1736,13 +1784,13 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 			if tt.initialHPA != nil {
 				c = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90)
 			}
-			tortoise, err := c.UpdateHPASpecFromTortoiseAutoscalingPolicy(context.Background(), tt.args.tortoise, tt.args.dm)
+			tortoise, err := c.UpdateHPASpecFromTortoiseAutoscalingPolicy(context.Background(), tt.args.tortoise, tt.args.dm, time.Now())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Service.UpdateHPASpecFromTortoiseAutoscalingPolicy() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			if d := cmp.Diff(tt.wantTortoise, tortoise); d != "" {
+			if d := cmp.Diff(tt.wantTortoise, tortoise, cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
 				t.Errorf("Service.UpdateHPASpecFromTortoiseAutoscalingPolicy() tortoise diff = %v", d)
 			}
 

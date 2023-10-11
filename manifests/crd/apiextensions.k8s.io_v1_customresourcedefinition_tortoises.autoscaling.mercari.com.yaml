@@ -483,7 +483,16 @@ spec:
                       type: string
                     resourcePhases:
                       additionalProperties:
-                        type: string
+                        properties:
+                          lastTransitionTime:
+                            description: lastTransitionTime is the last time the condition transitioned from one status to another
+                            format: date-time
+                            type: string
+                          phase:
+                            type: string
+                        required:
+                        - phase
+                        type: object
                       description: ResourcePhases is the phase of each resource of this container.
                       type: object
                   required:

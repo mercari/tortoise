@@ -3,6 +3,7 @@ package vpa
 import (
 	"context"
 	"fmt"
+	"time"
 
 	autoscaling "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -274,7 +275,7 @@ func (c *Service) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscali
 	return vpa, false, nil
 }
 
-func MakeAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta1.Tortoise) *autoscalingv1beta1.Tortoise {
+func MakeAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta1.Tortoise, now time.Time) *autoscalingv1beta1.Tortoise {
 	verticalResourceAndContainer := sets.New[resourceNameAndContainerName]()
 	for _, p := range tortoise.Spec.ResourcePolicy {
 		for rn, ap := range p.AutoscalingPolicy {
@@ -288,7 +289,10 @@ func MakeAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta1.T
 	for _, d := range verticalResourceAndContainer.UnsortedList() {
 		for i, p := range tortoise.Status.ContainerResourcePhases {
 			if p.ContainerName == d.containerName {
-				tortoise.Status.ContainerResourcePhases[i].ResourcePhases[d.rn] = autoscalingv1beta1.ContainerResourcePhaseWorking
+				tortoise.Status.ContainerResourcePhases[i].ResourcePhases[d.rn] = autoscalingv1beta1.ResourcePhase{
+					Phase:              autoscalingv1beta1.ContainerResourcePhaseWorking,
+					LastTransitionTime: metav1.NewTime(now),
+				}
 				found = true
 				break
 			}
@@ -296,8 +300,11 @@ func MakeAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta1.T
 		if !found {
 			tortoise.Status.ContainerResourcePhases = append(tortoise.Status.ContainerResourcePhases, autoscalingv1beta1.ContainerResourcePhases{
 				ContainerName: d.containerName,
-				ResourcePhases: map[corev1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
-					d.rn: autoscalingv1beta1.ContainerResourcePhaseWorking,
+				ResourcePhases: map[corev1.ResourceName]autoscalingv1beta1.ResourcePhase{
+					d.rn: {
+						Phase:              autoscalingv1beta1.ContainerResourcePhaseWorking,
+						LastTransitionTime: metav1.NewTime(now),
+					},
 				},
 			})
 		}
