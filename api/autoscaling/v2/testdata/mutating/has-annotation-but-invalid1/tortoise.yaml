@@ -22,6 +22,15 @@ spec:
         memory: Vertical
 status:
   tortoisePhase: Working
+  containerResourcePhases:
+    - containerName: "nginx"
+      resourcePhases:
+        cpu: Working 
+        memory: Working
+    - containerName: "istio-proxy"
+      resourcePhases: 
+        cpu: Working 
+        memory: Working
   targets:
     deployment: sample
     horizontalPodAutoscaler: sample

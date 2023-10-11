@@ -65,3 +65,12 @@ status:
     - name: tortoise-monitor-mercari
       role: Monitor
   tortoisePhase: Emergency
+  containerResourcePhases:
+    - containerName: "nginx"
+      resourcePhases:
+        cpu: Working 
+        memory: Working
+    - containerName: "istio-proxy"
+      resourcePhases: 
+        cpu: Working 
+        memory: Working

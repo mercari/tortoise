@@ -363,7 +363,7 @@ spec:
                 description: TargetRefs has reference to involved resources.
                 properties:
                   horizontalPodAutoscalerName:
-                    description: "HorizontalPodAutoscalerName is the name of the target HPA. The target of this HPA should be the same as the DeploymentName above. The target HPA should have the ContainerResource type metric or the external metric refers to the container resource utilization. Please check out the document for more detail: https://github.com/mercari/tortoise/blob/master/docs/horizontal.md#supported-metrics-in-hpa \n You can specify either of existing HPA only. This is an optional field, and if you don't specify this field, tortoise will create a new default HPA named `tortoise-hpa-{tortoise name}`."
+                    description: "HorizontalPodAutoscalerName is the name of the target HPA. The target of this HPA should be the same as the ScaleTargetRef above. The target HPA should have the ContainerResource type metric or the external metric refers to the container resource utilization. Please check out the document for more detail: https://github.com/mercari/tortoise/blob/master/docs/horizontal.md#supported-metrics-in-hpa \n You can specify either of existing HPA only. This is an optional field, and if you don't specify this field, tortoise will create a new default HPA named `tortoise-hpa-{tortoise name}`."
                     type: string
                   scaleTargetRef:
                     description: ScaleTargetRef is the target of scaling. It should be the same as the target of HPA.
@@ -475,6 +475,22 @@ spec:
                     - type
                     x-kubernetes-list-type: map
                 type: object
+              containerResourcePhases:
+                items:
+                  properties:
+                    containerName:
+                      description: ContainerName is the name of target container.
+                      type: string
+                    resourcePhases:
+                      additionalProperties:
+                        type: string
+                      description: ResourcePhases is the phase of each resource of this container.
+                      type: object
+                  required:
+                  - containerName
+                  - resourcePhases
+                  type: object
+                type: array
               recommendations:
                 properties:
                   horizontal:
@@ -608,6 +624,7 @@ spec:
                 type: string
             required:
             - conditions
+            - containerResourcePhases
             - recommendations
             - targets
             - tortoisePhase

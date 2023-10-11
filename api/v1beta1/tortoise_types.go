@@ -118,7 +118,7 @@ type TargetRefs struct {
 	// It should be the same as the target of HPA.
 	ScaleTargetRef CrossVersionObjectReference `json:"scaleTargetRef" protobuf:"bytes,1,name=scaleTargetRef"`
 	// HorizontalPodAutoscalerName is the name of the target HPA.
-	// The target of this HPA should be the same as the DeploymentName above.
+	// The target of this HPA should be the same as the ScaleTargetRef above.
 	// The target HPA should have the ContainerResource type metric or the external metric refers to the container resource utilization.
 	// Please check out the document for more detail: https://github.com/mercari/tortoise/blob/master/docs/horizontal.md#supported-metrics-in-hpa
 	//
@@ -143,11 +143,44 @@ type CrossVersionObjectReference struct {
 
 // TortoiseStatus defines the observed state of Tortoise
 type TortoiseStatus struct {
-	TortoisePhase   TortoisePhase   `json:"tortoisePhase" protobuf:"bytes,1,name=tortoisePhase"`
-	Conditions      Conditions      `json:"conditions" protobuf:"bytes,2,name=conditions"`
-	Recommendations Recommendations `json:"recommendations" protobuf:"bytes,3,name=recommendations"`
-	Targets         TargetsStatus   `json:"targets" protobuf:"bytes,4,name=targets"`
+	TortoisePhase           TortoisePhase             `json:"tortoisePhase" protobuf:"bytes,1,name=tortoisePhase"`
+	Conditions              Conditions                `json:"conditions" protobuf:"bytes,2,name=conditions"`
+	Recommendations         Recommendations           `json:"recommendations" protobuf:"bytes,3,name=recommendations"`
+	Targets                 TargetsStatus             `json:"targets" protobuf:"bytes,4,name=targets"`
+	ContainerResourcePhases []ContainerResourcePhases `json:"containerResourcePhases" protobuf:"bytes,5,name=containerResourcePhases"`
 }
+
+type ContainerResourcePhases struct {
+	// ContainerName is the name of target container.
+	ContainerName string `json:"containerName" protobuf:"bytes,1,name=containerName"`
+	// ResourcePhases is the phase of each resource of this container.
+	ResourceePhases map[v1.ResourceName]ContainerResourcePhase `json:"resourcePhases" protobuf:"bytes,2,name=resourcePhases"`
+}
+
+type ContainerResourcePhase string
+
+const (
+	ContainerResourcePhaseGatheringData ContainerResourcePhase = "GatheringData"
+	ContainerResourcePhaseWorking       ContainerResourcePhase = "Working"
+)
+
+type TortoisePhase string
+
+const (
+	// TortoisePhaseInitializing means tortoise is just created and initializing some components (HPA and VPAs),
+	// and wait for those components to be ready.
+	TortoisePhaseInitializing TortoisePhase = "Initializing"
+	// TortoisePhaseGatheringData means tortoise is now gathering data and cannot make the accurate recommendations.
+	TortoisePhaseGatheringData TortoisePhase = "GatheringData"
+	// TortoisePhaseWorking means tortoise is making the recommendations,
+	// and applying the recommendation values.
+	TortoisePhaseWorking TortoisePhase = "Working"
+	// TortoisePhaseEmergency means tortoise is in the emergency mode.
+	TortoisePhaseEmergency TortoisePhase = "Emergency"
+	// TortoisePhaseBackToNormal means tortoise was in the emergency mode, and now it's coming back to the normal operation.
+	// During TortoisePhaseBackToNormal, the number of replicas of workloads are gradually reduced to the usual value.
+	TortoisePhaseBackToNormal TortoisePhase = "BackToNormal"
+)
 
 type TargetsStatus struct {
 	// +optional
@@ -222,24 +255,6 @@ type ReplicasRecommendation struct {
 	// +optional
 	UpdatedAt metav1.Time `json:"updatedAt,omitempty" protobuf:"bytes,6,opt,name=updatedAt"`
 }
-
-type TortoisePhase string
-
-const (
-	// TortoisePhaseInitializing means tortoise is just created and initializing some components (HPA and VPAs),
-	// and wait for those components to be ready.
-	TortoisePhaseInitializing TortoisePhase = "Initializing"
-	// TortoisePhaseGatheringData means tortoise is now gathering data and cannot make the accurate recommendations.
-	TortoisePhaseGatheringData TortoisePhase = "GatheringData"
-	// TortoisePhaseWorking means tortoise is making the recommendations,
-	// and applying the recommendation values.
-	TortoisePhaseWorking TortoisePhase = "Working"
-	// TortoisePhaseEmergency means tortoise is in the emergency mode.
-	TortoisePhaseEmergency TortoisePhase = "Emergency"
-	// TortoisePhaseBackToNormal means tortoise was in the emergency mode, and now it's coming back to the normal operation.
-	// During TortoisePhaseBackToNormal, the number of replicas of workloads are gradually reduced to the usual value.
-	TortoisePhaseBackToNormal TortoisePhase = "BackToNormal"
-)
 
 type HPATargetUtilizationRecommendationPerContainer struct {
 	// ContainerName is the name of target container.
