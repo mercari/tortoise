@@ -187,6 +187,22 @@ func (s *Service) initializeTortoise(tortoise *v1beta1.Tortoise, dm *appv1.Deplo
 	}
 	tortoise.Status.Targets.Deployment = dm.Name
 
+	for _, p := range tortoise.Spec.ResourcePolicy {
+		phase := v1beta1.ContainerResourcePhases{
+			ContainerName:  p.ContainerName,
+			ResourcePhases: map[corev1.ResourceName]v1beta1.ContainerResourcePhase{},
+		}
+		for rn, policy := range p.AutoscalingPolicy {
+			if policy == v1beta1.AutoscalingTypeOff {
+				phase.ResourcePhases[rn] = v1beta1.ContainerResourcePhaseOff
+				continue
+			}
+
+			phase.ResourcePhases[rn] = v1beta1.ContainerResourcePhaseGatheringData
+		}
+		tortoise.Status.ContainerResourcePhases = append(tortoise.Status.ContainerResourcePhases, phase)
+	}
+
 	return tortoise.DeepCopy()
 }
 

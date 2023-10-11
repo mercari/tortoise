@@ -154,7 +154,7 @@ type ContainerResourcePhases struct {
 	// ContainerName is the name of target container.
 	ContainerName string `json:"containerName" protobuf:"bytes,1,name=containerName"`
 	// ResourcePhases is the phase of each resource of this container.
-	ResourceePhases map[v1.ResourceName]ContainerResourcePhase `json:"resourcePhases" protobuf:"bytes,2,name=resourcePhases"`
+	ResourcePhases map[v1.ResourceName]ContainerResourcePhase `json:"resourcePhases" protobuf:"bytes,2,name=resourcePhases"`
 }
 
 type ContainerResourcePhase string
@@ -162,6 +162,7 @@ type ContainerResourcePhase string
 const (
 	ContainerResourcePhaseGatheringData ContainerResourcePhase = "GatheringData"
 	ContainerResourcePhaseWorking       ContainerResourcePhase = "Working"
+	ContainerResourcePhaseOff           ContainerResourcePhase = "Off"
 )
 
 type TortoisePhase string

@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	"k8s.io/client-go/rest"
@@ -271,4 +272,41 @@ func (c *Service) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscali
 	}
 
 	return vpa, false, nil
+}
+
+func MakeAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta1.Tortoise) *autoscalingv1beta1.Tortoise {
+	verticalResourceAndContainer := sets.New[resourceNameAndContainerName]()
+	for _, p := range tortoise.Spec.ResourcePolicy {
+		for rn, ap := range p.AutoscalingPolicy {
+			if ap == autoscalingv1beta1.AutoscalingTypeVertical {
+				verticalResourceAndContainer.Insert(resourceNameAndContainerName{rn, p.ContainerName})
+			}
+		}
+	}
+
+	found := false
+	for _, d := range verticalResourceAndContainer.UnsortedList() {
+		for i, p := range tortoise.Status.ContainerResourcePhases {
+			if p.ContainerName == d.containerName {
+				tortoise.Status.ContainerResourcePhases[i].ResourcePhases[d.rn] = autoscalingv1beta1.ContainerResourcePhaseWorking
+				found = true
+				break
+			}
+		}
+		if !found {
+			tortoise.Status.ContainerResourcePhases = append(tortoise.Status.ContainerResourcePhases, autoscalingv1beta1.ContainerResourcePhases{
+				ContainerName: d.containerName,
+				ResourcePhases: map[corev1.ResourceName]autoscalingv1beta1.ContainerResourcePhase{
+					d.rn: autoscalingv1beta1.ContainerResourcePhaseWorking,
+				},
+			})
+		}
+	}
+
+	return tortoise
+}
+
+type resourceNameAndContainerName struct {
+	rn            corev1.ResourceName
+	containerName string
 }
