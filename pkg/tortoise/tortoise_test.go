@@ -759,7 +759,7 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1beta1.TortoiseSpec{
-					UpdateMode: v1beta1.AutoUpdateMode,
+					UpdateMode: v1beta1.UpdateModeAuto,
 				},
 			},
 			want: true,
@@ -775,7 +775,7 @@ func TestService_ShouldReconcileTortoiseNow(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1beta1.TortoiseSpec{
-					UpdateMode: v1beta1.AutoUpdateMode,
+					UpdateMode: v1beta1.UpdateModeAuto,
 				},
 			},
 			want:         false,

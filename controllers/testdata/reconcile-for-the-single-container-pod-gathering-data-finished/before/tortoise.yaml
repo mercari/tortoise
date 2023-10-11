@@ -59,11 +59,11 @@ status:
       role: Updater
     - name: tortoise-monitor-mercari
       role: Monitor
-  tortoisePhase: Working
+  tortoisePhase: GatheringData
   containerResourcePhases:
     - containerName: "app"
       resourcePhases:
         cpu: 
-          phase: Working 
+          phase: GatheringData
         memory:
-          phase: Working 
+          phase: GatheringData 

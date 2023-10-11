@@ -101,7 +101,7 @@ type UpdateMode string
 const (
 	UpdateModeOff       UpdateMode = "Off"
 	UpdateModeEmergency UpdateMode = "Emergency"
-	AutoUpdateMode      UpdateMode = "Auto"
+	UpdateModeAuto      UpdateMode = "Auto"
 )
 
 // +kubebuilder:validation:Enum=Off;Horizontal;Vertical
@@ -184,7 +184,7 @@ const (
 	// TortoisePhaseWorking means tortoise is making the recommendations,
 	// and applying the recommendation values.
 	TortoisePhaseWorking TortoisePhase = "Working"
-	// TortoisePhasePartlyWorking means tortoise is making the recommendations,
+	// TortoisePhasePartlyWorking means tortoise has maxReplicas and minReplicas recommendations ready,
 	// and applying the recommendation values.
 	// But, some of the resources are not scaled due to some reasons. (probably still gathering data)
 	TortoisePhasePartlyWorking TortoisePhase = "PartlyWorking"

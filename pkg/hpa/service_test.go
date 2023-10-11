@@ -60,6 +60,24 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 						},
 					},
 					Status: autoscalingv1beta1.TortoiseStatus{
+						ContainerResourcePhases: []autoscalingv1beta1.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
 						Targets: autoscalingv1beta1.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
 						},
@@ -198,6 +216,24 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 						UpdateMode: autoscalingv1beta1.UpdateModeOff,
 					},
 					Status: autoscalingv1beta1.TortoiseStatus{
+						ContainerResourcePhases: []autoscalingv1beta1.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
 						Targets: autoscalingv1beta1.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
 						},
@@ -304,6 +340,162 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
 									AverageUtilization: pointer.Int32(50),
+								},
+								Container: "istio-proxy",
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "no update preformed when ContainerResourcePhases isn't working",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &autoscalingv1beta1.Tortoise{
+					Spec: autoscalingv1beta1.TortoiseSpec{
+						ResourcePolicy: []autoscalingv1beta1.ContainerResourcePolicy{
+							{
+								ContainerName: "app",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceMemory: v1beta1.AutoscalingTypeHorizontal,
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta1.AutoscalingType{
+									v1.ResourceCPU: v1beta1.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						UpdateMode: autoscalingv1beta1.UpdateModeAuto,
+					},
+					Status: autoscalingv1beta1.TortoiseStatus{
+						ContainerResourcePhases: []autoscalingv1beta1.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta1.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta1.ContainerResourcePhaseGatheringData,
+									},
+								},
+							},
+						},
+						Targets: autoscalingv1beta1.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: autoscalingv1beta1.Recommendations{
+							Horizontal: autoscalingv1beta1.HorizontalRecommendations{
+								TargetUtilizations: []autoscalingv1beta1.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceMemory: 90,
+										},
+									},
+									{
+										ContainerName: "istio-proxy",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []autoscalingv1beta1.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     6,
+										UpdatedAt: now,
+										WeekDay:   pointer.String(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []autoscalingv1beta1.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   pointer.String(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ObjectMetricSourceType,
+							// should be ignored
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: pointer.Int32(60),
+								},
+								Container: "app",
+							},
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: pointer.Int32(50),
+								},
+								Container: "istio-proxy",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 6,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ObjectMetricSourceType,
+							// should be ignored
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: pointer.Int32(90), // updated
+								},
+								Container: "app",
+							},
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: pointer.Int32(50), // not updated
 								},
 								Container: "istio-proxy",
 							},

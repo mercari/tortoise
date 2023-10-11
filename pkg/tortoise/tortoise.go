@@ -93,6 +93,9 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1beta1.Tortoise, dm *appv1.Depl
 		if tortoise.Status.TortoisePhase == v1beta1.TortoisePhaseWorking {
 			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Working", "Tortoise finishes gathering data and it starts to work on autoscaling")
 		}
+		if tortoise.Status.TortoisePhase == v1beta1.TortoisePhasePartlyWorking {
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, "PartlyWorking", "Tortoise finishes gathering data in some metrics and it starts to work on autoscaling for those metrics. But some metrics are still gathering data")
+		}
 	case v1beta1.TortoisePhasePartlyWorking:
 		tortoise = s.changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise, now)
 		if tortoise.Status.TortoisePhase == v1beta1.TortoisePhaseWorking {
@@ -128,7 +131,8 @@ func (s *Service) changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tort
 		}
 	}
 
-	// At least, MaxReplicas/MinReplicas recommendation are ready.
+	// Until MaxReplicas/MinReplicas recommendation are ready,
+	// we never set TortoisePhase to Working or PartlyWorking.
 
 	someAreGathering := false
 	someAreWorking := false
