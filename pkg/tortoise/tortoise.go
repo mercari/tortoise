@@ -75,10 +75,10 @@ func (s *Service) ShouldReconcileTortoiseNow(tortoise *v1beta1.Tortoise, now tim
 	return false, lastTime.Add(s.tortoiseUpdateInterval).Sub(now)
 }
 
-func (s *Service) UpdateTortoisePhase(tortoise *v1beta1.Tortoise, dm *appv1.Deployment) *v1beta1.Tortoise {
+func (s *Service) UpdateTortoisePhase(tortoise *v1beta1.Tortoise, dm *appv1.Deployment, now time.Time) *v1beta1.Tortoise {
 	switch tortoise.Status.TortoisePhase {
 	case "":
-		tortoise = s.initializeTortoise(tortoise, dm)
+		tortoise = s.initializeTortoise(tortoise, dm, now)
 		r := "1 week"
 		if s.minMaxReplicasRoutine == "daily" {
 			r = "1 day"
@@ -89,7 +89,12 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1beta1.Tortoise, dm *appv1.Depl
 		// change it to GatheringData anyway. Later the controller may change it back to initialize if VPA isn't ready.
 		tortoise.Status.TortoisePhase = v1beta1.TortoisePhaseGatheringData
 	case v1beta1.TortoisePhaseGatheringData:
-		tortoise = s.checkIfTortoiseFinishedGatheringData(tortoise)
+		tortoise = s.changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise, now)
+		if tortoise.Status.TortoisePhase == v1beta1.TortoisePhaseWorking {
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Working", "Tortoise finishes gathering data and it starts to work on autoscaling")
+		}
+	case v1beta1.TortoisePhasePartlyWorking:
+		tortoise = s.changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise, now)
 		if tortoise.Status.TortoisePhase == v1beta1.TortoisePhaseWorking {
 			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Working", "Tortoise finishes gathering data and it starts to work on autoscaling")
 		}
@@ -111,7 +116,7 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1beta1.Tortoise, dm *appv1.Depl
 	return tortoise
 }
 
-func (s *Service) checkIfTortoiseFinishedGatheringData(tortoise *v1beta1.Tortoise) *v1beta1.Tortoise {
+func (s *Service) changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise *v1beta1.Tortoise, now time.Time) *v1beta1.Tortoise {
 	for _, r := range tortoise.Status.Recommendations.Horizontal.MinReplicas {
 		if r.Value == 0 {
 			return tortoise
@@ -123,7 +128,42 @@ func (s *Service) checkIfTortoiseFinishedGatheringData(tortoise *v1beta1.Tortois
 		}
 	}
 
-	tortoise.Status.TortoisePhase = v1beta1.TortoisePhaseWorking
+	// At least, MaxReplicas/MinReplicas recommendation are ready.
+
+	someAreGathering := false
+	someAreWorking := false
+	for i, c := range tortoise.Status.ContainerResourcePhases {
+		for rn, p := range c.ResourcePhases {
+			if p.Phase == v1beta1.ContainerResourcePhaseOff {
+				// ignore
+				continue
+			}
+			if p.Phase == v1beta1.ContainerResourcePhaseWorking {
+				someAreWorking = true
+				continue
+			}
+			// If the last transition time is within 1 week, we consider it's still gathering data.
+			if p.LastTransitionTime.Add(7 * 24 * time.Hour).After(now) {
+				someAreGathering = true
+			} else {
+				// It's finish gathering data.
+				tortoise.Status.ContainerResourcePhases[i].ResourcePhases[rn] = v1beta1.ResourcePhase{
+					Phase:              v1beta1.ContainerResourcePhaseWorking,
+					LastTransitionTime: metav1.NewTime(now),
+				}
+				someAreWorking = true
+			}
+		}
+	}
+
+	if someAreGathering && someAreWorking {
+		// Some are working, but some are still gathering data.
+		tortoise.Status.TortoisePhase = v1beta1.TortoisePhasePartlyWorking
+	} else if !someAreGathering && someAreWorking {
+		// All are working.
+		tortoise.Status.TortoisePhase = v1beta1.TortoisePhaseWorking
+	}
+
 	return tortoise
 }
 
@@ -167,7 +207,7 @@ func (s *Service) initializeMinMaxReplicas(tortoise *v1beta1.Tortoise) *v1beta1.
 	return tortoise
 }
 
-func (s *Service) initializeTortoise(tortoise *v1beta1.Tortoise, dm *appv1.Deployment) *v1beta1.Tortoise {
+func (s *Service) initializeTortoise(tortoise *v1beta1.Tortoise, dm *appv1.Deployment, now time.Time) *v1beta1.Tortoise {
 	tortoise = s.initializeMinMaxReplicas(tortoise)
 	tortoise.Status.TortoisePhase = v1beta1.TortoisePhaseInitializing
 
@@ -190,15 +230,21 @@ func (s *Service) initializeTortoise(tortoise *v1beta1.Tortoise, dm *appv1.Deplo
 	for _, p := range tortoise.Spec.ResourcePolicy {
 		phase := v1beta1.ContainerResourcePhases{
 			ContainerName:  p.ContainerName,
-			ResourcePhases: map[corev1.ResourceName]v1beta1.ContainerResourcePhase{},
+			ResourcePhases: map[corev1.ResourceName]v1beta1.ResourcePhase{},
 		}
 		for rn, policy := range p.AutoscalingPolicy {
 			if policy == v1beta1.AutoscalingTypeOff {
-				phase.ResourcePhases[rn] = v1beta1.ContainerResourcePhaseOff
+				phase.ResourcePhases[rn] = v1beta1.ResourcePhase{
+					Phase:              v1beta1.ContainerResourcePhaseOff,
+					LastTransitionTime: metav1.NewTime(now),
+				}
 				continue
 			}
 
-			phase.ResourcePhases[rn] = v1beta1.ContainerResourcePhaseGatheringData
+			phase.ResourcePhases[rn] = v1beta1.ResourcePhase{
+				Phase:              v1beta1.ContainerResourcePhaseGatheringData,
+				LastTransitionTime: metav1.NewTime(now),
+			}
 		}
 		tortoise.Status.ContainerResourcePhases = append(tortoise.Status.ContainerResourcePhases, phase)
 	}

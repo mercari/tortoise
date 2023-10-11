@@ -92,9 +92,13 @@ status:
   containerResourcePhases:
     - containerName: "app"
       resourcePhases:
-        cpu: GatheringData
-        memory: Working
+        cpu: 
+          phase: GatheringData 
+        memory:
+          phase: Working 
     - containerName: "istio-proxy"
-      resourcePhases: 
-        cpu: Working 
-        memory: Working
+      resourcePhases:
+        cpu: 
+          phase: Working 
+        memory:
+          phase: Working 
