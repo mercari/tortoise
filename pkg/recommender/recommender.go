@@ -115,20 +115,37 @@ func (s *Service) updateVPARecommendation(tortoise *v1beta2.Tortoise, deployment
 	return tortoise, nil
 }
 
-func (s *Service) calculateBestNewSize(p v1beta2.AutoscalingType, containerName string, recom resource.Quantity, k corev1.ResourceName, hpa *v2.HorizontalPodAutoscaler, deployment *v1.Deployment, req resource.Quantity, minAllocatedResources corev1.ResourceList) (int64, error) {
-	// Make the container size bigger (just multiple by s.preferredReplicaNumUpperLimit)
-	// when the current replica num is more than or equal to the preferredReplicaNumUpperLimit.
+// calculateBestNewSize calculates the best new resource request based on the current replica number and the recommended resource request.
+// Even if the autoscaling policy is Horizontal, this function may suggest the vertical scaling, see comments in the function.
+func (s *Service) calculateBestNewSize(p v1beta2.AutoscalingType, containerName string, recommendedResourceRequest resource.Quantity, k corev1.ResourceName, hpa *v2.HorizontalPodAutoscaler, deployment *v1.Deployment, resourceRequest resource.Quantity, minAllocatedResources corev1.ResourceList) (int64, error) {
+	// When the current replica num is more than or equal to the preferredReplicaNumUpperLimit,
+	// make the container size bigger (just multiple by 1.1) so that the replica number will be descreased.
 	if deployment.Status.Replicas >= s.preferredReplicaNumUpperLimit {
-		newSize := int64(float64(req.MilliValue()) * 1.1)
-		return s.justifyNewSizeByMaxMin(newSize, k, req, minAllocatedResources), nil
+		// We keep increasing the size until we hit the maxResourceSize.
+		newSize := int64(float64(resourceRequest.MilliValue()) * 1.1)
+		return s.justifyNewSizeByMaxMin(newSize, k, resourceRequest, minAllocatedResources), nil
 	}
 
-	// change the container size based on the VPA recommendation when:
-	// - user configure Vertical on this container's resource
-	// - the current replica num is less than or equal to the minimumMinReplicas.
 	if deployment.Status.Replicas <= s.minimumMinReplicas || p == v1beta2.AutoscalingTypeVertical {
-		newSize := recom.MilliValue()
-		return s.justifyNewSizeByMaxMin(newSize, k, req, minAllocatedResources), nil
+		// It's the simplest case.
+		// The user configures Vertical on this container's resource. This is just vertical scaling.
+		newSize := recommendedResourceRequest.MilliValue()
+		return s.justifyNewSizeByMaxMin(newSize, k, resourceRequest, minAllocatedResources), nil
+	}
+
+	if deployment.Status.Replicas <= s.minimumMinReplicas || p == v1beta2.AutoscalingTypeVertical {
+		// The current replica number is less than or equal to the minimumMinReplicas.
+		// The replica number is too small and hits the minReplicas.
+		// So, the resource utilization might be super low because HPA cannot scale down further.
+		// In this case, we'd like to reduce the resource request as much as possible so that the resource utilization will be higher.
+		// And note that we don't increase the resource request even if VPA recommends it.
+		// If the resource utilization goes up, HPA does scale up, not VPA.
+		newSize := resourceRequest.MilliValue()
+		if recommendedResourceRequest.MilliValue() < resourceRequest.MilliValue() {
+			// We use the recommended resource request if it's smaller than the current resource request.
+			newSize = recommendedResourceRequest.MilliValue()
+		}
+		return s.justifyNewSizeByMaxMin(newSize, k, resourceRequest, minAllocatedResources), nil
 	}
 
 	if p == v1beta2.AutoscalingTypeHorizontal {
@@ -137,25 +154,28 @@ func (s *Service) calculateBestNewSize(p v1beta2.AutoscalingType, containerName 
 			return 0, fmt.Errorf("get the target value from HPA: %w", err)
 		}
 
-		upperUtilization := math.Ceil((float64(recom.MilliValue()) / float64(req.MilliValue())) * 100)
+		upperUtilization := math.Ceil((float64(recommendedResourceRequest.MilliValue()) / float64(resourceRequest.MilliValue())) * 100)
 		if targetUtilizationValue > int32(upperUtilization) && len(deployment.Spec.Template.Spec.Containers) >= 2 {
-			// upperUtilization is less than targetUtilizationValue.
-			// This case, most likely the container size is unbalanced.
-			// (one resource is very bigger than its usual consumption)
-			// https://github.com/mercari/tortoise/issues/24
+			// upperUtilization is less than targetUtilizationValue, which seems weird in normal cases.
+			// In this case, most likely the container size is unbalanced. (= we need multi-container specific optimization)
+			// So, for example, when app:istio use the resource in the ratio of 1:5, but the resource request is 1:1,
+			// the resource given to istio is always wasted. (since HPA is always kicked by the resource utilization of app)
 			//
-			// And this case, reducing the resource request so that upper usage will be the target usage.
-			newSize := int64(float64(recom.MilliValue()) * 100.0 / float64(targetUtilizationValue))
-			return s.justifyNewSizeByMaxMin(newSize, k, req, minAllocatedResources), nil
+			// And this case, reducing the resource request of container in this kind of weird situation
+			// so that the upper usage will be the target usage.
+			newSize := int64(float64(recommendedResourceRequest.MilliValue()) * 100.0 / float64(targetUtilizationValue))
+			return s.justifyNewSizeByMaxMin(newSize, k, resourceRequest, minAllocatedResources), nil
 		}
 	}
 
-	return req.MilliValue(), nil
+	// Didn't fall into any cases above.
+	// Just keep the current resource request.
+	return resourceRequest.MilliValue(), nil
 }
 
-func (s *Service) justifyNewSizeByMaxMin(newSize int64, k corev1.ResourceName, req resource.Quantity, MinAllocatedResources corev1.ResourceList) int64 {
+func (s *Service) justifyNewSizeByMaxMin(newSize int64, k corev1.ResourceName, req resource.Quantity, minAllocatedResources corev1.ResourceList) int64 {
 	max := s.maxResourceSize[k]
-	min := MinAllocatedResources[k]
+	min := minAllocatedResources[k]
 
 	if req.MilliValue() > max.MilliValue() {
 		return req.MilliValue()
