@@ -132,7 +132,7 @@ func (s *Service) calculateBestNewSize(p v1beta2.AutoscalingType, containerName 
 	}
 
 	if p == v1beta2.AutoscalingTypeHorizontal {
-		targetUtilizationValue, err := getHPATargetValue(hpa, containerName, k, len(deployment.Spec.Template.Spec.Containers) == 1)
+		targetUtilizationValue, err := getHPATargetValue(hpa, containerName, k)
 		if err != nil {
 			return 0, fmt.Errorf("get the target value from HPA: %w", err)
 		}
@@ -280,7 +280,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 				continue
 			}
 
-			targetValue, err := getHPATargetValue(hpa, r.ContainerName, k, len(tortoise.Spec.ResourcePolicy) == 1)
+			targetValue, err := getHPATargetValue(hpa, r.ContainerName, k)
 			if err != nil {
 				return tortoise, fmt.Errorf("try to find the metric for the conainter which is configured to be scale by Horizontal: %w", err)
 			}
@@ -320,21 +320,9 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 	return tortoise, nil
 }
 
-// Currently, only supports:
-// - The container resource metric with AverageUtilization.
-// - The external metric with AverageUtilization.
-func getHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName, isSingleContainerDeployment bool) (int32, error) {
-	for _, m := range hpa.Spec.Metrics {
-		if isSingleContainerDeployment && m.Type == v2.ResourceMetricSourceType && m.Resource.Target.Type == v2.UtilizationMetricType && m.Resource.Name == k {
-			// If the deployment has only one container, the resource metric is the metric for the container.
-			return *m.Resource.Target.AverageUtilization, nil
-		}
-	}
-
-	// If the deployment has more than one container, the container resource metric is the metric for the container.
-	// Also, even if the deployment has only one container, the container resource metric might be used instead of resource metric.
-	// So, check the container resource metric as well.
-
+// getHPATargetValue gets the target value of the HPA.
+// It looks for the corresponding metric (ContainerResource) and gets the target value.
+func getHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName) (int32, error) {
 	for _, m := range hpa.Spec.Metrics {
 		if m.Type != v2.ContainerResourceMetricSourceType {
 			continue
@@ -357,7 +345,6 @@ func getHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k 
 }
 
 func updateRecommendedContainerBasedMetric(upperUsage, currentTarget int32) int32 {
-	// TODO: what happens if the resource request get changed? Should we change the phase to GatheringData?
 	additionalResource := upperUsage - currentTarget
 	return 100 - additionalResource
 }
