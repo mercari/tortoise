@@ -29,19 +29,21 @@ import (
 type Service struct {
 	c client.Client
 
-	replicaReductionFactor                  float64
-	upperTargetResourceUtilization          int32
-	tortoiseHPATargetUtilizationMaxIncrease int
-	recorder                                record.EventRecorder
+	replicaReductionFactor                     float64
+	upperTargetResourceUtilization             int32
+	tortoiseHPATargetUtilizationMaxIncrease    int
+	recorder                                   record.EventRecorder
+	tortoiseHPATargetUtilizationUpdateInterval time.Duration
 }
 
-func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor float64, upperTargetResourceUtilization, tortoiseHPATargetUtilizationMaxIncrease int) *Service {
+func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor float64, upperTargetResourceUtilization, tortoiseHPATargetUtilizationMaxIncrease int, tortoiseHPATargetUtilizationUpdateInterval time.Duration) *Service {
 	return &Service{
 		c:                                       c,
 		replicaReductionFactor:                  replicaReductionFactor,
 		upperTargetResourceUtilization:          int32(upperTargetResourceUtilization),
 		tortoiseHPATargetUtilizationMaxIncrease: tortoiseHPATargetUtilizationMaxIncrease,
 		recorder:                                recorder,
+		tortoiseHPATargetUtilizationUpdateInterval: tortoiseHPATargetUtilizationUpdateInterval,
 	}
 }
 
@@ -300,6 +302,39 @@ func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1b
 	return hpa, nil
 }
 
+func (s *Service) UpdatingHPATargetUtilizationAllowed(tortoise *autoscalingv1beta2.Tortoise, now time.Time) (*autoscalingv1beta2.Tortoise, bool) {
+	for i, c := range tortoise.Status.Conditions.TortoiseConditions {
+		if c.Type == autoscalingv1beta2.TortoiseConditionTypeHPATargetUtilizationUpdated {
+			tortoise.Status.Conditions.TortoiseConditions[i].LastUpdateTime = metav1.NewTime(now)
+			// if the last update is within the interval, we don't update the HPA.
+			return tortoise, c.LastTransitionTime.Add(s.tortoiseHPATargetUtilizationUpdateInterval).Before(now)
+		}
+	}
+	// It's the first time to update the HPA. (Or someone modified the status)
+	return tortoise, true
+}
+
+func (s *Service) RecordHPATargetUtilizationUpdate(tortoise *autoscalingv1beta2.Tortoise, now time.Time) *autoscalingv1beta2.Tortoise {
+	for i, c := range tortoise.Status.Conditions.TortoiseConditions {
+		if c.Type == autoscalingv1beta2.TortoiseConditionTypeHPATargetUtilizationUpdated {
+			tortoise.Status.Conditions.TortoiseConditions[i].LastTransitionTime = metav1.NewTime(now)
+			tortoise.Status.Conditions.TortoiseConditions[i].LastUpdateTime = metav1.NewTime(now)
+			return tortoise
+		}
+	}
+
+	// It's the first time to update the HPA. (Or someone modified the status)
+	tortoise.Status.Conditions.TortoiseConditions = append(tortoise.Status.Conditions.TortoiseConditions, autoscalingv1beta2.TortoiseCondition{
+		Type:               autoscalingv1beta2.TortoiseConditionTypeHPATargetUtilizationUpdated,
+		Status:             corev1.ConditionTrue,
+		LastUpdateTime:     metav1.NewTime(now),
+		LastTransitionTime: metav1.NewTime(now),
+		Reason:             "HPATargetUtilizationUpdated",
+		Message:            "HPA target utilization is updated",
+	})
+	return tortoise
+}
+
 func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1beta2.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time, recordMetrics bool) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta2.Tortoise, error) {
 	readyHorizontalResourceAndContainer := sets.New[resourceNameAndContainerName]()
 	for _, p := range tortoise.Spec.ResourcePolicy {
@@ -317,6 +352,8 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		}
 	}
 
+	var allowed bool
+	tortoise, allowed = c.UpdatingHPATargetUtilizationAllowed(tortoise, now)
 	for _, t := range tortoise.Status.Recommendations.Horizontal.TargetUtilizations {
 		for resourcename, proposedTarget := range t.TargetUtilization {
 			if !readyHorizontalResourceAndContainer.Has(resourceNameAndContainerName{resourcename, t.ContainerName}) {
@@ -325,10 +362,20 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 			}
 
 			metrics.ProposedHPATargetUtilization.WithLabelValues(tortoise.Name, tortoise.Namespace, t.ContainerName, resourcename.String(), hpa.Name).Set(float64(proposedTarget))
+			if !allowed {
+				// we don't want to update the HPA too frequently.
+				// But, we record the proposed HPA target utilization in metrics.
+				continue
+			}
+
 			if err := c.updateHPATargetValue(hpa, t.ContainerName, resourcename, proposedTarget); err != nil {
 				return nil, tortoise, fmt.Errorf("update HPA from the recommendation from tortoise")
 			}
+
 		}
+	}
+	if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta2.UpdateModeOff {
+		tortoise = c.RecordHPATargetUtilizationUpdate(tortoise, now)
 	}
 
 	max, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MaxReplicas, now)

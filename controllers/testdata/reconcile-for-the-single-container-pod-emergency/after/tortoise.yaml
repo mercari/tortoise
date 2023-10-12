@@ -15,6 +15,11 @@ spec:
   updateMode: Emergency
 status:
   conditions:
+    tortoiseConditions:
+    - message: "HPA target utilization is updated"
+      reason: HPATargetUtilizationUpdated
+      status: "True"
+      type: HPATargetUtilizationUpdated
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
@@ -31,7 +36,6 @@ status:
         memory:
           quantity: 3Gi
           updatedAt: null
-    tortoiseConditions: null
   recommendations:
     horizontal:
       maxReplicas:

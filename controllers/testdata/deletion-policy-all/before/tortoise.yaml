@@ -50,7 +50,6 @@ status:
         memory:
           quantity: "0"
           updatedAt: null
-    tortoiseConditions: null
   recommendations:
     horizontal:
       maxReplicas:

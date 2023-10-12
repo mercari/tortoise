@@ -134,7 +134,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	hpaService := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.UpperTargetResourceUtilization, config.TortoiseHPATargetUtilizationMaxIncrease)
+	hpaService := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.UpperTargetResourceUtilization, config.TortoiseHPATargetUtilizationMaxIncrease, config.TortoiseHPATargetUtilizationUpdateInterval)
 
 	if err = (&controllers.TortoiseReconciler{
 		Scheme:             mgr.GetScheme(),

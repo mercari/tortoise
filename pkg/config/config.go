@@ -37,25 +37,28 @@ type Config struct {
 	TortoiseUpdateInterval time.Duration `yaml:"TortoiseUpdateInterval"`
 	// TortoiseHPATargetUtilizationMaxIncrease is the max increase of target utilization that tortoise can give to the HPA (default: 5)
 	TortoiseHPATargetUtilizationMaxIncrease int `yaml:"TortoiseHPATargetUtilizationMaxIncrease"`
+	// TortoiseHPATargetUtilizationUpdateInterval is the interval of updating target utilization of each HPA (default: 1h)
+	TortoiseHPATargetUtilizationUpdateInterval time.Duration `yaml:"TortoiseHPATargetUtilizationUpdateInterval"`
 }
 
 // ParseConfig parses the config file (yaml) and returns Config.
 func ParseConfig(path string) (*Config, error) {
 	config := &Config{
-		RangeOfMinMaxReplicasRecommendationHours: 1,
-		MinMaxReplicasRecommendationType:         "weekly",
-		TTLHoursOfMinMaxReplicasRecommendation:   24 * 30,
-		MaxReplicasFactor:                        2.0,
-		MinReplicasFactor:                        0.5,
-		ReplicaReductionFactor:                   0.95,
-		UpperTargetResourceUtilization:           90,
-		MinimumMinReplicas:                       3,
-		PreferredReplicaNumUpperLimit:            30,
-		MaximumCPUCores:                          "10",
-		MaximumMemoryBytes:                       "10Gi",
-		TimeZone:                                 "Asia/Tokyo",
-		TortoiseUpdateInterval:                   15 * time.Second,
-		TortoiseHPATargetUtilizationMaxIncrease:  5,
+		RangeOfMinMaxReplicasRecommendationHours:   1,
+		MinMaxReplicasRecommendationType:           "weekly",
+		TTLHoursOfMinMaxReplicasRecommendation:     24 * 30,
+		MaxReplicasFactor:                          2.0,
+		MinReplicasFactor:                          0.5,
+		ReplicaReductionFactor:                     0.95,
+		UpperTargetResourceUtilization:             90,
+		MinimumMinReplicas:                         3,
+		PreferredReplicaNumUpperLimit:              30,
+		MaximumCPUCores:                            "10",
+		MaximumMemoryBytes:                         "10Gi",
+		TimeZone:                                   "Asia/Tokyo",
+		TortoiseUpdateInterval:                     15 * time.Second,
+		TortoiseHPATargetUtilizationMaxIncrease:    5,
+		TortoiseHPATargetUtilizationUpdateInterval: time.Hour,
 	}
 	if path == "" {
 		return config, nil
@@ -85,6 +88,10 @@ func validate(config *Config) error {
 
 	if config.MinMaxReplicasRecommendationType != "daily" && config.MinMaxReplicasRecommendationType != "weekly" {
 		return fmt.Errorf("MinMaxReplicasRecommendationType should be either \"daily\" or \"weekly\"")
+	}
+
+	if config.TortoiseHPATargetUtilizationMaxIncrease > 100 || config.TortoiseHPATargetUtilizationMaxIncrease <= 0 {
+		return fmt.Errorf("TortoiseHPATargetUtilizationMaxIncrease should be between 1 and 100")
 	}
 
 	return nil
