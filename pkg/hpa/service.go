@@ -322,7 +322,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 				continue
 			}
 			metrics.ProposedHPATargetUtilization.WithLabelValues(tortoise.Name, tortoise.Namespace, t.ContainerName, resourcename.String(), hpa.Name).Set(float64(targetutil))
-			if err := updateHPATargetValue(hpa, t.ContainerName, resourcename, targetutil, len(tortoise.Spec.ResourcePolicy) == 1); err != nil {
+			if err := updateHPATargetValue(hpa, t.ContainerName, resourcename, targetutil); err != nil {
 				return nil, tortoise, fmt.Errorf("update HPA from the recommendation from tortoise")
 			}
 		}
@@ -494,18 +494,9 @@ func GetReplicasRecommendation(recommendations []autoscalingv1beta2.ReplicasReco
 	return 0, errors.New("no recommendation slot")
 }
 
-func updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName, targetValue int32, isSingleContainerDeployment bool) error {
-	for _, m := range hpa.Spec.Metrics {
-		if isSingleContainerDeployment && m.Type == v2.ResourceMetricSourceType && m.Resource.Target.Type == v2.UtilizationMetricType && m.Resource.Name == k {
-			// If the deployment has only one container, the resource metric is the target.
-			m.Resource.Target.AverageUtilization = pointer.Int32(targetValue)
-		}
-	}
-
-	// If the deployment has more than one container, the container resource metric is the metric for the container.
-	// Also, even if the deployment has only one container, the container resource metric might be used as well.
-	// So, check the container resource metric as well.
-
+// updateHPATargetValue updates the target value of the HPA.
+// It looks for the corresponding metric (ContainerResource) and updates the target value.
+func updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName, targetValue int32) error {
 	for _, m := range hpa.Spec.Metrics {
 		if m.Type != v2.ContainerResourceMetricSourceType {
 			continue
@@ -521,7 +512,8 @@ func updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string,
 		}
 
 		m.ContainerResource.Target.AverageUtilization = &targetValue
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("no corresponding metric found: %s/%s", hpa.Namespace, hpa.Name)
 }
