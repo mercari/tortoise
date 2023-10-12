@@ -21,6 +21,16 @@ var (
 		Help: "hpa maxReplicas that tortoises actually applys to hpa",
 	}, []string{"tortoise_name", "namespace", "hpa_name"})
 
+	AppliedCPURequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "applied_cpu_request",
+		Help: "cpu request (millicore) that tortoises actually applys",
+	}, []string{"tortoise_name", "namespace", "container_name", "controller_name", "controller_kind"})
+
+	AppliedMemoryRequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "applied_memory_request",
+		Help: "memory request (byte) that tortoises actually applys",
+	}, []string{"tortoise_name", "namespace", "container_name", "controller_name", "controller_kind"})
+
 	ProposedHPATargetUtilization = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "proposed_hpa_utilization_target",
 		Help: "recommended hpa utilization target values that tortoises propose",
@@ -51,6 +61,10 @@ func init() {
 	//Register metrics with prometheus
 	metrics.Registry.MustRegister(
 		AppliedHPATargetUtilization,
+		AppliedHPAMaxReplicas,
+		AppliedHPAMinReplicas,
+		AppliedCPURequest,
+		AppliedMemoryRequest,
 		ProposedHPATargetUtilization,
 		ProposedHPAMinReplicas,
 		ProposedHPAMaxReplicas,
