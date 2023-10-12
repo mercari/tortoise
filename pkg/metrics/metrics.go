@@ -11,17 +11,27 @@ var (
 		Help: "hpa utilization target values that tortoises actually applys to hpa",
 	}, []string{"tortoise_name", "namespace", "container_name", "resource_name", "hpa_name"})
 
+	AppliedHPAMinReplicas = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "applied_hpa_minreplicas",
+		Help: "hpa minReplicas that tortoises actually applys to hpa",
+	}, []string{"tortoise_name", "namespace", "hpa_name"})
+
+	AppliedHPAMaxReplicas = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "applied_hpa_maxreplicas",
+		Help: "hpa maxReplicas that tortoises actually applys to hpa",
+	}, []string{"tortoise_name", "namespace", "hpa_name"})
+
 	ProposedHPATargetUtilization = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "proposed_hpa_utilization_target",
 		Help: "recommended hpa utilization target values that tortoises propose",
 	}, []string{"tortoise_name", "namespace", "container_name", "resource_name", "hpa_name"})
 
-	ProposedHPAMinReplicass = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	ProposedHPAMinReplicas = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "proposed_hpa_minreplicas",
 		Help: "recommended hpa minReplicas that tortoises propose",
 	}, []string{"tortoise_name", "namespace", "hpa_name"})
 
-	ProposedHPAMaxReplicass = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	ProposedHPAMaxReplicas = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "proposed_hpa_maxreplicas",
 		Help: "recommended hpa maxReplicas that tortoises propose",
 	}, []string{"tortoise_name", "namespace", "hpa_name"})
@@ -42,8 +52,8 @@ func init() {
 	metrics.Registry.MustRegister(
 		AppliedHPATargetUtilization,
 		ProposedHPATargetUtilization,
-		ProposedHPAMinReplicass,
-		ProposedHPAMaxReplicass,
+		ProposedHPAMinReplicas,
+		ProposedHPAMaxReplicas,
 		ProposedCPURequest,
 		ProposedMemoryRequest,
 	)

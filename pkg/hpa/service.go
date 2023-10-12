@@ -382,40 +382,42 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		tortoise = c.RecordHPATargetUtilizationUpdate(tortoise, now)
 	}
 
-	max, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MaxReplicas, now)
+	recommendMax, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MaxReplicas, now)
 	if err != nil {
 		return nil, tortoise, fmt.Errorf("get maxReplicas recommendation: %w", err)
 	}
-	hpa.Spec.MaxReplicas = max
+	// We always set the maxReplicas to the the recommended one.
+	hpa.Spec.MaxReplicas = recommendMax
 
-	var min int32
+	recommendMin, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
+	if err != nil {
+		return nil, tortoise, fmt.Errorf("get minReplicas recommendation: %w", err)
+	}
+	metrics.AppliedHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(recommendMin))
+	metrics.AppliedHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(recommendMax))
+
+	// the minReplicas to be applied is not always the same as the recommended one.
+	var minToActuallyApply int32
 	switch tortoise.Status.TortoisePhase {
 	case autoscalingv1beta2.TortoisePhaseEmergency:
 		// when emergency mode, we set the same value on minReplicas.
-		min = max
+		minToActuallyApply = recommendMax
 	case autoscalingv1beta2.TortoisePhaseBackToNormal:
-		idealMin, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
-		if err != nil {
-			return nil, tortoise, fmt.Errorf("get minReplicas recommendation: %w", err)
-		}
 		currentMin := *hpa.Spec.MinReplicas
 		reduced := int32(math.Trunc(float64(currentMin) * c.replicaReductionFactor))
-		if idealMin > reduced {
-			min = idealMin
+		if recommendMin > reduced {
+			minToActuallyApply = recommendMin
 			// BackToNormal is finished
 			tortoise.Status.TortoisePhase = autoscalingv1beta2.TortoisePhaseWorking
 		} else {
-			min = reduced
+			minToActuallyApply = reduced
 		}
 	default:
-		min, err = GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
-		if err != nil {
-			return nil, tortoise, fmt.Errorf("get minReplicas recommendation: %w", err)
-		}
+		minToActuallyApply = recommendMin
 	}
-	hpa.Spec.MinReplicas = &min
-	metrics.ProposedHPAMinReplicass.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(*hpa.Spec.MinReplicas))
-	metrics.ProposedHPAMaxReplicass.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(hpa.Spec.MaxReplicas))
+	hpa.Spec.MinReplicas = &minToActuallyApply
+	metrics.AppliedHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(*hpa.Spec.MinReplicas))
+	metrics.AppliedHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(hpa.Spec.MaxReplicas))
 
 	return hpa, tortoise, nil
 }
