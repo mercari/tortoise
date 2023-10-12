@@ -93,6 +93,9 @@ var _ = Describe("v2.HPA Webhook", func() {
 		It("HPA is mutated based on the recommendation", func() {
 			mutateTest(filepath.Join("testdata", "mutating", "mutate-by-recommendations", "before.yaml"), filepath.Join("testdata", "mutating", "mutate-by-recommendations", "after.yaml"), filepath.Join("testdata", "mutating", "mutate-by-recommendations", "tortoise.yaml"))
 		})
+		It("HPA is not mutated (dryrun)", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "no-mutate-by-recommendations-when-dryrun", "before.yaml"), filepath.Join("testdata", "mutating", "no-mutate-by-recommendations-when-dryrun", "after.yaml"), filepath.Join("testdata", "mutating", "no-mutate-by-recommendations-when-dryrun", "tortoise.yaml"))
+		})
 		It("HPA is not mutated because of invalid annotation", func() {
 			mutateTest(filepath.Join("testdata", "mutating", "has-annotation-but-invalid1", "before.yaml"), filepath.Join("testdata", "mutating", "has-annotation-but-invalid1", "after.yaml"), filepath.Join("testdata", "mutating", "has-annotation-but-invalid1", "tortoise.yaml"))
 			mutateTest(filepath.Join("testdata", "mutating", "has-annotation-but-invalid2", "before.yaml"), filepath.Join("testdata", "mutating", "has-annotation-but-invalid2", "after.yaml"), filepath.Join("testdata", "mutating", "has-annotation-but-invalid2", "tortoise.yaml"))
