@@ -19,6 +19,7 @@ MaximumCPUCores:                              The maximum CPU cores that the tor
 MaximumMemoryBytes:                           The maximum memory bytes that the tortoise can give to the container (default: 10Gi)
 Timezone:                                     The timezone used to record time in tortoise objects (default: Asia/Tokyo)
 TortoiseUpdateInterval:                       The interval of updating each tortoise (default: 15s)
+TortoiseHPATargetUtilizationMaxIncrease:      The max increase of target utilization that tortoise can give to the HPA (default: 5)
 ```
 
 ### RangeOfMinMaxReplicasRecommendationHours
@@ -46,7 +47,7 @@ status:
           updatedAt: 2023-01-01T00:00:00Z
 ```
 
-## MinMaxReplicasRecommendationType
+### MinMaxReplicasRecommendationType
 
 The routine of minReplicas and maxReplicas recommendation. The valid values are "daily" and "weekly" (default: weekly)
 
@@ -230,3 +231,12 @@ The timezone which used to record time in tortoise objects (default: Asia/Tokyo)
 The interval of updating each tortoise (default: 15s)
 
 But, it may delay if there are many tortoise objects in the cluster.
+
+### TortoiseHPATargetUtilizationMaxIncrease
+
+The max increase of target utilization that tortoise can give to the HPA (default: 5)
+
+If tortoise suggests changing the HPA target resource utilization from 50 to 80, it might be dangerous to give the change at once.
+By configuring this, we can limit the max increase that tortoise can make. 
+So, if TortoiseHPATargetUtilizationMaxIncrease is 5, even if tortoise suggests changing the HPA target resource utilization from 50 to 80, 
+the target utilization is actually change from 50 to 55.
