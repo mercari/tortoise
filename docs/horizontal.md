@@ -74,11 +74,7 @@ Looking back the above formula,
 
 #### Supported metrics in HPA
 
-Currently, Tortoise supports:
-- `type: Resource` metric if Pod has only one container.
-- `type: ContainerResource` metric if Pod has multiple containers.
-
-But, if a Pod has only one container but a corresponding HPA doesn't have `type: Resource`, tortoise controller looks for `type: ContainerResource` in HPA next.
+Currently, Tortoise supports only `type: ContainerResource` metric. 
 
 ### The container right sizing
 
