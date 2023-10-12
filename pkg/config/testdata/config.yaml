@@ -7,7 +7,9 @@ ReplicaReductionFactor:                   0.95
 UpperTargetResourceUtilization:           90
 MinimumMinReplicas:                       3
 PreferredReplicaNumUpperLimit:            30
-MaximumCPUCores:                       "10"
-MaximumMemoryBytes:                    "10Gi"
+MaximumCPUCores:                         "10"
+MaximumMemoryBytes:                      "10Gi"
 TimeZone:                                 "Asia/Tokyo"
 TortoiseUpdateInterval:                   "1h"
+TortoiseHPATargetUtilizationMaxIncrease:   10
+TortoiseHPATargetUtilizationUpdateInterval:                   "3h"

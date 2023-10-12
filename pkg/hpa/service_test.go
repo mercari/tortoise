@@ -60,6 +60,18 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 						},
 					},
 					Status: autoscalingv1beta2.TortoiseStatus{
+						Conditions: autoscalingv1beta2.Conditions{
+							TortoiseConditions: []autoscalingv1beta2.TortoiseCondition{
+								{
+									Type:               autoscalingv1beta2.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
 						ContainerResourcePhases: []autoscalingv1beta2.ContainerResourcePhases{
 							{
 								ContainerName: "app",
@@ -186,6 +198,95 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 									AverageUtilization: pointer.Int32(80),
 								},
 								Container: "istio-proxy",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &autoscalingv1beta2.Tortoise{
+				Spec: autoscalingv1beta2.TortoiseSpec{
+					ResourcePolicy: []autoscalingv1beta2.ContainerResourcePolicy{
+						{
+							ContainerName: "app",
+							AutoscalingPolicy: map[v1.ResourceName]v1beta2.AutoscalingType{
+								v1.ResourceMemory: v1beta2.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							AutoscalingPolicy: map[v1.ResourceName]v1beta2.AutoscalingType{
+								v1.ResourceCPU: v1beta2.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+				},
+				Status: autoscalingv1beta2.TortoiseStatus{
+					Conditions: autoscalingv1beta2.Conditions{
+						TortoiseConditions: []autoscalingv1beta2.TortoiseCondition{
+							{
+								Type:               autoscalingv1beta2.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []autoscalingv1beta2.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta2.ResourcePhase{
+								v1.ResourceMemory: {
+									Phase: autoscalingv1beta2.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta2.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: autoscalingv1beta2.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: autoscalingv1beta2.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: autoscalingv1beta2.Recommendations{
+						Horizontal: autoscalingv1beta2.HorizontalRecommendations{
+							TargetUtilizations: []autoscalingv1beta2.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceMemory: 90,
+									},
+								},
+								{
+									ContainerName: "istio-proxy",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []autoscalingv1beta2.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     6,
+									UpdatedAt: now,
+									WeekDay:   pointer.String(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []autoscalingv1beta2.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   pointer.String(now.Weekday().String()),
+								},
 							},
 						},
 					},
@@ -341,6 +442,264 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 									AverageUtilization: pointer.Int32(60), // 80 is recommended but only +50 is allowed.
 								},
 								Container: "istio-proxy",
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "no update preformed when we recently updated it",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &autoscalingv1beta2.Tortoise{
+					Spec: autoscalingv1beta2.TortoiseSpec{
+						ResourcePolicy: []autoscalingv1beta2.ContainerResourcePolicy{
+							{
+								ContainerName: "app",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta2.AutoscalingType{
+									v1.ResourceMemory: v1beta2.AutoscalingTypeHorizontal,
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								AutoscalingPolicy: map[v1.ResourceName]v1beta2.AutoscalingType{
+									v1.ResourceCPU: v1beta2.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						UpdateMode: autoscalingv1beta2.UpdateModeAuto,
+					},
+					Status: autoscalingv1beta2.TortoiseStatus{
+						Conditions: autoscalingv1beta2.Conditions{
+							TortoiseConditions: []autoscalingv1beta2.TortoiseCondition{
+								{
+									Type:               autoscalingv1beta2.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-1 * time.Minute)),
+									LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Minute)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []autoscalingv1beta2.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta2.ResourcePhase{
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta2.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta2.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta2.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: autoscalingv1beta2.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: autoscalingv1beta2.Recommendations{
+							Horizontal: autoscalingv1beta2.HorizontalRecommendations{
+								TargetUtilizations: []autoscalingv1beta2.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceMemory: 90,
+										},
+									},
+									{
+										ContainerName: "istio-proxy",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []autoscalingv1beta2.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     6,
+										UpdatedAt: now,
+										WeekDay:   pointer.String(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []autoscalingv1beta2.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   pointer.String(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ObjectMetricSourceType,
+							// should be ignored
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: pointer.Int32(60),
+								},
+								Container: "app",
+							},
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: pointer.Int32(50),
+								},
+								Container: "istio-proxy",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 6,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ObjectMetricSourceType,
+							// should be ignored
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: pointer.Int32(60),
+								},
+								Container: "app",
+							},
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: pointer.Int32(50),
+								},
+								Container: "istio-proxy",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &autoscalingv1beta2.Tortoise{
+				Spec: autoscalingv1beta2.TortoiseSpec{
+					ResourcePolicy: []autoscalingv1beta2.ContainerResourcePolicy{
+						{
+							ContainerName: "app",
+							AutoscalingPolicy: map[v1.ResourceName]v1beta2.AutoscalingType{
+								v1.ResourceMemory: v1beta2.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							AutoscalingPolicy: map[v1.ResourceName]v1beta2.AutoscalingType{
+								v1.ResourceCPU: v1beta2.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					UpdateMode: autoscalingv1beta2.UpdateModeAuto,
+				},
+				Status: autoscalingv1beta2.TortoiseStatus{
+					Conditions: autoscalingv1beta2.Conditions{
+						TortoiseConditions: []autoscalingv1beta2.TortoiseCondition{
+							{
+								Type:               autoscalingv1beta2.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Minute)),
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []autoscalingv1beta2.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta2.ResourcePhase{
+								v1.ResourceMemory: {
+									Phase: autoscalingv1beta2.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta2.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: autoscalingv1beta2.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: autoscalingv1beta2.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: autoscalingv1beta2.Recommendations{
+						Horizontal: autoscalingv1beta2.HorizontalRecommendations{
+							TargetUtilizations: []autoscalingv1beta2.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceMemory: 90,
+									},
+								},
+								{
+									ContainerName: "istio-proxy",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []autoscalingv1beta2.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     6,
+									UpdatedAt: now,
+									WeekDay:   pointer.String(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []autoscalingv1beta2.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   pointer.String(now.Weekday().String()),
+								},
 							},
 						},
 					},
@@ -1090,6 +1449,18 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					},
 				},
 				Status: autoscalingv1beta2.TortoiseStatus{
+					Conditions: autoscalingv1beta2.Conditions{
+						TortoiseConditions: []autoscalingv1beta2.TortoiseCondition{
+							{
+								Type:               autoscalingv1beta2.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
 					Targets: autoscalingv1beta2.TargetsStatus{
 						HorizontalPodAutoscaler: "hpa",
 					},
@@ -1138,7 +1509,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 50)
+			c := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 50, time.Hour)
 			got, tortoise, err := c.UpdateHPAFromTortoiseRecommendation(tt.args.ctx, tt.args.tortoise, tt.args.now)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateHPAFromTortoiseRecommendation() error = %v, wantErr %v", err, tt.wantErr)
@@ -1405,9 +1776,9 @@ func TestService_InitializeHPA(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100)
+			c := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour)
 			if tt.initialHPA != nil {
-				c = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100)
+				c = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour)
 			}
 			_, err := c.InitializeHPA(context.Background(), tt.args.tortoise, tt.args.dm, time.Now())
 			if (err != nil) != tt.wantErr {
@@ -2127,9 +2498,9 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100)
+			c := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour)
 			if tt.initialHPA != nil {
-				c = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100)
+				c = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour)
 			}
 			tortoise, err := c.UpdateHPASpecFromTortoiseAutoscalingPolicy(context.Background(), tt.args.tortoise, tt.args.dm, time.Now())
 			if (err != nil) != tt.wantErr {

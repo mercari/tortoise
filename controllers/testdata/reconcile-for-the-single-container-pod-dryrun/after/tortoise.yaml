@@ -31,7 +31,6 @@ status:
         memory:
           quantity: 3Gi
           updatedAt: null
-    tortoiseConditions: null
   recommendations:
     horizontal:
       maxReplicas:
