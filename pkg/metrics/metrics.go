@@ -6,6 +6,11 @@ import (
 )
 
 var (
+	AppliedHPATargetUtilization = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "applied_hpa_utilization_target",
+		Help: "hpa utilization target values that tortoises actually applys to hpa",
+	}, []string{"tortoise_name", "namespace", "container_name", "resource_name", "hpa_name"})
+
 	ProposedHPATargetUtilization = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "proposed_hpa_utilization_target",
 		Help: "recommended hpa utilization target values that tortoises propose",
@@ -35,6 +40,7 @@ var (
 func init() {
 	//Register metrics with prometheus
 	metrics.Registry.MustRegister(
+		AppliedHPATargetUtilization,
 		ProposedHPATargetUtilization,
 		ProposedHPAMinReplicass,
 		ProposedHPAMaxReplicass,
