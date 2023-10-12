@@ -20,6 +20,7 @@ MaximumMemoryBytes:                           The maximum memory bytes that the 
 Timezone:                                     The timezone used to record time in tortoise objects (default: Asia/Tokyo)
 TortoiseUpdateInterval:                       The interval of updating each tortoise (default: 15s)
 TortoiseHPATargetUtilizationMaxIncrease:      The max increase of target utilization that tortoise can give to the HPA (default: 5)
+TortoiseHPATargetUtilizationUpdateInterval:   The interval of updating target utilization of each HPA (default: 1h)
 ```
 
 ### RangeOfMinMaxReplicasRecommendationHours
@@ -240,3 +241,11 @@ If tortoise suggests changing the HPA target resource utilization from 50 to 80,
 By configuring this, we can limit the max increase that tortoise can make. 
 So, if TortoiseHPATargetUtilizationMaxIncrease is 5, even if tortoise suggests changing the HPA target resource utilization from 50 to 80, 
 the target utilization is actually change from 50 to 55.
+
+### TortoiseHPATargetUtilizationUpdateInterval
+
+The interval of updating target utilization of each HPA (default: 1h)
+
+So, similarily to TortoiseHPATargetUtilizationMaxIncrease, it's also a safety guard to prevent HPA target utilization from suddenly changed.
+If TortoiseHPATargetUtilizationMaxIncrease is 1h, TortoiseHPATargetUtilizationMaxIncrease is 5, and tortoise keep suggesting changing the HPA target resource utilization from 50 to 80,
+the target resource utilization would be changing like 50 -(1h)-> 55 -(1h)-> 60 → ... → 80.
