@@ -35,6 +35,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/mercari/tortoise/api/v1beta2"
 	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/hpa"
 	"github.com/mercari/tortoise/pkg/tortoise"
@@ -77,6 +78,11 @@ func (h *HPAWebhook) Default(ctx context.Context, obj runtime.Object) error {
 
 	if t.Status.Targets.HorizontalPodAutoscaler != hpa.Name {
 		// not managed by tortoise
+		return nil
+	}
+
+	if t.Spec.UpdateMode == v1beta2.UpdateModeOff {
+		// DryRun, don't update HPA
 		return nil
 	}
 
