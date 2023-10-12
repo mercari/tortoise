@@ -157,7 +157,7 @@ func startController(ctx context.Context) func() {
 	Expect(err).ShouldNot(HaveOccurred())
 	reconciler := &TortoiseReconciler{
 		Scheme:             scheme,
-		HpaService:         hpa.New(mgr.GetClient(), record.NewFakeRecorder(10), 0.95, 90),
+		HpaService:         hpa.New(mgr.GetClient(), record.NewFakeRecorder(10), 0.95, 90, 25),
 		EventRecorder:      record.NewFakeRecorder(10),
 		VpaService:         cli,
 		DeploymentService:  deployment.New(mgr.GetClient()),

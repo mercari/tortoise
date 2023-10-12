@@ -35,6 +35,8 @@ type Config struct {
 	TimeZone string `yaml:"TimeZone"`
 	// TortoiseUpdateInterval is the interval of updating each tortoise (default: 15s)
 	TortoiseUpdateInterval time.Duration `yaml:"TortoiseUpdateInterval"`
+	// TortoiseHPATargetUtilizationMaxIncrease is the max increase of target utilization that tortoise can give to the HPA (default: 5)
+	TortoiseHPATargetUtilizationMaxIncrease int `yaml:"TortoiseHPATargetUtilizationMaxIncrease"`
 }
 
 // ParseConfig parses the config file (yaml) and returns Config.
@@ -53,6 +55,7 @@ func ParseConfig(path string) (*Config, error) {
 		MaximumMemoryBytes:                       "10Gi",
 		TimeZone:                                 "Asia/Tokyo",
 		TortoiseUpdateInterval:                   15 * time.Second,
+		TortoiseHPATargetUtilizationMaxIncrease:  5,
 	}
 	if path == "" {
 		return config, nil

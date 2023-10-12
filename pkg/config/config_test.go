@@ -35,6 +35,7 @@ func TestParseConfig(t *testing.T) {
 				MaximumMemoryBytes:                       "10Gi",
 				TimeZone:                                 "Asia/Tokyo",
 				TortoiseUpdateInterval:                   1 * time.Hour,
+				TortoiseHPATargetUtilizationMaxIncrease:  5,
 			},
 		},
 		{
@@ -56,6 +57,7 @@ func TestParseConfig(t *testing.T) {
 				MaximumMemoryBytes:                       "10Gi",
 				TimeZone:                                 "Asia/Tokyo",
 				TortoiseUpdateInterval:                   15 * time.Second,
+				TortoiseHPATargetUtilizationMaxIncrease:  5,
 			},
 		},
 		{
@@ -84,6 +86,7 @@ func TestParseConfig(t *testing.T) {
 				MaximumMemoryBytes:                       "10Gi",
 				TimeZone:                                 "Asia/Tokyo",
 				TortoiseUpdateInterval:                   15 * time.Second,
+				TortoiseHPATargetUtilizationMaxIncrease:  5,
 			},
 		},
 	}
