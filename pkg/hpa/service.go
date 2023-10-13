@@ -423,6 +423,11 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 }
 
 func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, dm *v1.Deployment, now time.Time) (*autoscalingv1beta2.Tortoise, error) {
+	if tortoise.Spec.UpdateMode == autoscalingv1beta2.UpdateModeOff {
+		// When UpdateMode is Off, we don't update HPA.
+		return tortoise, nil
+	}
+
 	if !HasHorizontal(tortoise) {
 		err := c.DeleteHPACreatedByTortoise(ctx, tortoise)
 		if err != nil && !apierrors.IsNotFound(err) {
