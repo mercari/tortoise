@@ -393,8 +393,10 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	if err != nil {
 		return nil, tortoise, fmt.Errorf("get minReplicas recommendation: %w", err)
 	}
-	metrics.AppliedHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(recommendMin))
-	metrics.AppliedHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(recommendMax))
+	if recordMetrics {
+		metrics.ProposedHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(recommendMin))
+		metrics.ProposedHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(recommendMax))
+	}
 
 	// the minReplicas to be applied is not always the same as the recommended one.
 	var minToActuallyApply int32
@@ -416,8 +418,11 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		minToActuallyApply = recommendMin
 	}
 	hpa.Spec.MinReplicas = &minToActuallyApply
-	metrics.AppliedHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(*hpa.Spec.MinReplicas))
-	metrics.AppliedHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(hpa.Spec.MaxReplicas))
+	if tortoise.Spec.UpdateMode != autoscalingv1beta2.UpdateModeOff && recordMetrics {
+		// We don't want to record applied* metric when UpdateMode is Off.
+		metrics.AppliedHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(*hpa.Spec.MinReplicas))
+		metrics.AppliedHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(hpa.Spec.MaxReplicas))
+	}
 
 	return hpa, tortoise, nil
 }
