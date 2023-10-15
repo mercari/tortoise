@@ -40,6 +40,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/mercari/tortoise/pkg/annotation"
 )
 
 // log is for logging in this package.
@@ -83,8 +85,18 @@ func (r *Tortoise) Default() {
 			return
 		}
 
-		if len(d.Spec.Template.Spec.Containers) != len(r.Spec.ResourcePolicy) {
-			for _, c := range d.Spec.Template.Spec.Containers {
+		containers := d.Spec.Template.Spec.DeepCopy().Containers
+		if d.Annotations != nil {
+			if v, ok := d.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
+				// If the deployment has the sidecar injection annotation, the Pods will have the sidecar container in addition.
+				containers = append(d.Spec.Template.Spec.Containers, v1.Container{
+					Name: "istio-proxy",
+				})
+			}
+		}
+
+		if len(containers) != len(r.Spec.ResourcePolicy) {
+			for _, c := range containers {
 				policyExist := false
 				for _, p := range r.Spec.ResourcePolicy {
 					if c.Name == p.ContainerName {

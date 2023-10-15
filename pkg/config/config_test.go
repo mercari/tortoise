@@ -37,6 +37,8 @@ func TestParseConfig(t *testing.T) {
 				TortoiseUpdateInterval:                     1 * time.Hour,
 				TortoiseHPATargetUtilizationMaxIncrease:    10,
 				TortoiseHPATargetUtilizationUpdateInterval: 3 * time.Hour,
+				IstioSidecarProxyDefaultCPU:                "100m",
+				IstioSidecarProxyDefaultMemory:             "200Mi",
 			},
 		},
 		{
@@ -60,6 +62,8 @@ func TestParseConfig(t *testing.T) {
 				TortoiseUpdateInterval:                     15 * time.Second,
 				TortoiseHPATargetUtilizationMaxIncrease:    5,
 				TortoiseHPATargetUtilizationUpdateInterval: 1 * time.Hour,
+				IstioSidecarProxyDefaultCPU:                "100m",
+				IstioSidecarProxyDefaultMemory:             "200Mi",
 			},
 		},
 		{
@@ -90,6 +94,8 @@ func TestParseConfig(t *testing.T) {
 				TortoiseUpdateInterval:                     15 * time.Second,
 				TortoiseHPATargetUtilizationMaxIncrease:    5,
 				TortoiseHPATargetUtilizationUpdateInterval: time.Hour,
+				IstioSidecarProxyDefaultCPU:                "100m",
+				IstioSidecarProxyDefaultMemory:             "200Mi",
 			},
 		},
 	}

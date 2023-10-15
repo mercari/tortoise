@@ -283,7 +283,7 @@ func (c *Service) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscali
 	return vpa, false, nil
 }
 
-func MakeAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta2.Tortoise, now time.Time) *autoscalingv1beta2.Tortoise {
+func SetAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta2.Tortoise, now time.Time) *autoscalingv1beta2.Tortoise {
 	verticalResourceAndContainer := sets.New[resourceNameAndContainerName]()
 	for _, p := range tortoise.Spec.ResourcePolicy {
 		for rn, ap := range p.AutoscalingPolicy {

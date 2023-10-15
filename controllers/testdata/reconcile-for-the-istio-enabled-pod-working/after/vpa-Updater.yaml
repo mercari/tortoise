@@ -2,9 +2,11 @@ metadata:
   annotations:
     tortoise.autoscaling.mercari.com/managed-by-tortoise: "true"
     tortoises.autoscaling.mercari.com/tortoise-name: mercari
-  name: tortoise-monitor-mercari
+  name: tortoise-updater-mercari
   namespace: default
 spec:
+  recommenders:
+  - name: tortoise-controller
   resourcePolicy:
     containerPolicies:
     - containerName: app
@@ -14,31 +16,33 @@ spec:
     kind: Deployment
     name: mercari-app
   updatePolicy:
-    updateMode: "Off"
+    updateMode: Auto
 status:
-  conditions:
-  - lastTransitionTime: null
-    status: "True"
-    type: RecommendationProvided
   recommendation:
     containerRecommendations:
     - containerName: app
       lowerBound:
-        cpu: "3"
+        cpu: "6"
         memory: 3Gi
       target:
-        cpu: "3"
+        cpu: "6"
+        memory: 3Gi
+      uncappedTarget:
+        cpu: "6"
         memory: 3Gi
       upperBound:
-        cpu: "5"
-        memory: 5Gi
+        cpu: "6"
+        memory: 3Gi
     - containerName: istio-proxy
       lowerBound:
-        cpu: "3"
+        cpu: "4"
         memory: 3Gi
       target:
-        cpu: "3"
+        cpu: "4"
+        memory: 3Gi
+      uncappedTarget:
+        cpu: "4"
         memory: 3Gi
       upperBound:
-        cpu: "350m"
-        memory: 3.5Gi
+        cpu: "4"
+        memory: 3Gi

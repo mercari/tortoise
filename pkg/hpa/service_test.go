@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	appv1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1533,8 +1532,8 @@ func ptrInt32(i int32) *int32 {
 
 func TestService_InitializeHPA(t *testing.T) {
 	type args struct {
-		tortoise *autoscalingv1beta2.Tortoise
-		dm       *appv1.Deployment
+		tortoise   *autoscalingv1beta2.Tortoise
+		replicaNum int32
 	}
 	tests := []struct {
 		name       string
@@ -1577,30 +1576,7 @@ func TestService_InitializeHPA(t *testing.T) {
 						},
 					},
 				},
-				dm: &appv1.Deployment{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "deployment",
-						Namespace: "default",
-					},
-					Spec: appv1.DeploymentSpec{
-						Replicas: pointer.Int32(4),
-						Template: v1.PodTemplateSpec{
-							Spec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Name: "app",
-									},
-									{
-										Name: "istio-proxy",
-									},
-								},
-							},
-						},
-					},
-					Status: appv1.DeploymentStatus{
-						Replicas: 4,
-					},
-				},
+				replicaNum: 4,
 			},
 			afterHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1693,27 +1669,7 @@ func TestService_InitializeHPA(t *testing.T) {
 						},
 					},
 				},
-				dm: &appv1.Deployment{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "deployment",
-						Namespace: "default",
-					},
-					Spec: appv1.DeploymentSpec{
-						Replicas: pointer.Int32(4),
-						Template: v1.PodTemplateSpec{
-							Spec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Name: "app",
-									},
-								},
-							},
-						},
-					},
-					Status: appv1.DeploymentStatus{
-						Replicas: 4,
-					},
-				},
+				replicaNum: 4,
 			},
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1780,7 +1736,7 @@ func TestService_InitializeHPA(t *testing.T) {
 			if tt.initialHPA != nil {
 				c = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour)
 			}
-			_, err := c.InitializeHPA(context.Background(), tt.args.tortoise, tt.args.dm, time.Now())
+			_, err := c.InitializeHPA(context.Background(), tt.args.tortoise, tt.args.replicaNum, time.Now())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Service.InitializeHPA() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -1799,8 +1755,8 @@ func TestService_InitializeHPA(t *testing.T) {
 
 func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 	type args struct {
-		tortoise *autoscalingv1beta2.Tortoise
-		dm       *appv1.Deployment
+		tortoise   *autoscalingv1beta2.Tortoise
+		replicaNum int32
 	}
 	tests := []struct {
 		name         string
@@ -1873,27 +1829,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 						},
 					},
 				},
-				dm: &appv1.Deployment{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "deployment",
-						Namespace: "default",
-					},
-					Spec: appv1.DeploymentSpec{
-						Replicas: pointer.Int32(4),
-						Template: v1.PodTemplateSpec{
-							Spec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Name: "app",
-									},
-								},
-							},
-						},
-					},
-					Status: appv1.DeploymentStatus{
-						Replicas: 4,
-					},
-				},
+				replicaNum: 4,
 			},
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2114,27 +2050,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 						},
 					},
 				},
-				dm: &appv1.Deployment{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "deployment",
-						Namespace: "default",
-					},
-					Spec: appv1.DeploymentSpec{
-						Replicas: pointer.Int32(4),
-						Template: v1.PodTemplateSpec{
-							Spec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Name: "app",
-									},
-								},
-							},
-						},
-					},
-					Status: appv1.DeploymentStatus{
-						Replicas: 4,
-					},
-				},
+				replicaNum: 4,
 			},
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2356,27 +2272,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 						},
 					},
 				},
-				dm: &appv1.Deployment{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "deployment",
-						Namespace: "default",
-					},
-					Spec: appv1.DeploymentSpec{
-						Replicas: pointer.Int32(4),
-						Template: v1.PodTemplateSpec{
-							Spec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Name: "app",
-									},
-								},
-							},
-						},
-					},
-					Status: appv1.DeploymentStatus{
-						Replicas: 4,
-					},
-				},
+				replicaNum: 4,
 			},
 			initialHPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2502,7 +2398,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 			if tt.initialHPA != nil {
 				c = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour)
 			}
-			tortoise, err := c.UpdateHPASpecFromTortoiseAutoscalingPolicy(context.Background(), tt.args.tortoise, tt.args.dm, time.Now())
+			tortoise, err := c.UpdateHPASpecFromTortoiseAutoscalingPolicy(context.Background(), tt.args.tortoise, tt.args.replicaNum, time.Now())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Service.UpdateHPASpecFromTortoiseAutoscalingPolicy() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -130,7 +130,7 @@ func TestMakeAllVerticalContainerResourcePhaseRunning(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := MakeAllVerticalContainerResourcePhaseWorking(tt.args.tortoise, time.Now())
+			got := SetAllVerticalContainerResourcePhaseWorking(tt.args.tortoise, time.Now())
 
 			// use diff to compare
 			if diff := cmp.Diff(got, tt.want, cmpopts.IgnoreTypes(metav1.Time{})); diff != "" {

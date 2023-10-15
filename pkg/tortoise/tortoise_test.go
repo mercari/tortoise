@@ -729,7 +729,7 @@ func TestService_InitializeTortoise(t *testing.T) {
 				minMaxReplicasRoutine:                   tt.fields.minMaxReplicasRoutine,
 				timeZone:                                tt.fields.timeZone,
 			}
-			got := s.initializeTortoise(tt.tortoise, tt.deployment, time.Now())
+			got := s.initializeTortoise(tt.tortoise, time.Now())
 			if d := cmp.Diff(got, tt.want, cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
 				t.Errorf("initializeTortoise() diff = %v", d)
 			}

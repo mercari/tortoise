@@ -776,7 +776,7 @@ spec:
                                 format: date-time
                                 type: string
                             type: object
-                          description: Recommendation is the latest recommendation value from VPA.
+                          description: Recommendation is the recommendation value from VPA that the tortoise controller observed in the last reconciliation..
                           type: object
                       required:
                       - containerName
@@ -934,7 +934,7 @@ spec:
                                 - type: string
                                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
-                              description: RecommendedResource is the recommendation calculated by the tortoise. If AutoscalingPolicy is vertical, it's the same value as the VPA suggests. If AutoscalingPolicy is horizontal, it's basically the same value as the current resource request. But, when the number of replicas are too small or too large, tortoise may try to increase/decrease the amount of resources given to the container, so that the number of replicas won't be very small or very large.
+                              description: "RecommendedResource is the recommendation calculated by the tortoise. \n If AutoscalingPolicy is vertical, it's the same value as the VPA suggests. If AutoscalingPolicy is horizontal, it's basically the same value as the current resource request. But, when the number of replicas are too small or too large, tortoise may try to increase/decrease the amount of resources given to the container, so that the number of replicas won't be very small or very large."
                               type: object
                             containerName:
                               description: ContainerName is the name of target container.
