@@ -4,12 +4,12 @@ metadata:
 spec:
   resourcePolicy:
   - autoscalingPolicy:
-      cpu: "Horizontal" # This is updated from Vertical.
-      memory: "Vertical"
+      cpu: Horizontal
+      memory: Vertical
     containerName: app
   - autoscalingPolicy:
-      cpu: "Vertical"
-      memory: "Vertical"
+      cpu: Horizontal
+      memory: Vertical
     containerName: istio-proxy
   targetRefs:
     scaleTargetRef:
@@ -22,32 +22,32 @@ status:
     - containerName: app
       maxRecommendation:
         cpu:
-          quantity: "10"
+          quantity: "0"
           updatedAt: null
         memory:
-          quantity: 10Gi
+          quantity: "0"
           updatedAt: null
       recommendation:
         cpu:
-          quantity: "10"
+          quantity: "0"
           updatedAt: null
         memory:
-          quantity: 10Gi
+          quantity: "0"
           updatedAt: null
     - containerName: istio-proxy
       maxRecommendation:
         cpu:
-          quantity: "4"
+          quantity: "0"
           updatedAt: null
         memory:
-          quantity: 4Gi
+          quantity: "0"
           updatedAt: null
       recommendation:
         cpu:
-          quantity: "4"
+          quantity: "0"
           updatedAt: null
         memory:
-          quantity: 4Gi
+          quantity: "0"
           updatedAt: null
   recommendations:
     horizontal:
@@ -55,30 +55,23 @@ status:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:15:47Z"
-        value: 20
+        updatedAt: "2023-10-06T01:15:46Z"
+        value: 15
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:15:47Z"
-        value: 5
+        updatedAt: "2023-10-06T01:15:46Z"
+        value: 3
       targetUtilizations:
       - containerName: app
-        targetUtilization: {}
+        targetUtilization:
+          cpu: 50
       - containerName: istio-proxy
-        targetUtilization: {}
-    vertical:
-      containerResourceRecommendation:
-      - RecommendedResource:
-          cpu: "10"
-          memory: 10Gi
-        containerName: app
-      - RecommendedResource:
-          cpu: "4"
-          memory: 4Gi
-        containerName: istio-proxy
+        targetUtilization:
+          cpu: 50
   targets:
+    horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
     - name: tortoise-updater-mercari
       role: Updater

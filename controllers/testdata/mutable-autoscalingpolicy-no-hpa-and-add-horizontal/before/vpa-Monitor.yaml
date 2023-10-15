@@ -40,5 +40,5 @@ status:
         cpu: "3"
         memory: 3Gi
       upperBound:
-        cpu: "5"
-        memory: 5Gi
+        cpu: "350m"
+        memory: 3.5Gi

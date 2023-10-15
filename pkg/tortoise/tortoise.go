@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,10 +74,10 @@ func (s *Service) ShouldReconcileTortoiseNow(tortoise *v1beta2.Tortoise, now tim
 	return false, lastTime.Add(s.tortoiseUpdateInterval).Sub(now)
 }
 
-func (s *Service) UpdateTortoisePhase(tortoise *v1beta2.Tortoise, dm *appv1.Deployment, now time.Time) *v1beta2.Tortoise {
+func (s *Service) UpdateTortoisePhase(tortoise *v1beta2.Tortoise, now time.Time) *v1beta2.Tortoise {
 	switch tortoise.Status.TortoisePhase {
 	case "":
-		tortoise = s.initializeTortoise(tortoise, dm, now)
+		tortoise = s.initializeTortoise(tortoise, now)
 		r := "1 week"
 		if s.minMaxReplicasRoutine == "daily" {
 			r = "1 day"
@@ -211,14 +210,14 @@ func (s *Service) initializeMinMaxReplicas(tortoise *v1beta2.Tortoise) *v1beta2.
 	return tortoise
 }
 
-func (s *Service) initializeTortoise(tortoise *v1beta2.Tortoise, dm *appv1.Deployment, now time.Time) *v1beta2.Tortoise {
+func (s *Service) initializeTortoise(tortoise *v1beta2.Tortoise, now time.Time) *v1beta2.Tortoise {
 	tortoise = s.initializeMinMaxReplicas(tortoise)
 	tortoise.Status.TortoisePhase = v1beta2.TortoisePhaseInitializing
 
-	tortoise.Status.Conditions.ContainerRecommendationFromVPA = make([]v1beta2.ContainerRecommendationFromVPA, len(dm.Spec.Template.Spec.Containers))
-	for i, c := range dm.Spec.Template.Spec.Containers {
+	tortoise.Status.Conditions.ContainerRecommendationFromVPA = make([]v1beta2.ContainerRecommendationFromVPA, len(tortoise.Spec.ResourcePolicy))
+	for i, c := range tortoise.Spec.ResourcePolicy {
 		tortoise.Status.Conditions.ContainerRecommendationFromVPA[i] = v1beta2.ContainerRecommendationFromVPA{
-			ContainerName: c.Name,
+			ContainerName: c.ContainerName,
 			Recommendation: map[corev1.ResourceName]v1beta2.ResourceQuantity{
 				corev1.ResourceCPU:    {},
 				corev1.ResourceMemory: {},

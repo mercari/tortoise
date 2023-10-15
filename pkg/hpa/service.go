@@ -8,7 +8,6 @@ import (
 	"sort"
 	"time"
 
-	v1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -47,7 +46,7 @@ func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor 
 	}
 }
 
-func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, dm *v1.Deployment, now time.Time) (*autoscalingv1beta2.Tortoise, error) {
+func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, replicaNum int32, now time.Time) (*autoscalingv1beta2.Tortoise, error) {
 	logger := log.FromContext(ctx)
 	// if all policy is off or Vertical, we don't need HPA.
 	if !HasHorizontal(tortoise) {
@@ -71,7 +70,7 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta
 	logger.V(4).Info("no existing HPA specified, creating HPA")
 
 	// create default HPA.
-	_, tortoise, err := c.CreateHPA(ctx, tortoise, dm, now)
+	_, tortoise, err := c.CreateHPA(ctx, tortoise, replicaNum, now)
 	if err != nil {
 		return tortoise, fmt.Errorf("create hpa: %w", err)
 	}
@@ -232,7 +231,7 @@ func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context
 	return currenthpa, tortoise, hpaEdited
 }
 
-func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, dm *v1.Deployment, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta2.Tortoise, error) {
+func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, replicaNum int32, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta2.Tortoise, error) {
 	if !HasHorizontal(tortoise) {
 		// no need to create HPA
 		return nil, tortoise, nil
@@ -257,8 +256,8 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta2.To
 				Name:       tortoise.Spec.TargetRefs.ScaleTargetRef.Name,
 				APIVersion: tortoise.Spec.TargetRefs.ScaleTargetRef.APIVersion,
 			},
-			MinReplicas: pointer.Int32(int32(math.Ceil(float64(dm.Status.Replicas) / 2.0))),
-			MaxReplicas: dm.Status.Replicas * 2,
+			MinReplicas: pointer.Int32(int32(math.Ceil(float64(replicaNum) / 2.0))),
+			MaxReplicas: replicaNum * 2,
 			Behavior: &v2.HorizontalPodAutoscalerBehavior{
 				ScaleUp: &v2.HPAScalingRules{
 					Policies: []v2.HPAScalingPolicy{
@@ -427,7 +426,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	return hpa, tortoise, nil
 }
 
-func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, dm *v1.Deployment, now time.Time) (*autoscalingv1beta2.Tortoise, error) {
+func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise, replicaNum int32, now time.Time) (*autoscalingv1beta2.Tortoise, error) {
 	if tortoise.Spec.UpdateMode == autoscalingv1beta2.UpdateModeOff {
 		// When UpdateMode is Off, we don't update HPA.
 		return tortoise, nil
@@ -452,7 +451,7 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context
 			// - the user didn't specify Horizontal in any autoscalingPolicy previously,
 			//   but just updated tortoise to have Horizontal in some.
 			//   - In that case, we need to create an initial HPA.
-			tortoise, err = c.InitializeHPA(ctx, tortoise, dm, now)
+			tortoise, err = c.InitializeHPA(ctx, tortoise, replicaNum, now)
 			if err != nil {
 				return tortoise, fmt.Errorf("initialize hpa: %w", err)
 			}

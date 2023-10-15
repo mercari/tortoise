@@ -231,6 +231,7 @@ type RecommendedContainerResources struct {
 	// ContainerName is the name of target container.
 	ContainerName string `json:"containerName" protobuf:"bytes,1,name=containerName"`
 	// RecommendedResource is the recommendation calculated by the tortoise.
+	//
 	// If AutoscalingPolicy is vertical, it's the same value as the VPA suggests.
 	// If AutoscalingPolicy is horizontal, it's basically the same value as the current resource request.
 	// But, when the number of replicas are too small or too large,
@@ -324,7 +325,7 @@ type ContainerRecommendationFromVPA struct {
 	// MaxRecommendation is the max recommendation value from VPA in a certain period (1 week).
 	// Tortoise generates all recommendation based on this MaxRecommendation.
 	MaxRecommendation map[v1.ResourceName]ResourceQuantity `json:"maxRecommendation" protobuf:"bytes,2,name=maxRecommendation"`
-	// Recommendation is the latest recommendation value from VPA.
+	// Recommendation is the recommendation value from VPA that the tortoise controller observed in the last reconciliation..
 	Recommendation map[v1.ResourceName]ResourceQuantity `json:"recommendation" protobuf:"bytes,3,name=recommendation"`
 }
 
