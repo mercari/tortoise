@@ -200,6 +200,13 @@ func (r *Tortoise) ValidateCreate() (admission.Warnings, error) {
 			containers.Insert(c.Name)
 		}
 
+		if d.Annotations != nil {
+			if v, ok := d.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
+				// If the deployment has the sidecar injection annotation, the Pods will have the sidecar container in addition.
+				containers.Insert("istio-proxy")
+			}
+		}
+
 		policies := sets.New[string]()
 		horizontalResourceAndContainer := sets.New[resourceNameAndContainerName]()
 		for _, p := range r.Spec.ResourcePolicy {

@@ -1,0 +1,27 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sample
+  namespace: default
+spec:
+  maxReplicas: 10
+  metrics:
+    - type: ContainerResource
+      containerResource:
+        name: cpu
+        container: nginx
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: ContainerResource
+      containerResource:
+        name: cpu
+        container: hoge
+        target:
+          type: Utilization
+          averageUtilization: 60
+  minReplicas: 3
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sample

@@ -5,8 +5,9 @@ metadata:
   namespace: default
 spec:
   updateMode: "Off"
-  deletionPolicy: "NoDelete"
+  deletionPolicy: "DeleteAll"
   targetRefs:
+    horizontalPodAutoscalerName: sample
     scaleTargetRef:
       kind: Deployment
       name: sample
@@ -16,10 +17,6 @@ spec:
         cpu: Horizontal
         memory: Vertical
     - containerName: nginx
-      autoscalingPolicy:
-        cpu: Horizontal
-        memory: Vertical
-    - containerName: istio-proxy
       autoscalingPolicy:
         cpu: Horizontal
         memory: Vertical
