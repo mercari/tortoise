@@ -202,6 +202,9 @@ var _ = Describe("Tortoise Webhook", func() {
 		It("should create a valid Tortoise", func() {
 			validateCreationTest(filepath.Join("testdata", "validating", "success", "tortoise.yaml"), filepath.Join("testdata", "validating", "success", "hpa.yaml"), filepath.Join("testdata", "validating", "success", "deployment.yaml"), true)
 		})
+		It("should create a valid Tortoise for the deployment with istio", func() {
+			validateCreationTest(filepath.Join("testdata", "validating", "success-with-istio", "tortoise.yaml"), filepath.Join("testdata", "validating", "success-with-istio", "hpa.yaml"), filepath.Join("testdata", "validating", "success-with-istio", "deployment.yaml"), true)
+		})
 		It("invalid: Tortoise is targetting the resource other than Deployment", func() {
 			validateCreationTest(filepath.Join("testdata", "validating", "not-targetting-deployment", "tortoise.yaml"), filepath.Join("testdata", "validating", "not-targetting-deployment", "hpa.yaml"), filepath.Join("testdata", "validating", "not-targetting-deployment", "deployment.yaml"), false)
 		})
@@ -216,6 +219,9 @@ var _ = Describe("Tortoise Webhook", func() {
 		})
 		It("invalid: Tortoise has HPA specified, but no Horizoltal in autoscalingPolicy", func() {
 			validateCreationTest(filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "tortoise.yaml"), filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "hpa.yaml"), filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "deployment.yaml"), false)
+		})
+		It("invalidTortoise for the deployment with istio should have istio target", func() {
+			validateCreationTest(filepath.Join("testdata", "validating", "fail-with-istio", "tortoise.yaml"), filepath.Join("testdata", "validating", "fail-with-istio", "hpa.yaml"), filepath.Join("testdata", "validating", "fail-with-istio", "deployment.yaml"), false)
 		})
 	})
 	Context("validating(updating)", func() {

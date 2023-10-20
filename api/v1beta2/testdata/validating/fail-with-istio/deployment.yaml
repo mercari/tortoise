@@ -3,10 +3,10 @@ kind: Deployment
 metadata:
   name: sample
   namespace: default
-  annotations:
-    sidecar.istio.io/inject: "true"
   labels:
     app: nginx
+  annotations:
+    sidecar.istio.io/inject: "true"
 spec:
   replicas: 3
   selector:
