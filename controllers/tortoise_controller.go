@@ -119,11 +119,6 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		}
 	}()
 
-	// tortoise is not deleted. Make sure finalizer is added to tortoise.
-	if err := r.TortoiseService.AddFinalizer(ctx, tortoise); err != nil {
-		return ctrl.Result{}, fmt.Errorf("add finalizer: %w", err)
-	}
-
 	reconcileNow, requeueAfter := r.TortoiseService.ShouldReconcileTortoiseNow(tortoise, now)
 	if !reconcileNow {
 		logger.V(4).Info("the reconciliation is skipped because this tortoise is recently updated", "tortoise", req.NamespacedName)
@@ -201,6 +196,12 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		}
 
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
+	}
+
+	// Make sure finalizer is added to tortoise.
+	tortoise, err = r.TortoiseService.AddFinalizer(ctx, tortoise)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("add finalizer: %w", err)
 	}
 
 	tortoise, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, currentReplicaNum, now)
