@@ -195,7 +195,8 @@ func validateUpdateTest(tortoise, existingTortoise, hpa, deployment string, vali
 var _ = Describe("Tortoise Webhook", func() {
 	Context("mutating", func() {
 		It("should mutate a Tortoise", func() {
-			mutateTest(filepath.Join("testdata", "mutating", "before.yaml"), filepath.Join("testdata", "mutating", "after.yaml"), filepath.Join("testdata", "mutating", "deployment.yaml"))
+			mutateTest(filepath.Join("testdata", "mutating", "with-istio", "before.yaml"), filepath.Join("testdata", "mutating", "with-istio", "after.yaml"), filepath.Join("testdata", "mutating", "with-istio", "deployment.yaml"))
+			mutateTest(filepath.Join("testdata", "mutating", "nothing-to-do", "before.yaml"), filepath.Join("testdata", "mutating", "nothing-to-do", "after.yaml"), filepath.Join("testdata", "mutating", "nothing-to-do", "deployment.yaml"))
 		})
 	})
 	Context("validating(creation)", func() {

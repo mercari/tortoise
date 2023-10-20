@@ -29,15 +29,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 
+	"github.com/google/go-cmp/cmp"
 	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -45,7 +45,7 @@ import (
 )
 
 // log is for logging in this package.
-var tortoiselog = logf.Log.WithName("tortoise-resource")
+var tortoiselog = ctrl.Log.V(4).WithName("tortoise-resource")
 var ClientService *service
 
 func (r *Tortoise) SetupWebhookWithManager(mgr ctrl.Manager) error {
@@ -288,7 +288,9 @@ func (r *Tortoise) ValidateUpdate(old runtime.Object) (admission.Warnings, error
 		}
 	}
 
-	if reflect.DeepEqual(oldTortoise.Spec.ResourcePolicy, r.Spec.ResourcePolicy) {
+	if apiequality.Semantic.DeepEqual(oldTortoise.Spec.ResourcePolicy, r.Spec.ResourcePolicy) {
+		d := cmp.Diff(oldTortoise.Spec.ResourcePolicy, r.Spec.ResourcePolicy)
+		tortoiselog.Error(nil, "immutable field get changed", "name", r.Name, "diff(-old +new)", d)
 		return nil, fmt.Errorf("%s: immutable field get changed", fieldPath.Child("resourcePolicy"))
 	}
 
