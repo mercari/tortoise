@@ -30,10 +30,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/go-cmp/cmp"
 	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -286,12 +284,6 @@ func (r *Tortoise) ValidateUpdate(old runtime.Object) (admission.Warnings, error
 		if r.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
 			return nil, fmt.Errorf("%s: no horizontal policy exists. It will cause the deletion of HPA and you need to remove horizontalPodAutoscalerName to allow the deletion.", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
 		}
-	}
-
-	if apiequality.Semantic.DeepEqual(oldTortoise.Spec.ResourcePolicy, r.Spec.ResourcePolicy) {
-		d := cmp.Diff(oldTortoise.Spec.ResourcePolicy, r.Spec.ResourcePolicy)
-		tortoiselog.Error(nil, "immutable field get changed", "name", r.Name, "diff(-old +new)", d)
-		return nil, fmt.Errorf("%s: immutable field get changed", fieldPath.Child("resourcePolicy"))
 	}
 
 	return nil, nil
