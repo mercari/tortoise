@@ -140,6 +140,10 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	if tortoise.Status.TortoisePhase == autoscalingv1beta2.TortoisePhaseInitializing ||
 		tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation == nil /* only the integration test */ {
+		// Put the current resource requests into tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation.
+		// Once we stop depending on deployments, we should put this logic in initializeTortoise.
+
+		tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation = nil // reset
 		for _, c := range dm.Spec.Template.Spec.Containers {
 			rcr := v1beta2.RecommendedContainerResources{
 				ContainerName:       c.Name,
