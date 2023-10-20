@@ -226,6 +226,12 @@ var _ = Describe("Tortoise Webhook", func() {
 		})
 	})
 	Context("validating(updating)", func() {
+		It("should update a valid Tortoise", func() {
+			validateUpdateTest(filepath.Join("testdata", "validating", "success", "tortoise.yaml"), filepath.Join("testdata", "validating", "success", "tortoise.yaml"), filepath.Join("testdata", "validating", "success", "hpa.yaml"), filepath.Join("testdata", "validating", "success", "deployment.yaml"), true)
+		})
+		It("should update a valid Tortoise for the deployment with istio", func() {
+			validateUpdateTest(filepath.Join("testdata", "validating", "success-with-istio", "tortoise.yaml"), filepath.Join("testdata", "validating", "success-with-istio", "tortoise.yaml"), filepath.Join("testdata", "validating", "success-with-istio", "hpa.yaml"), filepath.Join("testdata", "validating", "success-with-istio", "deployment.yaml"), true)
+		})
 		It("successfully remove horizontal", func() {
 			validateUpdateTest(filepath.Join("testdata", "validating", "success-remove-all-horizontal", "updating-tortoise.yaml"), filepath.Join("testdata", "validating", "success-remove-all-horizontal", "before-tortoise.yaml"), filepath.Join("testdata", "validating", "success-remove-all-horizontal", "hpa.yaml"), filepath.Join("testdata", "validating", "success-remove-all-horizontal", "deployment.yaml"), true)
 		})
