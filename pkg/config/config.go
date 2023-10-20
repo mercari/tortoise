@@ -43,9 +43,9 @@ type Config struct {
 	// TODO: the following fields should be removed after we stop depending on deployment.
 	// So, we don't put them in the documentation.
 	// IstioSidecarProxyDefaultCPU is the default CPU resource request of the istio sidecar proxy (default: 100m)
-	IstioSidecarProxyDefaultCPU string
+	IstioSidecarProxyDefaultCPU string `yaml:"IstioSidecarProxyDefaultCPU"`
 	// IstioSidecarProxyDefaultMemory is the default Memory resource request of the istio sidecar proxy (default: 200Mi)
-	IstioSidecarProxyDefaultMemory string
+	IstioSidecarProxyDefaultMemory string `yaml:"IstioSidecarProxyDefaultMemory"`
 }
 
 // ParseConfig parses the config file (yaml) and returns Config.
