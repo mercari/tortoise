@@ -5,8 +5,6 @@ metadata:
   namespace: default
   labels:
     app: nginx
-  annotations:
-    sidecar.istio.io/inject: "true"
 spec:
   replicas: 3
   selector:
@@ -14,6 +12,8 @@ spec:
       app: nginx
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
       labels:
         app: nginx
     spec:
