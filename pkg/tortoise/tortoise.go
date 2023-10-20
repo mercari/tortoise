@@ -313,9 +313,9 @@ func (s *Service) GetTortoise(ctx context.Context, namespacedName types.Namespac
 	return t, nil
 }
 
-func (s *Service) AddFinalizer(ctx context.Context, tortoise *v1beta2.Tortoise) error {
+func (s *Service) AddFinalizer(ctx context.Context, tortoise *v1beta2.Tortoise) (*v1beta2.Tortoise, error) {
 	if controllerutil.ContainsFinalizer(tortoise, tortoiseFinalizer) {
-		return nil
+		return tortoise, nil
 	}
 
 	updateFn := func() error {
@@ -330,10 +330,10 @@ func (s *Service) AddFinalizer(ctx context.Context, tortoise *v1beta2.Tortoise) 
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, updateFn)
 	if err != nil {
-		return fmt.Errorf("failed to add finalizer: %w", err)
+		return tortoise, fmt.Errorf("failed to add finalizer: %w", err)
 	}
 
-	return nil
+	return tortoise, nil
 }
 
 func (s *Service) RemoveFinalizer(ctx context.Context, tortoise *v1beta2.Tortoise) error {
