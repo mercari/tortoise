@@ -156,12 +156,12 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 			tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation = append(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation, rcr)
 		}
 
-		if dm.Annotations != nil {
-			if v, ok := dm.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
+		if dm.Spec.Template.Annotations != nil {
+			if v, ok := dm.Spec.Template.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
 				// Istio sidecar injection is enabled.
 				// Because the istio container spec is not in the deployment spec, we need to get it from the deployment's annotation.
 
-				cpuReq, ok := dm.Annotations[annotation.IstioSidecarProxyCPUAnnotation]
+				cpuReq, ok := dm.Spec.Template.Annotations[annotation.IstioSidecarProxyCPUAnnotation]
 				if !ok {
 					cpuReq = r.IstioSidecarProxyDefaultCPU
 				}
@@ -170,7 +170,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 					return ctrl.Result{}, fmt.Errorf("parse CPU request of istio sidecar: %w", err)
 				}
 
-				memoryReq, ok := dm.Annotations[annotation.IstioSidecarProxyMemoryAnnotation]
+				memoryReq, ok := dm.Spec.Template.Annotations[annotation.IstioSidecarProxyMemoryAnnotation]
 				if !ok {
 					memoryReq = r.IstioSidecarProxyDefaultMemory
 				}

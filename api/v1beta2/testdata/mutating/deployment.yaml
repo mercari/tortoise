@@ -3,8 +3,6 @@ kind: Deployment
 metadata:
   name: sample
   namespace: default
-  annotations:
-    sidecar.istio.io/inject: "true"
   labels:
     app: nginx
 spec:
@@ -14,6 +12,8 @@ spec:
       app: nginx
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
       labels:
         app: nginx
     spec:

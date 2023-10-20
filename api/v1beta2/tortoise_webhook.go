@@ -86,8 +86,8 @@ func (r *Tortoise) Default() {
 		}
 
 		containers := d.Spec.Template.Spec.DeepCopy().Containers
-		if d.Annotations != nil {
-			if v, ok := d.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
+		if d.Spec.Template.Annotations != nil {
+			if v, ok := d.Spec.Template.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
 				// If the deployment has the sidecar injection annotation, the Pods will have the sidecar container in addition.
 				containers = append(d.Spec.Template.Spec.Containers, v1.Container{
 					Name: "istio-proxy",
@@ -200,8 +200,8 @@ func (r *Tortoise) ValidateCreate() (admission.Warnings, error) {
 			containers.Insert(c.Name)
 		}
 
-		if d.Annotations != nil {
-			if v, ok := d.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
+		if d.Spec.Template.Annotations != nil {
+			if v, ok := d.Spec.Template.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
 				// If the deployment has the sidecar injection annotation, the Pods will have the sidecar container in addition.
 				containers.Insert("istio-proxy")
 			}

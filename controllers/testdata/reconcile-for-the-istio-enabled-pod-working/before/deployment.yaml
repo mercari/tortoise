@@ -1,10 +1,6 @@
 metadata:
   name: mercari-app
   namespace: default
-  annotations:
-    sidecar.istio.io/inject: "true"
-    sidecar.istio.io/proxyCPU: "4"
-    sidecar.istio.io/proxyMemory: "4Gi"
 spec:
   selector:
     matchLabels:
@@ -12,7 +8,10 @@ spec:
   strategy: {}
   template:
     metadata:
-      creationTimestamp: null
+      annotations:
+        sidecar.istio.io/inject: "true"
+        sidecar.istio.io/proxyCPU: "4"
+        sidecar.istio.io/proxyMemory: "4Gi"
       labels:
         app: mercari
     spec:
