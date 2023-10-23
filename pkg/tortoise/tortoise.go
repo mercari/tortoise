@@ -31,19 +31,23 @@ type Service struct {
 	rangeOfMinMaxReplicasRecommendationHour int
 	timeZone                                *time.Location
 	tortoiseUpdateInterval                  time.Duration
-	// If "daily", tortoise will consider all workload behaves very similarly every day.
-	// If your workload may behave differently on, for example, weekdays and weekends, set this to "".
-	minMaxReplicasRoutine string
+	// GatheringDataPeriodType means how long do we gather data for minReplica/maxReplica or data from VPA. "daily" and "weekly" are only valid value.
+	// If "day", tortoise will consider all workload behaves very similarly every day.
+	// If your workload may behave differently on, for example, weekdays and weekends, set this to "weekly".
+	gatheringDataDuration string
 
 	mu sync.RWMutex
 	// TODO: Instead of here, we should store the last time of each tortoise in the status of the tortoise.
 	lastTimeUpdateTortoise map[client.ObjectKey]time.Time
 }
 
-func New(c client.Client, recorder record.EventRecorder, rangeOfMinMaxReplicasRecommendationHour int, timeZone string, tortoiseUpdateInterval time.Duration, minMaxReplicasRoutine string) (*Service, error) {
+func New(c client.Client, recorder record.EventRecorder, rangeOfMinMaxReplicasRecommendationHour int, timeZone string, tortoiseUpdateInterval time.Duration, gatheringDataDuration string) (*Service, error) {
 	jst, err := time.LoadLocation(timeZone)
 	if err != nil {
 		return nil, fmt.Errorf("load location: %w", err)
+	}
+	if gatheringDataDuration == "" {
+		gatheringDataDuration = "weekly"
 	}
 
 	return &Service{
@@ -51,7 +55,7 @@ func New(c client.Client, recorder record.EventRecorder, rangeOfMinMaxReplicasRe
 
 		recorder:                                recorder,
 		rangeOfMinMaxReplicasRecommendationHour: rangeOfMinMaxReplicasRecommendationHour,
-		minMaxReplicasRoutine:                   minMaxReplicasRoutine,
+		gatheringDataDuration:                   gatheringDataDuration,
 		timeZone:                                jst,
 		tortoiseUpdateInterval:                  tortoiseUpdateInterval,
 		lastTimeUpdateTortoise:                  map[client.ObjectKey]time.Time{},
@@ -79,7 +83,7 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1beta2.Tortoise, now time.Time)
 	case "":
 		tortoise = s.initializeTortoise(tortoise, now)
 		r := "1 week"
-		if s.minMaxReplicasRoutine == "daily" {
+		if s.gatheringDataDuration == "daily" {
 			r = "1 day"
 		}
 		s.recorder.Event(tortoise, corev1.EventTypeNormal, "Initialized", fmt.Sprintf("Tortoise is initialized and starts to gather data to make recommendations. It will take %s to finish gathering data and then tortoise starts to work actually", r))
@@ -146,7 +150,11 @@ func (s *Service) changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tort
 				continue
 			}
 			// If the last transition time is within 1 week, we consider it's still gathering data.
-			if p.LastTransitionTime.Add(7 * 24 * time.Hour).After(now) {
+			gatheringPeriod := 7 * 24 * time.Hour
+			if s.gatheringDataDuration == "daily" {
+				gatheringPeriod = 24 * time.Hour
+			}
+			if p.LastTransitionTime.Add(gatheringPeriod).After(now) {
 				someAreGathering = true
 			} else {
 				// It's finish gathering data.
@@ -176,13 +184,13 @@ func (s *Service) initializeMinMaxReplicas(tortoise *v1beta2.Tortoise) *v1beta2.
 	to := s.rangeOfMinMaxReplicasRecommendationHour
 	weekDay := time.Sunday
 	for {
-		if s.minMaxReplicasRoutine == "daily" {
+		if s.gatheringDataDuration == "daily" {
 			recommendations = append(recommendations, v1beta2.ReplicasRecommendation{
 				From:     from,
 				To:       to,
 				TimeZone: s.timeZone.String(),
 			})
-		} else if s.minMaxReplicasRoutine == "weekly" {
+		} else if s.gatheringDataDuration == "weekly" {
 			recommendations = append(recommendations, v1beta2.ReplicasRecommendation{
 				From:     from,
 				To:       to,
@@ -192,7 +200,7 @@ func (s *Service) initializeMinMaxReplicas(tortoise *v1beta2.Tortoise) *v1beta2.
 		}
 
 		if to == 24 {
-			if weekDay == time.Saturday || s.minMaxReplicasRoutine == "daily" {
+			if weekDay == time.Saturday || s.gatheringDataDuration == "daily" {
 				break
 			}
 

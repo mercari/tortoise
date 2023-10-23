@@ -1,5 +1,5 @@
 RangeOfMinMaxReplicasRecommendationHours: 2
-MinMaxReplicasRecommendationType:         "daily"
+GatheringDataPeriodType:         "daily"
 TTLHoursOfMinMaxReplicasRecommendation:   720
 MaxReplicasFactor:                        2.0
 MinReplicasFactor:                        0.5

@@ -14,10 +14,10 @@ Let's get into detail how each field gets changed.
 MaxReplicas is calculated by:
 
 ```
-# If MinMaxReplicasRecommendationType = weekly
+# If GatheringDataPeriodType = weekly
 max{replica numbers at the same time on the same day of week} * MaxReplicasFactor
 
-# If MinMaxReplicasRecommendationType = daily 
+# If GatheringDataPeriodType = daily 
 max{replica numbers at the same time} * MaxReplicasFactor
 ```
 
@@ -30,10 +30,10 @@ It only takes the num of replicas of the last 4 weeks into consideration.
 MinReplicas is calculated by:
 
 ```
-# If MinMaxReplicasRecommendationType = weekly
+# If GatheringDataPeriodType = weekly
 max{replica numbers at the same time on the same day of week} * MinReplicasFactor
 
-# If MinMaxReplicasRecommendationType = daily
+# If GatheringDataPeriodType = daily
 max{replica numbers at the same time} * MinReplicasFactor
 ```
 
