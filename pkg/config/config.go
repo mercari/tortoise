@@ -11,8 +11,10 @@ import (
 type Config struct {
 	// RangeOfMinMaxReplicasRecommendationHours is the time (hours) range of minReplicas and maxReplicas recommendation (default: 1)
 	RangeOfMinMaxReplicasRecommendationHours int `yaml:"RangeOfMinMaxReplicasRecommendationHours"`
-	// MinMaxReplicasRecommendationType is the routine of minReplicas and maxReplicas recommendation (default: weekly)
-	MinMaxReplicasRecommendationType string `yaml:"MinMaxReplicasRecommendationType"`
+	// GatheringDataPeriodType means how long do we gather data for minReplica/maxReplica or data from VPA. "daily" and "weekly" are only valid value. (default: weekly)
+	// If "daily", tortoise will consider all workload behaves very similarly every day.
+	// If your workload may behave differently on, for example, weekdays and weekends, set this to "weekly".
+	GatheringDataPeriodType string `yaml:"GatheringDataPeriodType"`
 	// TTLHoursOfMinMaxReplicasRecommendation is the TTL (hours) of minReplicas and maxReplicas recommendation (default: 720 (=30 days))
 	TTLHoursOfMinMaxReplicasRecommendation int `yaml:"TTLHoursOfMinMaxReplicasRecommendation"`
 	// MaxReplicasFactor is the factor to calculate the maxReplicas recommendation from the current replica number (default: 2.0)
@@ -52,7 +54,7 @@ type Config struct {
 func ParseConfig(path string) (*Config, error) {
 	config := &Config{
 		RangeOfMinMaxReplicasRecommendationHours:   1,
-		MinMaxReplicasRecommendationType:           "weekly",
+		GatheringDataPeriodType:                    "weekly",
 		TTLHoursOfMinMaxReplicasRecommendation:     24 * 30,
 		MaxReplicasFactor:                          2.0,
 		MinReplicasFactor:                          0.5,
@@ -95,8 +97,8 @@ func validate(config *Config) error {
 		return fmt.Errorf("RangeOfMinMaxReplicasRecommendationHours should be between 1 and 24")
 	}
 
-	if config.MinMaxReplicasRecommendationType != "daily" && config.MinMaxReplicasRecommendationType != "weekly" {
-		return fmt.Errorf("MinMaxReplicasRecommendationType should be either \"daily\" or \"weekly\"")
+	if config.GatheringDataPeriodType != "daily" && config.GatheringDataPeriodType != "weekly" {
+		return fmt.Errorf("GatheringDataPeriodType should be either \"daily\" or \"weekly\"")
 	}
 
 	if config.TortoiseHPATargetUtilizationMaxIncrease > 100 || config.TortoiseHPATargetUtilizationMaxIncrease <= 0 {

@@ -7,7 +7,7 @@ The configuration file is passed via `--config` flag.
 
 ```
 RangeOfMinMaxReplicasRecommendationHours:     The time (hours) range of minReplicas and maxReplicas recommendation (default: 1)
-MinMaxReplicasRecommendationType:             The type of minReplicas and maxReplicas recommendation. The valid values are "daily" and "weekly" (default: weekly)
+GatheringDataPeriodType:                      How long do we gather data for minReplica/maxReplica or data from VPA. "daily" and "weekly" are only valid value. (default: weekly)
 TTLHoursOfMinMaxReplicasRecommendation:       The TTL of minReplicas and maxReplicas recommendation (default: 720 (=30 days))
 MaxReplicasFactor:                            The factor to calculate the maxReplicas recommendation from the current replica number (default: 2.0)
 MinReplicasFactor:                            The factor to calculate the minReplicas recommendation from the current replica number (default: 0.5)
@@ -48,9 +48,11 @@ status:
           updatedAt: 2023-01-01T00:00:00Z
 ```
 
-### MinMaxReplicasRecommendationType
+### GatheringDataPeriodType
 
-The routine of minReplicas and maxReplicas recommendation. The valid values are "daily" and "weekly" (default: weekly)
+GatheringDataPeriodType means how long do we gather data for minReplica/maxReplica or data from VPA. "daily" and "weekly" are only valid value. (default: weekly)
+If "daily", tortoise will consider all workload behaves very similarly every day.
+If your workload may behave differently on, for example, weekdays and weekends, set this to "weekly".
 
 #### "daily"
 

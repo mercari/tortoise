@@ -122,7 +122,7 @@ func main() {
 		os.Exit(1)
 	}
 	eventRecorder := mgr.GetEventRecorderFor("tortoise-controller")
-	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, config.RangeOfMinMaxReplicasRecommendationHours, config.TimeZone, config.TortoiseUpdateInterval, config.MinMaxReplicasRecommendationType)
+	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, config.RangeOfMinMaxReplicasRecommendationHours, config.TimeZone, config.TortoiseUpdateInterval, config.GatheringDataPeriodType)
 	if err != nil {
 		setupLog.Error(err, "unable to start tortoise service")
 		os.Exit(1)
