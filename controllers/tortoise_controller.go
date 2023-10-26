@@ -43,6 +43,7 @@ import (
 	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/hpa"
+	"github.com/mercari/tortoise/pkg/metrics"
 	"github.com/mercari/tortoise/pkg/recommender"
 	"github.com/mercari/tortoise/pkg/tortoise"
 	"github.com/mercari/tortoise/pkg/vpa"
@@ -103,8 +104,12 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		if err := r.TortoiseService.RemoveFinalizer(ctx, tortoise); err != nil {
 			return ctrl.Result{}, fmt.Errorf("remove finalizer: %w", err)
 		}
+
+		metrics.RecordTortoise(tortoise, true)
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
+
+	metrics.RecordTortoise(tortoise, false)
 
 	defer func() {
 		if tortoise == nil {
