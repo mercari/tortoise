@@ -1,0 +1,22 @@
+apiVersion: autoscaling.mercari.com/v1beta2
+kind: Tortoise
+metadata:
+  name: tortoise-sample
+  namespace: default
+spec:
+  updateMode: "Off"
+  deletionPolicy: "NoDelete"
+  targetRefs:
+    horizontalPodAutoscalerName: sample-hpa
+    scaleTargetRef:
+      kind: Deployment
+      name: sample
+  resourcePolicy:
+    - containerName: hoge
+      autoscalingPolicy:
+        cpu: Vertical
+        memory: Horizontal
+    - containerName: nginx
+      autoscalingPolicy:
+        cpu: Horizontal
+        memory: Vertical

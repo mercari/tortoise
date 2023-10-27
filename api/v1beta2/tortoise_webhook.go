@@ -68,6 +68,7 @@ func TortoiseDefaultHPAName(tortoiseName string) string {
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *Tortoise) Default() {
 	tortoiselog.Info("default", "name", r.Name)
+	ctx := context.Background()
 
 	if r.Spec.UpdateMode == "" {
 		r.Spec.UpdateMode = UpdateModeOff
@@ -77,7 +78,7 @@ func (r *Tortoise) Default() {
 	}
 
 	if r.Spec.TargetRefs.ScaleTargetRef.Kind == "Deployment" {
-		d, err := ClientService.GetDeploymentOnTortoise(context.Background(), r)
+		d, err := ClientService.GetDeploymentOnTortoise(ctx, r)
 		if err != nil {
 			tortoiselog.Error(err, "failed to get deployment")
 			return
@@ -112,6 +113,48 @@ func (r *Tortoise) Default() {
 		}
 	}
 
+	// set the default value to ResourcePolicy
+	if r.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
+		hpa, err := ClientService.GetHPAFromUser(ctx, r)
+		if err == nil {
+			hpaManagedResourceAndContainer := sets.New[resourceNameAndContainerName]()
+			for _, m := range hpa.Spec.Metrics {
+				if m.Type != v2.ContainerResourceMetricSourceType {
+					continue
+				}
+				hpaManagedResourceAndContainer.Insert(resourceNameAndContainerName{m.ContainerResource.Name, m.ContainerResource.Container})
+			}
+
+			// If the existing HPA is attached, we sets “Horizontal” to resources managed by the attached HPA by default.
+			for i := range r.Spec.ResourcePolicy {
+				_, ok := r.Spec.ResourcePolicy[i].AutoscalingPolicy[v1.ResourceCPU]
+				if !ok {
+					if hpaManagedResourceAndContainer.Has(resourceNameAndContainerName{v1.ResourceCPU, r.Spec.ResourcePolicy[i].ContainerName}) {
+						// If HPA has the metrics for this container's CPU, we set Horizontal.
+						r.Spec.ResourcePolicy[i].AutoscalingPolicy[v1.ResourceCPU] = AutoscalingTypeHorizontal
+					} else {
+						// Otherwise, set Vertical.
+						r.Spec.ResourcePolicy[i].AutoscalingPolicy[v1.ResourceCPU] = AutoscalingTypeVertical
+					}
+				}
+				_, ok = r.Spec.ResourcePolicy[i].AutoscalingPolicy[v1.ResourceMemory]
+				if !ok {
+					if hpaManagedResourceAndContainer.Has(resourceNameAndContainerName{v1.ResourceMemory, r.Spec.ResourcePolicy[i].ContainerName}) {
+						// If HPA has the metrics for this container's CPU, we set Horizontal.
+						r.Spec.ResourcePolicy[i].AutoscalingPolicy[v1.ResourceMemory] = AutoscalingTypeHorizontal
+					} else {
+						// Otherwise, set Vertical.
+						r.Spec.ResourcePolicy[i].AutoscalingPolicy[v1.ResourceMemory] = AutoscalingTypeVertical
+					}
+				}
+			}
+			return
+		}
+		// It shouldn't happen basically err != nil.
+		tortoiselog.Error(err, "failed to get HPA")
+	}
+
+	// If the existing HPA isn't attached, the default policy is Horizontal for CPU and Vertical for Memory.
 	for i := range r.Spec.ResourcePolicy {
 		_, ok := r.Spec.ResourcePolicy[i].AutoscalingPolicy[v1.ResourceCPU]
 		if !ok {

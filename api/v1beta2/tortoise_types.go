@@ -82,7 +82,9 @@ type ContainerResourcePolicy struct {
 	// If "Vertical", the resource is vertically scaled.
 	// If "Off", tortoise doesn't scale at all based on that resource.
 	//
-	// The default value is "Horizontal" for cpu, and "Vertical" for memory.
+	// If .spec.TargetRefs.HorizontalPodAutoscalerName is empty, the default value is "Horizontal" for cpu, and "Vertical" for memory.
+	// If .spec.TargetRefs.HorizontalPodAutoscalerName is not empty, by default, it sets "Horizontal" to resources managed by the attached HPA,
+	// and "Vertical" to resources not managed by the attached HPA.
 	// +optional
 	AutoscalingPolicy map[v1.ResourceName]AutoscalingType `json:"autoscalingPolicy,omitempty" protobuf:"bytes,3,opt,name=autoscalingPolicy"`
 }
