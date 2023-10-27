@@ -1,7 +1,7 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: sample
+  name: sample-hpa
   namespace: default
 spec:
   maxReplicas: 10
@@ -15,8 +15,15 @@ spec:
           averageUtilization: 60
     - type: ContainerResource
       containerResource:
-        name: cpu
+        name: memory
         container: hoge
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: ContainerResource
+      containerResource:
+        name: cpu
+        container: istio-proxy
         target:
           type: Utilization
           averageUtilization: 60

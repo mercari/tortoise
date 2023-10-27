@@ -42,7 +42,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func mutateTest(before, after, deployment string) {
+func mutateTest(before, after, deployment, hpa string) {
 	ctx := context.Background()
 
 	y, err := os.ReadFile(deployment)
@@ -56,6 +56,20 @@ func mutateTest(before, after, deployment string) {
 		err = k8sClient.Delete(ctx, deploy)
 		Expect(err).NotTo(HaveOccurred())
 	}()
+
+	if hpa != "" {
+		y, err = os.ReadFile(hpa)
+		Expect(err).NotTo(HaveOccurred())
+		hpaObj := &autoscalingv2.HorizontalPodAutoscaler{}
+		err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(hpaObj)
+		Expect(err).NotTo(HaveOccurred())
+		err = k8sClient.Create(ctx, hpaObj)
+		Expect(err).NotTo(HaveOccurred())
+		defer func() {
+			err = k8sClient.Delete(ctx, hpaObj)
+			Expect(err).NotTo(HaveOccurred())
+		}()
+	}
 
 	y, err = os.ReadFile(before)
 	Expect(err).NotTo(HaveOccurred())
@@ -97,17 +111,19 @@ func validateCreationTest(tortoise, hpa, deployment string, valid bool) {
 		Expect(err).NotTo(HaveOccurred())
 	}()
 
-	y, err = os.ReadFile(hpa)
-	Expect(err).NotTo(HaveOccurred())
-	hpaObj := &autoscalingv2.HorizontalPodAutoscaler{}
-	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(hpaObj)
-	Expect(err).NotTo(HaveOccurred())
-	err = k8sClient.Create(ctx, hpaObj)
-	Expect(err).NotTo(HaveOccurred())
-	defer func() {
-		err = k8sClient.Delete(ctx, hpaObj)
+	if hpa != "" {
+		y, err = os.ReadFile(hpa)
 		Expect(err).NotTo(HaveOccurred())
-	}()
+		hpaObj := &autoscalingv2.HorizontalPodAutoscaler{}
+		err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(hpaObj)
+		Expect(err).NotTo(HaveOccurred())
+		err = k8sClient.Create(ctx, hpaObj)
+		Expect(err).NotTo(HaveOccurred())
+		defer func() {
+			err = k8sClient.Delete(ctx, hpaObj)
+			Expect(err).NotTo(HaveOccurred())
+		}()
+	}
 
 	y, err = os.ReadFile(tortoise)
 	Expect(err).NotTo(HaveOccurred())
@@ -194,9 +210,17 @@ func validateUpdateTest(tortoise, existingTortoise, hpa, deployment string, vali
 
 var _ = Describe("Tortoise Webhook", func() {
 	Context("mutating", func() {
-		It("should mutate a Tortoise", func() {
-			mutateTest(filepath.Join("testdata", "mutating", "with-istio", "before.yaml"), filepath.Join("testdata", "mutating", "with-istio", "after.yaml"), filepath.Join("testdata", "mutating", "with-istio", "deployment.yaml"))
-			mutateTest(filepath.Join("testdata", "mutating", "nothing-to-do", "before.yaml"), filepath.Join("testdata", "mutating", "nothing-to-do", "after.yaml"), filepath.Join("testdata", "mutating", "nothing-to-do", "deployment.yaml"))
+		It("nothing to do", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "nothing-to-do", "before.yaml"), filepath.Join("testdata", "mutating", "nothing-to-do", "after.yaml"), filepath.Join("testdata", "mutating", "nothing-to-do", "deployment.yaml"), "")
+		})
+		It("should mutate a Tortoise with istio", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "with-istio", "before.yaml"), filepath.Join("testdata", "mutating", "with-istio", "after.yaml"), filepath.Join("testdata", "mutating", "with-istio", "deployment.yaml"), "")
+		})
+		It("should mutate a Tortoise with HPA", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "with-hpa", "before.yaml"), filepath.Join("testdata", "mutating", "with-hpa", "after.yaml"), filepath.Join("testdata", "mutating", "with-hpa", "deployment.yaml"), filepath.Join("testdata", "mutating", "with-hpa", "hpa.yaml"))
+		})
+		It("should mutate a Tortoise with HPA and istio", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "with-hpa-and-istio", "before.yaml"), filepath.Join("testdata", "mutating", "with-hpa-and-istio", "after.yaml"), filepath.Join("testdata", "mutating", "with-hpa-and-istio", "deployment.yaml"), filepath.Join("testdata", "mutating", "with-hpa-and-istio", "hpa.yaml"))
 		})
 	})
 	Context("validating(creation)", func() {
@@ -221,8 +245,8 @@ var _ = Describe("Tortoise Webhook", func() {
 		It("invalid: Tortoise has HPA specified, but no Horizoltal in autoscalingPolicy", func() {
 			validateCreationTest(filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "tortoise.yaml"), filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "hpa.yaml"), filepath.Join("testdata", "validating", "hpa-specified-but-no-horizontal", "deployment.yaml"), false)
 		})
-		It("invalidTortoise for the deployment with istio should have istio target", func() {
-			validateCreationTest(filepath.Join("testdata", "validating", "fail-with-istio", "tortoise.yaml"), filepath.Join("testdata", "validating", "fail-with-istio", "hpa.yaml"), filepath.Join("testdata", "validating", "fail-with-istio", "deployment.yaml"), false)
+		It("invalid: Tortoise for the deployment with istio should have istio target", func() {
+			validateCreationTest(filepath.Join("testdata", "validating", "fail-with-istio", "tortoise.yaml"), "", filepath.Join("testdata", "validating", "fail-with-istio", "deployment.yaml"), false)
 		})
 	})
 	Context("validating(updating)", func() {
