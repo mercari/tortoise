@@ -27,7 +27,7 @@ Tortoise, you don't need a rearing cage, but need VPA in your Kubernetes cluster
 
 ## Usage
 
-Tortoise, they only need the deployment name basically.
+Tortoise, they only need the deployment name.
 
 ```yaml
 apiVersion: autoscaling.mercari.com/v1beta2
@@ -38,7 +38,9 @@ metadata:
 spec:
   updateMode: Auto
   targetRefs:
-    deploymentName: sample-deployment
+    scaleTargetRef:
+      kind: Deployment
+      name: sample
 ```
 
 Tortoise, then they'll prepare/keep adjusting HPA and VPA to achieve efficient autoscaling based on the past behavior of the workload.
