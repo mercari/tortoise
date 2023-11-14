@@ -1,0 +1,91 @@
+apiVersion: autoscaling.mercari.com/v1beta2
+kind: Tortoise
+metadata:
+  name: tortoise-sample
+  namespace: default
+spec:
+  updateMode: "Auto"
+  deletionPolicy: "DeleteAll"
+  targetRefs:
+    horizontalPodAutoscalerName: sample
+    scaleTargetRef:
+      kind: Deployment
+      name: sample
+  resourcePolicy:
+    - containerName: istio-proxy
+      autoscalingPolicy:
+        cpu: Horizontal
+        memory: Vertical
+    - containerName: nginx
+      autoscalingPolicy:
+        cpu: Horizontal
+        memory: Vertical
+status:
+  tortoisePhase: Working
+  containerResourcePhases:
+    - containerName: "nginx"
+      resourcePhases:
+        cpu: 
+          phase: Working 
+        memory:
+          phase: Working 
+    - containerName: "istio-proxy"
+      resourcePhases:
+        cpu: 
+          phase: Working 
+        memory:
+          phase: Working 
+  targets:
+    scaleTargetRef:
+      kind: Deployment
+      name: sample
+    horizontalPodAutoscaler: sample
+    verticalPodAutoscalers: 
+    - name: tortoise-monitor-sample
+      role: Monitor
+    - name: tortoise-updater-sample
+      role: Updater
+  conditions:
+    containerRecommendationFromVPA:
+    - containerName: echo
+      maxRecommendation:
+        cpu:
+          quantity: 6m
+          updatedAt: "2023-10-04T15:45:16Z"
+        memory:
+          quantity: "56623104"
+          updatedAt: "2023-10-04T15:45:16Z"
+      recommendation:
+        cpu:
+          quantity: 6m
+          updatedAt: "2023-10-04T15:45:16Z"
+        memory:
+          quantity: "56623104"
+          updatedAt: "2023-10-04T15:45:16Z"
+  recommendations:
+      horizontal:
+        targetUtilizations:
+        - containerName: "nginx"
+          targetUtilization:
+            cpu: 30
+        - containerName: "istio-proxy"
+          targetUtilization:
+            cpu: 30
+        maxReplicas:
+        - from: 0
+          timezone: Asia/Tokyo
+          to: 24
+          updatedAt: "2023-10-04T15:45:16Z"
+          value: 12
+        minReplicas:
+        - from: 0
+          timezone: Asia/Tokyo
+          to: 1
+          updatedAt: "2023-10-04T15:45:16Z"
+          value: 3
+      vertical:
+        containerResourceRecommendation:
+        - RecommendedResource:
+            cpu: 6m
+            memory: "56623104"
+          containerName: nginx

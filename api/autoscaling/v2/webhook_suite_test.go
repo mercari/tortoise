@@ -85,8 +85,11 @@ var _ = BeforeSuite(func() {
 	y, err := os.ReadFile(filepath.Join("..", "..", "..", "config", "webhook", "manifests.yaml"))
 	Expect(err).NotTo(HaveOccurred())
 	mutatingWebhookConfig := &admissionv1.MutatingWebhookConfiguration{}
+	validatingWebhookConfig := &admissionv1.ValidatingWebhookConfiguration{}
 	d := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096)
 	err = d.Decode(mutatingWebhookConfig)
+	Expect(err).NotTo(HaveOccurred())
+	err = d.Decode(validatingWebhookConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	for i, w := range mutatingWebhookConfig.Webhooks {
@@ -100,12 +103,24 @@ var _ = BeforeSuite(func() {
 		}
 	}
 
+	for i, w := range validatingWebhookConfig.Webhooks {
+		for _, rule := range w.Rules {
+			for _, resource := range rule.Resources {
+				// We want not to include the mutating webhook for tortoise.
+				if resource == "tortoises" {
+					validatingWebhookConfig.Webhooks = append(validatingWebhookConfig.Webhooks[:i], validatingWebhookConfig.Webhooks[i+1:]...)
+				}
+			}
+		}
+	}
+
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: false,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths:            []string{filepath.Join("..", "..", "..", "config", "webhook", "service.yaml")},
-			MutatingWebhooks: []*admissionv1.MutatingWebhookConfiguration{mutatingWebhookConfig},
+			Paths:              []string{filepath.Join("..", "..", "..", "config", "webhook", "service.yaml")},
+			MutatingWebhooks:   []*admissionv1.MutatingWebhookConfiguration{mutatingWebhookConfig},
+			ValidatingWebhooks: []*admissionv1.ValidatingWebhookConfiguration{validatingWebhookConfig},
 		},
 	}
 
@@ -156,6 +171,7 @@ var _ = BeforeSuite(func() {
 
 	err = ctrl.NewWebhookManagedBy(mgr).
 		WithDefaulter(hpaWebhook).
+		WithValidator(hpaWebhook).
 		For(&autoscalingv2.HorizontalPodAutoscaler{}).
 		Complete()
 	Expect(err).NotTo(HaveOccurred())
