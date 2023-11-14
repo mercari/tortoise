@@ -27,9 +27,11 @@ package autoscalingv2
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	v2 "k8s.io/api/autoscaling/v2"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
@@ -77,7 +79,7 @@ func (h *HPAWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	}
 
 	if t.Status.Targets.HorizontalPodAutoscaler != hpa.Name {
-		// not managed by tortoise
+		// should not reach here
 		return nil
 	}
 
@@ -94,4 +96,65 @@ func (h *HPAWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	}
 
 	return nil
+}
+
+//+kubebuilder:webhook:path=/validate-autoscaling-v2-horizontalpodautoscaler,mutating=false,failurePolicy=fail,sideEffects=None,groups=autoscaling,resources=horizontalpodautoscalers,verbs=delete,versions=v2,name=mhorizontalpodautoscaler.kb.io,admissionReviewVersions=v1
+
+var _ admission.CustomValidator = &HPAWebhook{}
+
+// ValidateCreate validates the object on creation.
+// The optional warnings will be added to the response as warning messages.
+// Return an error if the object is invalid.
+func (*HPAWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
+	return nil, nil
+}
+
+// ValidateUpdate validates the object on update.
+// The optional warnings will be added to the response as warning messages.
+// Return an error if the object is invalid.
+func (*HPAWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
+	return nil, nil
+}
+
+// ValidateDelete validates the object on deletion.
+// The optional warnings will be added to the response as warning messages.
+// Return an error if the object is invalid.
+func (h *HPAWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
+	hpa := obj.(*v2.HorizontalPodAutoscaler)
+	tortoiseName, ok := hpa.GetAnnotations()[annotation.TortoiseNameAnnotation]
+	if !ok {
+		// not managed by tortoise
+		return nil, nil
+	}
+
+	t, err := h.tortoiseService.GetTortoise(ctx, types.NamespacedName{
+		Namespace: hpa.Namespace,
+		Name:      tortoiseName,
+	})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// expected scenario - tortoise is deleted before HPA is deleted.
+			return nil, nil
+		}
+		// unknown error
+		return nil, fmt.Errorf("failed to get tortoise(%s) for mutating webhook of HPA(%s/%s): %w", tortoiseName, hpa.Namespace, hpa.Name, err)
+	}
+	if !t.ObjectMeta.DeletionTimestamp.IsZero() {
+		// expected scenario - tortoise is being deleted before HPA is deleted.
+		return nil, nil
+	}
+
+	if t.Status.Targets.HorizontalPodAutoscaler != hpa.Name {
+		// should not reach here
+		return nil, nil
+	}
+
+	message := fmt.Sprintf("HPA(%s/%s) is being deleted while Tortoise(%s) is running. Please delete Tortoise first", hpa.Namespace, hpa.Name, tortoiseName)
+
+	if t.Spec.UpdateMode == v1beta2.UpdateModeOff {
+		// DryRun - don't block the deletion of HPA, but emit warning.
+		return []string{message}, nil
+	}
+
+	return nil, fmt.Errorf(message)
 }

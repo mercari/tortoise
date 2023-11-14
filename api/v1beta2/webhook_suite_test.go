@@ -98,6 +98,17 @@ var _ = BeforeSuite(func() {
 		}
 	}
 
+	for i, w := range validatingWebhookConfig.Webhooks {
+		for _, rule := range w.Rules {
+			for _, resource := range rule.Resources {
+				// We want not to include the mutating webhook for HorizontalPodAutoscaler.
+				if resource == "horizontalpodautoscalers" {
+					validatingWebhookConfig.Webhooks = append(validatingWebhookConfig.Webhooks[:i], validatingWebhookConfig.Webhooks[i+1:]...)
+				}
+			}
+		}
+	}
+
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: false,

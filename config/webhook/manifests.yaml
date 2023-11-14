@@ -70,3 +70,22 @@ webhooks:
     resources:
     - tortoises
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-autoscaling-v2-horizontalpodautoscaler
+  failurePolicy: Fail
+  name: mhorizontalpodautoscaler.kb.io
+  rules:
+  - apiGroups:
+    - autoscaling
+    apiVersions:
+    - v2
+    operations:
+    - DELETE
+    resources:
+    - horizontalpodautoscalers
+  sideEffects: None

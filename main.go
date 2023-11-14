@@ -161,6 +161,7 @@ func main() {
 
 	if err = ctrl.NewWebhookManagedBy(mgr).
 		WithDefaulter(hpaWebhook).
+		WithValidator(hpaWebhook).
 		For(&v2.HorizontalPodAutoscaler{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HorizontalPodAutoscaler")
