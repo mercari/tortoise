@@ -2,21 +2,21 @@ metadata:
   name: mercari
   namespace: default
 spec:
-  resourcePolicy:
-  - autoscalingPolicy:
-      cpu: Horizontal
-      memory: Vertical
-    containerName: app
-  - autoscalingPolicy:
-      cpu: "Off"
-      memory: "Off"
-    containerName: istio-proxy
   targetRefs:
     scaleTargetRef:
       apiVersion: apps/v1
       kind: Deployment
       name: mercari-app
 status:
+  autoscalingPolicy:
+  - policy:
+      cpu: Horizontal
+      memory: Vertical
+    containerName: app
+  - policy:
+      cpu: "Off"
+      memory: "Off"
+    containerName: istio-proxy
   conditions:
     tortoiseConditions:
     - message: "HPA target utilization is updated"

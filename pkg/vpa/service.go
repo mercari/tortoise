@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
-	autoscalingv1beta2 "github.com/mercari/tortoise/api/v1beta2"
+	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/metrics"
 )
@@ -46,8 +46,8 @@ func TortoiseUpdaterVPAName(tortoiseName string) string {
 	return TortoiseUpdaterVPANamePrefix + tortoiseName
 }
 
-func (c *Service) DeleteTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise) error {
-	if tortoise.Spec.DeletionPolicy == autoscalingv1beta2.DeletionPolicyNoDelete {
+func (c *Service) DeleteTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) error {
+	if tortoise.Spec.DeletionPolicy == autoscalingv1beta3.DeletionPolicyNoDelete {
 		return nil
 	}
 
@@ -72,8 +72,8 @@ func (c *Service) DeleteTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 	return nil
 }
 
-func (c *Service) DeleteTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise) error {
-	if tortoise.Spec.DeletionPolicy == autoscalingv1beta2.DeletionPolicyNoDelete {
+func (c *Service) DeleteTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) error {
+	if tortoise.Spec.DeletionPolicy == autoscalingv1beta3.DeletionPolicyNoDelete {
 		return nil
 	}
 
@@ -98,7 +98,7 @@ func (c *Service) DeleteTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 	return nil
 }
 
-func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1beta2.Tortoise, error) {
+func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
 	auto := v1.UpdateModeAuto
 	vpa := &v1.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
@@ -135,9 +135,9 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 	}
 	vpa.Spec.ResourcePolicy.ContainerPolicies = crp
 
-	tortoise.Status.Targets.VerticalPodAutoscalers = append(tortoise.Status.Targets.VerticalPodAutoscalers, autoscalingv1beta2.TargetStatusVerticalPodAutoscaler{
+	tortoise.Status.Targets.VerticalPodAutoscalers = append(tortoise.Status.Targets.VerticalPodAutoscalers, autoscalingv1beta3.TargetStatusVerticalPodAutoscaler{
 		Name: vpa.Name,
-		Role: autoscalingv1beta2.VerticalPodAutoscalerRoleUpdater,
+		Role: autoscalingv1beta3.VerticalPodAutoscalerRoleUpdater,
 	})
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Create(ctx, vpa, metav1.CreateOptions{})
 	if err != nil {
@@ -149,7 +149,7 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 	return vpa, tortoise, nil
 }
 
-func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1beta2.Tortoise, error) {
+func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
 	off := v1.UpdateModeOff
 	vpa := &v1.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
@@ -181,9 +181,9 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 	}
 	vpa.Spec.ResourcePolicy.ContainerPolicies = crp
 
-	tortoise.Status.Targets.VerticalPodAutoscalers = append(tortoise.Status.Targets.VerticalPodAutoscalers, autoscalingv1beta2.TargetStatusVerticalPodAutoscaler{
+	tortoise.Status.Targets.VerticalPodAutoscalers = append(tortoise.Status.Targets.VerticalPodAutoscalers, autoscalingv1beta3.TargetStatusVerticalPodAutoscaler{
 		Name: vpa.Name,
-		Role: autoscalingv1beta2.VerticalPodAutoscalerRoleMonitor,
+		Role: autoscalingv1beta3.VerticalPodAutoscalerRoleMonitor,
 	})
 
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Create(ctx, vpa, metav1.CreateOptions{})
@@ -196,7 +196,7 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 	return vpa, tortoise, nil
 }
 
-func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise) (*v1.VerticalPodAutoscaler, error) {
+func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, error) {
 	retVPA := &v1.VerticalPodAutoscaler{}
 
 	// we only want to record metric once in every reconcile loop.
@@ -212,14 +212,14 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 				for resourcename, value := range r.RecommendedResource {
 					if resourcename == corev1.ResourceCPU {
 						metrics.ProposedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
-						if tortoise.Spec.UpdateMode == autoscalingv1beta2.UpdateModeOff {
+						if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 							// We don't want to record applied* metric when UpdateMode is Off.
 							metrics.AppliedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
 						}
 					}
 					if resourcename == corev1.ResourceMemory {
 						metrics.ProposedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
-						if tortoise.Spec.UpdateMode == autoscalingv1beta2.UpdateModeOff {
+						if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 							// We don't want to record applied* metric when UpdateMode is Off.
 							metrics.AppliedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
 						}
@@ -241,7 +241,7 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 		vpa.Status.Recommendation.ContainerRecommendations = newRecommendations
 		retVPA = vpa
-		if tortoise.Spec.UpdateMode == autoscalingv1beta2.UpdateModeOff {
+		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 			// don't update status if update mode is off. (= dryrun)
 			return nil
 		}
@@ -253,14 +253,14 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		return retVPA, fmt.Errorf("update VPA status: %w", err)
 	}
 
-	if tortoise.Spec.UpdateMode != autoscalingv1beta2.UpdateModeOff {
+	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
 		c.recorder.Event(tortoise, corev1.EventTypeNormal, "VPAUpdated", fmt.Sprintf("VPA %s/%s is updated by the recommendation. The Pods should also be updated with new resources soon by VPA if needed", retVPA.Namespace, retVPA.Name))
 	}
 
 	return retVPA, nil
 }
 
-func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise) (*v1.VerticalPodAutoscaler, error) {
+func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, error) {
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Get(ctx, TortoiseUpdaterVPAName(tortoise.Name), metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get updater vpa on tortoise: %w", err)
@@ -268,7 +268,7 @@ func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscali
 	return vpa, nil
 }
 
-func (c *Service) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta2.Tortoise) (*v1.VerticalPodAutoscaler, bool, error) {
+func (c *Service) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, bool, error) {
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Get(ctx, TortoiseMonitorVPAName(tortoise.Name), metav1.GetOptions{})
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to get updater vpa on tortoise: %w", err)
@@ -283,11 +283,11 @@ func (c *Service) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscali
 	return vpa, false, nil
 }
 
-func SetAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta2.Tortoise, now time.Time) *autoscalingv1beta2.Tortoise {
+func SetAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta3.Tortoise, now time.Time) *autoscalingv1beta3.Tortoise {
 	verticalResourceAndContainer := sets.New[resourceNameAndContainerName]()
-	for _, p := range tortoise.Spec.ResourcePolicy {
-		for rn, ap := range p.AutoscalingPolicy {
-			if ap == autoscalingv1beta2.AutoscalingTypeVertical {
+	for _, p := range tortoise.Status.AutoscalingPolicy {
+		for rn, ap := range p.Policy {
+			if ap == autoscalingv1beta3.AutoscalingTypeVertical {
 				verticalResourceAndContainer.Insert(resourceNameAndContainerName{rn, p.ContainerName})
 			}
 		}
@@ -297,8 +297,8 @@ func SetAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta2.To
 	for _, d := range verticalResourceAndContainer.UnsortedList() {
 		for i, p := range tortoise.Status.ContainerResourcePhases {
 			if p.ContainerName == d.containerName {
-				tortoise.Status.ContainerResourcePhases[i].ResourcePhases[d.rn] = autoscalingv1beta2.ResourcePhase{
-					Phase:              autoscalingv1beta2.ContainerResourcePhaseWorking,
+				tortoise.Status.ContainerResourcePhases[i].ResourcePhases[d.rn] = autoscalingv1beta3.ResourcePhase{
+					Phase:              autoscalingv1beta3.ContainerResourcePhaseWorking,
 					LastTransitionTime: metav1.NewTime(now),
 				}
 				found = true
@@ -306,11 +306,11 @@ func SetAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta2.To
 			}
 		}
 		if !found {
-			tortoise.Status.ContainerResourcePhases = append(tortoise.Status.ContainerResourcePhases, autoscalingv1beta2.ContainerResourcePhases{
+			tortoise.Status.ContainerResourcePhases = append(tortoise.Status.ContainerResourcePhases, autoscalingv1beta3.ContainerResourcePhases{
 				ContainerName: d.containerName,
-				ResourcePhases: map[corev1.ResourceName]autoscalingv1beta2.ResourcePhase{
+				ResourcePhases: map[corev1.ResourceName]autoscalingv1beta3.ResourcePhase{
 					d.rn: {
-						Phase:              autoscalingv1beta2.ContainerResourcePhaseWorking,
+						Phase:              autoscalingv1beta3.ContainerResourcePhaseWorking,
 						LastTransitionTime: metav1.NewTime(now),
 					},
 				},

@@ -62,6 +62,47 @@ type TortoiseSpec struct {
 	// "NoDelete" is the default value.
 	// +optional
 	DeletionPolicy DeletionPolicy `json:"deletionPolicy,omitempty" protobuf:"bytes,4,opt,name=deletionPolicy"`
+	// AutoscalingPolicy is an optional field to specify how each resource in each container is scaled.
+	//
+	// You basically have two options to configure how each resource in each container is scaled -
+	// 1. you let tortoise manage which resource is scaled with which autoscaling policy.
+	// 2. you manage which resource is scaled with which autoscaling policy by yourself.
+	//
+	// For the first option, you just have to leave this field empty.
+	// Then, when tortoise is created, tortoise will configure the AutoscalingPolicy for each resource in each container based on the following rules:
+	// - If .spec.TargetRefs.HorizontalPodAutoscalerName is empty, the initial policy being used is "Horizontal" for cpu, and "Vertical" for memory.
+	// - If .spec.TargetRefs.HorizontalPodAutoscalerName is not empty, tortoise sets "Horizontal" to resources managed by the attached HPA,
+	//   and "Vertical" to resources not managed by the attached HPA.
+	// Also, when a new container is added to the workload,
+	// tortoise will notice it and configure the AutoscalingPolicy for each resource in the new container.
+	// ("Horizontal" for cpu, and "Vertical" for memory)
+	//
+	// For the second option, you have to specify the AutoscalingPolicy for each resource in each container in this field.
+	// If you specify the AutoscalingPolicy for some containers, but not for all,
+	// tortoise will set the default value "Off" to the all resources in the containers not specified.
+	// Note that when a new container is added to the workload, you have to update the AutoscalingPolicy field by yourself,
+	// otherwise, tortoise will never scale the resources in the new container.
+	//
+	// Those two options are created for different use cases:
+	// - Basically, you should use the first option that keep configuring the AutoscalingPolicy for each resource in each container automatically.
+	// - If you have a special reason that you want to scale, for example, memory with horizontal scaling,
+	//   you should use the second option that provides you the flexibility to configure the AutoscalingPolicy for each resource in each container.
+	//
+	// This field is mutable - you can even change this field from non-empty to empty.
+	// In that case, tortoise will just keep the way each container is scaled,
+	// but, you can obtain the merit of the first option - when a new container is added to the workload,
+	// tortoise will notice it and configure the AutoscalingPolicy for each resource in the new container automatically.
+	//
+	// +optional
+	AutoscalingPolicy []ContainerAutoscalingPolicy `json:"autoscalingPolicy,omitempty" protobuf:"bytes,5,opt,name=autoscalingPolicy"`
+}
+
+type ContainerAutoscalingPolicy struct {
+	// ContainerName is the name of target container.
+	ContainerName string `json:"containerName" protobuf:"bytes,1,name=containerName"`
+	// Policy specifies how each resource is scaled.
+	// See .spec.AutoscalingPolicy for more defail.
+	Policy map[v1.ResourceName]AutoscalingType `json:"policy,omitempty" protobuf:"bytes,2,opt,name=policy"`
 }
 
 type ContainerResourcePolicy struct {
@@ -71,10 +112,9 @@ type ContainerResourcePolicy struct {
 	// Tortoise never set the resources request on the container than MinAllocatedResources.
 	//
 	// If empty, tortoise may reduce the resource request to the value which is suggested from VPA.
-	// Leaving this field empty is basically safe, but you may consider using MinAllocatedResources when maybe your application will consume resources more than usual,
-	// given the VPA suggests values based on the historical resource usage.
-	// For example, your application will soon have new feature which leads to increase in the resource usage,
-	// it is expected that your application will soon get more requests than usual, etc.
+	// Given the VPA suggests values based on the historical resource usage,
+	// you have no choice but to use MinAllocatedResources to pre-scaling your Pods,
+	// for example, when maybe your application change will result in consuming resources more than the past.
 	// +optional
 	MinAllocatedResources v1.ResourceList `json:"minAllocatedResources,omitempty" protobuf:"bytes,2,opt,name=minAllocatedResources"`
 	// AutoscalingPolicy specifies how each resource is scaled.
@@ -85,8 +125,13 @@ type ContainerResourcePolicy struct {
 	// If .spec.TargetRefs.HorizontalPodAutoscalerName is empty, the default value is "Horizontal" for cpu, and "Vertical" for memory.
 	// If .spec.TargetRefs.HorizontalPodAutoscalerName is not empty, by default, it sets "Horizontal" to resources managed by the attached HPA,
 	// and "Vertical" to resources not managed by the attached HPA.
+	//
+	// Deprecated: Use spec.AutoscalingPolicy instead.
+	// It's now the alias of .spec.AutoscalingPolicy, and will be removed in a future version.
+	// If both fields are specified, this field's value is just ignored.
+	//
 	// +optional
-	AutoscalingPolicy map[v1.ResourceName]AutoscalingType `json:"autoscalingPolicy,omitempty" protobuf:"bytes,3,opt,name=autoscalingPolicy"`
+	DeplicatedAutoscalingPolicy map[v1.ResourceName]AutoscalingType `json:"autoscalingPolicy,omitempty" protobuf:"bytes,3,opt,name=autoscalingPolicy"`
 }
 
 // +kubebuilder:validation:Enum=DeleteAll;NoDelete
@@ -121,8 +166,10 @@ type TargetRefs struct {
 	ScaleTargetRef CrossVersionObjectReference `json:"scaleTargetRef" protobuf:"bytes,1,name=scaleTargetRef"`
 	// HorizontalPodAutoscalerName is the name of the target HPA.
 	// The target of this HPA should be the same as the ScaleTargetRef above.
-	// The target HPA should have the ContainerResource type metric or the external metric refers to the container resource utilization.
+	// The target HPA should have the ContainerResource type metric that refers to the container resource utilization.
 	// Please check out the document for more detail: https://github.com/mercari/tortoise/blob/master/docs/horizontal.md#supported-metrics-in-hpa
+	// Also, note that you must not edit the HPA directly after you attach the HPA to the tortoise of Auto mode.
+	// Even if you edit your HPA in that case, tortoise will overwrite the HPA with the metrics/values.
 	//
 	// You can specify either of existing HPA only.
 	// This is an optional field, and if you don't specify this field, tortoise will create a new default HPA named `tortoise-hpa-{tortoise name}`.
@@ -150,6 +197,11 @@ type TortoiseStatus struct {
 	Recommendations         Recommendations           `json:"recommendations" protobuf:"bytes,3,name=recommendations"`
 	Targets                 TargetsStatus             `json:"targets" protobuf:"bytes,4,name=targets"`
 	ContainerResourcePhases []ContainerResourcePhases `json:"containerResourcePhases" protobuf:"bytes,5,name=containerResourcePhases"`
+	// AutoscalingPolicy contains the policy how this tortoise actually scales each resource.
+	// It should basically be the same as .spec.autoscalingPolicy.
+	// But, if .spec.autoscalingPolicy is empty, tortoise manages/generates
+	// the policies generated based on HPA and the target deployment.
+	AutoscalingPolicy []ContainerAutoscalingPolicy `json:"autoscalingPolicy,omitempty" protobuf:"bytes,6,opt,name=autoscalingPolicy"`
 }
 
 type ContainerResourcePhases struct {
@@ -339,7 +391,6 @@ type ResourceQuantity struct {
 }
 
 //+kubebuilder:object:root=true
-//+kubebuilder:storageversion
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="MODE",type="string",JSONPath=".spec.updateMode"
 //+kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.tortoisePhase"

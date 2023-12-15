@@ -277,7 +277,7 @@ spec:
                       - name
                     type: object
                   type: array
-                resourcePolicy:
+                autoscalingPolicy:
                   description: Controls how the autoscaler computes recommended resources.
                     The resource policy may be used to set constraints on the recommendations
                     for individual containers. If not specified, the autoscaler computes
@@ -287,11 +287,11 @@ spec:
                     containerPolicies:
                       description: Per-container resource policies.
                       items:
-                        description: ContainerResourcePolicy controls how autoscaler
+                        description: ContainerautoscalingPolicy controls how autoscaler
                           computes the recommended resources for a specific container.
                         properties:
                           containerName:
-                            description: Name of the container or DefaultContainerResourcePolicy,
+                            description: Name of the container or DefaultContainerautoscalingPolicy,
                               in which case the policy is used by the containers that
                               don't have their own policy specified.
                             type: string
@@ -456,7 +456,7 @@ spec:
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             description: Minimum recommended amount of resources. Observes
-                              ContainerResourcePolicy. This amount is not guaranteed
+                              ContainerautoscalingPolicy. This amount is not guaranteed
                               to be sufficient for the application to operate in a stable
                               way, however running with less resources is likely to
                               have significant impact on performance/availability.
@@ -468,7 +468,7 @@ spec:
                                 - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: Recommended amount of resources. Observes ContainerResourcePolicy.
+                            description: Recommended amount of resources. Observes ContainerautoscalingPolicy.
                             type: object
                           uncappedTarget:
                             additionalProperties:
@@ -480,9 +480,9 @@ spec:
                             description: The most recent recommended resources target
                               computed by the autoscaler for the controlled pods, based
                               only on actual resource usage, not taking into account
-                              the ContainerResourcePolicy. May differ from the Recommendation
+                              the ContainerautoscalingPolicy. May differ from the Recommendation
                               if the actual resource usage causes the target to violate
-                              the ContainerResourcePolicy (lower than MinAllowed or
+                              the ContainerautoscalingPolicy (lower than MinAllowed or
                               higher that MaxAllowed). Used only as status indication,
                               will not affect actual resource assignment.
                             type: object
@@ -494,7 +494,7 @@ spec:
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             description: Maximum recommended amount of resources. Observes
-                              ContainerResourcePolicy. Any resources allocated beyond
+                              ContainerautoscalingPolicy. Any resources allocated beyond
                               this value are likely wasted. This value may be larger
                               than the maximum amount of application is actually capable
                               of consuming.
@@ -535,7 +535,7 @@ spec:
               description: 'Specification of the behavior of the autoscaler. More info:
               https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status.'
               properties:
-                resourcePolicy:
+                autoscalingPolicy:
                   description: Controls how the autoscaler computes recommended resources.
                     The resource policy may be used to set constraints on the recommendations
                     for individual containers. If not specified, the autoscaler computes
@@ -545,11 +545,11 @@ spec:
                     containerPolicies:
                       description: Per-container resource policies.
                       items:
-                        description: ContainerResourcePolicy controls how autoscaler
+                        description: ContainerautoscalingPolicy controls how autoscaler
                           computes the recommended resources for a specific container.
                         properties:
                           containerName:
-                            description: Name of the container or DefaultContainerResourcePolicy,
+                            description: Name of the container or DefaultContainerautoscalingPolicy,
                               in which case the policy is used by the containers that
                               don't have their own policy specified.
                             type: string
@@ -690,7 +690,7 @@ spec:
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             description: Minimum recommended amount of resources. Observes
-                              ContainerResourcePolicy. This amount is not guaranteed
+                              ContainerautoscalingPolicy. This amount is not guaranteed
                               to be sufficient for the application to operate in a stable
                               way, however running with less resources is likely to
                               have significant impact on performance/availability.
@@ -702,7 +702,7 @@ spec:
                                 - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: Recommended amount of resources. Observes ContainerResourcePolicy.
+                            description: Recommended amount of resources. Observes ContainerautoscalingPolicy.
                             type: object
                           uncappedTarget:
                             additionalProperties:
@@ -714,9 +714,9 @@ spec:
                             description: The most recent recommended resources target
                               computed by the autoscaler for the controlled pods, based
                               only on actual resource usage, not taking into account
-                              the ContainerResourcePolicy. May differ from the Recommendation
+                              the ContainerautoscalingPolicy. May differ from the Recommendation
                               if the actual resource usage causes the target to violate
-                              the ContainerResourcePolicy (lower than MinAllowed or
+                              the ContainerautoscalingPolicy (lower than MinAllowed or
                               higher that MaxAllowed). Used only as status indication,
                               will not affect actual resource assignment.
                             type: object
@@ -728,7 +728,7 @@ spec:
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             description: Maximum recommended amount of resources. Observes
-                              ContainerResourcePolicy. Any resources allocated beyond
+                              ContainerautoscalingPolicy. Any resources allocated beyond
                               this value are likely wasted. This value may be larger
                               than the maximum amount of application is actually capable
                               of consuming.

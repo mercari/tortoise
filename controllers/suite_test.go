@@ -43,7 +43,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	autoscalingv1beta2 "github.com/mercari/tortoise/api/v1beta2"
+	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -82,7 +82,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = autoscalingv1beta2.AddToScheme(scheme)
+	err = autoscalingv1beta3.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = v1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())

@@ -38,9 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	autoscalingv2 "github.com/mercari/tortoise/api/autoscaling/v2"
-	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
-	autoscalingv1beta1 "github.com/mercari/tortoise/api/v1beta1"
-	autoscalingv1beta2 "github.com/mercari/tortoise/api/v1beta2"
+	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/controllers"
 	"github.com/mercari/tortoise/pkg/config"
 	"github.com/mercari/tortoise/pkg/deployment"
@@ -62,9 +60,8 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(autoscalingv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(autoscalingv1beta1.AddToScheme(scheme))
-	utilruntime.Must(autoscalingv1beta2.AddToScheme(scheme))
+	utilruntime.Must(autoscalingv1beta3.AddToScheme(scheme))
+	utilruntime.Must(autoscalingv1beta3.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -151,7 +148,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Tortoise")
 		os.Exit(1)
 	}
-	if err = (&autoscalingv1beta2.Tortoise{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&autoscalingv1beta3.Tortoise{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Tortoise")
 		os.Exit(1)
 	}

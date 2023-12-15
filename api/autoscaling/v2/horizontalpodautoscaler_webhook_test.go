@@ -38,7 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/mercari/tortoise/api/v1beta2"
+	"github.com/mercari/tortoise/api/v1beta3"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -49,7 +49,7 @@ func mutateTest(before, after, tortoise string) {
 
 	y, err := os.ReadFile(tortoise)
 	Expect(err).NotTo(HaveOccurred())
-	tor := &v1beta2.Tortoise{}
+	tor := &v1beta3.Tortoise{}
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(tor)
 	status := tor.Status
 	Expect(err).NotTo(HaveOccurred())
@@ -93,11 +93,11 @@ func mutateTest(before, after, tortoise string) {
 func validateDeletionTest(hpa, tortoise string, valid bool) {
 	ctx := context.Background()
 
-	var tor *v1beta2.Tortoise
+	var tor *v1beta3.Tortoise
 	if tortoise != "" {
 		y, err := os.ReadFile(tortoise)
 		Expect(err).NotTo(HaveOccurred())
-		tor = &v1beta2.Tortoise{}
+		tor = &v1beta3.Tortoise{}
 		err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(tor)
 		status := tor.Status
 		Expect(err).NotTo(HaveOccurred())
@@ -174,7 +174,7 @@ var _ = Describe("v2.HPA Webhook", func() {
 			// create tortoise
 			y, err := os.ReadFile(filepath.Join("testdata", "validating", "hpa-with-auto-being-deleted", "tortoise.yaml"))
 			Expect(err).NotTo(HaveOccurred())
-			tor := &v1beta2.Tortoise{}
+			tor := &v1beta3.Tortoise{}
 			err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(tor)
 			// add finalizer
 			controllerutil.AddFinalizer(tor, tortoiseFinalizer)

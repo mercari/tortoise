@@ -1,16 +1,16 @@
 package utils
 
 import (
-	"github.com/mercari/tortoise/api/v1beta2"
+	"github.com/mercari/tortoise/api/v1beta3"
 )
 
 type TortoiseBuilder struct {
-	tortoise *v1beta2.Tortoise
+	tortoise *v1beta3.Tortoise
 }
 
 func NewTortoiseBuilder() *TortoiseBuilder {
 	return &TortoiseBuilder{
-		tortoise: &v1beta2.Tortoise{},
+		tortoise: &v1beta3.Tortoise{},
 	}
 }
 
@@ -24,45 +24,50 @@ func (b *TortoiseBuilder) SetNamespace(namespace string) *TortoiseBuilder {
 	return b
 }
 
-func (b *TortoiseBuilder) SetTargetRefs(targetRefs v1beta2.TargetRefs) *TortoiseBuilder {
+func (b *TortoiseBuilder) SetTargetRefs(targetRefs v1beta3.TargetRefs) *TortoiseBuilder {
 	b.tortoise.Spec.TargetRefs = targetRefs
 	return b
 }
-func (b *TortoiseBuilder) SetDeletionPolicy(policy v1beta2.DeletionPolicy) *TortoiseBuilder {
+func (b *TortoiseBuilder) SetDeletionPolicy(policy v1beta3.DeletionPolicy) *TortoiseBuilder {
 	b.tortoise.Spec.DeletionPolicy = policy
 	return b
 }
 
-func (b *TortoiseBuilder) SetUpdateMode(updateMode v1beta2.UpdateMode) *TortoiseBuilder {
+func (b *TortoiseBuilder) AddAutoscalingPolicy(p v1beta3.ContainerAutoscalingPolicy) *TortoiseBuilder {
+	b.tortoise.Status.AutoscalingPolicy = append(b.tortoise.Status.AutoscalingPolicy, p)
+	return b
+}
+
+func (b *TortoiseBuilder) SetUpdateMode(updateMode v1beta3.UpdateMode) *TortoiseBuilder {
 	b.tortoise.Spec.UpdateMode = updateMode
 	return b
 }
 
-func (b *TortoiseBuilder) AddResourcePolicy(resourcePolicy v1beta2.ContainerResourcePolicy) *TortoiseBuilder {
+func (b *TortoiseBuilder) AddResourcePolicy(resourcePolicy v1beta3.ContainerResourcePolicy) *TortoiseBuilder {
 	b.tortoise.Spec.ResourcePolicy = append(b.tortoise.Spec.ResourcePolicy, resourcePolicy)
 	return b
 }
 
-func (b *TortoiseBuilder) SetTortoisePhase(phase v1beta2.TortoisePhase) *TortoiseBuilder {
+func (b *TortoiseBuilder) SetTortoisePhase(phase v1beta3.TortoisePhase) *TortoiseBuilder {
 	b.tortoise.Status.TortoisePhase = phase
 	return b
 }
 
-func (b *TortoiseBuilder) AddCondition(condition v1beta2.ContainerRecommendationFromVPA) *TortoiseBuilder {
+func (b *TortoiseBuilder) AddCondition(condition v1beta3.ContainerRecommendationFromVPA) *TortoiseBuilder {
 	b.tortoise.Status.Conditions.ContainerRecommendationFromVPA = append(b.tortoise.Status.Conditions.ContainerRecommendationFromVPA, condition)
 	return b
 }
 
-func (b *TortoiseBuilder) SetRecommendations(recommendations v1beta2.Recommendations) *TortoiseBuilder {
+func (b *TortoiseBuilder) SetRecommendations(recommendations v1beta3.Recommendations) *TortoiseBuilder {
 	b.tortoise.Status.Recommendations = recommendations
 	return b
 }
 
-func (b *TortoiseBuilder) SetTargetsStatus(targetsStatus v1beta2.TargetsStatus) *TortoiseBuilder {
+func (b *TortoiseBuilder) SetTargetsStatus(targetsStatus v1beta3.TargetsStatus) *TortoiseBuilder {
 	b.tortoise.Status.Targets = targetsStatus
 	return b
 }
 
-func (b *TortoiseBuilder) Build() *v1beta2.Tortoise {
+func (b *TortoiseBuilder) Build() *v1beta3.Tortoise {
 	return b.tortoise
 }

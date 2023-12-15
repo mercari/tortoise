@@ -12,16 +12,16 @@ spec:
     scaleTargetRef:
       kind: Deployment
       name: sample
-  resourcePolicy:
+status:
+  autoscalingPolicy:
     - containerName: istio-proxy
-      autoscalingPolicy:
+      policy:
         cpu: Horizontal
         memory: Vertical
     - containerName: nginx
-      autoscalingPolicy:
+      policy:
         cpu: Horizontal
         memory: Vertical
-status:
   tortoisePhase: Working
   containerResourcePhases:
     - containerName: "nginx"

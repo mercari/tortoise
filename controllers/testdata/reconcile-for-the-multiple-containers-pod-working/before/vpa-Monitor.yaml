@@ -5,7 +5,7 @@ metadata:
   name: tortoise-monitor-mercari
   namespace: default
 spec:
-  resourcePolicy:
+  autoscalingPolicy:
     containerPolicies:
     - containerName: app
     - containerName: istio-proxy
