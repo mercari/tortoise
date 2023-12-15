@@ -19,54 +19,50 @@ status:
     - containerName: app
       maxRecommendation:
         cpu:
-          quantity: 0
+          quantity: "0"
           updatedAt: null
         memory:
-          quantity: 0
+          quantity: "0"
           updatedAt: null
       recommendation:
         cpu:
-          quantity: 0
+          quantity: "0"
           updatedAt: null
         memory:
-          quantity: 0
+          quantity: "0"
           updatedAt: null
   recommendations:
     horizontal:
       maxReplicas:
       - from: 0
-        timezone: "Asia/Tokyo"
+        timezone: Local
         to: 24
         updatedAt: "2023-10-06T01:01:24Z"
-        value: 0
+        value: 15
       minReplicas:
       - from: 0
-        timezone: "Asia/Tokyo"
+        timezone: Local
         to: 24
         updatedAt: "2023-10-06T01:01:24Z"
-        value: 0
+        value: 3
+      targetUtilizations:
+      - containerName: app
+        targetUtilization:
+          cpu: 50
     vertical:
-      containerResourceRecommendation:
-      - RecommendedResource:
-          cpu: "4"
-          memory: 4Gi
-        containerName: app
+      containerResourceRecommendation: null
   targets:
-    scaleTargetRef:
-      apiVersion: apps/v1
-      kind: Deployment
-      name: mercari-app
     horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
-    - name: tortoise-monitor-mercari
-      role: Monitor
     - name: tortoise-updater-mercari
       role: Updater
-  tortoisePhase: Initializing
+    - name: tortoise-monitor-mercari
+      role: Monitor
+  tortoisePhase: Working
   containerResourcePhases:
     - containerName: "app"
       resourcePhases:
         cpu: 
-          phase: GatheringData
+          phase: Working 
         memory:
-          phase: GatheringData
+          phase: Working 

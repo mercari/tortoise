@@ -14,3 +14,20 @@ spec:
     name: mercari-app
   updatePolicy:
     updateMode: "Off"
+status:
+  conditions:
+  - lastTransitionTime: null
+    status: "True"
+    type: RecommendationProvided
+  recommendation:
+    containerRecommendations:
+    - containerName: app
+      lowerBound:
+        cpu: "3"
+        memory: 3Gi
+      target:
+        cpu: "3"
+        memory: 3Gi
+      upperBound:
+        cpu: "5"
+        memory: 5Gi

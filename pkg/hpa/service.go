@@ -141,9 +141,9 @@ type resourceNameAndContainerName struct {
 	containerName string
 }
 
-// addHPAMetricsFromTortoiseAutoscalingPolicy adds metrics to the HPA based on the autoscaling policy in the tortoise.
+// syncHPAMetricsWithTortoiseAutoscalingPolicy adds metrics to the HPA based on the autoscaling policy in the tortoise.
 // Note that it doesn't update the HPA in kube-apiserver, you have to do that after this function.
-func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, currenthpa *v2.HorizontalPodAutoscaler, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, bool) {
+func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, currenthpa *v2.HorizontalPodAutoscaler, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, bool) {
 	hpaEdited := false
 
 	policies := sets.New[string]()
@@ -217,9 +217,16 @@ func (c *Service) addHPAMetricsFromTortoiseAutoscalingPolicy(ctx context.Context
 	// remove metrics
 	newMetrics := []v2.MetricSpec{}
 	for _, m := range currenthpa.Spec.Metrics {
-		if m.Type != v2.ContainerResourceMetricSourceType {
+		if m.Type == v2.ResourceMetricSourceType {
+			// resource metrics should be removed.
 			continue
 		}
+		if m.Type != v2.ContainerResourceMetricSourceType {
+			// We keep container resource metrics.
+			newMetrics = append(newMetrics, m)
+			continue
+		}
+
 		if !needToRemoveFromHPA.Has(resourceNameAndContainerName{m.ContainerResource.Name, m.ContainerResource.Container}) {
 			newMetrics = append(newMetrics, m)
 			hpaEdited = true
@@ -281,7 +288,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 		},
 	}
 
-	hpa, tortoise, _ = c.addHPAMetricsFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa, now)
+	hpa, tortoise, _ = c.syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx, tortoise, hpa, now)
 
 	tortoise.Status.Targets.HorizontalPodAutoscaler = hpa.Name
 
@@ -480,7 +487,7 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context
 
 	var newhpa *v2.HorizontalPodAutoscaler
 	var isHpaEdited bool
-	newhpa, tortoise, isHpaEdited = c.addHPAMetricsFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa, now)
+	newhpa, tortoise, isHpaEdited = c.syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx, tortoise, hpa, now)
 	if !isHpaEdited {
 		// User didn't change anything.
 		return tortoise, nil

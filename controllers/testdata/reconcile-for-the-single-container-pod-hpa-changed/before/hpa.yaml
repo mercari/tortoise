@@ -21,9 +21,16 @@ spec:
       stabilizationWindowSeconds: 0
   maxReplicas: 100
   metrics:
+  - external:
+      metric:
+        name: datadogmetric@hoge:hoge
+      target:
+        type: Value
+        value: 90
+    type: External
   - containerResource:
       container: app
-      name: cpu
+      name: memory
       target:
         averageUtilization: 50
         type: Utilization

@@ -11,62 +11,67 @@ spec:
 status:
   autoscalingPolicy:
   - policy:
-      cpu: Horizontal
-      memory: Vertical
+      cpu: Vertical
+      memory: Horizontal
     containerName: app
   conditions:
+    tortoiseConditions:
+    - message: "HPA target utilization is updated"
+      reason: HPATargetUtilizationUpdated
+      status: "True"
+      type: HPATargetUtilizationUpdated
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
         cpu:
-          quantity: 0
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: 0
+          quantity: 3Gi
           updatedAt: null
       recommendation:
         cpu:
-          quantity: 0
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: 0
+          quantity: 3Gi
           updatedAt: null
   recommendations:
     horizontal:
       maxReplicas:
       - from: 0
-        timezone: "Asia/Tokyo"
+        timezone: Local
         to: 24
         updatedAt: "2023-10-06T01:01:24Z"
-        value: 0
+        value: 20
       minReplicas:
       - from: 0
-        timezone: "Asia/Tokyo"
+        timezone: Local
         to: 24
         updatedAt: "2023-10-06T01:01:24Z"
-        value: 0
+        value: 5
+      targetUtilizations:
+      - containerName: app
+        targetUtilization:
+          memory: 75
     vertical:
       containerResourceRecommendation:
       - RecommendedResource:
-          cpu: "4"
+          cpu: "3"
           memory: 4Gi
         containerName: app
   targets:
-    scaleTargetRef:
-      apiVersion: apps/v1
-      kind: Deployment
-      name: mercari-app
     horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
-    - name: tortoise-monitor-mercari
-      role: Monitor
     - name: tortoise-updater-mercari
       role: Updater
-  tortoisePhase: Initializing
+    - name: tortoise-monitor-mercari
+      role: Monitor
+  tortoisePhase: Working
   containerResourcePhases:
     - containerName: "app"
       resourcePhases:
         cpu: 
-          phase: GatheringData
+          phase: Working 
         memory:
-          phase: GatheringData
+          phase: Working 
