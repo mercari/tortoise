@@ -3,21 +3,21 @@ metadata:
   namespace: default
 spec:
   deletionPolicy: NoDelete
-  resourcePolicy:
-  - autoscalingPolicy:
-      cpu: Horizontal
-      memory: Vertical
-    containerName: app
-  - autoscalingPolicy:
-      cpu: Horizontal
-      memory: Vertical
-    containerName: istio-proxy
   targetRefs:
     scaleTargetRef:
       apiVersion: apps/v1
       kind: Deployment
       name: mercari-app
 status:
+  autoscalingPolicy:
+  - policy:
+      cpu: Horizontal
+      memory: Vertical
+    containerName: app
+  - policy:
+      cpu: Horizontal
+      memory: Vertical
+    containerName: istio-proxy
   conditions:
     containerRecommendationFromVPA:
     - containerName: app

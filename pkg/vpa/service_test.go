@@ -9,66 +9,64 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/mercari/tortoise/api/v1beta2"
-	autoscalingv1beta2 "github.com/mercari/tortoise/api/v1beta2"
+	"github.com/mercari/tortoise/api/v1beta3"
+	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 )
 
 func TestMakeAllVerticalContainerResourcePhaseRunning(t *testing.T) {
 	type args struct {
-		tortoise *autoscalingv1beta2.Tortoise
+		tortoise *autoscalingv1beta3.Tortoise
 	}
 	tests := []struct {
 		name string
 		args args
-		want *autoscalingv1beta2.Tortoise
+		want *autoscalingv1beta3.Tortoise
 	}{
 		{
 			name: "modified correctly",
 			args: args{
-				tortoise: &autoscalingv1beta2.Tortoise{
+				tortoise: &autoscalingv1beta3.Tortoise{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tortoise",
 						Namespace: "default",
 					},
-					Spec: autoscalingv1beta2.TortoiseSpec{
-						ResourcePolicy: []autoscalingv1beta2.ContainerResourcePolicy{
+					Status: autoscalingv1beta3.TortoiseStatus{
+						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 							{
 								ContainerName: "app",
-								AutoscalingPolicy: map[v1.ResourceName]v1beta2.AutoscalingType{
-									v1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
-									v1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
 								},
 							},
 							{
 								ContainerName: "istio-proxy",
-								AutoscalingPolicy: map[v1.ResourceName]v1beta2.AutoscalingType{
-									v1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
-									v1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
 								},
 							},
 						},
-					},
-					Status: autoscalingv1beta2.TortoiseStatus{
-						ContainerResourcePhases: []autoscalingv1beta2.ContainerResourcePhases{
+						ContainerResourcePhases: []autoscalingv1beta3.ContainerResourcePhases{
 							{
 								ContainerName: "app",
-								ResourcePhases: map[v1.ResourceName]autoscalingv1beta2.ResourcePhase{
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
 									v1.ResourceCPU: {
-										Phase: autoscalingv1beta2.ContainerResourcePhaseGatheringData,
+										Phase: autoscalingv1beta3.ContainerResourcePhaseGatheringData,
 									},
 									v1.ResourceMemory: {
-										Phase: autoscalingv1beta2.ContainerResourcePhaseGatheringData,
+										Phase: autoscalingv1beta3.ContainerResourcePhaseGatheringData,
 									},
 								},
 							},
 							{
 								ContainerName: "istio-proxy",
-								ResourcePhases: map[v1.ResourceName]autoscalingv1beta2.ResourcePhase{
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
 									v1.ResourceCPU: {
-										Phase: autoscalingv1beta2.ContainerResourcePhaseGatheringData,
+										Phase: autoscalingv1beta3.ContainerResourcePhaseGatheringData,
 									},
 									v1.ResourceMemory: {
-										Phase: autoscalingv1beta2.ContainerResourcePhaseGatheringData,
+										Phase: autoscalingv1beta3.ContainerResourcePhaseGatheringData,
 									},
 								},
 							},
@@ -76,50 +74,48 @@ func TestMakeAllVerticalContainerResourcePhaseRunning(t *testing.T) {
 					},
 				},
 			},
-			want: &autoscalingv1beta2.Tortoise{
+			want: &autoscalingv1beta3.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "tortoise",
 					Namespace: "default",
 				},
-				Spec: autoscalingv1beta2.TortoiseSpec{
-					ResourcePolicy: []autoscalingv1beta2.ContainerResourcePolicy{
+				Status: autoscalingv1beta3.TortoiseStatus{
+					AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 						{
 							ContainerName: "app",
-							AutoscalingPolicy: map[v1.ResourceName]v1beta2.AutoscalingType{
-								v1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
-								v1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
 							},
 						},
 						{
 							ContainerName: "istio-proxy",
-							AutoscalingPolicy: map[v1.ResourceName]v1beta2.AutoscalingType{
-								v1.ResourceMemory: v1beta2.AutoscalingTypeVertical,
-								v1.ResourceCPU:    v1beta2.AutoscalingTypeHorizontal,
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
 							},
 						},
 					},
-				},
-				Status: autoscalingv1beta2.TortoiseStatus{
-					ContainerResourcePhases: []autoscalingv1beta2.ContainerResourcePhases{
+					ContainerResourcePhases: []autoscalingv1beta3.ContainerResourcePhases{
 						{
 							ContainerName: "app",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta2.ResourcePhase{
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
 								v1.ResourceCPU: {
-									Phase: autoscalingv1beta2.ContainerResourcePhaseGatheringData,
+									Phase: autoscalingv1beta3.ContainerResourcePhaseGatheringData,
 								},
 								v1.ResourceMemory: {
-									Phase: autoscalingv1beta2.ContainerResourcePhaseWorking,
+									Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
 								},
 							},
 						},
 						{
 							ContainerName: "istio-proxy",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta2.ResourcePhase{
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
 								v1.ResourceCPU: {
-									Phase: autoscalingv1beta2.ContainerResourcePhaseGatheringData,
+									Phase: autoscalingv1beta3.ContainerResourcePhaseGatheringData,
 								},
 								v1.ResourceMemory: {
-									Phase: autoscalingv1beta2.ContainerResourcePhaseWorking,
+									Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
 								},
 							},
 						},

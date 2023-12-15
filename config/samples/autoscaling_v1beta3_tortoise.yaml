@@ -1,0 +1,6 @@
+apiVersion: autoscaling.mercari.com/v1beta3
+kind: Tortoise
+metadata:
+  name: tortoise-sample
+spec:
+  # TODO(user): Add fields here

@@ -2,17 +2,17 @@ metadata:
   name: mercari
   namespace: default
 spec:
-  resourcePolicy:
-  - autoscalingPolicy:
-      cpu: Horizontal
-      memory: Vertical
-    containerName: app
   targetRefs:
     scaleTargetRef:
       apiVersion: apps/v1
       kind: Deployment
       name: mercari-app
 status:
+  autoscalingPolicy:
+  - policy:
+      cpu: Horizontal
+      memory: Vertical
+    containerName: app
   conditions:
     containerRecommendationFromVPA:
     - containerName: app

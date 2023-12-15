@@ -9,13 +9,14 @@ import (
 
 	v2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/mercari/tortoise/api/v1beta2"
+	"github.com/mercari/tortoise/api/v1beta3"
 )
 
 type Service struct {
@@ -54,7 +55,7 @@ func New(
 	}
 }
 
-func (s *Service) updateVPARecommendation(tortoise *v1beta2.Tortoise, hpa *v2.HorizontalPodAutoscaler, replicaNum int32) (*v1beta2.Tortoise, error) {
+func (s *Service) updateVPARecommendation(tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, replicaNum int32) (*v1beta3.Tortoise, error) {
 	requestMap := map[string]map[corev1.ResourceName]resource.Quantity{}
 	// This ContainerResourceRecommendationkshould be the current resource requests.
 	for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
@@ -72,13 +73,19 @@ func (s *Service) updateVPARecommendation(tortoise *v1beta2.Tortoise, hpa *v2.Ho
 		}
 	}
 
-	newRecommendations := []v1beta2.RecommendedContainerResources{}
+	// containerName → MinAllocatedResources
+	minAllocatedResourcesMap := map[string]v1.ResourceList{}
 	for _, r := range tortoise.Spec.ResourcePolicy {
-		recommendation := v1beta2.RecommendedContainerResources{
+		minAllocatedResourcesMap[r.ContainerName] = r.MinAllocatedResources
+	}
+
+	newRecommendations := []v1beta3.RecommendedContainerResources{}
+	for _, r := range tortoise.Status.AutoscalingPolicy {
+		recommendation := v1beta3.RecommendedContainerResources{
 			ContainerName:       r.ContainerName,
 			RecommendedResource: map[corev1.ResourceName]resource.Quantity{},
 		}
-		for k, p := range r.AutoscalingPolicy {
+		for k, p := range r.Policy {
 			reqmap, ok := requestMap[r.ContainerName]
 			if !ok {
 				klog.ErrorS(nil, fmt.Sprintf("no resource request on the container %s", r.ContainerName))
@@ -99,7 +106,7 @@ func (s *Service) updateVPARecommendation(tortoise *v1beta2.Tortoise, hpa *v2.Ho
 			if !ok {
 				return nil, fmt.Errorf("no %s recommendation from VPA for the container %s", k, r.ContainerName)
 			}
-			newSize, err := s.calculateBestNewSize(p, r.ContainerName, recom, k, hpa, replicaNum, req, r.MinAllocatedResources, len(requestMap) > 1)
+			newSize, err := s.calculateBestNewSize(p, r.ContainerName, recom, k, hpa, replicaNum, req, minAllocatedResourcesMap[r.ContainerName], len(requestMap) > 1)
 			if err != nil {
 				return nil, err
 			}
@@ -117,7 +124,7 @@ func (s *Service) updateVPARecommendation(tortoise *v1beta2.Tortoise, hpa *v2.Ho
 
 // calculateBestNewSize calculates the best new resource request based on the current replica number and the recommended resource request.
 // Even if the autoscaling policy is Horizontal, this function may suggest the vertical scaling, see comments in the function.
-func (s *Service) calculateBestNewSize(p v1beta2.AutoscalingType, containerName string, recommendedResourceRequest resource.Quantity, k corev1.ResourceName, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, resourceRequest resource.Quantity, minAllocatedResources corev1.ResourceList, isMultipleContainersPod bool) (int64, error) {
+func (s *Service) calculateBestNewSize(p v1beta3.AutoscalingType, containerName string, recommendedResourceRequest resource.Quantity, k corev1.ResourceName, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, resourceRequest resource.Quantity, minAllocatedResources corev1.ResourceList, isMultipleContainersPod bool) (int64, error) {
 	// When the current replica num is more than or equal to the preferredReplicaNumUpperLimit,
 	// make the container size bigger (just multiple by 1.1) so that the replica number will be descreased.
 	if replicaNum >= s.preferredReplicaNumUpperLimit {
@@ -126,14 +133,14 @@ func (s *Service) calculateBestNewSize(p v1beta2.AutoscalingType, containerName 
 		return s.justifyNewSizeByMaxMin(newSize, k, resourceRequest, minAllocatedResources), nil
 	}
 
-	if replicaNum <= s.minimumMinReplicas || p == v1beta2.AutoscalingTypeVertical {
+	if replicaNum <= s.minimumMinReplicas || p == v1beta3.AutoscalingTypeVertical {
 		// It's the simplest case.
 		// The user configures Vertical on this container's resource. This is just vertical scaling.
 		newSize := recommendedResourceRequest.MilliValue()
 		return s.justifyNewSizeByMaxMin(newSize, k, resourceRequest, minAllocatedResources), nil
 	}
 
-	if replicaNum <= s.minimumMinReplicas || p == v1beta2.AutoscalingTypeVertical {
+	if replicaNum <= s.minimumMinReplicas || p == v1beta3.AutoscalingTypeVertical {
 		// The current replica number is less than or equal to the minimumMinReplicas.
 		// The replica number is too small and hits the minReplicas.
 		// So, the resource utilization might be super low because HPA cannot scale down further.
@@ -148,7 +155,7 @@ func (s *Service) calculateBestNewSize(p v1beta2.AutoscalingType, containerName 
 		return s.justifyNewSizeByMaxMin(newSize, k, resourceRequest, minAllocatedResources), nil
 	}
 
-	if p == v1beta2.AutoscalingTypeHorizontal {
+	if p == v1beta3.AutoscalingTypeHorizontal {
 		targetUtilizationValue, err := getHPATargetValue(hpa, containerName, k)
 		if err != nil {
 			return 0, fmt.Errorf("get the target value from HPA: %w", err)
@@ -188,7 +195,7 @@ func (s *Service) justifyNewSizeByMaxMin(newSize int64, k corev1.ResourceName, r
 	return newSize
 }
 
-func (s *Service) updateHPARecommendation(ctx context.Context, tortoise *v1beta2.Tortoise, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, now time.Time) (*v1beta2.Tortoise, error) {
+func (s *Service) updateHPARecommendation(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, now time.Time) (*v1beta3.Tortoise, error) {
 	var err error
 	tortoise, err = s.updateHPATargetUtilizationRecommendations(ctx, tortoise, hpa)
 	if err != nil {
@@ -202,7 +209,7 @@ func (s *Service) updateHPARecommendation(ctx context.Context, tortoise *v1beta2
 	return tortoise, nil
 }
 
-func (s *Service) UpdateRecommendations(ctx context.Context, tortoise *v1beta2.Tortoise, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, now time.Time) (*v1beta2.Tortoise, error) {
+func (s *Service) UpdateRecommendations(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, now time.Time) (*v1beta3.Tortoise, error) {
 	var err error
 	tortoise, err = s.updateHPARecommendation(ctx, tortoise, hpa, replicaNum, now)
 	if err != nil {
@@ -216,7 +223,7 @@ func (s *Service) UpdateRecommendations(ctx context.Context, tortoise *v1beta2.T
 	return tortoise, nil
 }
 
-func (s *Service) updateHPAMinMaxReplicasRecommendations(tortoise *v1beta2.Tortoise, replicaNum int32, now time.Time) (*v1beta2.Tortoise, error) {
+func (s *Service) updateHPAMinMaxReplicasRecommendations(tortoise *v1beta3.Tortoise, replicaNum int32, now time.Time) (*v1beta3.Tortoise, error) {
 	currentReplicaNum := float64(replicaNum)
 	min, err := s.updateMaxMinReplicasRecommendation(int32(math.Ceil(currentReplicaNum*s.minReplicasFactor)), tortoise.Status.Recommendations.Horizontal.MinReplicas, now, s.minimumMinReplicas)
 	if err != nil {
@@ -233,7 +240,7 @@ func (s *Service) updateHPAMinMaxReplicasRecommendations(tortoise *v1beta2.Torto
 }
 
 // updateMaxMinReplicasRecommendation replaces value if the value is higher than the current value.
-func (s *Service) updateMaxMinReplicasRecommendation(value int32, recommendations []v1beta2.ReplicasRecommendation, now time.Time, minimum int32) ([]v1beta2.ReplicasRecommendation, error) {
+func (s *Service) updateMaxMinReplicasRecommendation(value int32, recommendations []v1beta3.ReplicasRecommendation, now time.Time, minimum int32) ([]v1beta3.ReplicasRecommendation, error) {
 	// find the corresponding recommendations.
 	index := -1
 	for i, r := range recommendations {
@@ -262,7 +269,7 @@ func (s *Service) updateMaxMinReplicasRecommendation(value int32, recommendation
 	return recommendations, nil
 }
 
-func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context, tortoise *v1beta2.Tortoise, hpa *v2.HorizontalPodAutoscaler) (*v1beta2.Tortoise, error) {
+func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) (*v1beta3.Tortoise, error) {
 	logger := log.FromContext(ctx)
 
 	requestMap := map[string]map[corev1.ResourceName]resource.Quantity{}
@@ -282,16 +289,16 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 		}
 	}
 
-	newHPATargetUtilizationRecommendationPerContainer := []v1beta2.HPATargetUtilizationRecommendationPerContainer{}
-	for _, r := range tortoise.Spec.ResourcePolicy {
+	newHPATargetUtilizationRecommendationPerContainer := []v1beta3.HPATargetUtilizationRecommendationPerContainer{}
+	for _, r := range tortoise.Status.AutoscalingPolicy {
 		targetMap := map[corev1.ResourceName]int32{}
 		reqmap, ok := requestMap[r.ContainerName]
 		if !ok {
 			klog.ErrorS(nil, fmt.Sprintf("no resource request on the container %s", r.ContainerName))
 			continue
 		}
-		for k, p := range r.AutoscalingPolicy {
-			if p != v1beta2.AutoscalingTypeHorizontal {
+		for k, p := range r.Policy {
+			if p != v1beta3.AutoscalingTypeHorizontal {
 				// nothing to do.
 				continue
 			}
@@ -331,7 +338,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 			}
 			logger.Info("HPA target utilization recommendation is created", "current target utilization", targetValue, "recommended target utilization", targetMap[k], "upper usage", upperUsage, "container name", r.ContainerName, "resource name", k)
 		}
-		newHPATargetUtilizationRecommendationPerContainer = append(newHPATargetUtilizationRecommendationPerContainer, v1beta2.HPATargetUtilizationRecommendationPerContainer{
+		newHPATargetUtilizationRecommendationPerContainer = append(newHPATargetUtilizationRecommendationPerContainer, v1beta3.HPATargetUtilizationRecommendationPerContainer{
 			ContainerName:     r.ContainerName,
 			TargetUtilization: targetMap,
 		})

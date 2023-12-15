@@ -4,7 +4,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	"github.com/mercari/tortoise/api/v1beta2"
+	"github.com/mercari/tortoise/api/v1beta3"
 )
 
 var (
@@ -81,7 +81,7 @@ func init() {
 	)
 }
 
-func RecordTortoise(t *v1beta2.Tortoise, deleted bool) {
+func RecordTortoise(t *v1beta3.Tortoise, deleted bool) {
 	value := 1.0
 	if deleted {
 		value = 0
