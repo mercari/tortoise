@@ -565,42 +565,33 @@ spec:
             description: TortoiseSpec defines the desired state of Tortoise
             properties:
               autoscalingPolicy:
-                description: "AutoscalingPolicy is an optional field to specify how
-                  each resource in each container is scaled. \n You basically have
-                  two options to configure how each resource in each container is
-                  scaled - 1. you let tortoise manage which resource is scaled with
-                  which autoscaling policy. 2. you manage which resource is scaled
-                  with which autoscaling policy by yourself. \n For the first option,
-                  you just have to leave this field empty. Then, when tortoise is
-                  created, tortoise will configure the AutoscalingPolicy for each
-                  resource in each container based on the following rules: - If .spec.TargetRefs.HorizontalPodAutoscalerName
-                  is empty, the initial policy being used is \"Horizontal\" for cpu,
-                  and \"Vertical\" for memory. - If .spec.TargetRefs.HorizontalPodAutoscalerName
-                  is not empty, tortoise sets \"Horizontal\" to resources managed
-                  by the attached HPA, and \"Vertical\" to resources not managed by
-                  the attached HPA. Also, when a new container is added to the workload,
-                  tortoise will notice it and configure the AutoscalingPolicy for
-                  each resource in the new container. (\"Horizontal\" for cpu, and
-                  \"Vertical\" for memory) \n For the second option, you have to specify
-                  the AutoscalingPolicy for each resource in each container in this
-                  field. If you specify the AutoscalingPolicy for some containers,
-                  but not for all, tortoise will set the default value \"Off\" to
-                  the all resources in the containers not specified. Note that when
-                  a new container is added to the workload, you have to update the
-                  AutoscalingPolicy field by yourself, otherwise, tortoise will never
-                  scale the resources in the new container. \n Those two options are
-                  created for different use cases: - Basically, you should use the
-                  first option that keep configuring the AutoscalingPolicy for each
-                  resource in each container automatically. - If you have a special
-                  reason that you want to scale, for example, memory with horizontal
-                  scaling, you should use the second option that provides you the
-                  flexibility to configure the AutoscalingPolicy for each resource
-                  in each container. \n This field is mutable - you can even change
-                  this field from non-empty to empty. In that case, tortoise will
-                  just keep the way each container is scaled, but, you can obtain
-                  the merit of the first option - when a new container is added to
-                  the workload, tortoise will notice it and configure the AutoscalingPolicy
-                  for each resource in the new container automatically."
+                description: "AutoscalingPolicy is an optional field for specifying
+                  the scaling approach for each resource within each container. \n
+                  There are two primary options for configuring resource scaling within
+                  containers: 1. Allow Tortoise to automatically determine the appropriate
+                  autoscaling policy for each resource. 2. Manually define the autoscaling
+                  policy for each resource. \n For the first option, simply leave
+                  this field unset. In this case, Tortoise will adjust the autoscaling
+                  policies using the following logic: - If .spec.TargetRefs.HorizontalPodAutoscalerName
+                  is not provided, the policies default to \"Horizontal\" for CPU
+                  and \"Vertical\" for memory across all containers. - If .spec.TargetRefs.HorizontalPodAutoscalerName
+                  is specified, resources governed by the referenced Horizontal Pod
+                  Autoscaler will use a \"Horizontal\" policy, while those not managed
+                  by the HPA will use a \"Vertical\" policy. Note that Tortoise supports
+                  only the ContainerResource metric type for HPAs; other metric types
+                  will be disregarded. Additionally, if a ContainerResource metric
+                  is later added to an HPA associated with Tortoise, Tortoise will
+                  automatically update relevant resources to utilize a \"Horizontal\"
+                  policy. \n With the second option, you must manually specify the
+                  AutoscalingPolicy for the resources of each container within this
+                  field. If policies are defined for some but not all containers or
+                  resources, Tortoise will assign a default \"Off\" policy to unspecified
+                  resources. Be aware that when new containers are introduced to the
+                  workload, the AutoscalingPolicy configuration must be manually updated,
+                  as Tortoise will default to an \"Off\" policy for resources within
+                  the new container, preventing scaling. \n The AutoscalingPolicy
+                  field is mutable; you can modify it at any time, whether from an
+                  empty state to populated or vice versa."
                 items:
                   properties:
                     containerName:

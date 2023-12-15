@@ -122,6 +122,9 @@ func createTortoiseWithStatus(ctx context.Context, k8sClient client.Client, tort
 	err = k8sClient.Get(ctx, client.ObjectKey{Namespace: tortoise.Namespace, Name: tortoise.Name}, v)
 	Expect(err).NotTo(HaveOccurred())
 
+	if tortoise.Annotations["skip-status-update"] == "true" {
+		return
+	}
 	v.Status = tortoise.Status
 	err = k8sClient.Status().Update(ctx, v)
 	Expect(err).NotTo(HaveOccurred())
@@ -135,8 +138,12 @@ func initializeResourcesFromFiles(ctx context.Context, k8sClient client.Client, 
 	}
 
 	createDeploymentWithStatus(ctx, k8sClient, resource.deployment)
-	createVPAWithStatus(ctx, k8sClient, resource.vpa[v1beta3.VerticalPodAutoscalerRoleUpdater])
-	createVPAWithStatus(ctx, k8sClient, resource.vpa[v1beta3.VerticalPodAutoscalerRoleMonitor])
+	if resource.vpa[v1beta3.VerticalPodAutoscalerRoleUpdater] != nil {
+		createVPAWithStatus(ctx, k8sClient, resource.vpa[v1beta3.VerticalPodAutoscalerRoleUpdater])
+	}
+	if resource.vpa[v1beta3.VerticalPodAutoscalerRoleMonitor] != nil {
+		createVPAWithStatus(ctx, k8sClient, resource.vpa[v1beta3.VerticalPodAutoscalerRoleMonitor])
+	}
 	createTortoiseWithStatus(ctx, k8sClient, resource.tortoise)
 
 	return resource
@@ -151,7 +158,7 @@ func startController(ctx context.Context) func() {
 	Expect(err).ShouldNot(HaveOccurred())
 
 	// We only reconcile once.
-	tortoiseService, err := tortoise.New(mgr.GetClient(), record.NewFakeRecorder(10), 1, "Asia/Tokyo", 1000*time.Minute, "weekly")
+	tortoiseService, err := tortoise.New(mgr.GetClient(), record.NewFakeRecorder(10), 24, "Asia/Tokyo", 1000*time.Minute, "daily")
 	Expect(err).ShouldNot(HaveOccurred())
 	cli, err := vpa.New(mgr.GetConfig(), record.NewFakeRecorder(10))
 	Expect(err).ShouldNot(HaveOccurred())
@@ -316,11 +323,17 @@ var _ = Describe("Test TortoiseController", func() {
 			checkWithWantedResources(path)
 			cleanUp()
 		})
+		It("TortoisePhaseInitializing", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-initializing"))
+		})
 		It("TortoisePhaseWorking (GatheringData is just finished)", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-gathering-data-finished"))
 		})
 		It("TortoisePhaseWorking (dryrun)", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-dryrun"))
+		})
+		It("TortoisePhaseWorking and HPA changed", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-hpa-changed"))
 		})
 		It("TortoisePhaseEmergency", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-emergency"))
