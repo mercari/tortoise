@@ -31,6 +31,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 
 	v2 "k8s.io/api/autoscaling/v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -73,6 +74,7 @@ func mutateTest(before, after, tortoise string) {
 		// cleanup
 		err = k8sClient.Delete(ctx, tor)
 		Expect(err).NotTo(HaveOccurred())
+		time.Sleep(time.Second)
 		err = k8sClient.Delete(ctx, beforehpa)
 		Expect(err).NotTo(HaveOccurred())
 	}()

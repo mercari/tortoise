@@ -11,17 +11,16 @@ you can turn on the emergency mode by setting `Emergency` on `.spec.UpdateMode` 
 
 ### How emergency mode works
 
-When emergency mode is enabled, tortoise increases the `minReplicas` to the same value as `maxReplicas`.
+When emergency mode is enabled, tortoise increases the `minReplicas` of HPA to the same value as `maxReplicas`.
 
 As described in [Horizontal scaling](./horizontal.md), `maxReplicas` gets changed to be fairly higher value every hour.
 So, during emergency mode, the replicas will be kept fairly high value calculated from the past behavior for the safety.
 
-### turning emergency mode off
+### Turn off emergency mode 
 
 Also, for the safety, after reverting `UpdateMode` from `Emergency` to `Auto`,
-
 Tortoise tries to reduce the number of replicas to the original value gradually.
-(A sudden decrease is mostly dangerous.)
+(A sudden decrease in a replica number is often dangerous.)
 
 Specifically, the controller reduces `minReplicas` to the original value gradually by the following formula in one reconciliation:
 
@@ -33,5 +32,5 @@ During gradually reducing the `minReplicas`, the Tortoise is in the `BackToNorma
 
 ### Note
 
-Emergency mode is available for tortoises with `Running` or `BackToNormal` phase.
+Emergency mode is only available for tortoises with `Running` or `BackToNormal` phase.
 (because it requires enough historical data to work on)

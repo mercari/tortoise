@@ -7,7 +7,18 @@ by setting `Horizontal` in `Spec.ResourcePolicy[*].AutoscalingPolicy`
 
 For `Horizontal` resources, Tortoise keeps changing the corresponding HPA's fields with the recommendation value calculated from the historical usage.
 
-Let's get into detail how each field gets changed.
+### Configure Horizontal scaling
+
+#### Attach your HPA
+
+You can attach your HPA via `.spec.targetRefs.HorizontalPodAutoscalerName`.
+
+Currently, Tortoise supports only `type: ContainerResource` metric. 
+
+If HPA has `type: Resource` metrics, Tortoise just removes them because they'd be conflict with `type: ContainerResource` metrics managed by Tortoise.
+If HPA has metrics other than `Resource` or `ContainerResource`, Tortoise just keeps them. 
+
+### How Tortoise 
 
 ### MaxReplicas
 
@@ -21,7 +32,7 @@ max{replica numbers at the same time on the same day of week} * MaxReplicasFacto
 max{replica numbers at the same time} * MaxReplicasFactor
 ```
 
-(refer to [configuration.md](./configuration.md) about each parameter)
+(refer to [admin-guide.md](./admin-guide.md) about each parameter)
 
 It only takes the num of replicas of the last 4 weeks into consideration.
 
@@ -37,7 +48,7 @@ max{replica numbers at the same time on the same day of week} * MinReplicasFacto
 max{replica numbers at the same time} * MinReplicasFactor
 ```
 
-(refer to [configuration.md](./configuration.md) about each parameter)
+(refer to [admin-guide.md](./admin-guide.md) about each parameter)
 
 It only takes the num of replicas of the last 4 weeks into consideration.
 
@@ -71,10 +82,6 @@ Looking back the above formula,
   - handle traffic while waiting for new Pods to be run up.
   - make all container's resource utilization below 100%.
 - Thus, finally `100 - (max{recommended resource usage from VPA}/{current resource request} - {current target utilization})` means the target utilization which only give the bare minimum additional resources.
-
-#### Supported metrics in HPA
-
-Currently, Tortoise supports only `type: ContainerResource` metric. 
 
 ### The container right sizing
 
