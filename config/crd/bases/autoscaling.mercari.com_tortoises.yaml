@@ -660,7 +660,7 @@ spec:
                       HPA. The target of this HPA should be the same as the ScaleTargetRef
                       above. The target HPA should have the ContainerResource type
                       metric that refers to the container resource utilization. Please
-                      check out the document for more detail: https://github.com/mercari/tortoise/blob/master/docs/horizontal.md#supported-metrics-in-hpa
+                      check out the document for more detail: https://github.com/mercari/tortoise/blob/master/docs/horizontal.md#attach-your-hpa
                       Also, note that you must not edit the HPA directly after you
                       attach the HPA to the tortoise of Auto mode. Even if you edit
                       your HPA in that case, tortoise will overwrite the HPA with
