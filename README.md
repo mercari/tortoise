@@ -1,20 +1,12 @@
-# tortoise
+# Tortoise
 
 <img alt="Tortoise" src="docs/images/tortoise_big.jpg" width="400px"/> 
 
-Tortoise, they are living in the Kubernetes cluster. 
-
-Tortoise, you need to feed only very few parameters to them.
-
-Tortoise, they will soon start to eat historical usage data of Pods.
-
-Tortoise, once you start to live with them, you no longer need to configure autoscaling by yourself.
+Get a cute Tortoise into your Kubernetes garden and say goodbye to the days optimizing your rigid autoscalers. 
 
 ## Install
 
-Tortoise, you cannot get it from the breeder.
-
-Tortoise, you need to get it from GitHub instead.
+You cannot get it from the breeder, you need to get it from GitHub instead.
 
 ```shell
 # Install CRDs into the K8s cluster specified in ~/.kube/config.
@@ -23,41 +15,64 @@ make install
 make deploy
 ```
 
-Tortoise, you don't need a rearing cage, but need VPA in your Kubernetes cluster before installing it.
+You don't need a rearing cage, but need VPA in your Kubernetes cluster before installing it.
+
+## Motivation
+
+Many developers are working in Mercari, and not all of them are the experts of Kubernetes. 
+The platform has many tools and guides to simplify the task of optimizing resource requests, 
+but it takes a lot of human effort because the situation around the applications gets changed very frequently and we have to keep optimizing them every time. 
+(e.g., the implementation change could change the resource consumption, the amount of traffic could be changed, etc)
+
+Also, there are another important component to be optimized for the optimization, which is HorizontalPodAutoscaler. 
+It’s not a simple problem which we just set the target utilization as high as possible – 
+there are many scenarios where the actual resource utilization doesn’t reach the target resource utilization 
+(because of multiple containers, minReplicas, container’s size etc).
+
+To reduce the human effort to keep optimizing the workloads, 
+the platform team start to have Tortoise , which is designed to simplify the interface of autoscaling.
+
+It aims to move the responsibility of optimizing the workloads from the application teams to tortoises. 
+Application teams just need to set up Tortoise, and the platform team will never bother them again for the resource optimization - 
+all actual optimization is done by Tortoise automatically. 
 
 ## Usage
 
-Tortoise, they only need the deployment name.
+Tortoise has a very simple interface:
 
 ```yaml
-apiVersion: autoscaling.mercari.com/v1beta2
+apiVersion: autoscaling.mercari.com/v1beta3
 kind: Tortoise
 metadata:
   name: lovely-tortoise
   namespace: zoo
 spec:
-  updateMode: Auto
+  updateMode: Auto 
   targetRefs:
     scaleTargetRef:
       kind: Deployment
       name: sample
 ```
 
-Tortoise, then they'll prepare/keep adjusting HPA and VPA to achieve efficient autoscaling based on the past behavior of the workload.
+Yet, beneath its unassuming shell, lies a wealth of historical resource usage data, cunningly harnessed 
+to deftly orchestrate HPA and VPA with finely-tuned parameters.
+
+Please refer to [User guide](./docs/user-guide.md) for other parameters.
 
 ## Documentations 
 
-- [Concept](./docs/concept.md): describes a brief overview of tortoise.
-- [Horizontal scaling](./docs/horizontal.md): describes how the Tortoise does the horizontal autoscaling.
-- [Vertical scaling](./docs/vertical.md): describes how the Tortoise does the vertical autoscaling.
+- [User guide](./docs/user-guide.md): describes a minimum knowledge that the end-users have to know, 
+and how they can configure Tortoise so that they can let tortoises autoscale their workloads.
+- [Admin guide](./docs/admin-guide.md): describes how the cluster admin can configure the global behavior of tortoise. 
 - [Emergency mode](./docs/emergency.md): describes the emergency mode.
-- [Configurations for admin](./docs/configuration.md): describes how the cluster admin can configure the global behavior via the configuration file. 
+- [Horizontal scaling](./docs/horizontal.md): describes how the Tortoise does the horizontal autoscaling internally.
+- [Vertical scaling](./docs/vertical.md): describes how the Tortoise does the vertical autoscaling internally.
 - [Technically details](./docs/internal.md): describes the technically details of Tortoise. (mostly for the contributors)
 - [Contributor guide](./docs/contributor-guide.md): describes other stuff for the contributor. (testing etc)
 
 ## API definition
 
-- [Tortoise](./api/v1beta2/tortoise_types.go)
+- [Tortoise](./api/v1beta3/tortoise_types.go)
 
 ## Contribution
 

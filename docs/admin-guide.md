@@ -1,9 +1,11 @@
-## Configuration for admin
+## Admin guide
 
 <img alt="Tortoise" src="images/eating.jpg" width="400px"/>
 
-The cluster admin can set the global configurations via the configuration file.
-The configuration file is passed via `--config` flag.
+Tortoise exposes a lot of flags to configure tortoises behavior in the cluster.
+
+The cluster admin can set the global configurations via the configuration file,
+and the configuration file is passed via `--config` flag.
 
 ```
 RangeOfMinMaxReplicasRecommendationHours:     The time (hours) range of minReplicas and maxReplicas recommendation (default: 1)
