@@ -54,8 +54,10 @@ spec:
       name: sample
 ```
 
-Yet, beneath its unassuming shell, lies a wealth of historical resource usage data, cunningly harnessed 
-to deftly orchestrate HPA and VPA with finely-tuned parameters.
+Then, Tortoise creates fully managed autoscalers (HPA and VPAs). 
+
+Despite its simple appearance, it contains a rich collection of historical data on resource utilization beneath its shell, 
+and cleverly utilizes them to manage parameters in autoscalers. 
 
 Please refer to [User guide](./docs/user-guide.md) for other parameters.
 
