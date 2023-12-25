@@ -65,6 +65,10 @@ func TortoiseDefaultHPAName(tortoiseName string) string {
 func (r *Tortoise) defaultAutoscalingPolicy() {
 	ctx := context.Background()
 
+	if r.Spec.AutoscalingPolicy == nil {
+		return
+	}
+
 	// TODO: support other resources.
 	if r.Spec.TargetRefs.ScaleTargetRef.Kind == "Deployment" {
 		d, err := ClientService.GetDeploymentOnTortoise(ctx, r)
@@ -161,10 +165,6 @@ func validateTortoise(t *Tortoise) error {
 	if t.Spec.UpdateMode == UpdateModeEmergency &&
 		t.Status.TortoisePhase != TortoisePhaseWorking && t.Status.TortoisePhase != TortoisePhaseEmergency && t.Status.TortoisePhase != TortoisePhaseBackToNormal {
 		return fmt.Errorf("%s: emergency mode is only available for tortoises with Running phase", fieldPath.Child("updateMode"))
-	}
-
-	if !hasHorizontal(t) && t.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
-		return fmt.Errorf("%s: at least one policy should be Horizontal when HorizontalPodAutoscalerName isn't nil", fieldPath.Child("resourcePolicy", "autoscalingPolicy"))
 	}
 
 	return nil

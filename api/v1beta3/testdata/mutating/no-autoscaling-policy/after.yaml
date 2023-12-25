@@ -4,11 +4,9 @@ metadata:
   name: tortoise-sample
   namespace: default
 spec:
+  updateMode: "Off"
+  deletionPolicy: "NoDelete"
   targetRefs:
     scaleTargetRef:
       kind: Deployment
       name: sample
-  autoscalingPolicy:
-    - containerName: hoge
-      policy:
-        cpu: "Off"

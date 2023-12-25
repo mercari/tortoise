@@ -22,15 +22,15 @@ You don't need a rearing cage, but need VPA in your Kubernetes cluster before in
 Many developers are working in Mercari, and not all of them are the experts of Kubernetes. 
 The platform has many tools and guides to simplify the task of optimizing resource requests, 
 but it takes a lot of human effort because the situation around the applications gets changed very frequently and we have to keep optimizing them every time. 
-(e.g., the implementation change could change the resource consumption, the amount of traffic could be changed, etc)
+(e.g., the implementation change could change the way of consuming resources, the amount of traffic could be changed, etc)
 
-Also, there are another important component to be optimized for the optimization, which is HorizontalPodAutoscaler. 
+Also, there are another important component to be optimized for the K8s resource optimization, which is HorizontalPodAutoscaler. 
 It’s not a simple problem which we just set the target utilization as high as possible – 
 there are many scenarios where the actual resource utilization doesn’t reach the target resource utilization 
-(because of multiple containers, minReplicas, container’s size etc).
+(because of multiple containers, minReplicas, unbalanced container’s size etc).
 
 To reduce the human effort to keep optimizing the workloads, 
-the platform team start to have Tortoise , which is designed to simplify the interface of autoscaling.
+the platform team start to have Tortoise, which is designed to simplify the interface of autoscaling for users.
 
 It aims to move the responsibility of optimizing the workloads from the application teams to tortoises. 
 Application teams just need to set up Tortoise, and the platform team will never bother them again for the resource optimization - 

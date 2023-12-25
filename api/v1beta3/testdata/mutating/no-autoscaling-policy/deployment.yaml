@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample
+  namespace: default
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: hoge
+        image: hoge:1.0.0
+        ports:
+        - containerPort: 81
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
