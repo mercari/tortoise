@@ -109,12 +109,17 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
-	metrics.RecordTortoise(tortoise, false)
+	oldTortoise := tortoise.DeepCopy()
 
 	defer func() {
 		if tortoise == nil {
 			logger.Error(reterr, "get error during the reconciliation, but cannot record the event because tortoise object is nil", "tortoise", req.NamespacedName)
 			return
+		}
+
+		if metrics.ShouldRerecordTortoise(oldTortoise, tortoise) {
+			metrics.RecordTortoise(oldTortoise, true)
+			metrics.RecordTortoise(tortoise, false)
 		}
 
 		tortoise = r.TortoiseService.RecordReconciliationFailure(tortoise, reterr, now)
