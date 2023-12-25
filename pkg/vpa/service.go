@@ -18,6 +18,7 @@ import (
 
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/annotation"
+	"github.com/mercari/tortoise/pkg/event"
 	"github.com/mercari/tortoise/pkg/metrics"
 )
 
@@ -144,7 +145,7 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 		return nil, tortoise, err
 	}
 
-	c.recorder.Event(tortoise, corev1.EventTypeNormal, "VPACreated", fmt.Sprintf("Initialized a updator VPA %s/%s", vpa.Namespace, vpa.Name))
+	c.recorder.Event(tortoise, corev1.EventTypeNormal, event.VPACreated, fmt.Sprintf("Initialized a updator VPA %s/%s", vpa.Namespace, vpa.Name))
 
 	return vpa, tortoise, nil
 }
@@ -191,7 +192,7 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 		return nil, tortoise, err
 	}
 
-	c.recorder.Event(tortoise, corev1.EventTypeNormal, "VPACreated", fmt.Sprintf("Initialized a monitor VPA %s/%s", vpa.Namespace, vpa.Name))
+	c.recorder.Event(tortoise, corev1.EventTypeNormal, event.VPACreated, fmt.Sprintf("Initialized a monitor VPA %s/%s", vpa.Namespace, vpa.Name))
 
 	return vpa, tortoise, nil
 }
@@ -254,7 +255,7 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 	}
 
 	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
-		c.recorder.Event(tortoise, corev1.EventTypeNormal, "VPAUpdated", fmt.Sprintf("VPA %s/%s is updated by the recommendation. The Pods should also be updated with new resources soon by VPA if needed", retVPA.Namespace, retVPA.Name))
+		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.VPAUpdated, fmt.Sprintf("VPA %s/%s is updated by the recommendation. The Pods should also be updated with new resources soon by VPA if needed", retVPA.Namespace, retVPA.Name))
 	}
 
 	return retVPA, nil

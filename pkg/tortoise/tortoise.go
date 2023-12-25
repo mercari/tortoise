@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/mercari/tortoise/api/v1beta3"
+	"github.com/mercari/tortoise/pkg/event"
 )
 
 const tortoiseFinalizer = "tortoise.autoscaling.mercari.com/finalizer"
@@ -89,7 +90,7 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1beta3.Tortoise, now time.Time)
 		if s.gatheringDataDuration == "daily" {
 			r = "1 day"
 		}
-		s.recorder.Event(tortoise, corev1.EventTypeNormal, "Initialized", fmt.Sprintf("Tortoise is initialized and starts to gather data to make recommendations. It will take %s to finish gathering data and then tortoise starts to work actually", r))
+		s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Initialized, fmt.Sprintf("Tortoise is initialized and starts to gather data to make recommendations. It will take %s to finish gathering data and then tortoise starts to work actually", r))
 
 	case v1beta3.TortoisePhaseInitializing:
 		// change it to GatheringData anyway. Later the controller may change it back to initialize if VPA isn't ready.
@@ -97,27 +98,27 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1beta3.Tortoise, now time.Time)
 	case v1beta3.TortoisePhaseGatheringData:
 		tortoise = s.changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise, now)
 		if tortoise.Status.TortoisePhase == v1beta3.TortoisePhaseWorking {
-			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Working", "Tortoise finishes gathering data and it starts to work on autoscaling")
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Working, "Tortoise finishes gathering data and it starts to work on autoscaling")
 		}
 		if tortoise.Status.TortoisePhase == v1beta3.TortoisePhasePartlyWorking {
-			s.recorder.Event(tortoise, corev1.EventTypeNormal, "PartlyWorking", "Tortoise finishes gathering data in some metrics and it starts to work on autoscaling for those metrics. But some metrics are still gathering data")
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.PartlyWorking, "Tortoise finishes gathering data in some metrics and it starts to work on autoscaling for those metrics. But some metrics are still gathering data")
 		}
 	case v1beta3.TortoisePhasePartlyWorking:
 		tortoise = s.changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise, now)
 		if tortoise.Status.TortoisePhase == v1beta3.TortoisePhaseWorking {
-			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Working", "Tortoise finishes gathering data and it starts to work on autoscaling")
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Working, "Tortoise finishes gathering data and it starts to work on autoscaling")
 		}
 	case v1beta3.TortoisePhaseEmergency:
 		if tortoise.Spec.UpdateMode != v1beta3.UpdateModeEmergency {
 			// Emergency mode is turned off.
-			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Working", "Emergency mode is turned off. Tortoise starts to work on autoscaling normally")
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Working, "Emergency mode is turned off. Tortoise starts to work on autoscaling normally")
 			tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseEmergency
 		}
 	}
 
 	if tortoise.Spec.UpdateMode == v1beta3.UpdateModeEmergency {
 		if tortoise.Status.TortoisePhase != v1beta3.TortoisePhaseEmergency {
-			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Emergency", "Tortoise is in Emergency mode")
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Emergency, "Tortoise is in Emergency mode")
 			tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseEmergency
 		}
 	}

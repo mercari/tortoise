@@ -138,7 +138,7 @@ func main() {
 		HpaService:                     hpaService,
 		VpaService:                     vpaClient,
 		DeploymentService:              deployment.New(mgr.GetClient()),
-		RecommenderService:             recommender.New(config.TTLHoursOfMinMaxReplicasRecommendation, config.MaxReplicasFactor, config.MinReplicasFactor, config.UpperTargetResourceUtilization, config.MinimumMinReplicas, config.PreferredReplicaNumUpperLimit, config.MaximumCPUCores, config.MaximumMemoryBytes),
+		RecommenderService:             recommender.New(config.TTLHoursOfMinMaxReplicasRecommendation, config.MaxReplicasFactor, config.MinReplicasFactor, config.UpperTargetResourceUtilization, config.MinimumMinReplicas, config.PreferredReplicaNumUpperLimit, config.MaximumCPUCores, config.MaximumMemoryBytes, eventRecorder),
 		TortoiseService:                tortoiseService,
 		Interval:                       config.TortoiseUpdateInterval,
 		EventRecorder:                  eventRecorder,

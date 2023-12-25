@@ -169,7 +169,7 @@ func startController(ctx context.Context) func() {
 		VpaService:         cli,
 		DeploymentService:  deployment.New(mgr.GetClient()),
 		TortoiseService:    tortoiseService,
-		RecommenderService: recommender.New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi"),
+		RecommenderService: recommender.New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi", record.NewFakeRecorder(10)),
 	}
 	err = reconciler.SetupWithManager(mgr)
 	Expect(err).ShouldNot(HaveOccurred())
