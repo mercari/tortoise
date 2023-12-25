@@ -119,8 +119,8 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 		if metrics.ShouldRerecordTortoise(oldTortoise, tortoise) {
 			metrics.RecordTortoise(oldTortoise, true)
-			metrics.RecordTortoise(tortoise, false)
 		}
+		metrics.RecordTortoise(tortoise, false)
 
 		tortoise = r.TortoiseService.RecordReconciliationFailure(tortoise, reterr, now)
 		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, false)
