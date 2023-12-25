@@ -213,6 +213,9 @@ var _ = Describe("Tortoise Webhook", func() {
 		It("nothing to do", func() {
 			mutateTest(filepath.Join("testdata", "mutating", "nothing-to-do", "before.yaml"), filepath.Join("testdata", "mutating", "nothing-to-do", "after.yaml"), filepath.Join("testdata", "mutating", "nothing-to-do", "deployment.yaml"), "")
 		})
+		It("nothing to do (empty autoscaling policy)", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "no-autoscaling-policy", "before.yaml"), filepath.Join("testdata", "mutating", "no-autoscaling-policy", "after.yaml"), filepath.Join("testdata", "mutating", "no-autoscaling-policy", "deployment.yaml"), "")
+		})
 		It("should mutate a Tortoise with istio", func() {
 			mutateTest(filepath.Join("testdata", "mutating", "with-istio", "before.yaml"), filepath.Join("testdata", "mutating", "with-istio", "after.yaml"), filepath.Join("testdata", "mutating", "with-istio", "deployment.yaml"), "")
 		})
