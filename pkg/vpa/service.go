@@ -212,14 +212,14 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 				for resourcename, value := range r.RecommendedResource {
 					if resourcename == corev1.ResourceCPU {
 						metrics.ProposedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
-						if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+						if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
 							// We don't want to record applied* metric when UpdateMode is Off.
 							metrics.AppliedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
 						}
 					}
 					if resourcename == corev1.ResourceMemory {
 						metrics.ProposedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
-						if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+						if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
 							// We don't want to record applied* metric when UpdateMode is Off.
 							metrics.AppliedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
 						}
