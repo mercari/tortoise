@@ -10,6 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
+	"github.com/mercari/tortoise/pkg/annotation"
 )
 
 type Service struct {
@@ -28,10 +29,18 @@ func (c *Service) GetDeploymentOnTortoise(ctx context.Context, tortoise *autosca
 	return d, nil
 }
 
-func GetContainerNames(d *v1.Deployment) sets.Set[string] {
+func GetContainerNames(dm *v1.Deployment) sets.Set[string] {
 	names := sets.New[string]()
-	for _, c := range d.Spec.Template.Spec.Containers {
+	for _, c := range dm.Spec.Template.Spec.Containers {
 		names.Insert(c.Name)
 	}
+	if dm.Spec.Template.Annotations != nil {
+		if v, ok := dm.Spec.Template.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
+			// Istio sidecar injection is enabled.
+			// Because the istio container spec is not in the deployment spec, we need to get it from the deployment's annotation.
+			names.Insert(annotation.IstioSidecarInjectionAnnotation)
+		}
+	}
+
 	return names
 }
