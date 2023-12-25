@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 
 	"github.com/mercari/tortoise/api/v1beta3"
@@ -517,7 +518,7 @@ func TestUpdateRecommendation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi")
+			s := New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi", record.NewFakeRecorder(10))
 			got, err := s.updateHPATargetUtilizationRecommendations(context.Background(), tt.args.tortoise, tt.args.hpa)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateHPATargetUtilizationRecommendations() error = %v, wantErr %v", err, tt.wantErr)
@@ -843,7 +844,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi")
+			s := New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi", record.NewFakeRecorder(10))
 			got, err := s.updateHPAMinMaxReplicasRecommendations(tt.args.tortoise, tt.args.replicaNum, tt.args.now)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateHPAMinMaxReplicasRecommendations() error = %v, wantErr %v", err, tt.wantErr)
@@ -1236,8 +1237,9 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				minimumMinReplicas:            tt.fields.minimumMinReplicas,
 				preferredReplicaNumUpperLimit: tt.fields.preferredReplicaNumUpperLimit,
 				maxResourceSize:               tt.fields.suggestedResourceSizeAtMax,
+				eventRecorder:                 record.NewFakeRecorder(10),
 			}
-			got, err := s.updateVPARecommendation(tt.args.tortoise, tt.args.hpa, tt.args.replicaNum)
+			got, err := s.updateVPARecommendation(context.Background(), tt.args.tortoise, tt.args.hpa, tt.args.replicaNum)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateVPARecommendation() error = %v, wantErr %v", err, tt.wantErr)
 				return

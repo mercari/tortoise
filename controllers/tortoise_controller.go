@@ -272,8 +272,6 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	r.EventRecorder.Event(tortoise, corev1.EventTypeNormal, "RecommendationUpdated", "The recommendation on Tortoise status is updated")
-
 	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseGatheringData {
 		logger.V(4).Info("tortoise is GatheringData phase; skip applying the recommendation to HPA or VPAs")
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
