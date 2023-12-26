@@ -38,7 +38,7 @@ func GetContainerNames(dm *v1.Deployment) sets.Set[string] {
 		if v, ok := dm.Spec.Template.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
 			// Istio sidecar injection is enabled.
 			// Because the istio container spec is not in the deployment spec, we need to get it from the deployment's annotation.
-			names.Insert(annotation.IstioSidecarInjectionAnnotation)
+			names.Insert("istio-proxy")
 		}
 	}
 
