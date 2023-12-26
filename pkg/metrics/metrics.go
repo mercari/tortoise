@@ -6,6 +6,21 @@ import (
 )
 
 var (
+	ActualHPATargetUtilization = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "actual_hpa_utilization_target",
+		Help: "hpa utilization target values that hpa actually has",
+	}, []string{"tortoise_name", "namespace", "container_name", "resource_name", "hpa_name"})
+
+	ActualHPAMinReplicas = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "actual_hpa_minreplicas",
+		Help: "hpa minReplicas that hpa actually has",
+	}, []string{"tortoise_name", "namespace", "hpa_name"})
+
+	ActualHPAMaxReplicas = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "actual_hpa_maxreplicas",
+		Help: "hpa maxReplicas that hpa actually has",
+	}, []string{"tortoise_name", "namespace", "hpa_name"})
+
 	AppliedHPATargetUtilization = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "applied_hpa_utilization_target",
 		Help: "hpa utilization target values that tortoises actually applys to hpa",

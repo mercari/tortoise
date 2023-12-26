@@ -14,11 +14,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/event"
+	hpaservice "github.com/mercari/tortoise/pkg/hpa"
 )
 
 type Service struct {
@@ -112,7 +112,7 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 			if !ok {
 				return nil, fmt.Errorf("no %s recommendation from VPA for the container %s", k, r.ContainerName)
 			}
-			newSize, reason, err := s.calculateBestNewSize(p, r.ContainerName, recom, k, hpa, replicaNum, req, minAllocatedResourcesMap[r.ContainerName], len(requestMap) > 1)
+			newSize, reason, err := s.calculateBestNewSize(ctx, p, r.ContainerName, recom, k, hpa, replicaNum, req, minAllocatedResourcesMap[r.ContainerName], len(requestMap) > 1)
 			if err != nil {
 				return nil, err
 			}
@@ -136,7 +136,7 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 
 // calculateBestNewSize calculates the best new resource request based on the current replica number and the recommended resource request.
 // Even if the autoscaling policy is Horizontal, this function may suggest the vertical scaling, see comments in the function.
-func (s *Service) calculateBestNewSize(p v1beta3.AutoscalingType, containerName string, recommendedResourceRequest resource.Quantity, k corev1.ResourceName, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, resourceRequest resource.Quantity, minAllocatedResources corev1.ResourceList, isMultipleContainersPod bool) (int64, string, error) {
+func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.AutoscalingType, containerName string, recommendedResourceRequest resource.Quantity, k corev1.ResourceName, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, resourceRequest resource.Quantity, minAllocatedResources corev1.ResourceList, isMultipleContainersPod bool) (int64, string, error) {
 	// When the current replica num is more than or equal to the preferredReplicaNumUpperLimit,
 	// make the container size bigger (just multiple by 1.1) so that the replica number will be descreased.
 	if replicaNum >= s.preferredReplicaNumUpperLimit {
@@ -172,7 +172,7 @@ func (s *Service) calculateBestNewSize(p v1beta3.AutoscalingType, containerName 
 	}
 
 	if p == v1beta3.AutoscalingTypeHorizontal {
-		targetUtilizationValue, err := getHPATargetValue(hpa, containerName, k)
+		targetUtilizationValue, err := hpaservice.GetHPATargetValue(ctx, hpa, containerName, k)
 		if err != nil {
 			return 0, "", fmt.Errorf("get the target value from HPA: %w", err)
 		}
@@ -326,7 +326,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 				continue
 			}
 
-			currentTargetValue, err := getHPATargetValue(hpa, r.ContainerName, k)
+			currentTargetValue, err := hpaservice.GetHPATargetValue(ctx, hpa, r.ContainerName, k)
 			if err != nil {
 				return tortoise, fmt.Errorf("try to find the metric for the conainter which is configured to be scale by Horizontal: %w", err)
 			}
@@ -371,30 +371,6 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 	tortoise.Status.Recommendations.Horizontal.TargetUtilizations = newHPATargetUtilizationRecommendationPerContainer
 
 	return tortoise, nil
-}
-
-// getHPATargetValue gets the target value of the HPA.
-// It looks for the corresponding metric (ContainerResource) and gets the target value.
-func getHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName) (int32, error) {
-	for _, m := range hpa.Spec.Metrics {
-		if m.Type != v2.ContainerResourceMetricSourceType {
-			continue
-		}
-
-		if m.ContainerResource == nil {
-			// shouldn't reach here
-			klog.ErrorS(nil, "invalid container resource metric", klog.KObj(hpa))
-			continue
-		}
-
-		if m.ContainerResource.Container != containerName || m.ContainerResource.Name != k || m.ContainerResource.Target.AverageUtilization == nil {
-			continue
-		}
-
-		return *m.ContainerResource.Target.AverageUtilization, nil
-	}
-
-	return 0, fmt.Errorf("the metric for the container isn't found in the hpa: %s. (resource name: %s, container name: %s)", client.ObjectKeyFromObject(hpa).String(), k, containerName)
 }
 
 func updateRecommendedContainerBasedMetric(upperUsage, currentTarget int32) int32 {
