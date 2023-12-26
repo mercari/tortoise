@@ -42,7 +42,7 @@ import (
 )
 
 // log is for logging in this package.
-var tortoiselog = ctrl.Log.V(4).WithName("tortoise-resource")
+var tortoiselog = ctrl.Log.WithName("tortoise-resource")
 var ClientService *service
 
 func (r *Tortoise) SetupWebhookWithManager(mgr ctrl.Manager) error {

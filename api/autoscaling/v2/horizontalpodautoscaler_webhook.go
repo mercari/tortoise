@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/mercari/tortoise/api/v1beta3"
@@ -74,7 +75,7 @@ func (h *HPAWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	})
 	if err != nil {
 		// Block updating HPA may be critical. Just ignore it with error logs.
-		klog.ErrorS(err, "failed to get tortoise for mutating webhook of HPA", "hpa", klog.KObj(hpa), "tortoise", tortoiseName)
+		log.FromContext(ctx).Error(err, "failed to get tortoise for mutating webhook of HPA", "hpa", klog.KObj(hpa), "tortoise", tortoiseName)
 		return nil
 	}
 
@@ -91,7 +92,7 @@ func (h *HPAWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	hpa, _, err = h.hpaService.ChangeHPAFromTortoiseRecommendation(t, hpa, time.Now(), false) // we don't need to record metrics.
 	if err != nil {
 		// Block updating HPA may be critical. Just ignore it with error logs.
-		klog.ErrorS(err, "failed to get tortoise for mutating webhook of HPA", "hpa", klog.KObj(hpa), "tortoise", tortoiseName)
+		log.FromContext(ctx).Error(err, "failed to get tortoise for mutating webhook of HPA", "hpa", klog.KObj(hpa), "tortoise", tortoiseName)
 		return nil
 	}
 
