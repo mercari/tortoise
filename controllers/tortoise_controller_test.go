@@ -167,7 +167,7 @@ func startController(ctx context.Context) func() {
 		HpaService:         hpa.New(mgr.GetClient(), record.NewFakeRecorder(10), 0.95, 90, 25, time.Hour),
 		EventRecorder:      record.NewFakeRecorder(10),
 		VpaService:         cli,
-		DeploymentService:  deployment.New(mgr.GetClient()),
+		DeploymentService:  deployment.New(mgr.GetClient(), "100m", "100Mi"),
 		TortoiseService:    tortoiseService,
 		RecommenderService: recommender.New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi", record.NewFakeRecorder(10)),
 	}

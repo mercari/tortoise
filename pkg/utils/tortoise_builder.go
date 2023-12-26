@@ -53,8 +53,13 @@ func (b *TortoiseBuilder) SetTortoisePhase(phase v1beta3.TortoisePhase) *Tortois
 	return b
 }
 
-func (b *TortoiseBuilder) AddCondition(condition v1beta3.ContainerRecommendationFromVPA) *TortoiseBuilder {
-	b.tortoise.Status.Conditions.ContainerRecommendationFromVPA = append(b.tortoise.Status.Conditions.ContainerRecommendationFromVPA, condition)
+func (b *TortoiseBuilder) AddContainerRecommendationFromVPA(recomFromVPA v1beta3.ContainerRecommendationFromVPA) *TortoiseBuilder {
+	b.tortoise.Status.Conditions.ContainerRecommendationFromVPA = append(b.tortoise.Status.Conditions.ContainerRecommendationFromVPA, recomFromVPA)
+	return b
+}
+
+func (b *TortoiseBuilder) AddContainerResourceRequests(actualContainerResource v1beta3.ContainerResourceRequests) *TortoiseBuilder {
+	b.tortoise.Status.Conditions.ContainerResourceRequests = append(b.tortoise.Status.Conditions.ContainerResourceRequests, actualContainerResource)
 	return b
 }
 

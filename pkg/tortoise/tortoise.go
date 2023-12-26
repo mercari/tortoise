@@ -20,7 +20,6 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/event"
@@ -387,7 +386,7 @@ func (s *Service) RemoveFinalizer(ctx context.Context, tortoise *v1beta3.Tortois
 }
 
 func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1beta3.Tortoise, now time.Time, timeRecord bool) (*v1beta3.Tortoise, error) {
-	logger := log.FromContext(ctx)
+	logger := klog.FromContext(ctx)
 	logger.V(4).Info("update tortoise status", "tortoise", klog.KObj(originalTortoise))
 	retTortoise := &v1beta3.Tortoise{}
 	updateFn := func() error {

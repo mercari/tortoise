@@ -15,6 +15,11 @@ status:
       memory: Vertical
     containerName: app
   conditions:
+    containerResourceRequests:
+      - containerName: "app"
+        resource:
+          cpu: "4"
+          memory: 4Gi
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
@@ -45,12 +50,6 @@ status:
         to: 24
         updatedAt: "2023-10-06T01:01:24Z"
         value: 0
-    vertical:
-      containerResourceRecommendation:
-      - RecommendedResource:
-          cpu: "4"
-          memory: 4Gi
-        containerName: app
   targets:
     scaleTargetRef:
       apiVersion: apps/v1

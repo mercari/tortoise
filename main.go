@@ -134,16 +134,14 @@ func main() {
 	hpaService := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.UpperTargetResourceUtilization, config.TortoiseHPATargetUtilizationMaxIncrease, config.TortoiseHPATargetUtilizationUpdateInterval)
 
 	if err = (&controllers.TortoiseReconciler{
-		Scheme:                         mgr.GetScheme(),
-		HpaService:                     hpaService,
-		VpaService:                     vpaClient,
-		DeploymentService:              deployment.New(mgr.GetClient()),
-		RecommenderService:             recommender.New(config.TTLHoursOfMinMaxReplicasRecommendation, config.MaxReplicasFactor, config.MinReplicasFactor, config.UpperTargetResourceUtilization, config.MinimumMinReplicas, config.PreferredReplicaNumUpperLimit, config.MaximumCPUCores, config.MaximumMemoryBytes, eventRecorder),
-		TortoiseService:                tortoiseService,
-		Interval:                       config.TortoiseUpdateInterval,
-		EventRecorder:                  eventRecorder,
-		IstioSidecarProxyDefaultCPU:    config.IstioSidecarProxyDefaultCPU,
-		IstioSidecarProxyDefaultMemory: config.IstioSidecarProxyDefaultMemory,
+		Scheme:             mgr.GetScheme(),
+		HpaService:         hpaService,
+		VpaService:         vpaClient,
+		DeploymentService:  deployment.New(mgr.GetClient(), config.IstioSidecarProxyDefaultCPU, config.IstioSidecarProxyDefaultMemory),
+		RecommenderService: recommender.New(config.TTLHoursOfMinMaxReplicasRecommendation, config.MaxReplicasFactor, config.MinReplicasFactor, config.UpperTargetResourceUtilization, config.MinimumMinReplicas, config.PreferredReplicaNumUpperLimit, config.MaximumCPUCores, config.MaximumMemoryBytes, eventRecorder),
+		TortoiseService:    tortoiseService,
+		Interval:           config.TortoiseUpdateInterval,
+		EventRecorder:      eventRecorder,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Tortoise")
 		os.Exit(1)
