@@ -16,10 +16,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/mercari/tortoise/api/v1beta3"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/event"
@@ -317,6 +319,9 @@ func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1b
 	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Status.Targets.HorizontalPodAutoscaler}, hpa); err != nil {
 		return nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
 	}
+
+	recordHPAMetric(ctx, tortoise, hpa)
+
 	return hpa, nil
 }
 
@@ -611,4 +616,50 @@ func (c *Service) updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containe
 	}
 
 	return fmt.Errorf("no corresponding metric found: %s/%s", hpa.Namespace, hpa.Name)
+}
+
+func recordHPAMetric(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) {
+	for _, policies := range tortoise.Status.AutoscalingPolicy {
+		for k, p := range policies.Policy {
+			if p != autoscalingv1beta3.AutoscalingTypeHorizontal {
+				continue
+			}
+
+			target, err := GetHPATargetValue(ctx, hpa, policies.ContainerName, k)
+			if err != nil {
+				log.FromContext(ctx).Error(err, "failed to get target value of the HPA", "hpa", klog.KObj(hpa))
+				// ignore the error and go through all policies anyway.
+				continue
+			}
+
+			metrics.ActualHPATargetUtilization.WithLabelValues(tortoise.Name, tortoise.Namespace, policies.ContainerName, k.String(), hpa.Name).Set(float64(target))
+		}
+	}
+
+	metrics.ActualHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(*hpa.Spec.MinReplicas))
+	metrics.ActualHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(hpa.Spec.MaxReplicas))
+}
+
+// GetHPATargetValue gets the target value of the HPA.
+// It looks for the corresponding metric (ContainerResource) and gets the target value.
+func GetHPATargetValue(ctx context.Context, hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName) (int32, error) {
+	for _, m := range hpa.Spec.Metrics {
+		if m.Type != v2.ContainerResourceMetricSourceType {
+			continue
+		}
+
+		if m.ContainerResource == nil {
+			// shouldn't reach here
+			log.FromContext(ctx).Error(nil, "invalid container resource metric", "hpa", klog.KObj(hpa))
+			continue
+		}
+
+		if m.ContainerResource.Container != containerName || m.ContainerResource.Name != k || m.ContainerResource.Target.AverageUtilization == nil {
+			continue
+		}
+
+		return *m.ContainerResource.Target.AverageUtilization, nil
+	}
+
+	return 0, fmt.Errorf("the metric for the container isn't found in the hpa: %s. (resource name: %s, container name: %s)", client.ObjectKeyFromObject(hpa).String(), k, containerName)
 }
