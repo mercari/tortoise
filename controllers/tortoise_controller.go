@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/deployment"
@@ -69,15 +70,15 @@ type TortoiseReconciler struct {
 //+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 
 func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
-	logger := klog.FromContext(ctx)
+	logger := log.FromContext(ctx)
 	now := time.Now()
-	logger.V(4).Info("the reconciliation is started", "tortoise", req.NamespacedName)
+	logger.Info("the reconciliation is started", "tortoise", req.NamespacedName)
 
 	tortoise, err := r.TortoiseService.GetTortoise(ctx, req.NamespacedName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// Probably deleted already and finalizer is already removed.
-			logger.V(4).Info("tortoise is not found", "tortoise", req.NamespacedName)
+			logger.Info("tortoise is not found", "tortoise", req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
 
@@ -121,7 +122,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	reconcileNow, requeueAfter := r.TortoiseService.ShouldReconcileTortoiseNow(tortoise, now)
 	if !reconcileNow {
-		logger.V(4).Info("the reconciliation is skipped because this tortoise is recently updated", "tortoise", req.NamespacedName)
+		logger.Info("the reconciliation is skipped because this tortoise is recently updated", "tortoise", req.NamespacedName)
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
@@ -157,7 +158,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	tortoise = tortoiseService.UpdateTortoiseAutoscalingPolicyInStatus(tortoise, containerNames, hpa)
 	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, now)
 	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseInitializing {
-		logger.V(4).Info("initializing tortoise", "tortoise", req.NamespacedName)
+		logger.Info("initializing tortoise", "tortoise", req.NamespacedName)
 		// need to initialize HPA and VPA.
 		if err := r.initializeVPAAndHPA(ctx, tortoise, currentReplicaNum, now); err != nil {
 			return ctrl.Result{}, fmt.Errorf("initialize VPAs and HPA: %w", err)
@@ -184,7 +185,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 	if !ready {
-		logger.V(4).Info("VPA created by tortoise isn't ready yet", "tortoise", req.NamespacedName)
+		logger.Info("VPA created by tortoise isn't ready yet", "tortoise", req.NamespacedName)
 		tortoise.Status.TortoisePhase = autoscalingv1beta3.TortoisePhaseInitializing
 		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, true)
 		if err != nil {
@@ -197,7 +198,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	// VPA is ready, we mark all Vertical scaling resources as Running.
 	tortoise = vpa.SetAllVerticalContainerResourcePhaseWorking(tortoise, now)
 
-	logger.V(4).Info("VPA created by tortoise is ready, proceeding to generate the recommendation", "tortoise", req.NamespacedName)
+	logger.Info("VPA created by tortoise is ready, proceeding to generate the recommendation", "tortoise", req.NamespacedName)
 	hpa, err = r.HpaService.GetHPAOnTortoise(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get HPA", "tortoise", req.NamespacedName)
@@ -219,7 +220,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 
 	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseGatheringData {
-		logger.V(4).Info("tortoise is GatheringData phase; skip applying the recommendation to HPA or VPAs")
+		logger.Info("tortoise is GatheringData phase; skip applying the recommendation to HPA or VPAs")
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 

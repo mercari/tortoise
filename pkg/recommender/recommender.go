@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/event"
@@ -60,7 +60,7 @@ func New(
 }
 
 func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, replicaNum int32) (*v1beta3.Tortoise, error) {
-	logger := klog.FromContext(ctx)
+	logger := log.FromContext(ctx)
 	requestMap := map[string]map[corev1.ResourceName]resource.Quantity{}
 	for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
 		requestMap[r.ContainerName] = map[corev1.ResourceName]resource.Quantity{}
@@ -92,13 +92,13 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 		for k, p := range r.Policy {
 			reqmap, ok := requestMap[r.ContainerName]
 			if !ok {
-				klog.ErrorS(nil, fmt.Sprintf("no resource request on the container %s", r.ContainerName))
+				logger.Error(nil, fmt.Sprintf("no resource request on the container %s", r.ContainerName))
 				continue
 			}
 
 			req, ok := reqmap[k]
 			if !ok {
-				klog.ErrorS(nil, fmt.Sprintf("no %s request on the container %s", k, r.ContainerName))
+				logger.Error(nil, fmt.Sprintf("no %s request on the container %s", k, r.ContainerName))
 				continue
 			}
 
@@ -118,7 +118,7 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 			if newSize != req.MilliValue() {
 				s.eventRecorder.Event(tortoise, corev1.EventTypeNormal, event.RecommendationUpdated, fmt.Sprintf("The recommendation of %v request (%v) in Tortoise status is updated. Reason: %v", k, r.ContainerName, reason))
 			} else {
-				logger.V(4).Info("The recommendation of the container is not updated", "container name", r.ContainerName, "resource name", k, "reason", reason)
+				logger.Info("The recommendation of the container is not updated", "container name", r.ContainerName, "resource name", k, "reason", reason)
 			}
 
 			q := resource.NewMilliQuantity(newSize, req.Format)
@@ -285,7 +285,7 @@ func (s *Service) updateMaxMinReplicasRecommendation(value int32, recommendation
 }
 
 func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) (*v1beta3.Tortoise, error) {
-	logger := klog.FromContext(ctx)
+	logger := log.FromContext(ctx)
 
 	requestMap := map[string]map[corev1.ResourceName]resource.Quantity{}
 	for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
@@ -308,7 +308,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 		recommendedTargetUtilization := map[corev1.ResourceName]int32{}
 		reqmap, ok := requestMap[r.ContainerName]
 		if !ok {
-			klog.ErrorS(nil, fmt.Sprintf("no resource request on the container %s", r.ContainerName))
+			logger.Error(nil, fmt.Sprintf("no resource request on the container %s", r.ContainerName))
 			continue
 		}
 		for k, p := range r.Policy {
@@ -319,7 +319,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 
 			req, ok := reqmap[k]
 			if !ok {
-				klog.ErrorS(nil, fmt.Sprintf("no %s request on the container %s", k, r.ContainerName))
+				logger.Error(nil, fmt.Sprintf("no %s request on the container %s", k, r.ContainerName))
 				continue
 			}
 
@@ -354,7 +354,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 			if currentTargetValue != recommendedTargetUtilization[k] {
 				s.eventRecorder.Event(tortoise, corev1.EventTypeNormal, event.RecommendationUpdated, fmt.Sprintf("The recommendation of HPA %v target utilization (%v) in Tortoise status is updated (%v%% → %v%%)", k, r.ContainerName, currentTargetValue, recommendedTargetUtilization[k]))
 			} else {
-				logger.V(4).Info("The recommendation of the container is not updated", "container name", r.ContainerName, "resource name", k, "reason", fmt.Sprintf("HPA target utilization %v%% → %v%%", currentTargetValue, recommendedTargetUtilization[k]))
+				logger.Info("The recommendation of the container is not updated", "container name", r.ContainerName, "resource name", k, "reason", fmt.Sprintf("HPA target utilization %v%% → %v%%", currentTargetValue, recommendedTargetUtilization[k]))
 			}
 
 			logger.Info("HPA target utilization recommendation is created", "current target utilization", currentTargetValue, "recommended target utilization", recommendedTargetUtilization[k], "upper usage", upperUsage, "container name", r.ContainerName, "resource name", k)
