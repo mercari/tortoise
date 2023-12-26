@@ -9,6 +9,26 @@ Autoscalers on tortoise are configured based on the historical resource usage.
 If the workloads need to get scaled up in an unusual case (like unusual traffic increase etc),
 you can turn on the emergency mode by setting `Emergency` on `.spec.UpdateMode` in Tortoise.
 
+Note that Emergency mode is only available when your tortoise is `Working` or `PartlyWorking` AND has, at least, one Horizontal autoscaling policy.
+You can check via `.status.tortoisePhase` and `.status.autoscalingPolicy` field:
+
+```yaml
+$ kubectl get tortoise your-tortoise -n your-namespace 
+
+...
+status:
+  tortoisePhase: Working
+  autoscalingPolicy:
+  - containerName: application
+    policy:
+      cpu: Horizontal
+      memory: Vertical
+  - containerName: istio-proxy
+    policy:
+      cpu: Vertical
+      memory: Vertical
+```
+
 ### How emergency mode works
 
 When emergency mode is enabled, tortoise increases the `minReplicas` of HPA to the same value as `maxReplicas`.
