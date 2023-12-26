@@ -78,8 +78,10 @@ var (
 )
 
 func init() {
-	//Register metrics with prometheus
 	metrics.Registry.MustRegister(
+		ActualHPAMaxReplicas,
+		ActualHPAMinReplicas,
+		ActualHPATargetUtilization,
 		AppliedHPATargetUtilization,
 		AppliedHPAMaxReplicas,
 		AppliedHPAMinReplicas,
