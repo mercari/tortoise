@@ -118,12 +118,29 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1beta3.Tortoise, now time.Time)
 
 	if tortoise.Spec.UpdateMode == v1beta3.UpdateModeEmergency {
 		if tortoise.Status.TortoisePhase != v1beta3.TortoisePhaseEmergency {
-			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Emergency, "Tortoise is in Emergency mode")
-			tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseEmergency
+			if !hasHorizontal(tortoise) {
+				s.recorder.Event(tortoise, corev1.EventTypeWarning, event.EmergencyModeFailed, "Tortoise cannot move to Emergency mode because it doesn't have any horizontal autoscaling policy")
+			} else if tortoise.Status.TortoisePhase != v1beta3.TortoisePhasePartlyWorking && tortoise.Status.TortoisePhase != v1beta3.TortoisePhaseWorking {
+				s.recorder.Event(tortoise, corev1.EventTypeWarning, event.EmergencyModeFailed, "Tortoise cannot move to Emergency mode because it doesn't have enough historical data to increase the number of replicas")
+			} else {
+				s.recorder.Event(tortoise, corev1.EventTypeNormal, event.EmergencyModeEnabled, "Tortoise is in Emergency mode. It will increase the number of replicas")
+				tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseEmergency
+			}
 		}
 	}
 
 	return tortoise
+}
+
+func hasHorizontal(tortoise *v1beta3.Tortoise) bool {
+	for _, r := range tortoise.Status.AutoscalingPolicy {
+		for _, p := range r.Policy {
+			if p == v1beta3.AutoscalingTypeHorizontal {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (s *Service) changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise *v1beta3.Tortoise, now time.Time) *v1beta3.Tortoise {

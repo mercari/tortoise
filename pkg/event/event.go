@@ -9,8 +9,9 @@ const (
 
 	RecommendationUpdated = "RecommendationUpdated"
 
-	Initialized   = "Initialized"
-	Working       = "Working"
-	PartlyWorking = "PartlyWorking"
-	Emergency     = "Emergency"
+	Initialized          = "Initialized"
+	Working              = "Working"
+	PartlyWorking        = "PartlyWorking"
+	EmergencyModeEnabled = "EmergencyModeEnabled"
+	EmergencyModeFailed  = "EmergencyModeFailed"
 )
