@@ -75,23 +75,19 @@ func TestUpdateRecommendation(t *testing.T) {
 									},
 								},
 							},
-						},
-						Recommendations: v1beta3.Recommendations{
-							Vertical: v1beta3.VerticalRecommendations{
-								ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-									{
-										ContainerName: "app",
-										RecommendedResource: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("5Gi"),
-											corev1.ResourceCPU:    resource.MustParse("5"),
-										},
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("5Gi"),
+										corev1.ResourceCPU:    resource.MustParse("5"),
 									},
-									{
-										ContainerName: "istio-proxy",
-										RecommendedResource: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("1Gi"),
-											corev1.ResourceCPU:    resource.MustParse("1"),
-										},
+								},
+								{
+									ContainerName: "istio-proxy",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
 									},
 								},
 							},
@@ -177,26 +173,24 @@ func TestUpdateRecommendation(t *testing.T) {
 								},
 							},
 						},
-						Vertical: v1beta3.VerticalRecommendations{
-							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-								{
-									ContainerName: "app",
-									RecommendedResource: corev1.ResourceList{
-										corev1.ResourceMemory: resource.MustParse("5Gi"),
-										corev1.ResourceCPU:    resource.MustParse("5"),
-									},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("5Gi"),
+									corev1.ResourceCPU:    resource.MustParse("5"),
 								},
-								{
-									ContainerName: "istio-proxy",
-									RecommendedResource: corev1.ResourceList{
-										corev1.ResourceMemory: resource.MustParse("1Gi"),
-										corev1.ResourceCPU:    resource.MustParse("1"),
-									},
+							},
+							{
+								ContainerName: "istio-proxy",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
 								},
 							},
 						},
-					},
-					Conditions: v1beta3.Conditions{
 						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
@@ -271,23 +265,19 @@ func TestUpdateRecommendation(t *testing.T) {
 									},
 								},
 							},
-						},
-						Recommendations: v1beta3.Recommendations{
-							Vertical: v1beta3.VerticalRecommendations{
-								ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-									{
-										ContainerName: "app",
-										RecommendedResource: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("5Gi"),
-											corev1.ResourceCPU:    resource.MustParse("5"),
-										},
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("5Gi"),
+										corev1.ResourceCPU:    resource.MustParse("5"),
 									},
-									{
-										ContainerName: "istio-proxy",
-										RecommendedResource: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("1Gi"),
-											corev1.ResourceCPU:    resource.MustParse("1"),
-										},
+								},
+								{
+									ContainerName: "istio-proxy",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
 									},
 								},
 							},
@@ -347,24 +337,6 @@ func TestUpdateRecommendation(t *testing.T) {
 						},
 					},
 					Recommendations: v1beta3.Recommendations{
-						Vertical: v1beta3.VerticalRecommendations{
-							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-								{
-									ContainerName: "app",
-									RecommendedResource: corev1.ResourceList{
-										corev1.ResourceMemory: resource.MustParse("5Gi"),
-										corev1.ResourceCPU:    resource.MustParse("5"),
-									},
-								},
-								{
-									ContainerName: "istio-proxy",
-									RecommendedResource: corev1.ResourceList{
-										corev1.ResourceMemory: resource.MustParse("1Gi"),
-										corev1.ResourceCPU:    resource.MustParse("1"),
-									},
-								},
-							},
-						},
 						Horizontal: v1beta3.HorizontalRecommendations{
 							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
 								{
@@ -381,6 +353,22 @@ func TestUpdateRecommendation(t *testing.T) {
 						},
 					},
 					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("5Gi"),
+									corev1.ResourceCPU:    resource.MustParse("5"),
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
 						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
@@ -455,23 +443,19 @@ func TestUpdateRecommendation(t *testing.T) {
 									},
 								},
 							},
-						},
-						Recommendations: v1beta3.Recommendations{
-							Vertical: v1beta3.VerticalRecommendations{
-								ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-									{
-										ContainerName: "app",
-										RecommendedResource: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("5Gi"),
-											corev1.ResourceCPU:    resource.MustParse("5"),
-										},
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("5Gi"),
+										corev1.ResourceCPU:    resource.MustParse("5"),
 									},
-									{
-										ContainerName: "istio-proxy",
-										RecommendedResource: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("1Gi"),
-											corev1.ResourceCPU:    resource.MustParse("1"),
-										},
+								},
+								{
+									ContainerName: "istio-proxy",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
 									},
 								},
 							},
@@ -882,7 +866,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise: createTortoise().AddCondition(
+				tortoise: createTortoise().AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -894,19 +878,13 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 							},
 						},
 					},
-				).SetRecommendations(v1beta3.Recommendations{
-					Vertical: v1beta3.VerticalRecommendations{
-						ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-							{
-								ContainerName:       "test-container",
-								RecommendedResource: createResourceList("500m", "500Mi"),
-							},
-						},
-					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("500m", "500Mi"),
 				}).Build(),
 				replicaNum: 4,
 			},
-			want: createTortoise().AddCondition(
+			want: createTortoise().AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -918,7 +896,10 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).SetRecommendations(v1beta3.Recommendations{
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("500m", "500Mi"),
+			}).SetRecommendations(v1beta3.Recommendations{
 				Vertical: v1beta3.VerticalRecommendations{
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
@@ -937,7 +918,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise: createTortoise().AddCondition(
+				tortoise: createTortoise().AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -949,19 +930,13 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 							},
 						},
 					},
-				).SetRecommendations(v1beta3.Recommendations{
-					Vertical: v1beta3.VerticalRecommendations{
-						ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-							{
-								ContainerName:       "test-container",
-								RecommendedResource: createResourceList("1500m", "1.5Gi"),
-							},
-						},
-					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("1500m", "1.5Gi"),
 				}).Build(),
 				replicaNum: 4,
 			},
-			want: createTortoise().AddCondition(
+			want: createTortoise().AddContainerRecommendationFromVPA(
 				// Unchanged!
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
@@ -974,7 +949,10 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).SetRecommendations(v1beta3.Recommendations{
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("1500m", "1.5Gi"),
+			}).SetRecommendations(v1beta3.Recommendations{
 				Vertical: v1beta3.VerticalRecommendations{
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
@@ -994,7 +972,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				minimumMinReplicas:            3,
 			},
 			args: args{
-				tortoise: createTortoise().AddCondition(
+				tortoise: createTortoise().AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1006,19 +984,13 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 							},
 						},
 					},
-				).SetRecommendations(v1beta3.Recommendations{
-					Vertical: v1beta3.VerticalRecommendations{
-						ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-							{
-								ContainerName:       "test-container",
-								RecommendedResource: createResourceList("130m", "130Mi"),
-							},
-						},
-					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("130m", "130Mi"),
 				}).Build(),
 				replicaNum: 3,
 			},
-			want: createTortoise().AddCondition(
+			want: createTortoise().AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1030,7 +1002,10 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).SetRecommendations(v1beta3.Recommendations{
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("130m", "130Mi"),
+			}).SetRecommendations(v1beta3.Recommendations{
 				Vertical: v1beta3.VerticalRecommendations{
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
@@ -1049,7 +1024,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise: createVerticalTortoise().AddCondition(
+				tortoise: createVerticalTortoise().AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1061,19 +1036,13 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 							},
 						},
 					},
-				).SetRecommendations(v1beta3.Recommendations{
-					Vertical: v1beta3.VerticalRecommendations{
-						ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-							{
-								ContainerName:       "test-container",
-								RecommendedResource: createResourceList("130m", "130Mi"),
-							},
-						},
-					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("130m", "130Mi"),
 				}).Build(),
 				replicaNum: 3,
 			},
-			want: createVerticalTortoise().AddCondition(
+			want: createVerticalTortoise().AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1085,7 +1054,10 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).SetRecommendations(v1beta3.Recommendations{
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("130m", "130Mi"),
+			}).SetRecommendations(v1beta3.Recommendations{
 				Vertical: v1beta3.VerticalRecommendations{
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
@@ -1104,7 +1076,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				suggestedResourceSizeAtMax:    createResourceList("10000m", "100Gi"),
 			},
 			args: args{
-				tortoise: createTortoiseWithMultipleContainers().AddCondition(
+				tortoise: createTortoiseWithMultipleContainers().AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1116,7 +1088,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 							},
 						},
 					},
-				).AddCondition(
+				).AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container2",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1128,19 +1100,12 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 							},
 						},
 					},
-				).SetRecommendations(v1beta3.Recommendations{
-					Vertical: v1beta3.VerticalRecommendations{
-						ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-							{
-								ContainerName:       "test-container",
-								RecommendedResource: createResourceList("1000m", "10Gi"),
-							},
-							{
-								ContainerName:       "test-container2",
-								RecommendedResource: createResourceList("1000m", "10Gi"),
-							},
-						},
-					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("1000m", "10Gi"),
+				}).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container2",
+					Resource:      createResourceList("1000m", "10Gi"),
 				}).Build(),
 				replicaNum: 5,
 				hpa: &v2.HorizontalPodAutoscaler{
@@ -1190,7 +1155,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 					},
 				},
 			},
-			want: createTortoiseWithMultipleContainers().AddCondition(
+			want: createTortoiseWithMultipleContainers().AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1202,7 +1167,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).AddCondition(
+			).AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container2",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1214,7 +1179,13 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).SetRecommendations(v1beta3.Recommendations{
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("1000m", "10Gi"),
+			}).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container2",
+				Resource:      createResourceList("1000m", "10Gi"),
+			}).SetRecommendations(v1beta3.Recommendations{
 				Vertical: v1beta3.VerticalRecommendations{
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{

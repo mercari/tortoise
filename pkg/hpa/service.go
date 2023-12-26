@@ -19,7 +19,6 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
@@ -50,7 +49,7 @@ func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor 
 }
 
 func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replicaNum int32, now time.Time) (*autoscalingv1beta3.Tortoise, error) {
-	logger := log.FromContext(ctx)
+	logger := klog.FromContext(ctx)
 	// if all policy is off or Vertical, we don't need HPA.
 	if !HasHorizontal(tortoise) {
 		logger.V(4).Info("no horizontal policy, no need to create HPA")
@@ -627,7 +626,7 @@ func recordHPAMetric(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.Ho
 
 			target, err := GetHPATargetValue(ctx, hpa, policies.ContainerName, k)
 			if err != nil {
-				log.FromContext(ctx).Error(err, "failed to get target value of the HPA", "hpa", klog.KObj(hpa))
+				klog.FromContext(ctx).Error(err, "failed to get target value of the HPA", "hpa", klog.KObj(hpa))
 				// ignore the error and go through all policies anyway.
 				continue
 			}
@@ -650,7 +649,7 @@ func GetHPATargetValue(ctx context.Context, hpa *v2.HorizontalPodAutoscaler, con
 
 		if m.ContainerResource == nil {
 			// shouldn't reach here
-			log.FromContext(ctx).Error(nil, "invalid container resource metric", "hpa", klog.KObj(hpa))
+			klog.FromContext(ctx).Error(nil, "invalid container resource metric", "hpa", klog.KObj(hpa))
 			continue
 		}
 

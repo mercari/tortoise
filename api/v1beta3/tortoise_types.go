@@ -251,8 +251,9 @@ type Recommendations struct {
 }
 
 type VerticalRecommendations struct {
+	// ContainerResourceRecommendation has the recommendation of container resource request.
 	// +optional
-	ContainerResourceRecommendation []RecommendedContainerResources `json:"containerResourceRecommendation" protobuf:"bytes,1,name=containerResourceRecommendation"`
+	ContainerResourceRecommendation []RecommendedContainerResources `json:"containerResourceRecommendation" protobuf:"bytes,1,opt,name=containerResourceRecommendation"`
 }
 
 type RecommendedContainerResources struct {
@@ -265,7 +266,7 @@ type RecommendedContainerResources struct {
 	// But, when the number of replicas are too small or too large,
 	// tortoise may try to increase/decrease the amount of resources given to the container,
 	// so that the number of replicas won't be very small or very large.
-	RecommendedResource v1.ResourceList `json:"RecommendedResource" protobuf:"bytes,2,name=containerName"`
+	RecommendedResource v1.ResourceList `json:"RecommendedResource" protobuf:"bytes,2,name=recommendedResource"`
 }
 
 type HorizontalRecommendations struct {
@@ -315,7 +316,16 @@ type Conditions struct {
 	TortoiseConditions []TortoiseCondition `json:"tortoiseConditions" protobuf:"bytes,1,name=tortoiseConditions"`
 	// ContainerRecommendationFromVPA is the condition of container recommendation from VPA, which is observed last time.
 	// +optional
-	ContainerRecommendationFromVPA []ContainerRecommendationFromVPA `json:"containerRecommendationFromVPA,omitempty" protobuf:"bytes,1,opt,name=containerRecommendationFromVPA"`
+	ContainerRecommendationFromVPA []ContainerRecommendationFromVPA `json:"containerRecommendationFromVPA,omitempty" protobuf:"bytes,2,opt,name=containerRecommendationFromVPA"`
+	// ContainerResourceRequests has the last observed resource request of each container.
+	// +optional
+	ContainerResourceRequests []ContainerResourceRequests `json:"containerResourceRequests,omitempty" protobuf:"bytes,3,opt,name=containerResourceRequests"`
+}
+
+type ContainerResourceRequests struct {
+	// ContainerName is the name of target container.
+	ContainerName string          `json:"containerName" protobuf:"bytes,1,name=containerName"`
+	Resource      v1.ResourceList `json:"resource" protobuf:"bytes,2,name=resource"`
 }
 
 // TortoiseConditionType are the valid conditions of a Tortoise.

@@ -14,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/event"
@@ -61,12 +60,11 @@ func New(
 }
 
 func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, replicaNum int32) (*v1beta3.Tortoise, error) {
-	logger := log.FromContext(ctx)
+	logger := klog.FromContext(ctx)
 	requestMap := map[string]map[corev1.ResourceName]resource.Quantity{}
-	// This ContainerResourceRecommendationkshould be the current resource requests.
-	for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
+	for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
 		requestMap[r.ContainerName] = map[corev1.ResourceName]resource.Quantity{}
-		for resourcename, value := range r.RecommendedResource {
+		for resourcename, value := range r.Resource {
 			requestMap[r.ContainerName][resourcename] = value
 		}
 	}
@@ -287,13 +285,12 @@ func (s *Service) updateMaxMinReplicasRecommendation(value int32, recommendation
 }
 
 func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) (*v1beta3.Tortoise, error) {
-	logger := log.FromContext(ctx)
+	logger := klog.FromContext(ctx)
 
 	requestMap := map[string]map[corev1.ResourceName]resource.Quantity{}
-	// This ContainerResourceRecommendationkshould be the current resource requests.
-	for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
+	for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
 		requestMap[r.ContainerName] = map[corev1.ResourceName]resource.Quantity{}
-		for resourcename, value := range r.RecommendedResource {
+		for resourcename, value := range r.Resource {
 			requestMap[r.ContainerName][resourcename] = value
 		}
 	}

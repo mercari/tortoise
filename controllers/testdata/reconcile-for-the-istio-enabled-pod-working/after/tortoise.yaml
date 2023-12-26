@@ -18,6 +18,15 @@ status:
       memory: Vertical
     containerName: istio-proxy
   conditions:
+    containerResourceRequests:
+      - containerName: "app"
+        resource:
+          cpu: "10"
+          memory: 10Gi
+      - containerName: "istio-proxy"
+        resource:
+          cpu: "4"
+          memory: 4Gi
     tortoiseConditions:
     - message: "HPA target utilization is updated"
       reason: HPATargetUtilizationUpdated

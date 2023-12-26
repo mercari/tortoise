@@ -15,6 +15,11 @@ status:
       memory: Vertical
     containerName: app
   conditions:
+    containerResourceRequests:
+      - containerName: "app"
+        resource:
+          cpu: "4"
+          memory: 4Gi
     tortoiseConditions:
     - message: "HPA target utilization is updated"
       reason: HPATargetUtilizationUpdated
