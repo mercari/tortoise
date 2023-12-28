@@ -845,7 +845,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 	type fields struct {
 		preferredReplicaNumUpperLimit int32
 		minimumMinReplicas            int32
-		suggestedResourceSizeAtMax    corev1.ResourceList
+		maxResourceSize               corev1.ResourceList
 	}
 	type args struct {
 		tortoise   *v1beta3.Tortoise
@@ -860,13 +860,22 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "replica count above preferredReplicaNumUpperLimit",
+			name: "all horizontal: replica count above preferredReplicaNumUpperLimit: increase the resources a bit",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 3,
-				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
+				maxResourceSize:               createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise: createTortoise().AddContainerRecommendationFromVPA(
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -884,7 +893,16 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				}).Build(),
 				replicaNum: 4,
 			},
-			want: createTortoise().AddContainerRecommendationFromVPA(
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -904,7 +922,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
 							ContainerName:       "test-container",
-							RecommendedResource: createResourceList("550m", "550Mi"),
+							RecommendedResource: createResourceList("550m", "550Mi"), // current * 1.1
 						},
 					},
 				},
@@ -912,32 +930,145 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "requested resources exceed maxResourceSize",
+			name: "horizontal/vertical: replica count above preferredReplicaNumUpperLimit: increase the resource a bit",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 3,
-				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
+				maxResourceSize:               createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise: createTortoise().AddContainerRecommendationFromVPA(
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
 							corev1.ResourceCPU: {
-								Quantity: resource.MustParse("1500m"),
+								Quantity: resource.MustParse("500m"),
 							},
 							corev1.ResourceMemory: {
-								Quantity: resource.MustParse("1.5Gi"),
+								Quantity: resource.MustParse("800Mi"),
 							},
 						},
 					},
 				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
 					ContainerName: "test-container",
-					Resource:      createResourceList("1500m", "1.5Gi"),
+					Resource:      createResourceList("500m", "500Mi"),
 				}).Build(),
 				replicaNum: 4,
 			},
-			want: createTortoise().AddContainerRecommendationFromVPA(
-				// Unchanged!
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
+				v1beta3.ContainerRecommendationFromVPA{
+					ContainerName: "test-container",
+					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+						corev1.ResourceCPU: {
+							Quantity: resource.MustParse("500m"),
+						},
+						corev1.ResourceMemory: {
+							Quantity: resource.MustParse("800Mi"),
+						},
+					},
+				},
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("500m", "500Mi"),
+			}).SetRecommendations(v1beta3.Recommendations{
+				Vertical: v1beta3.VerticalRecommendations{
+					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+						{
+							ContainerName:       "test-container",
+							RecommendedResource: createResourceList("550m" /* current * 1.1*/, "800Mi" /* VPA recommendation*/),
+						},
+					},
+				},
+			}).Build(),
+			wantErr: false,
+		},
+		{
+			name: "all horizontal: requested resources exceed maxResourceSize",
+			fields: fields{
+				preferredReplicaNumUpperLimit: 5,
+				maxResourceSize:               createResourceList("1000m", "1Gi"),
+			},
+			args: args{
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
+					v1beta3.ContainerRecommendationFromVPA{
+						ContainerName: "test-container",
+						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+							corev1.ResourceCPU: {
+								Quantity: resource.MustParse("1500m"), // exceed maxResourceSize
+							},
+							corev1.ResourceMemory: {
+								Quantity: resource.MustParse("1.5Gi"), // exceed maxResourceSize
+							},
+						},
+					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("1500m", "1.5Gi"), // exceed maxResourceSize
+				}).Build(),
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						Metrics: []v2.MetricSpec{
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceCPU,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(20),
+									},
+									Container: "test-container",
+								},
+							},
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceMemory,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(20),
+									},
+									Container: "test-container",
+								},
+							},
+						},
+					},
+				},
+				replicaNum: 4,
+			},
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -957,7 +1088,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
 							ContainerName:       "test-container",
-							RecommendedResource: createResourceList("1500m", "1.5Gi"),
+							RecommendedResource: createResourceList("1000m", "1Gi"), // maxResourceSize
 						},
 					},
 				},
@@ -965,14 +1096,119 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "reduced resources based on VPA recommendation",
+			name: "all horizontal: requested resources is smaller than MinAllocatedResources",
+			fields: fields{
+				preferredReplicaNumUpperLimit: 5,
+				maxResourceSize:               createResourceList("1000m", "1Gi"),
+			},
+			args: args{
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
+					v1beta3.ContainerRecommendationFromVPA{
+						ContainerName: "test-container",
+						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+							corev1.ResourceCPU: {
+								Quantity: resource.MustParse("15m"), // smaller than MinAllocatedResources
+							},
+							corev1.ResourceMemory: {
+								Quantity: resource.MustParse("1.5Mi"), //smaller than MinAllocatedResources
+							},
+						},
+					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("15m", "1.5Mi"), //smaller than MinAllocatedResources
+				}).Build(),
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						Metrics: []v2.MetricSpec{
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceCPU,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(20),
+									},
+									Container: "test-container",
+								},
+							},
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceMemory,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(20),
+									},
+									Container: "test-container",
+								},
+							},
+						},
+					},
+				},
+				replicaNum: 4,
+			},
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
+				v1beta3.ContainerRecommendationFromVPA{
+					ContainerName: "test-container",
+					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+						corev1.ResourceCPU: {
+							Quantity: resource.MustParse("15m"), // smaller than MinAllocatedResources
+						},
+						corev1.ResourceMemory: {
+							Quantity: resource.MustParse("1.5Mi"), //smaller than MinAllocatedResources
+						},
+					},
+				},
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("15m", "1.5Mi"), //smaller than MinAllocatedResources
+			}).SetRecommendations(v1beta3.Recommendations{
+				Vertical: v1beta3.VerticalRecommendations{
+					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+						{
+							ContainerName:       "test-container",
+							RecommendedResource: createResourceList("100m", "100Mi"), // minAllocatedResources
+						},
+					},
+				},
+			}).Build(),
+			wantErr: false,
+		},
+		{
+			name: "all horizontal: replica number is too small: reduce resources based on VPA recommendation",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 6,
-				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
+				maxResourceSize:               createResourceList("1000m", "1Gi"),
 				minimumMinReplicas:            3,
 			},
 			args: args{
-				tortoise: createTortoise().AddContainerRecommendationFromVPA(
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -988,9 +1224,18 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 					ContainerName: "test-container",
 					Resource:      createResourceList("130m", "130Mi"),
 				}).Build(),
-				replicaNum: 3,
+				replicaNum: 3, // Too small
 			},
-			want: createTortoise().AddContainerRecommendationFromVPA(
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1018,13 +1263,22 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "vertical only: reduced resources based on VPA recommendation",
+			name: "all vertical: reduce resources based on VPA recommendation",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 6,
-				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
+				maxResourceSize:               createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise: createVerticalTortoise().AddContainerRecommendationFromVPA(
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1042,7 +1296,16 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				}).Build(),
 				replicaNum: 3,
 			},
-			want: createVerticalTortoise().AddContainerRecommendationFromVPA(
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1070,18 +1333,36 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "reduced resources based on VPA recommendation when unbalanced container size in multiple containers Pod",
+			name: "all horizontal: reduced resources based on VPA recommendation when unbalanced container size in multiple containers Pod",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 6,
-				suggestedResourceSizeAtMax:    createResourceList("10000m", "100Gi"),
+				maxResourceSize:               createResourceList("10000m", "100Gi"),
 			},
 			args: args{
-				tortoise: createTortoiseWithMultipleContainers().AddContainerRecommendationFromVPA(
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container2",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container2",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
 							corev1.ResourceCPU: {
-								Quantity: resource.MustParse("80m"),
+								Quantity: resource.MustParse("80m"), // smaller than expectation (800m+)
 							},
 							corev1.ResourceMemory: {
 								Quantity: resource.MustParse("9Gi"),
@@ -1096,7 +1377,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 								Quantity: resource.MustParse("800m"),
 							},
 							corev1.ResourceMemory: {
-								Quantity: resource.MustParse("0.7Gi"),
+								Quantity: resource.MustParse("0.7Gi"), // smaller than expectation (7Gi+)
 							},
 						},
 					},
@@ -1155,7 +1436,25 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 					},
 				},
 			},
-			want: createTortoiseWithMultipleContainers().AddContainerRecommendationFromVPA(
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container2",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container2",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1207,7 +1506,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			s := &Service{
 				minimumMinReplicas:            tt.fields.minimumMinReplicas,
 				preferredReplicaNumUpperLimit: tt.fields.preferredReplicaNumUpperLimit,
-				maxResourceSize:               tt.fields.suggestedResourceSizeAtMax,
+				maxResourceSize:               tt.fields.maxResourceSize,
 				eventRecorder:                 record.NewFakeRecorder(10),
 			}
 			got, err := s.updateVPARecommendation(context.Background(), tt.args.tortoise, tt.args.hpa, tt.args.replicaNum)
@@ -1228,52 +1527,4 @@ func createResourceList(cpu, memory string) corev1.ResourceList {
 		corev1.ResourceCPU:    resource.MustParse(cpu),
 		corev1.ResourceMemory: resource.MustParse(memory),
 	}
-}
-func createVerticalTortoise() *utils.TortoiseBuilder {
-	return utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
-		ContainerName: "test-container",
-		Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
-			corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
-			corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
-		},
-	}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
-		ContainerName:         "test-container",
-		MinAllocatedResources: createResourceList("100m", "100Mi"),
-	})
-}
-func createTortoise() *utils.TortoiseBuilder {
-	b := utils.NewTortoiseBuilder()
-	// Build the above tortoise via builder
-	b.AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
-		ContainerName: "test-container",
-		Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
-			corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
-			corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
-		},
-	}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
-		ContainerName:         "test-container",
-		MinAllocatedResources: createResourceList("100m", "100Mi"),
-	})
-	return b
-}
-func createTortoiseWithMultipleContainers() *utils.TortoiseBuilder {
-	return utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
-		ContainerName: "test-container",
-		Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
-			corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
-			corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
-		},
-	}).AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
-		ContainerName: "test-container2",
-		Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
-			corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
-			corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
-		},
-	}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
-		ContainerName:         "test-container2",
-		MinAllocatedResources: createResourceList("100m", "100Mi"),
-	}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
-		ContainerName:         "test-container",
-		MinAllocatedResources: createResourceList("100m", "100Mi"),
-	})
 }
