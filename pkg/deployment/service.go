@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/mercari/tortoise/api/v1beta3"
@@ -35,22 +34,6 @@ func (c *Service) GetDeploymentOnTortoise(ctx context.Context, tortoise *autosca
 		return nil, fmt.Errorf("failed to get deployment on tortoise: %w", err)
 	}
 	return d, nil
-}
-
-func GetContainerNames(dm *v1.Deployment) sets.Set[string] {
-	names := sets.New[string]()
-	for _, c := range dm.Spec.Template.Spec.Containers {
-		names.Insert(c.Name)
-	}
-	if dm.Spec.Template.Annotations != nil {
-		if v, ok := dm.Spec.Template.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
-			// Istio sidecar injection is enabled.
-			// Because the istio container spec is not in the deployment spec, we need to get it from the deployment's annotation.
-			names.Insert("istio-proxy")
-		}
-	}
-
-	return names
 }
 
 func (c *Service) GetResourceRequests(dm *v1.Deployment) ([]autoscalingv1beta3.ContainerResourceRequests, error) {

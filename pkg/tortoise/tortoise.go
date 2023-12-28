@@ -472,11 +472,23 @@ type resourceNameAndContainerName struct {
 
 // UpdateTortoiseAutoscalingPolicyInStatus updates .status.autoscalingPolicy based on the policy in .spec.autoscalingPolicy,
 // and the existing container names in the workload.
-func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, containerNames sets.Set[string], hpa *v2.HorizontalPodAutoscaler) *v1beta3.Tortoise {
+func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) *v1beta3.Tortoise {
 	if tortoise.Spec.AutoscalingPolicy != nil {
 		// we just use the policy in the spec if it's non-empty.
 		tortoise.Status.AutoscalingPolicy = tortoise.Spec.AutoscalingPolicy
 		return tortoise
+	}
+
+	containerWOResourceRequest := sets.New[resourceNameAndContainerName]() // container names which doesn't have resource requests
+	containerNames := sets.New[string]()                                   // all container names
+	for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
+		containerNames.Insert(r.ContainerName)
+		if r.Resource.Cpu().Value() == 0 {
+			containerWOResourceRequest.Insert(resourceNameAndContainerName{corev1.ResourceCPU, r.ContainerName})
+		}
+		if r.Resource.Memory().Value() == 0 {
+			containerWOResourceRequest.Insert(resourceNameAndContainerName{corev1.ResourceMemory, r.ContainerName})
+		}
 	}
 
 	// First, we checked the existing policies and the containers in the workload
@@ -533,6 +545,16 @@ func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, contain
 				// Otherwise, set Vertical.
 				tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] = v1beta3.AutoscalingTypeVertical
 			}
+		}
+	}
+
+	// If the container doesn't have resource request, we set the policy to Off because we couldn't make a recommendation.
+	for i := range tortoise.Status.AutoscalingPolicy {
+		if containerWOResourceRequest.Has(resourceNameAndContainerName{corev1.ResourceCPU, tortoise.Status.AutoscalingPolicy[i].ContainerName}) {
+			tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] = v1beta3.AutoscalingTypeOff
+		}
+		if containerWOResourceRequest.Has(resourceNameAndContainerName{corev1.ResourceMemory, tortoise.Status.AutoscalingPolicy[i].ContainerName}) {
+			tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] = v1beta3.AutoscalingTypeOff
 		}
 	}
 

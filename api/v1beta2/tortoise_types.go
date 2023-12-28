@@ -73,9 +73,10 @@ type TortoiseSpec struct {
 	// - If .spec.TargetRefs.HorizontalPodAutoscalerName is empty, the initial policy being used is "Horizontal" for cpu, and "Vertical" for memory.
 	// - If .spec.TargetRefs.HorizontalPodAutoscalerName is not empty, tortoise sets "Horizontal" to resources managed by the attached HPA,
 	//   and "Vertical" to resources not managed by the attached HPA.
-	// Also, when a new container is added to the workload,
+	// When a new container is added to the workload,
 	// tortoise will notice it and configure the AutoscalingPolicy for each resource in the new container.
 	// ("Horizontal" for cpu, and "Vertical" for memory)
+	// Also, note that if your container doesn't have the resource request, that container's autoscaling policy is always set to "Off".
 	//
 	// For the second option, you have to specify the AutoscalingPolicy for each resource in each container in this field.
 	// If you specify the AutoscalingPolicy for some containers, but not for all,
