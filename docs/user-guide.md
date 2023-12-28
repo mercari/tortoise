@@ -88,6 +88,7 @@ while those not managed by the HPA will use a "Vertical" policy.
 Note that Tortoise supports only the `ContainerResource` metric type for HPAs; other metric types will be disregarded.
 Additionally, if a `ContainerResource` metric is later added to an HPA associated with Tortoise,
 Tortoise will automatically update relevant resources to utilize a `Horizontal` policy in AutoscalingPolicy.
+- if a container doesn't have the resource request, that container's autoscaling policy is always set to "Off" because tortoise cannot generate any recommendation without the resource request.
 
 #### 2. Manually define the autoscaling policy for each resource.
 

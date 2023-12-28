@@ -55,10 +55,12 @@ spec:
                   and \"Vertical\" for memory. - If .spec.TargetRefs.HorizontalPodAutoscalerName
                   is not empty, tortoise sets \"Horizontal\" to resources managed
                   by the attached HPA, and \"Vertical\" to resources not managed by
-                  the attached HPA. Also, when a new container is added to the workload,
+                  the attached HPA. When a new container is added to the workload,
                   tortoise will notice it and configure the AutoscalingPolicy for
                   each resource in the new container. (\"Horizontal\" for cpu, and
-                  \"Vertical\" for memory) \n For the second option, you have to specify
+                  \"Vertical\" for memory) Also, note that if your container doesn't
+                  have the resource request, that container's autoscaling policy is
+                  always set to \"Off\". \n For the second option, you have to specify
                   the AutoscalingPolicy for each resource in each container in this
                   field. If you specify the AutoscalingPolicy for some containers,
                   but not for all, tortoise will set the default value \"Off\" to
@@ -572,7 +574,7 @@ spec:
                   autoscaling policy for each resource. 2. Manually define the autoscaling
                   policy for each resource. \n For the first option, simply leave
                   this field unset. In this case, Tortoise will adjust the autoscaling
-                  policies using the following logic: - If .spec.TargetRefs.HorizontalPodAutoscalerName
+                  policies using the following rules: - If .spec.TargetRefs.HorizontalPodAutoscalerName
                   is not provided, the policies default to \"Horizontal\" for CPU
                   and \"Vertical\" for memory across all containers. - If .spec.TargetRefs.HorizontalPodAutoscalerName
                   is specified, resources governed by the referenced Horizontal Pod
@@ -582,7 +584,10 @@ spec:
                   will be disregarded. Additionally, if a ContainerResource metric
                   is later added to an HPA associated with Tortoise, Tortoise will
                   automatically update relevant resources to utilize a \"Horizontal\"
-                  policy. \n With the second option, you must manually specify the
+                  policy. - if a container doesn't have the resource request, that
+                  container's autoscaling policy is always set to \"Off\" because
+                  tortoise cannot generate any recommendation without the resource
+                  request. \n With the second option, you must manually specify the
                   AutoscalingPolicy for the resources of each container within this
                   field. If policies are defined for some but not all containers or
                   resources, Tortoise will assign a default \"Off\" policy to unspecified

@@ -68,13 +68,15 @@ type TortoiseSpec struct {
 	// 1. Allow Tortoise to automatically determine the appropriate autoscaling policy for each resource.
 	// 2. Manually define the autoscaling policy for each resource.
 	//
-	// For the first option, simply leave this field unset. In this case, Tortoise will adjust the autoscaling policies using the following logic:
+	// For the first option, simply leave this field unset. In this case, Tortoise will adjust the autoscaling policies using the following rules:
 	// - If .spec.TargetRefs.HorizontalPodAutoscalerName is not provided, the policies default to "Horizontal" for CPU and "Vertical" for memory across all containers.
 	// - If .spec.TargetRefs.HorizontalPodAutoscalerName is specified, resources governed by the referenced Horizontal Pod Autoscaler will use a "Horizontal" policy,
 	//   while those not managed by the HPA will use a "Vertical" policy.
 	//   Note that Tortoise supports only the ContainerResource metric type for HPAs; other metric types will be disregarded.
 	//   Additionally, if a ContainerResource metric is later added to an HPA associated with Tortoise,
 	//   Tortoise will automatically update relevant resources to utilize a "Horizontal" policy.
+	// - if a container doesn't have the resource request, that container's autoscaling policy is always set to "Off"
+	//   because tortoise cannot generate any recommendation without the resource request.
 	//
 	// With the second option, you must manually specify the AutoscalingPolicy for the resources of each container within this field.
 	// If policies are defined for some but not all containers or resources, Tortoise will assign a default "Off" policy to unspecified resources.

@@ -145,7 +145,6 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 
 	tortoise.Status.Conditions.ContainerResourceRequests = acr
-	containerNames := deployment.GetContainerNames(dm)
 
 	// === Finish the part depending on deployment ===
 	// From here, we shouldn't use `dm` anymore.
@@ -155,7 +154,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		logger.Error(err, "failed to get HPA", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
-	tortoise = tortoiseService.UpdateTortoiseAutoscalingPolicyInStatus(tortoise, containerNames, hpa)
+	tortoise = tortoiseService.UpdateTortoiseAutoscalingPolicyInStatus(tortoise, hpa)
 	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, now)
 	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseInitializing {
 		logger.Info("initializing tortoise", "tortoise", req.NamespacedName)
