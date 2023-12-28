@@ -158,18 +158,19 @@ func startController(ctx context.Context) func() {
 	Expect(err).ShouldNot(HaveOccurred())
 
 	// We only reconcile once.
-	tortoiseService, err := tortoise.New(mgr.GetClient(), record.NewFakeRecorder(10), 24, "Asia/Tokyo", 1000*time.Minute, "daily")
+	recorder := mgr.GetEventRecorderFor("tortoise-controller")
+	tortoiseService, err := tortoise.New(mgr.GetClient(), recorder, 24, "Asia/Tokyo", 1000*time.Minute, "daily")
 	Expect(err).ShouldNot(HaveOccurred())
-	cli, err := vpa.New(mgr.GetConfig(), record.NewFakeRecorder(10))
+	cli, err := vpa.New(mgr.GetConfig(), recorder)
 	Expect(err).ShouldNot(HaveOccurred())
 	reconciler := &TortoiseReconciler{
 		Scheme:             scheme,
-		HpaService:         hpa.New(mgr.GetClient(), record.NewFakeRecorder(10), 0.95, 90, 25, time.Hour),
+		HpaService:         hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour),
 		EventRecorder:      record.NewFakeRecorder(10),
 		VpaService:         cli,
 		DeploymentService:  deployment.New(mgr.GetClient(), "100m", "100Mi"),
 		TortoiseService:    tortoiseService,
-		RecommenderService: recommender.New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi", record.NewFakeRecorder(10)),
+		RecommenderService: recommender.New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi", recorder),
 	}
 	err = reconciler.SetupWithManager(mgr)
 	Expect(err).ShouldNot(HaveOccurred())
@@ -274,6 +275,9 @@ var _ = Describe("Test TortoiseController", func() {
 	})
 
 	Context("reconcile for the single container Pod", func() {
+		It("TortoisePhaseBackToNormal", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-backtonormal"))
+		})
 		It("TortoisePhaseWorking", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-working"))
 		})
