@@ -428,12 +428,14 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		// when emergency mode, we set the same value on minReplicas.
 		minToActuallyApply = recommendMax
 	case autoscalingv1beta3.TortoisePhaseBackToNormal:
+		// gradually reduce the minReplicas.
 		currentMin := *hpa.Spec.MinReplicas
 		reduced := int32(math.Trunc(float64(currentMin) * c.replicaReductionFactor))
 		if recommendMin > reduced {
 			minToActuallyApply = recommendMin
 			// BackToNormal is finished
 			tortoise.Status.TortoisePhase = autoscalingv1beta3.TortoisePhaseWorking
+			c.recorder.Event(tortoise, corev1.EventTypeNormal, event.Working, fmt.Sprintf("Tortoise %s/%s is working %v", tortoise.Namespace, tortoise.Name, currentMin))
 		} else {
 			minToActuallyApply = reduced
 		}

@@ -111,8 +111,8 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1beta3.Tortoise, now time.Time)
 	case v1beta3.TortoisePhaseEmergency:
 		if tortoise.Spec.UpdateMode != v1beta3.UpdateModeEmergency {
 			// Emergency mode is turned off.
-			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Working, "Emergency mode is turned off. Tortoise starts to work on autoscaling normally")
-			tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseEmergency
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Working, "Emergency mode is turned off. Tortoise starts to work on autoscaling normally. HPA.Spec.MinReplica will gradually be reduced")
+			tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseBackToNormal
 		}
 	}
 
