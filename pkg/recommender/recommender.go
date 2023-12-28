@@ -139,24 +139,32 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 // calculateBestNewSize calculates the best new resource request based on the current replica number and the recommended resource request.
 // Even if the autoscaling policy is Horizontal, this function may suggest the vertical scaling, see comments in the function.
 func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.AutoscalingType, containerName string, recommendedResourceRequest resource.Quantity, k corev1.ResourceName, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, resourceRequest resource.Quantity, minAllocatedResources corev1.ResourceList, isMultipleContainersPod bool) (int64, string, error) {
+	if p == v1beta3.AutoscalingTypeOff {
+		// Just keep the current resource request.
+		return resourceRequest.MilliValue(), "", nil
+	}
+
+	if p == v1beta3.AutoscalingTypeVertical {
+		// It's the simplest case.
+		// The user configures Vertical on this container's resource. This is just vertical scaling.
+		// We always follow the recommendation from VPA.
+		newSize := recommendedResourceRequest.MilliValue()
+		jastified := s.justifyNewSizeByMaxMin(newSize, k, minAllocatedResources)
+		return jastified, fmt.Sprintf("change %v request (%v) (%v → %v) based on VPA suggestion", k, containerName, resourceRequest.MilliValue(), jastified), nil
+	}
+
+	// p == v1beta3.AutoscalingTypeHorizontal
+
 	// When the current replica num is more than or equal to the preferredReplicaNumUpperLimit,
 	// make the container size bigger (just multiple by 1.1) so that the replica number will be descreased.
 	if replicaNum >= s.preferredReplicaNumUpperLimit {
 		// We keep increasing the size until we hit the maxResourceSize.
 		newSize := int64(float64(resourceRequest.MilliValue()) * 1.1)
-		jastifiedNewSize := s.justifyNewSizeByMaxMin(newSize, k, resourceRequest, minAllocatedResources)
+		jastifiedNewSize := s.justifyNewSizeByMaxMin(newSize, k, minAllocatedResources)
 		return jastifiedNewSize, fmt.Sprintf("the current number of replicas is bigger than the preferred max replica number in this cluster (%v), so make %v request (%s) bigger (%v → %v)", s.preferredReplicaNumUpperLimit, k, containerName, resourceRequest.MilliValue(), jastifiedNewSize), nil
 	}
 
-	if replicaNum <= s.minimumMinReplicas || p == v1beta3.AutoscalingTypeVertical {
-		// It's the simplest case.
-		// The user configures Vertical on this container's resource. This is just vertical scaling.
-		newSize := recommendedResourceRequest.MilliValue()
-		jastified := s.justifyNewSizeByMaxMin(newSize, k, resourceRequest, minAllocatedResources)
-		return jastified, fmt.Sprintf("change %v request (%v) (%v → %v) based on VPA suggestion", k, containerName, resourceRequest.MilliValue(), jastified), nil
-	}
-
-	if replicaNum <= s.minimumMinReplicas || p == v1beta3.AutoscalingTypeVertical {
+	if replicaNum <= s.minimumMinReplicas {
 		// The current replica number is less than or equal to the minimumMinReplicas.
 		// The replica number is too small and hits the minReplicas.
 		// So, the resource utilization might be super low because HPA cannot scale down further.
@@ -168,50 +176,46 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 			// We use the recommended resource request if it's smaller than the current resource request.
 			newSize = recommendedResourceRequest.MilliValue()
 		}
-		jastified := s.justifyNewSizeByMaxMin(newSize, k, resourceRequest, minAllocatedResources)
+		jastified := s.justifyNewSizeByMaxMin(newSize, k, minAllocatedResources)
 
 		return jastified, fmt.Sprintf("the current number of replicas is equal or smaller than the minimum min replica number in this cluster (%v), so make %v request (%v) smaller (%v → %v) based on VPA suggestion", s.minimumMinReplicas, k, containerName, resourceRequest.MilliValue(), jastified), nil
 	}
 
-	if p == v1beta3.AutoscalingTypeHorizontal {
-		targetUtilizationValue, err := hpaservice.GetHPATargetValue(ctx, hpa, containerName, k)
-		if err != nil {
-			return 0, "", fmt.Errorf("get the target value from HPA: %w", err)
-		}
-
-		upperUtilization := math.Ceil((float64(recommendedResourceRequest.MilliValue()) / float64(resourceRequest.MilliValue())) * 100)
-		if targetUtilizationValue > int32(upperUtilization) && isMultipleContainersPod {
-			// upperUtilization is less than targetUtilizationValue, which seems weird in normal cases.
-			// In this case, most likely the container size is unbalanced. (= we need multi-container specific optimization)
-			// So, for example, when app:istio use the resource in the ratio of 1:5, but the resource request is 1:1,
-			// the resource given to istio is always wasted. (since HPA is always kicked by the resource utilization of app)
-			//
-			// And this case, reducing the resource request of container in this kind of weird situation
-			// so that the upper usage will be the target usage.
-			newSize := int64(float64(recommendedResourceRequest.MilliValue()) * 100.0 / float64(targetUtilizationValue))
-			jastified := s.justifyNewSizeByMaxMin(newSize, k, resourceRequest, minAllocatedResources)
-			return jastified, fmt.Sprintf("the current resource utilization (%v) is too small and it's due to unbalanced container size, so make %v request (%v) smaller (%v → %v) based on VPA's recommendation and HPA target utilization %v%%", int(upperUtilization), k, containerName, resourceRequest.MilliValue(), jastified, targetUtilizationValue), nil
-		}
+	targetUtilizationValue, err := hpaservice.GetHPATargetValue(ctx, hpa, containerName, k)
+	if err != nil {
+		return 0, "", fmt.Errorf("get the target value from HPA: %w", err)
 	}
 
-	// Didn't fall into any cases above.
+	upperUtilization := math.Ceil((float64(recommendedResourceRequest.MilliValue()) / float64(resourceRequest.MilliValue())) * 100)
+	if targetUtilizationValue > int32(upperUtilization) && isMultipleContainersPod {
+		// upperUtilization is less than targetUtilizationValue, which seems weird in normal cases.
+		// In this case, most likely the container size is unbalanced. (= we need multi-container specific optimization)
+		// So, for example, when app:istio use the resource in the ratio of 1:5, but the resource request is 1:1,
+		// the resource given to istio is always wasted. (since HPA is always kicked by the resource utilization of app)
+		//
+		// And this case, reducing the resource request of container in this kind of weird situation
+		// so that the upper usage will be the target usage.
+		newSize := int64(float64(recommendedResourceRequest.MilliValue()) * 100.0 / float64(targetUtilizationValue))
+		jastified := s.justifyNewSizeByMaxMin(newSize, k, minAllocatedResources)
+		return jastified, fmt.Sprintf("the current resource utilization (%v) is too small and it's due to unbalanced container size, so make %v request (%v) smaller (%v → %v) based on VPA's recommendation and HPA target utilization %v%%", int(upperUtilization), k, containerName, resourceRequest.MilliValue(), jastified, targetUtilizationValue), nil
+	}
+
 	// Just keep the current resource request.
-	return resourceRequest.MilliValue(), "", nil
+	// Only do justification.
+	return s.justifyNewSizeByMaxMin(resourceRequest.MilliValue(), k, minAllocatedResources), "", nil
 }
 
-func (s *Service) justifyNewSizeByMaxMin(newSize int64, k corev1.ResourceName, req resource.Quantity, minAllocatedResources corev1.ResourceList) int64 {
+func (s *Service) justifyNewSizeByMaxMin(newSizeMilli int64, k corev1.ResourceName, minAllocatedResources corev1.ResourceList) int64 {
 	max := s.maxResourceSize[k]
 	min := minAllocatedResources[k]
 
-	if req.MilliValue() > max.MilliValue() {
-		return req.MilliValue()
-	} else if newSize > max.MilliValue() {
+	if newSizeMilli > max.MilliValue() {
 		return max.MilliValue()
-	} else if newSize < min.MilliValue() {
+	} else if newSizeMilli < min.MilliValue() {
 		return min.MilliValue()
 	}
 
-	return newSize
+	return newSizeMilli
 }
 
 func (s *Service) updateHPARecommendation(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, now time.Time) (*v1beta3.Tortoise, error) {
