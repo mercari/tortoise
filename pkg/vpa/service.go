@@ -129,6 +129,9 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 	}
 	crp := make([]v1.ContainerResourcePolicy, 0, len(tortoise.Spec.ResourcePolicy))
 	for _, c := range tortoise.Spec.ResourcePolicy {
+		if c.MinAllocatedResources == nil {
+			continue
+		}
 		crp = append(crp, v1.ContainerResourcePolicy{
 			ContainerName: c.ContainerName,
 			MinAllowed:    c.MinAllocatedResources,
@@ -175,6 +178,9 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 	}
 	crp := make([]v1.ContainerResourcePolicy, 0, len(tortoise.Spec.ResourcePolicy))
 	for _, c := range tortoise.Spec.ResourcePolicy {
+		if c.MinAllocatedResources == nil {
+			continue
+		}
 		crp = append(crp, v1.ContainerResourcePolicy{
 			ContainerName: c.ContainerName,
 			MinAllowed:    c.MinAllocatedResources,
