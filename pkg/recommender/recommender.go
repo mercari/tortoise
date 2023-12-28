@@ -92,13 +92,17 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 		for k, p := range r.Policy {
 			reqmap, ok := requestMap[r.ContainerName]
 			if !ok {
-				logger.Error(nil, fmt.Sprintf("no resource request on the container %s", r.ContainerName))
+				if p != v1beta3.AutoscalingTypeOff {
+					logger.Error(nil, fmt.Sprintf("no resource request on the container %s, but the resource %s of this container has %s autoscaling policy", r.ContainerName, k, p))
+				}
 				continue
 			}
 
 			req, ok := reqmap[k]
 			if !ok {
-				logger.Error(nil, fmt.Sprintf("no %s request on the container %s", k, r.ContainerName))
+				if p != v1beta3.AutoscalingTypeOff {
+					logger.Error(nil, fmt.Sprintf("no %s request on the container %s, but this resource has %s autoscaling policy", k, r.ContainerName, p))
+				}
 				continue
 			}
 
