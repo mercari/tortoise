@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/mercari/tortoise/api/v1beta3"
@@ -117,6 +118,59 @@ func TestMakeAllVerticalContainerResourcePhaseRunning(t *testing.T) {
 								v1.ResourceMemory: {
 									Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
 								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "CRP modified correctly",
+			args: args{
+				tortoise: &autoscalingv1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+					},
+					Spec: autoscalingv1beta3.TortoiseSpec{
+						ResourcePolicy: []autoscalingv1beta3.ContainerResourcePolicy{
+							{
+								ContainerName: "app",
+								MinAllocatedResources: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								MinAllocatedResources: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					ResourcePolicy: []autoscalingv1beta3.ContainerResourcePolicy{
+						{
+							ContainerName: "app",
+							MinAllocatedResources: v1.ResourceList{
+								v1.ResourceMemory: resource.MustParse("1Gi"),
+								v1.ResourceCPU:    resource.MustParse("1"),
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							MinAllocatedResources: v1.ResourceList{
+								v1.ResourceMemory: resource.MustParse("1Gi"),
+								v1.ResourceCPU:    resource.MustParse("1"),
 							},
 						},
 					},

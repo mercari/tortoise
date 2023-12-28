@@ -149,6 +149,44 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 	return vpa, tortoise, nil
 }
 
+func (c *Service) UpdateVPACRP(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, error) {
+	retVPA := &v1.VerticalPodAutoscaler{}
+
+	// we only want to record metric once in every reconcile loop.
+	//metricsRecorded := false
+	updateFn := func() error {
+		vpa, err := c.GetTortoiseUpdaterVPA(ctx, tortoise)
+		if err != nil {
+			return fmt.Errorf("get tortoise VPA: %w", err)
+		}
+		crp := make([]v1.ContainerResourcePolicy, 0, len(tortoise.Spec.ResourcePolicy))
+		for _, c := range tortoise.Spec.ResourcePolicy {
+			crp = append(crp, v1.ContainerResourcePolicy{
+				ContainerName: c.ContainerName,
+				MinAllowed:    c.MinAllocatedResources,
+			})
+		}
+		vpa.Spec.ResourcePolicy.ContainerPolicies = crp
+		retVPA = vpa
+		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+			// don't update status if update mode is off. (= dryrun)
+			return nil
+		}
+		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
+		return err
+	}
+
+	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
+		return retVPA, fmt.Errorf("update VPA CRP status: %w", err)
+	}
+
+	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
+		c.recorder.Event(tortoise, corev1.EventTypeNormal, "VPAUpdated", fmt.Sprintf("VPA %s/%s is updated. The Pods should also be updated with new resources soon by VPA if needed", retVPA.Namespace, retVPA.Name))
+	}
+
+	return retVPA, nil
+}
+
 func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
 	off := v1.UpdateModeOff
 	vpa := &v1.VerticalPodAutoscaler{
