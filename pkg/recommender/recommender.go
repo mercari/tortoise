@@ -108,15 +108,15 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 
 			recomMap, ok := recommendationMap[r.ContainerName]
 			if !ok {
-				return nil, fmt.Errorf("no resource recommendation from VPA for the container %s", r.ContainerName)
+				return tortoise, fmt.Errorf("no resource recommendation from VPA for the container %s", r.ContainerName)
 			}
 			recom, ok := recomMap[k]
 			if !ok {
-				return nil, fmt.Errorf("no %s recommendation from VPA for the container %s", k, r.ContainerName)
+				return tortoise, fmt.Errorf("no %s recommendation from VPA for the container %s", k, r.ContainerName)
 			}
 			newSize, reason, err := s.calculateBestNewSize(ctx, p, r.ContainerName, recom, k, hpa, replicaNum, req, minAllocatedResourcesMap[r.ContainerName], len(requestMap) > 1)
 			if err != nil {
-				return nil, err
+				return tortoise, err
 			}
 
 			if newSize != req.MilliValue() {
