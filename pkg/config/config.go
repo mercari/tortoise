@@ -15,8 +15,6 @@ type Config struct {
 	// If "daily", tortoise will consider all workload behaves very similarly every day.
 	// If your workload may behave differently on, for example, weekdays and weekends, set this to "weekly".
 	GatheringDataPeriodType string `yaml:"GatheringDataPeriodType"`
-	// TTLHoursOfMinMaxReplicasRecommendation is the TTL (hours) of minReplicas and maxReplicas recommendation (default: 720 (=30 days))
-	TTLHoursOfMinMaxReplicasRecommendation int `yaml:"TTLHoursOfMinMaxReplicasRecommendation"`
 	// MaxReplicasFactor is the factor to calculate the maxReplicas recommendation from the current replica number (default: 2.0)
 	MaxReplicasFactor float64 `yaml:"MaxReplicasFactor"`
 	// MinReplicasFactor is the factor to calculate the minReplicas recommendation from the current replica number (default: 0.5)
@@ -55,7 +53,6 @@ func ParseConfig(path string) (*Config, error) {
 	config := &Config{
 		RangeOfMinMaxReplicasRecommendationHours:   1,
 		GatheringDataPeriodType:                    "weekly",
-		TTLHoursOfMinMaxReplicasRecommendation:     24 * 30,
 		MaxReplicasFactor:                          2.0,
 		MinReplicasFactor:                          0.5,
 		ReplicaReductionFactor:                     0.95,

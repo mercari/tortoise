@@ -22,9 +22,8 @@ import (
 
 type Service struct {
 	// configurations
-	TTLHourOfMinMaxReplicasRecommendation float64
-	maxReplicasFactor                     float64
-	minReplicasFactor                     float64
+	maxReplicasFactor float64
+	minReplicasFactor float64
 
 	eventRecorder                  record.EventRecorder
 	minimumMinReplicas             int32
@@ -34,7 +33,6 @@ type Service struct {
 }
 
 func New(
-	tTLHoursOfMinMaxReplicasRecommendation int,
 	maxReplicasFactor float64,
 	minReplicasFactor float64,
 	upperTargetResourceUtilization int,
@@ -45,13 +43,12 @@ func New(
 	eventRecorder record.EventRecorder,
 ) *Service {
 	return &Service{
-		eventRecorder:                         eventRecorder,
-		TTLHourOfMinMaxReplicasRecommendation: float64(tTLHoursOfMinMaxReplicasRecommendation),
-		maxReplicasFactor:                     maxReplicasFactor,
-		minReplicasFactor:                     minReplicasFactor,
-		upperTargetResourceUtilization:        int32(upperTargetResourceUtilization),
-		minimumMinReplicas:                    int32(minimumMinReplicas),
-		preferredReplicaNumUpperLimit:         int32(preferredReplicaNumUpperLimit),
+		eventRecorder:                  eventRecorder,
+		maxReplicasFactor:              maxReplicasFactor,
+		minReplicasFactor:              minReplicasFactor,
+		upperTargetResourceUtilization: int32(upperTargetResourceUtilization),
+		minimumMinReplicas:             int32(minimumMinReplicas),
+		preferredReplicaNumUpperLimit:  int32(preferredReplicaNumUpperLimit),
 		maxResourceSize: map[corev1.ResourceName]resource.Quantity{
 			corev1.ResourceCPU:    resource.MustParse(maxCPUPerContainer),
 			corev1.ResourceMemory: resource.MustParse(maxMemoryPerContainer),
@@ -247,13 +244,13 @@ func (s *Service) UpdateRecommendations(ctx context.Context, tortoise *v1beta3.T
 }
 
 func (s *Service) updateHPAMinMaxReplicasRecommendations(tortoise *v1beta3.Tortoise, replicaNum int32, now time.Time) (*v1beta3.Tortoise, error) {
-	currentReplicaNum := float64(replicaNum)
-	min, err := s.updateMaxMinReplicasRecommendation(int32(math.Ceil(currentReplicaNum*s.minReplicasFactor)), tortoise.Status.Recommendations.Horizontal.MinReplicas, now, s.minimumMinReplicas)
+	currentReplica := float64(replicaNum)
+	min, err := s.updateReplicasRecommendation(int32(math.Ceil(currentReplica*s.minReplicasFactor)), tortoise.Status.Recommendations.Horizontal.MinReplicas, now, s.minimumMinReplicas)
 	if err != nil {
 		return tortoise, fmt.Errorf("update MinReplicas recommendation: %w", err)
 	}
 	tortoise.Status.Recommendations.Horizontal.MinReplicas = min
-	max, err := s.updateMaxMinReplicasRecommendation(int32(math.Ceil(currentReplicaNum*s.maxReplicasFactor)), tortoise.Status.Recommendations.Horizontal.MaxReplicas, now, int32(float64(s.minimumMinReplicas)*s.maxReplicasFactor/s.minReplicasFactor))
+	max, err := s.updateReplicasRecommendation(int32(math.Ceil(currentReplica*s.maxReplicasFactor)), tortoise.Status.Recommendations.Horizontal.MaxReplicas, now, int32(float64(s.minimumMinReplicas)*s.maxReplicasFactor/s.minReplicasFactor))
 	if err != nil {
 		return tortoise, fmt.Errorf("update MaxReplicas recommendation: %w", err)
 	}
@@ -262,9 +259,7 @@ func (s *Service) updateHPAMinMaxReplicasRecommendations(tortoise *v1beta3.Torto
 	return tortoise, nil
 }
 
-// updateMaxMinReplicasRecommendation replaces value if the value is higher than the current value.
-func (s *Service) updateMaxMinReplicasRecommendation(value int32, recommendations []v1beta3.ReplicasRecommendation, now time.Time, minimum int32) ([]v1beta3.ReplicasRecommendation, error) {
-	// find the corresponding recommendations.
+func findSlotInReplicasRecommendation(recommendations []v1beta3.ReplicasRecommendation, now time.Time) (int, error) {
 	index := -1
 	for i, r := range recommendations {
 		tz, err := time.LoadLocation(r.TimeZone)
@@ -278,17 +273,40 @@ func (s *Service) updateMaxMinReplicasRecommendation(value int32, recommendation
 		}
 	}
 	if index == -1 {
-		return nil, errors.New("no recommendation slot")
+		// shouldn't happen unless someone directly modifies the status.
+		return -1, errors.New("no recommendation slot")
 	}
-	if value <= minimum {
-		value = minimum
+
+	return index, nil
+}
+
+// updateMinReplicasRecommendation replaces value if the value is higher than the current value.
+func (s *Service) updateReplicasRecommendation(value int32, recommendations []v1beta3.ReplicasRecommendation, now time.Time, min int32) ([]v1beta3.ReplicasRecommendation, error) {
+	// find the corresponding recommendations.
+	index, err := findSlotInReplicasRecommendation(recommendations, now)
+	if err != nil {
+		return recommendations, err
 	}
-	if now.Sub(recommendations[index].UpdatedAt.Time).Hours() < s.TTLHourOfMinMaxReplicasRecommendation && value < recommendations[index].Value {
-		return recommendations, nil
+
+	if value < s.minimumMinReplicas {
+		value = min
+	}
+
+	timeBiasedRecommendation := recommendations[index].Value
+	if now.Sub(recommendations[index].UpdatedAt.Time).Hours() >= 23 {
+		// only if the recommendation is not updated within 24 hours, we give the time bias
+		// so that the past recommendation is decreased a bit and the current recommendation likely replaces it.
+		timeBiasedRecommendation = int32(math.Trunc(float64(recommendations[index].Value) * 0.95))
+	}
+
+	if value > timeBiasedRecommendation {
+		recommendations[index].Value = value
+	} else {
+		recommendations[index].Value = timeBiasedRecommendation
 	}
 
 	recommendations[index].UpdatedAt = metav1.NewTime(now)
-	recommendations[index].Value = value
+
 	return recommendations, nil
 }
 

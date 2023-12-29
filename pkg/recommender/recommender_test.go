@@ -502,7 +502,7 @@ func TestUpdateRecommendation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi", record.NewFakeRecorder(10))
+			s := New(2.0, 0.5, 90, 3, 30, "10", "10Gi", record.NewFakeRecorder(10))
 			got, err := s.updateHPATargetUtilizationRecommendations(context.Background(), tt.args.tortoise, tt.args.hpa)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateHPATargetUtilizationRecommendations() error = %v, wantErr %v", err, tt.wantErr)
@@ -540,7 +540,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Basic case",
+			name: "replica recommendation is replaced",
 			args: args{
 				tortoise: &v1beta3.Tortoise{
 					Status: v1beta3.TortoiseStatus{
@@ -552,6 +552,22 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
+										Value:     3,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
 										Value:     1,
 										WeekDay:   pointer.String(time.Sunday.String()),
 									},
@@ -560,6 +576,22 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									{
 										From:      0,
 										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     9,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     7,
@@ -586,6 +618,22 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									Value:     5,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
 							},
 							MaxReplicas: []v1beta3.ReplicasRecommendation{
 								{
@@ -596,98 +644,20 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									Value:     20,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
-							},
-						},
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "No recommendation slot",
-			args: args{
-				tortoise: &v1beta3.Tortoise{
-					Status: v1beta3.TortoiseStatus{
-						Recommendations: v1beta3.Recommendations{
-							Horizontal: v1beta3.HorizontalRecommendations{
-								MinReplicas: []v1beta3.ReplicasRecommendation{},
-								MaxReplicas: []v1beta3.ReplicasRecommendation{},
-							},
-						},
-					},
-				},
-				replicaNum: 5,
-				now:        time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
-			},
-			want: &v1beta3.Tortoise{
-				Status: v1beta3.TortoiseStatus{
-					Recommendations: v1beta3.Recommendations{
-						Horizontal: v1beta3.HorizontalRecommendations{
-							MinReplicas: []v1beta3.ReplicasRecommendation{},
-							MaxReplicas: []v1beta3.ReplicasRecommendation{},
-						},
-					},
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "Lower recommendation value",
-			args: args{
-				tortoise: &v1beta3.Tortoise{
-					Status: v1beta3.TortoiseStatus{
-						Recommendations: v1beta3.Recommendations{
-							Horizontal: v1beta3.HorizontalRecommendations{
-								MinReplicas: []v1beta3.ReplicasRecommendation{
-									{
-										From:      0,
-										To:        1,
-										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
-										TimeZone:  timeZone,
-										Value:     10,
-										WeekDay:   pointer.String(time.Sunday.String()),
-									},
-								},
-								MaxReplicas: []v1beta3.ReplicasRecommendation{
-									{
-										From:      0,
-										To:        1,
-										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
-										TimeZone:  timeZone,
-										Value:     25,
-										WeekDay:   pointer.String(time.Sunday.String()),
-									},
-								},
-							},
-						},
-					},
-				},
-				replicaNum: 5,
-				now:        time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
-			},
-			want: &v1beta3.Tortoise{
-				Status: v1beta3.TortoiseStatus{
-					Recommendations: v1beta3.Recommendations{
-						Horizontal: v1beta3.HorizontalRecommendations{
-							MinReplicas: []v1beta3.ReplicasRecommendation{
 								{
-									From: 0,
-									To:   1,
-									// UpdatedAt is updated.
-									TimeZone:  timeZone,
+									From:      2,
+									To:        3,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
-									Value:     10,
+									TimeZone:  timeZone,
+									Value:     7,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
-							},
-							MaxReplicas: []v1beta3.ReplicasRecommendation{
 								{
-									From: 0,
-									To:   1,
-									// UpdatedAt is updated.
-									TimeZone:  timeZone,
+									From:      3,
+									To:        4,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
-									Value:     25,
+									TimeZone:  timeZone,
+									Value:     7,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
 							},
@@ -698,29 +668,61 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Same recommendation value",
+			name: "replica recommendation is not replaced",
 			args: args{
 				tortoise: &v1beta3.Tortoise{
 					Status: v1beta3.TortoiseStatus{
 						Recommendations: v1beta3.Recommendations{
 							Horizontal: v1beta3.HorizontalRecommendations{
 								MinReplicas: []v1beta3.ReplicasRecommendation{
-									{
-										From:      0,
-										To:        1,
-										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
-										TimeZone:  timeZone,
-										Value:     3,
-										WeekDay:   pointer.String(time.Sunday.String()),
-									},
-								},
-								MaxReplicas: []v1beta3.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     8,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     30,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
 										WeekDay:   pointer.String(time.Sunday.String()),
 									},
 								},
@@ -741,7 +743,23 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									To:        1,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
-									Value:     5,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
 							},
@@ -751,7 +769,23 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									To:        1,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
-									Value:     20,
+									Value:     28,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
 							},
@@ -762,7 +796,135 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "minimum MinReplicas and minimum MaxReplicas",
+			name: "replica recommendation is not replaced and time-bias isn't applied",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					Status: v1beta3.TortoiseStatus{
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)), // recently updated.
+										TimeZone:  timeZone,
+										Value:     8,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)), // recently updated.
+										TimeZone:  timeZone,
+										Value:     30,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				replicaNum: 10,
+				now:        time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
+			},
+			want: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     8,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     30,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "hit minimumMinReplicas",
 			args: args{
 				tortoise: &v1beta3.Tortoise{
 					Status: v1beta3.TortoiseStatus{
@@ -774,7 +936,23 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
-										Value:     3,
+										Value:     0,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
 										WeekDay:   pointer.String(time.Sunday.String()),
 									},
 								},
@@ -784,7 +962,23 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
-										Value:     8,
+										Value:     0,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
 										WeekDay:   pointer.String(time.Sunday.String()),
 									},
 								},
@@ -808,6 +1002,22 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									Value:     3,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
 							},
 							MaxReplicas: []v1beta3.ReplicasRecommendation{
 								{
@@ -818,6 +1028,22 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									Value:     12,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
 							},
 						},
 					},
@@ -825,10 +1051,138 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "No recommendation slot",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					Status: v1beta3.TortoiseStatus{
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     3,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     9,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				replicaNum: 10,
+				now:        time.Date(2023, 3, 19, 5, 0, 0, 0, jst),
+			},
+			want: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     3,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     9,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi", record.NewFakeRecorder(10))
+			s := New(2.0, 0.5, 90, 3, 30, "10", "10Gi", record.NewFakeRecorder(10))
 			got, err := s.updateHPAMinMaxReplicasRecommendations(tt.args.tortoise, tt.args.replicaNum, tt.args.now)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateHPAMinMaxReplicasRecommendations() error = %v, wantErr %v", err, tt.wantErr)

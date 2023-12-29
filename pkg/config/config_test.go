@@ -24,7 +24,6 @@ func TestParseConfig(t *testing.T) {
 			want: &Config{
 				RangeOfMinMaxReplicasRecommendationHours:   2,
 				GatheringDataPeriodType:                    "daily",
-				TTLHoursOfMinMaxReplicasRecommendation:     24 * 30,
 				MaxReplicasFactor:                          2.0,
 				MinReplicasFactor:                          0.5,
 				ReplicaReductionFactor:                     0.95,
@@ -49,7 +48,6 @@ func TestParseConfig(t *testing.T) {
 			want: &Config{
 				RangeOfMinMaxReplicasRecommendationHours:   6,
 				GatheringDataPeriodType:                    "weekly",
-				TTLHoursOfMinMaxReplicasRecommendation:     24 * 30,
 				MaxReplicasFactor:                          2.0,
 				MinReplicasFactor:                          0.5,
 				ReplicaReductionFactor:                     0.95,
@@ -81,7 +79,6 @@ func TestParseConfig(t *testing.T) {
 			want: &Config{
 				RangeOfMinMaxReplicasRecommendationHours:   1,
 				GatheringDataPeriodType:                    "weekly",
-				TTLHoursOfMinMaxReplicasRecommendation:     24 * 30,
 				MaxReplicasFactor:                          2.0,
 				MinReplicasFactor:                          0.5,
 				ReplicaReductionFactor:                     0.95,
