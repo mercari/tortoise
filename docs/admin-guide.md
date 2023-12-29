@@ -10,7 +10,6 @@ and the configuration file is passed via `--config` flag.
 ```
 RangeOfMinMaxReplicasRecommendationHours:     The time (hours) range of minReplicas and maxReplicas recommendation (default: 1)
 GatheringDataPeriodType:                      How long do we gather data for minReplica/maxReplica or data from VPA. "daily" and "weekly" are only valid value. (default: weekly)
-TTLHoursOfMinMaxReplicasRecommendation:       The TTL of minReplicas and maxReplicas recommendation (default: 720 (=30 days))
 MaxReplicasFactor:                            The factor to calculate the maxReplicas recommendation from the current replica number (default: 2.0)
 MinReplicasFactor:                            The factor to calculate the minReplicas recommendation from the current replica number (default: 0.5)
 ReplicaReductionFactor:                       The factor to reduce the minReplicas gradually after turning off Emergency mode (default: 0.95)
@@ -113,25 +112,6 @@ status:
           timezone: Asia/Tokyo
           value: 3
           updatedAt: 2023-01-01T00:00:00Z
-```
-
-### TTLHoursOfMinMaxReplicasRecommendation
-
-The TTL of minReplicas and maxReplicas recommendation (default: 720 (=30 days))
-
-```yaml
-kind: Tortoise
-#...
-status: 
-  recommendations:
-    horizontal:
-      minReplicas:
-        - from: 0
-          to: 1
-          weekday: Sunday
-          timezone: Asia/Tokyo
-          value: 3
-          updatedAt: 2023-01-01T00:00:00Z  # this recommendation will be expired on 2023-01-31.
 ```
 
 ### MaxReplicasFactor
