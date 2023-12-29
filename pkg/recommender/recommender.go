@@ -371,7 +371,13 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 				// And this case, rather than changing the target value, we'd like to change the container size.
 				recommendedTargetUtilization[k] = currentTargetValue // no change
 			} else {
-				recommendedTargetUtilization[k] = updateRecommendedContainerBasedMetric(int32(upperUsage), currentTargetValue)
+				newRecom := updateRecommendedContainerBasedMetric(int32(upperUsage), currentTargetValue)
+				if newRecom <= 0 || newRecom > 100 {
+					logger.Error(nil, "generated recommended HPA target utilization is invalid, fallback to the current target value", "current target utilization", currentTargetValue, "recommended target utilization", recommendedTargetUtilization[k], "upper usage", upperUsage, "container name", r.ContainerName, "resource name", k)
+					newRecom = currentTargetValue
+				}
+
+				recommendedTargetUtilization[k] = newRecom
 				if recommendedTargetUtilization[k] > s.upperTargetResourceUtilization {
 					recommendedTargetUtilization[k] = s.upperTargetResourceUtilization
 				}
