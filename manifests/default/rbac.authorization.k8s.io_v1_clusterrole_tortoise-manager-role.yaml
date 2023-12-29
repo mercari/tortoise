@@ -40,6 +40,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - autoscaling.k8s.io
+  resources:
+  - verticalpodautoscalers/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - autoscaling.mercari.com
   resources:
   - tortoises
