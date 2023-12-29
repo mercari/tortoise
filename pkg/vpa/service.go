@@ -255,6 +255,17 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
 		if err != nil {
+			if apierrors.IsNotFound(err) {
+				// Maybe it's because VPA CRD hasn't got the status subresource yet.
+				// Try to update without status subresource.
+				var err2 error
+				retVPA, err2 = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Update(ctx, vpa, metav1.UpdateOptions{})
+				if err2 == nil {
+					return nil
+				}
+
+				// return original error
+			}
 			return fmt.Errorf("update VPA (%s/%s) status: %w", vpa.Namespace, vpa.Name, err)
 		}
 		return err
