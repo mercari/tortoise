@@ -284,7 +284,55 @@ func (s *Service) initializeTortoise(tortoise *v1beta3.Tortoise, now time.Time) 
 	return tortoise.DeepCopy()
 }
 
-func (s *Service) UpdateUpperRecommendation(tortoise *v1beta3.Tortoise, vpa *v1.VerticalPodAutoscaler) *v1beta3.Tortoise {
+// SyncContainerRecommendationFromVPA makes sure that ContainerRecommendationFromVPA has all containers
+func (s *Service) syncContainerRecommendationFromVPA(tortoise *v1beta3.Tortoise) *v1beta3.Tortoise {
+	containerNames := sets.New[string]()
+	for _, c := range tortoise.Status.AutoscalingPolicy {
+		// check the containers from the autoscaling policy.
+		containerNames.Insert(c.ContainerName)
+	}
+
+	containersInContainerRecommendationFromVPA := sets.New[string]()
+	for _, r := range tortoise.Status.Conditions.ContainerRecommendationFromVPA {
+		containersInContainerRecommendationFromVPA.Insert(r.ContainerName)
+	}
+
+	containersToAdd := containerNames.Difference(containersInContainerRecommendationFromVPA).UnsortedList()
+	sort.Slice(containersToAdd, func(i, j int) bool {
+		return containersToAdd[i] < containersToAdd[j]
+	})
+	containersToRemove := containersInContainerRecommendationFromVPA.Difference(containerNames)
+	for _, c := range containersToAdd {
+		// Containers are not included in tortoise.Status.Conditions.ContainerRecommendationFromVPA, probably new containers.
+		tortoise.Status.Conditions.ContainerRecommendationFromVPA = append(tortoise.Status.Conditions.ContainerRecommendationFromVPA, v1beta3.ContainerRecommendationFromVPA{
+			ContainerName: c,
+			Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+				corev1.ResourceCPU:    {},
+				corev1.ResourceMemory: {},
+			},
+			MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+				corev1.ResourceCPU:    {},
+				corev1.ResourceMemory: {},
+			},
+		})
+	}
+
+	// remove containersToRemove from tortoise.Status.Conditions.ContainerRecommendationFromVPA
+	for _, c := range containersToRemove.UnsortedList() {
+		for i, r := range tortoise.Status.Conditions.ContainerRecommendationFromVPA {
+			if r.ContainerName == c {
+				tortoise.Status.Conditions.ContainerRecommendationFromVPA = append(tortoise.Status.Conditions.ContainerRecommendationFromVPA[:i], tortoise.Status.Conditions.ContainerRecommendationFromVPA[i+1:]...)
+				break
+			}
+		}
+	}
+
+	return tortoise
+}
+
+func (s *Service) UpdateContainerRecommendationFromVPA(tortoise *v1beta3.Tortoise, vpa *v1.VerticalPodAutoscaler) *v1beta3.Tortoise {
+	tortoise = s.syncContainerRecommendationFromVPA(tortoise)
+
 	upperMap := make(map[string]map[corev1.ResourceName]resource.Quantity, len(vpa.Status.Recommendation.ContainerRecommendations))
 	for _, c := range vpa.Status.Recommendation.ContainerRecommendations {
 		upperMap[c.ContainerName] = make(map[corev1.ResourceName]resource.Quantity, len(c.UpperBound))
@@ -331,6 +379,7 @@ func (s *Service) UpdateUpperRecommendation(tortoise *v1beta3.Tortoise, vpa *v1.
 			tortoise.Status.Conditions.ContainerRecommendationFromVPA[k].MaxRecommendation[rn] = rq
 		}
 	}
+
 	return tortoise
 }
 

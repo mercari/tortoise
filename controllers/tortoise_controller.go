@@ -204,7 +204,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	tortoise = r.TortoiseService.UpdateUpperRecommendation(tortoise, monitorvpa)
+	tortoise = r.TortoiseService.UpdateContainerRecommendationFromVPA(tortoise, monitorvpa)
 
 	tortoise, err = r.RecommenderService.UpdateRecommendations(ctx, tortoise, hpa, currentReplicaNum, now)
 	if err != nil {

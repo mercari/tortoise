@@ -35,23 +35,28 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 			name: "success: the current recommendation on tortoise is less than the one on the current VPA",
 			tortoise: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
 								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("1"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("1"),
 									},
 								},
 								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("5"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("5"),
 									},
 								},
@@ -67,16 +72,16 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 							{
 								ContainerName: "app",
 								LowerBound: map[corev1.ResourceName]resource.Quantity{
-									"cpu": resource.MustParse("1"),
-									"mem": resource.MustParse("1"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1"),
 								},
 								Target: map[corev1.ResourceName]resource.Quantity{
-									"cpu": resource.MustParse("5"),
-									"mem": resource.MustParse("8"),
+									corev1.ResourceCPU:    resource.MustParse("5"),
+									corev1.ResourceMemory: resource.MustParse("8"),
 								},
 								UpperBound: map[corev1.ResourceName]resource.Quantity{
-									"cpu": resource.MustParse("8"),
-									"mem": resource.MustParse("10"),
+									corev1.ResourceCPU:    resource.MustParse("8"),
+									corev1.ResourceMemory: resource.MustParse("10"),
 								},
 							},
 						},
@@ -85,23 +90,327 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 			},
 			want: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
 								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("5"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("8"),
 									},
 								},
 								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("5"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "remove slot for non-existing containers",
+			tortoise: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
+							{
+								ContainerName: "app",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("1"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("1"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("5"),
+									},
+								},
+							},
+							{
+								ContainerName: "non-exist",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("1"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("1"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("5"),
+									},
+								},
+							},
+							{
+								ContainerName: "non-exist2",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("1"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("1"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("5"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			vpa: &v1.VerticalPodAutoscaler{
+				Status: v1.VerticalPodAutoscalerStatus{
+					Recommendation: &v1.RecommendedPodResources{
+						ContainerRecommendations: []v1.RecommendedContainerResources{
+							{
+								ContainerName: "app",
+								LowerBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1"),
+								},
+								Target: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("5"),
+									corev1.ResourceMemory: resource.MustParse("8"),
+								},
+								UpperBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("8"),
+									corev1.ResourceMemory: resource.MustParse("10"),
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
+							{
+								ContainerName: "app",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "create a slot for a new container",
+			tortoise: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "new1",
+						},
+						{
+							ContainerName: "app",
+						},
+						{
+							ContainerName: "new2",
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
+							{
+								ContainerName: "app",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("1"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("1"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("5"),
+									},
+								},
+							},
+							// no slot for "new"
+						},
+					},
+				},
+			},
+			vpa: &v1.VerticalPodAutoscaler{
+				Status: v1.VerticalPodAutoscalerStatus{
+					Recommendation: &v1.RecommendedPodResources{
+						ContainerRecommendations: []v1.RecommendedContainerResources{
+							{
+								ContainerName: "app",
+								LowerBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1"),
+								},
+								Target: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("5"),
+									corev1.ResourceMemory: resource.MustParse("8"),
+								},
+								UpperBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("8"),
+									corev1.ResourceMemory: resource.MustParse("10"),
+								},
+							},
+							{
+								ContainerName: "new1",
+								LowerBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1"),
+								},
+								Target: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("5"),
+									corev1.ResourceMemory: resource.MustParse("8"),
+								},
+								UpperBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("8"),
+									corev1.ResourceMemory: resource.MustParse("10"),
+								},
+							},
+							{
+								ContainerName: "new2",
+								LowerBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1"),
+								},
+								Target: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("5"),
+									corev1.ResourceMemory: resource.MustParse("8"),
+								},
+								UpperBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("8"),
+									corev1.ResourceMemory: resource.MustParse("10"),
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "new1",
+						},
+						{
+							ContainerName: "app",
+						},
+						{
+							ContainerName: "new2",
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
+							{
+								ContainerName: "app",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+							},
+							{
+								ContainerName: "new1",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+							},
+							{
+								ContainerName: "new2",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("8"),
 									},
 								},
@@ -115,23 +424,28 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 			name: "success: the current recommendation on tortoise is more than the upper bound on the current VPA",
 			tortoise: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
 								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("1"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("1"),
 									},
 								},
 								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("5"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("5"),
 									},
 								},
@@ -147,16 +461,16 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 							{
 								ContainerName: "app",
 								Target: map[corev1.ResourceName]resource.Quantity{
-									"cpu": resource.MustParse("2"),
-									"mem": resource.MustParse("2"),
+									corev1.ResourceCPU:    resource.MustParse("2"),
+									corev1.ResourceMemory: resource.MustParse("2"),
 								},
 								LowerBound: map[corev1.ResourceName]resource.Quantity{
-									"cpu": resource.MustParse("1"),
-									"mem": resource.MustParse("1"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1"),
 								},
 								UpperBound: map[corev1.ResourceName]resource.Quantity{
-									"cpu": resource.MustParse("6"),
-									"mem": resource.MustParse("3"),
+									corev1.ResourceCPU:    resource.MustParse("6"),
+									corev1.ResourceMemory: resource.MustParse("3"),
 								},
 							},
 						},
@@ -165,23 +479,28 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 			},
 			want: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
 								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("2"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("2"),
 									},
 								},
 								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("5"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("2"),
 									},
 								},
@@ -195,9 +514,9 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Service{}
-			got := s.UpdateUpperRecommendation(tt.tortoise, tt.vpa)
-			if !cmp.Equal(got, tt.want, cmpopts.IgnoreTypes(metav1.Time{})) {
-				t.Errorf("updateUpperRecommendation() = %v, want %v", got, tt.want)
+			got := s.UpdateContainerRecommendationFromVPA(tt.tortoise, tt.vpa)
+			if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreTypes(metav1.Time{})); diff != "" {
+				t.Fatalf("diff: %s", diff)
 			}
 		})
 	}
