@@ -149,7 +149,7 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 	return vpa, tortoise, nil
 }
 
-func (c *Service) UpdateVPACRP(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, error) {
+func (c *Service) UpdateVPAContainerResourcePolicy(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, error) {
 	retVPA := &v1.VerticalPodAutoscaler{}
 
 	// we only want to record metric once in every reconcile loop.
@@ -166,12 +166,8 @@ func (c *Service) UpdateVPACRP(ctx context.Context, tortoise *autoscalingv1beta3
 				MinAllowed:    c.MinAllocatedResources,
 			})
 		}
-		vpa.Spec.ResourcePolicy.ContainerPolicies = crp
+		vpa.Spec.ResourcePolicy = &v1.PodResourcePolicy{ContainerPolicies: crp}
 		retVPA = vpa
-		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
-			// don't update status if update mode is off. (= dryrun)
-			return nil
-		}
 		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
 		return err
 	}
