@@ -19,16 +19,16 @@ spec:
         value: 100
       selectPolicy: Max
       stabilizationWindowSeconds: 0
-  maxReplicas: 100
+  maxReplicas: 20
   metrics:
   - containerResource:
       container: app
       name: cpu
       target:
-        averageUtilization: 50
+        averageUtilization: 75
         type: Utilization
     type: ContainerResource
-  minReplicas: 1
+  minReplicas: 20
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment

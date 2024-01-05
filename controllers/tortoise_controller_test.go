@@ -339,8 +339,11 @@ var _ = Describe("Test TortoiseController", func() {
 		It("TortoisePhaseWorking and HPA changed", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-hpa-changed"))
 		})
+		It("user just enabled TortoisePhaseEmergency", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-emergency-started"))
+		})
 		It("TortoisePhaseEmergency", func() {
-			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-emergency"))
+			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-during-emergency"))
 		})
 	})
 	Context("reconcile for the multiple containers Pod", func() {
@@ -356,8 +359,11 @@ var _ = Describe("Test TortoiseController", func() {
 		It("TortoisePhaseWorking (All AutoscalingTypeOff)", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-multiple-containers-pod-all-off"))
 		})
+		It("user just enabled TortoisePhaseEmergency", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-multiple-containers-pod-emergency-started"))
+		})
 		It("TortoisePhaseEmergency", func() {
-			runTest(filepath.Join("testdata", "reconcile-for-the-multiple-containers-pod-emergency"))
+			runTest(filepath.Join("testdata", "reconcile-for-the-multiple-containers-pod-during-emergency"))
 		})
 	})
 	Context("mutable AutoscalingPolicy", func() {
