@@ -221,6 +221,7 @@ func (s *Service) updateHPARecommendation(ctx context.Context, tortoise *v1beta3
 	if err != nil {
 		return tortoise, fmt.Errorf("update HPA target utilization recommendations: %w", err)
 	}
+
 	tortoise, err = s.updateHPAMinMaxReplicasRecommendations(tortoise, replicaNum, now)
 	if err != nil {
 		return tortoise, err
@@ -230,6 +231,16 @@ func (s *Service) updateHPARecommendation(ctx context.Context, tortoise *v1beta3
 }
 
 func (s *Service) UpdateRecommendations(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, now time.Time) (*v1beta3.Tortoise, error) {
+	if tortoise.Status.TortoisePhase == v1beta3.TortoisePhaseEmergency || tortoise.Status.TortoisePhase == v1beta3.TortoisePhaseBackToNormal {
+		// If the update mode is emergency or backtonormal, we don't update any recommendation.
+		// This is because the replica number goes up during the emergency mode,
+		// - the recommendation of min/max replicas would be broken by unusual high number of replicas.
+		// - the recommendation of target utilization would be broken by unusual lower resource utilization.
+		// - the recommendation of VPA would be broken by unusual lower resource utilization.
+		log.FromContext(ctx).Info("The recommendation of minReplica/maxReplica is not updated because of the emergency mode")
+		return tortoise, nil
+	}
+
 	var err error
 	tortoise, err = s.updateHPARecommendation(ctx, tortoise, hpa, replicaNum, now)
 	if err != nil {

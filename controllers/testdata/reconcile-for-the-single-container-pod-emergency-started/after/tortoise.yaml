@@ -14,17 +14,9 @@ status:
       cpu: Horizontal
       memory: Vertical
     containerName: app
-  - policy:
-      cpu: Horizontal
-      memory: Vertical
-    containerName: istio-proxy
   conditions:
     containerResourceRequests:
       - containerName: "app"
-        resource:
-          cpu: "10"
-          memory: 10Gi
-      - containerName: "istio-proxy"
         resource:
           cpu: "4"
           memory: 4Gi
@@ -49,52 +41,30 @@ status:
         memory:
           quantity: 3Gi
           updatedAt: null
-    - containerName: istio-proxy
-      maxRecommendation:
-        cpu:
-          quantity: "3"
-          updatedAt: null
-        memory:
-          quantity: 3Gi
-          updatedAt: null
-      recommendation:
-        cpu:
-          quantity: "3"
-          updatedAt: null
-        memory:
-          quantity: 3Gi
-          updatedAt: null
   recommendations:
     horizontal:
       maxReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:15:47Z"
-        value: 20
+        updatedAt: "2023-10-06T01:15:45Z"
+        value: 15
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:15:47Z"
-        value: 5
+        updatedAt: "2023-10-06T01:15:45Z"
+        value: 3
       targetUtilizations:
       - containerName: app
         targetUtilization:
-          cpu: 50
-      - containerName: istio-proxy
-        targetUtilization:
-          cpu: 75
+          cpu: 30
     vertical:
       containerResourceRecommendation:
       - RecommendedResource:
-          cpu: "6"
-          memory: 3Gi
-        containerName: app
-      - RecommendedResource:
           cpu: "4"
           memory: 3Gi
-        containerName: istio-proxy
+        containerName: app
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:

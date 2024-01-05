@@ -15,21 +15,31 @@ status:
       memory: Vertical
     containerName: app
   conditions:
+    containerResourceRequests:
+      - containerName: "app"
+        resource:
+          cpu: "4"
+          memory: 4Gi
+    tortoiseConditions:
+    - message: "HPA target utilization is updated"
+      reason: HPATargetUtilizationUpdated
+      status: "True"
+      type: HPATargetUtilizationUpdated
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
       recommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
   recommendations:
     horizontal:
@@ -48,9 +58,13 @@ status:
       targetUtilizations:
       - containerName: app
         targetUtilization:
-          cpu: 50
+          cpu: 30
     vertical:
-      containerResourceRecommendation: null
+      containerResourceRecommendation:
+      - RecommendedResource:
+          cpu: "4"
+          memory: 3Gi
+        containerName: app
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
@@ -58,7 +72,7 @@ status:
       role: Updater
     - name: tortoise-monitor-mercari
       role: Monitor
-  tortoisePhase: Working
+  tortoisePhase: Emergency
   containerResourcePhases:
     - containerName: "app"
       resourcePhases:
