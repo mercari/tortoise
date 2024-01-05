@@ -375,16 +375,18 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 			}
 
 			upperUsage := math.Ceil((float64(recom.MilliValue()) / float64(req.MilliValue())) * 100)
-			if currentTargetValue > int32(upperUsage) && len(requestMap) >= 2 {
+			if currentTargetValue > int32(upperUsage) {
 				// upperUsage is less than targetValue.
-				// This case, most likely the container size is unbalanced. (one resource is very bigger than its consumption)
-				// https://github.com/mercari/tortoise/issues/24
+				// This case, there're some scenarios:
+				// - the container size is unbalanced. (one resource is very bigger than its consumption)
+				// - hitting minReplicas.
+				//
 				// And this case, rather than changing the target value, we'd like to change the container size.
 				recommendedTargetUtilization[k] = currentTargetValue // no change
 			} else {
 				newRecom := updateRecommendedContainerBasedMetric(int32(upperUsage), currentTargetValue)
 				if newRecom <= 0 || newRecom > 100 {
-					logger.Error(nil, "generated recommended HPA target utilization is invalid, fallback to the current target value", "current target utilization", currentTargetValue, "recommended target utilization", recommendedTargetUtilization[k], "upper usage", upperUsage, "container name", r.ContainerName, "resource name", k)
+					logger.Error(nil, "generated recommended HPA target utilization is invalid, fallback to the current target value", "current target utilization", currentTargetValue, "recommended target utilization", newRecom, "upper usage", upperUsage, "container name", r.ContainerName, "resource name", k)
 					newRecom = currentTargetValue
 				}
 
