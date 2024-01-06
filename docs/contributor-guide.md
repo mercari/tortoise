@@ -2,39 +2,57 @@
 
 <img alt="Tortoise" src="images/climbing.jpg" width="400px"/>
 
-This document helps you to climb the road to the contributor.
+This document helps you in climbing the road to the contributor.
 
-### Coding guide
+**Please discuss changes before editing this page, even minor ones.**
 
-You **must** follow the linter configured in the repository. 
-Avoid using `//nolint` as much as possible even if you just want to ignore very tiny thing. 
-(broken windows theory)
+### Rules
 
-You also can run the following command and the linters fix some problems automatically.
+- You **must** adhere to the linters configured in the repository.
+Avoid using `//nolint` except in extraordinary circumstances. Strive for compliance even with minor issues.
+- You **must** write unit tests for any new or modified functionality.
+Almost all changes should be accompanied by corresponding tests to ensure behavior is as expected.
+- Bugs always arise from insufficient or incorrect tests. 
+You **must** update or add tests when fixing bugs to ensure the fix is valid. 
+If you didn’t add a test, you didn’t fix the bug.
+- **Do not** test anything manually in your Kubernetes cluster. 
+Instead, you **must** implement all testing in the e2e tests.
+- **Do not** bring any breaking change in Tortoise CRD. 
+However, you **may** bring breaking changes in Golang functions or types within the repository - we're not developping the library and don't have to care much about downstream dependencies.
 
-```
-make lint-fix
-```
+### Suggestion
 
-We only configure a few linters now, 
-if you want to enforce something further, please open the issue and discuss.
+- Enforce code-style issues with linters. When you want someone to fix a code-style, you can likely find a linter to detect such code-style issues in [golangci-lint](https://golangci-lint.run/usage/linters/).
+
+#### Useful Golang official documents
+
+Contributors are expected to adhere to these official guidelines.
+Some of these recommendations are enforced by linters, while others are not.
+
+- [Go Wiki: Go Code Review Comments](https://go.dev/wiki/CodeReviewComments).
+- [Go Wiki: Go Test Comments](https://go.dev/wiki/TestComments)
+- [Effective Go](https://go.dev/doc/effective_go)
 
 ### Testing
 
-You **must** implement the unit test (or add the test cases to existing tests)
-when you change something.
+The following command runs all tests (both unit tests and e2e tests) in the repository.
 
-Almost all behavior changes likely have to have an addition/change in testing.
+```shell
+make test
+```
 
-#### The integration tests
+#### E2e tests
 
 Each Webhook and the controller have the integration tests.
 - [/controllers/tortoise_controller_test.go](../controllers/tortoise_controller_test.go)
 - [/api/autoscaling/v2/horizontalpodautoscaler_webhook_test.go](../api/autoscaling/v2/horizontalpodautoscaler_webhook_test.go)
 - [/api/v1beta3/tortoise_webhook_test.go](../api/v1beta3/tortoise_webhook_test.go)
 
-If you implement a major feature, that is something achieved by combining multiple services,
-or you implement something in webhooks, you **must** add a new test case in them.
+Their test suite are mostly defined in Yaml files to add test cases easier, e.g., [/controllers/testdata/](../controllers/testdata/).
+
+Specifically about the controller's e2e test, it only simulates one reconciliation to simplify each test case.
+For example, if you expect Tortoise is changed to state-a in one reconciliation and to state-b in next reconciliation,
+you have to write two tests, one per reconciliation.
 
 #### Debuggable Integration Test
 
@@ -56,4 +74,20 @@ $ rm -rf /var/folders/3r/38tmpwm105d59kp_zlfbch0h0000gp/T/k8s_test_framework_127
 ```
 
 (This debuggable integration test is inspired by [zoetrope/test-controller](https://github.com/zoetrope/test-controller/tree/39902a6510642370973063afa7bcefe2997b7387) 
-licensed under [MIT License](https://github.com/zoetrope/test-controller/blob/39902a6510642370973063afa7bcefe2997b7387/LICENSE))
+licensed under [MIT License](https://github.com/zoetrope/test-controller/blob/39902a6510642370973063afa7bcefe2997b7387/LICENSE) ❤️ )
+
+### Linters
+
+The following command runs all enabled linters.
+
+```shell
+make lint
+```
+
+Some linters can fix some problems automatically by the following command.
+
+```shell
+make lint-fix
+```
+
+See [.golangci.yml] about the linters enabled in the repository.
