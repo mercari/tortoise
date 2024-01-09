@@ -150,16 +150,12 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 }
 
 // UpdateVPAContainerResourcePolicy is update VPAs to have appropriate container policies based on tortoises' resource policy.
-func (c *Service) UpdateVPAContainerResourcePolicy(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
+func (c *Service) UpdateVPAContainerResourcePolicy(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, vpa *v1.VerticalPodAutoscaler) (*v1.VerticalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
 	retVPA := &v1.VerticalPodAutoscaler{}
-
+	var err error
 	// we only want to record metric once in every reconcile loop.
 	//metricsRecorded := false
 	updateFn := func() error {
-		vpa, err := c.GetTortoiseUpdaterVPA(ctx, tortoise)
-		if err != nil {
-			return fmt.Errorf("get tortoise VPA: %w", err)
-		}
 		crp := make([]v1.ContainerResourcePolicy, 0, len(tortoise.Spec.ResourcePolicy))
 		for _, c := range tortoise.Spec.ResourcePolicy {
 			crp = append(crp, v1.ContainerResourcePolicy{
@@ -168,7 +164,6 @@ func (c *Service) UpdateVPAContainerResourcePolicy(ctx context.Context, tortoise
 			})
 		}
 		vpa.Spec.ResourcePolicy = &v1.PodResourcePolicy{ContainerPolicies: crp}
-		retVPA = vpa
 		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
 		return err
 	}

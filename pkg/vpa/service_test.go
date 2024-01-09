@@ -423,7 +423,7 @@ func TestVPAContainerResourcePolicy(t *testing.T) {
 				recorder: record.NewFakeRecorder(10),
 			}
 
-			got, tortoise, err := c.UpdateVPAContainerResourcePolicy(tt.args.ctx, tt.args.tortoise)
+			got, tortoise, err := c.UpdateVPAContainerResourcePolicy(tt.args.ctx, tt.args.tortoise, tt.initialVPA)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateVPAContainerResourcePolicy error = %v, wantErr %v", err, tt.wantErr)

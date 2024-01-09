@@ -243,6 +243,12 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
+	_, tortoise, err = r.VpaService.UpdateVPAContainerResourcePolicy(ctx, tortoise, monitorvpa)
+	if err != nil {
+		logger.Error(err, "update VPA Container Resource Policy", "tortoise", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+
 	// VPA is ready, we mark all Vertical scaling resources as Running.
 	tortoise = vpa.SetAllVerticalContainerResourcePhaseWorking(tortoise, now)
 
@@ -283,12 +289,6 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	_, err = r.VpaService.UpdateVPAFromTortoiseRecommendation(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "update VPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
-		return ctrl.Result{}, err
-	}
-
-	_, tortoise, err = r.VpaService.UpdateVPAContainerResourcePolicy(ctx, tortoise)
-	if err != nil {
-		logger.Error(err, "update VPA Container Resource Policy", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
 
