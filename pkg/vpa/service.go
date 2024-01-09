@@ -149,6 +149,7 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 	return vpa, tortoise, nil
 }
 
+// UpdateVPAContainerResourcePolicy is update VPAs to have appropriate container policies based on tortoises' resource policy.
 func (c *Service) UpdateVPAContainerResourcePolicy(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
 	retVPA := &v1.VerticalPodAutoscaler{}
 
@@ -174,10 +175,6 @@ func (c *Service) UpdateVPAContainerResourcePolicy(ctx context.Context, tortoise
 
 	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
 		return retVPA, tortoise, fmt.Errorf("update VPA CRP status: %w", err)
-	}
-
-	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
-		c.recorder.Event(tortoise, corev1.EventTypeNormal, "VPAUpdated", fmt.Sprintf("VPA %s/%s is updated. The Pods should also be updated with new resources soon by VPA if needed", retVPA.Namespace, retVPA.Name))
 	}
 
 	return retVPA, tortoise, nil
