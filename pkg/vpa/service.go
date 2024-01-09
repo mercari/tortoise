@@ -35,16 +35,16 @@ func New(c *rest.Config, recorder record.EventRecorder) (*Service, error) {
 	return &Service{c: cli, recorder: recorder}, nil
 }
 
-const TortoiseMonitorVPANamePrefix = "tortoise-monitor-"
-const TortoiseUpdaterVPANamePrefix = "tortoise-updater-"
-const TortoiseVPARecommenderName = "tortoise-controller"
+const tortoiseMonitorVPANamePrefix = "tortoise-monitor-"
+const tortoiseUpdaterVPANamePrefix = "tortoise-updater-"
+const tortoiseVPARecommenderName = "tortoise-controller"
 
 func TortoiseMonitorVPAName(tortoiseName string) string {
-	return TortoiseMonitorVPANamePrefix + tortoiseName
+	return tortoiseMonitorVPANamePrefix + tortoiseName
 }
 
 func TortoiseUpdaterVPAName(tortoiseName string) string {
-	return TortoiseUpdaterVPANamePrefix + tortoiseName
+	return tortoiseUpdaterVPANamePrefix + tortoiseName
 }
 
 func (c *Service) DeleteTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) error {
@@ -113,7 +113,7 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 		Spec: v1.VerticalPodAutoscalerSpec{
 			Recommenders: []*v1.VerticalPodAutoscalerRecommenderSelector{
 				{
-					Name: TortoiseVPARecommenderName, // This VPA is managed by Tortoise.
+					Name: tortoiseVPARecommenderName, // This VPA is managed by Tortoise.
 				},
 			},
 			TargetRef: &autoscaling.CrossVersionObjectReference{
@@ -244,15 +244,16 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 				UncappedTarget: r.RecommendedResource,
 			})
 		}
+		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+			// don't update status if update mode is off. (= dryrun)
+			retVPA = vpa
+			return nil
+		}
 		if vpa.Status.Recommendation == nil {
 			vpa.Status.Recommendation = &v1.RecommendedPodResources{}
 		}
 		vpa.Status.Recommendation.ContainerRecommendations = newRecommendations
 		retVPA = vpa
-		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
-			// don't update status if update mode is off. (= dryrun)
-			return nil
-		}
 		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
