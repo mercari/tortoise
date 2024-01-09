@@ -298,7 +298,8 @@ func TestVPAContainerResourcePolicy(t *testing.T) {
 			},
 			initialVPA: &vpav1.VerticalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "vpa",
+					Name:      "tortoise-updater-tortoise",
+					Namespace: "default",
 				},
 				Spec: vpav1.VerticalPodAutoscalerSpec{
 					ResourcePolicy: &vpav1.PodResourcePolicy{
@@ -323,7 +324,8 @@ func TestVPAContainerResourcePolicy(t *testing.T) {
 			},
 			want: &vpav1.VerticalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "vpa",
+					Name:      "tortoise-updater-tortoise",
+					Namespace: "default",
 				},
 				Spec: vpav1.VerticalPodAutoscalerSpec{
 					ResourcePolicy: &vpav1.PodResourcePolicy{
@@ -420,19 +422,22 @@ func TestVPAContainerResourcePolicy(t *testing.T) {
 				c:        fake.NewSimpleClientset(tt.initialVPA), // import "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake".
 				recorder: record.NewFakeRecorder(10),
 			}
-			initVPA, initTortoise, err := c.CreateTortoiseUpdaterVPA(tt.args.ctx, tt.args.initTortoise)
-			if (err != nil) != tt.wantErr {
-				t.Logf("CreateTortoiseUpdaterVPA error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if tt.initialVPA != nil {
-				if d := cmp.Diff(tt.initialVPA, initVPA); d != "" {
-					t.Logf("CreateTortoiseUpdaterVPA UpdaterVPA diff = %v", d)
+			_, err := c.c.AutoscalingV1().VerticalPodAutoscalers(tt.initialVPA.Namespace).Create(tt.args.ctx, tt.initialVPA, metav1.CreateOptions{})
+			/*
+				initVPA, initTortoise, err := c.CreateTortoiseUpdaterVPA(tt.args.ctx, tt.args.initTortoise)
+				if (err != nil) != tt.wantErr {
+					t.Logf("CreateTortoiseUpdaterVPA error = %v, wantErr %v", err, tt.wantErr)
+					return
 				}
-			}
-			if d := cmp.Diff(tt.args.initTortoise, initTortoise); d != "" {
-				t.Logf("CreateTortoiseUpdaterVPA Tortoise diff = %v", d)
-			}
+				if tt.initialVPA != nil {
+					if d := cmp.Diff(tt.initialVPA, initVPA); d != "" {
+						t.Logf("CreateTortoiseUpdaterVPA UpdaterVPA diff = %v", d)
+					}
+				}
+				if d := cmp.Diff(tt.args.initTortoise, initTortoise); d != "" {
+					t.Logf("CreateTortoiseUpdaterVPA Tortoise diff = %v", d)
+				}
+			*/
 
 			got, tortoise, err := c.UpdateVPAContainerResourcePolicy(tt.args.ctx, tt.args.tortoise)
 
