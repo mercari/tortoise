@@ -230,7 +230,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.VpaService.UpdateVPAFromTortoiseRecommendation(ctx, tortoise)
+	_, err = r.VpaService.UpdateVPAFromTortoiseRecommendation(ctx, tortoise, currentReplicaNum)
 	if err != nil {
 		logger.Error(err, "update VPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err

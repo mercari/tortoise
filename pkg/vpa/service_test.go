@@ -13,6 +13,7 @@ import (
 	vpav1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/ptr"
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
@@ -187,12 +188,24 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
 					Namespace: "default",
 				},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode:  ptr.To(vpav1.UpdateModeAuto),
+						MinReplicas: ptr.To[int32](9),
+					},
+				},
 				Status: vpav1.VerticalPodAutoscalerStatus{},
 			},
 			want: &vpav1.VerticalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
 					Namespace: "default",
+				},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode:  ptr.To(vpav1.UpdateModeAuto),
+						MinReplicas: ptr.To[int32](9),
+					},
 				},
 				Status: vpav1.VerticalPodAutoscalerStatus{
 					Recommendation: &vpav1.RecommendedPodResources{
@@ -296,7 +309,7 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 				recorder: record.NewFakeRecorder(10),
 			}
 
-			got, err := c.UpdateVPAFromTortoiseRecommendation(context.Background(), tt.tortoise)
+			got, err := c.UpdateVPAFromTortoiseRecommendation(context.Background(), tt.tortoise, 10)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Service.UpdateVPAFromTortoiseRecommendation() error = %v, wantErr %v", err, tt.wantErr)
 				return
