@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -216,7 +216,7 @@ func (s *Service) initializeMinMaxReplicas(tortoise *v1beta3.Tortoise) *v1beta3.
 				From:     from,
 				To:       to,
 				TimeZone: s.timeZone.String(),
-				WeekDay:  pointer.String(weekDay.String()),
+				WeekDay:  ptr.To(weekDay.String()),
 			})
 		}
 
