@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -661,127 +661,127 @@ func TestService_InitializeTortoise(t *testing.T) {
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Sunday.String()),
+									WeekDay:  ptr.To(time.Sunday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Sunday.String()),
+									WeekDay:  ptr.To(time.Sunday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Sunday.String()),
+									WeekDay:  ptr.To(time.Sunday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Monday.String()),
+									WeekDay:  ptr.To(time.Monday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Monday.String()),
+									WeekDay:  ptr.To(time.Monday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Monday.String()),
+									WeekDay:  ptr.To(time.Monday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Tuesday.String()),
+									WeekDay:  ptr.To(time.Tuesday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Tuesday.String()),
+									WeekDay:  ptr.To(time.Tuesday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Tuesday.String()),
+									WeekDay:  ptr.To(time.Tuesday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Wednesday.String()),
+									WeekDay:  ptr.To(time.Wednesday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Wednesday.String()),
+									WeekDay:  ptr.To(time.Wednesday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Wednesday.String()),
+									WeekDay:  ptr.To(time.Wednesday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Thursday.String()),
+									WeekDay:  ptr.To(time.Thursday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Thursday.String()),
+									WeekDay:  ptr.To(time.Thursday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Thursday.String()),
+									WeekDay:  ptr.To(time.Thursday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Friday.String()),
+									WeekDay:  ptr.To(time.Friday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Friday.String()),
+									WeekDay:  ptr.To(time.Friday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Friday.String()),
+									WeekDay:  ptr.To(time.Friday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Saturday.String()),
+									WeekDay:  ptr.To(time.Saturday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Saturday.String()),
+									WeekDay:  ptr.To(time.Saturday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Saturday.String()),
+									WeekDay:  ptr.To(time.Saturday.String()),
 									TimeZone: timeZone,
 								},
 							},
@@ -789,127 +789,127 @@ func TestService_InitializeTortoise(t *testing.T) {
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Sunday.String()),
+									WeekDay:  ptr.To(time.Sunday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Sunday.String()),
+									WeekDay:  ptr.To(time.Sunday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Sunday.String()),
+									WeekDay:  ptr.To(time.Sunday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Monday.String()),
+									WeekDay:  ptr.To(time.Monday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Monday.String()),
+									WeekDay:  ptr.To(time.Monday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Monday.String()),
+									WeekDay:  ptr.To(time.Monday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Tuesday.String()),
+									WeekDay:  ptr.To(time.Tuesday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Tuesday.String()),
+									WeekDay:  ptr.To(time.Tuesday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Tuesday.String()),
+									WeekDay:  ptr.To(time.Tuesday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Wednesday.String()),
+									WeekDay:  ptr.To(time.Wednesday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Wednesday.String()),
+									WeekDay:  ptr.To(time.Wednesday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Wednesday.String()),
+									WeekDay:  ptr.To(time.Wednesday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Thursday.String()),
+									WeekDay:  ptr.To(time.Thursday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Thursday.String()),
+									WeekDay:  ptr.To(time.Thursday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Thursday.String()),
+									WeekDay:  ptr.To(time.Thursday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Friday.String()),
+									WeekDay:  ptr.To(time.Friday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Friday.String()),
+									WeekDay:  ptr.To(time.Friday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Friday.String()),
+									WeekDay:  ptr.To(time.Friday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     0,
 									To:       8,
-									WeekDay:  pointer.String(time.Saturday.String()),
+									WeekDay:  ptr.To(time.Saturday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     8,
 									To:       16,
-									WeekDay:  pointer.String(time.Saturday.String()),
+									WeekDay:  ptr.To(time.Saturday.String()),
 									TimeZone: timeZone,
 								},
 								{
 									From:     16,
 									To:       24,
-									WeekDay:  pointer.String(time.Saturday.String()),
+									WeekDay:  ptr.To(time.Saturday.String()),
 									TimeZone: timeZone,
 								},
 							},
@@ -2618,7 +2618,7 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 				tortoise: &v1beta3.Tortoise{
 					Spec: v1beta3.TortoiseSpec{
 						TargetRefs: v1beta3.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("hoge"),
+							HorizontalPodAutoscalerName: ptr.To("hoge"),
 						},
 					},
 					Status: v1beta3.TortoiseStatus{
@@ -2650,7 +2650,7 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceMemory,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(80),
+										AverageUtilization: ptr.To[int32](80),
 									},
 									Container: "app",
 								},
@@ -2660,7 +2660,7 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceCPU,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(80),
+										AverageUtilization: ptr.To[int32](80),
 									},
 									Container: "app2",
 								},
@@ -2672,7 +2672,7 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 			want: &v1beta3.Tortoise{
 				Spec: v1beta3.TortoiseSpec{
 					TargetRefs: v1beta3.TargetRefs{
-						HorizontalPodAutoscalerName: pointer.String("hoge"),
+						HorizontalPodAutoscalerName: ptr.To("hoge"),
 					},
 				},
 				Status: v1beta3.TortoiseStatus{
@@ -2719,7 +2719,7 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 				tortoise: &v1beta3.Tortoise{
 					Spec: v1beta3.TortoiseSpec{
 						TargetRefs: v1beta3.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("hoge"),
+							HorizontalPodAutoscalerName: ptr.To("hoge"),
 						},
 					},
 					Status: v1beta3.TortoiseStatus{
@@ -2749,7 +2749,7 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceMemory,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(80),
+										AverageUtilization: ptr.To[int32](80),
 									},
 									Container: "app",
 								},
@@ -2759,7 +2759,7 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceCPU,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(80),
+										AverageUtilization: ptr.To[int32](80),
 									},
 									Container: "app2",
 								},
@@ -2771,7 +2771,7 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 			want: &v1beta3.Tortoise{
 				Spec: v1beta3.TortoiseSpec{
 					TargetRefs: v1beta3.TargetRefs{
-						HorizontalPodAutoscalerName: pointer.String("hoge"),
+						HorizontalPodAutoscalerName: ptr.To("hoge"),
 					},
 				},
 				Status: v1beta3.TortoiseStatus{

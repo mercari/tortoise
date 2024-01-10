@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -186,7 +186,7 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 				Target: v2.MetricTarget{
 					Type: v2.UtilizationMetricType,
 					// we always start from a conservative value. and later will be adjusted by the recommendation.
-					AverageUtilization: pointer.Int32(50),
+					AverageUtilization: ptr.To[int32](50),
 				},
 			},
 		}
@@ -266,7 +266,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 				Name:       tortoise.Spec.TargetRefs.ScaleTargetRef.Name,
 				APIVersion: tortoise.Spec.TargetRefs.ScaleTargetRef.APIVersion,
 			},
-			MinReplicas: pointer.Int32(int32(math.Ceil(float64(replicaNum) / 2.0))),
+			MinReplicas: ptr.To[int32](int32(math.Ceil(float64(replicaNum) / 2.0))),
 			MaxReplicas: replicaNum * 2,
 			Behavior: &v2.HorizontalPodAutoscalerBehavior{
 				ScaleUp: &v2.HPAScalingRules{

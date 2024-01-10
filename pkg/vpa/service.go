@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/utils/ptr"
 
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/annotation"
@@ -228,7 +229,7 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 	return vpa, tortoise, nil
 }
 
-func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, error) {
+func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replica int32) (*v1.VerticalPodAutoscaler, error) {
 	retVPA := &v1.VerticalPodAutoscaler{}
 
 	// we only want to record metric once in every reconcile loop.
@@ -277,24 +278,31 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		if vpa.Status.Recommendation == nil {
 			vpa.Status.Recommendation = &v1.RecommendedPodResources{}
 		}
+
+		vpa.Spec.UpdatePolicy = &v1.PodUpdatePolicy{
+			// Make it very conservative. We don't want to replace many Pods at the same time.
+			MinReplicas: ptr.To(replica - 1),
+			UpdateMode:  ptr.To(v1.UpdateModeAuto),
+		}
 		vpa.Status.Recommendation.ContainerRecommendations = newRecommendations
 		retVPA = vpa
-		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
+		// First, we update VPA spec (MinReplicas).
+		// If VPA CRD in the cluster hasn't got the status subresource yet, this will update the status as well.
+		_, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Update(ctx, vpa, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("update VPA MinReplicas (%s/%s): %w", vpa.Namespace, vpa.Name, err)
+		}
+
+		// Then, we update VPA status (Recommendation).
+		_, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				// Maybe it's because VPA CRD hasn't got the status subresource yet.
-				// Try to update without status subresource.
-				var err2 error
-				retVPA, err2 = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Update(ctx, vpa, metav1.UpdateOptions{})
-				if err2 == nil {
-					return nil
-				}
-
-				// return original error
+				// Ignore it. Probably it's because VPA CRD hasn't got the status subresource yet.
+				return nil
 			}
 			return fmt.Errorf("update VPA (%s/%s) status: %w", vpa.Namespace, vpa.Name, err)
 		}
-		return err
+		return nil
 	}
 
 	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {

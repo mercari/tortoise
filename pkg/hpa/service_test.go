@@ -12,7 +12,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -112,7 +112,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     6,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 								MinReplicas: []autoscalingv1beta3.ReplicasRecommendation{
@@ -121,7 +121,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     3,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 							},
@@ -147,7 +147,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(60),
+									AverageUtilization: ptr.To[int32](60),
 								},
 								Container: "app",
 							},
@@ -157,7 +157,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 								},
 								Container: "istio-proxy",
 							},
@@ -182,7 +182,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(90),
+									AverageUtilization: ptr.To[int32](90),
 								},
 								Container: "app",
 							},
@@ -192,7 +192,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(80),
+									AverageUtilization: ptr.To[int32](80),
 								},
 								Container: "istio-proxy",
 							},
@@ -271,7 +271,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 									To:        2,
 									Value:     6,
 									UpdatedAt: now,
-									WeekDay:   pointer.String(now.Weekday().String()),
+									WeekDay:   ptr.To(now.Weekday().String()),
 								},
 							},
 							MinReplicas: []autoscalingv1beta3.ReplicasRecommendation{
@@ -280,7 +280,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 									To:        2,
 									Value:     3,
 									UpdatedAt: now,
-									WeekDay:   pointer.String(now.Weekday().String()),
+									WeekDay:   ptr.To(now.Weekday().String()),
 								},
 							},
 						},
@@ -352,7 +352,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     6,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 								MinReplicas: []autoscalingv1beta3.ReplicasRecommendation{
@@ -361,7 +361,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     3,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 							},
@@ -387,7 +387,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(60),
+									AverageUtilization: ptr.To[int32](60),
 								},
 								Container: "app",
 							},
@@ -397,7 +397,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(10),
+									AverageUtilization: ptr.To[int32](10),
 								},
 								Container: "istio-proxy",
 							},
@@ -422,7 +422,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(90),
+									AverageUtilization: ptr.To[int32](90),
 								},
 								Container: "app",
 							},
@@ -432,7 +432,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(60), // 80 is recommended but only +50 is allowed.
+									AverageUtilization: ptr.To[int32](60), // 80 is recommended but only +50 is allowed.
 								},
 								Container: "istio-proxy",
 							},
@@ -520,7 +520,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     6,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 								MinReplicas: []autoscalingv1beta3.ReplicasRecommendation{
@@ -529,7 +529,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     3,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 							},
@@ -555,7 +555,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(60),
+									AverageUtilization: ptr.To[int32](60),
 								},
 								Container: "app",
 							},
@@ -565,7 +565,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 								},
 								Container: "istio-proxy",
 							},
@@ -590,7 +590,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(60),
+									AverageUtilization: ptr.To[int32](60),
 								},
 								Container: "app",
 							},
@@ -600,7 +600,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 								},
 								Container: "istio-proxy",
 							},
@@ -682,7 +682,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 									To:        2,
 									Value:     6,
 									UpdatedAt: now,
-									WeekDay:   pointer.String(now.Weekday().String()),
+									WeekDay:   ptr.To(now.Weekday().String()),
 								},
 							},
 							MinReplicas: []autoscalingv1beta3.ReplicasRecommendation{
@@ -691,7 +691,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 									To:        2,
 									Value:     3,
 									UpdatedAt: now,
-									WeekDay:   pointer.String(now.Weekday().String()),
+									WeekDay:   ptr.To(now.Weekday().String()),
 								},
 							},
 						},
@@ -766,7 +766,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     6,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 								MinReplicas: []autoscalingv1beta3.ReplicasRecommendation{
@@ -775,7 +775,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     3,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 							},
@@ -801,7 +801,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(60),
+									AverageUtilization: ptr.To[int32](60),
 								},
 								Container: "app",
 							},
@@ -811,7 +811,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 								},
 								Container: "istio-proxy",
 							},
@@ -836,7 +836,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(60),
+									AverageUtilization: ptr.To[int32](60),
 								},
 								Container: "app",
 							},
@@ -846,7 +846,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 								},
 								Container: "istio-proxy",
 							},
@@ -922,7 +922,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     6,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 								MinReplicas: []autoscalingv1beta3.ReplicasRecommendation{
@@ -931,7 +931,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     3,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 							},
@@ -957,7 +957,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(60),
+									AverageUtilization: ptr.To[int32](60),
 								},
 								Container: "app",
 							},
@@ -967,7 +967,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 								},
 								Container: "istio-proxy",
 							},
@@ -992,7 +992,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(90), // updated
+									AverageUtilization: ptr.To[int32](90), // updated
 								},
 								Container: "app",
 							},
@@ -1002,7 +1002,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50), // not updated
+									AverageUtilization: ptr.To[int32](50), // not updated
 								},
 								Container: "istio-proxy",
 							},
@@ -1058,7 +1058,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     6,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 								MinReplicas: []autoscalingv1beta3.ReplicasRecommendation{
@@ -1067,7 +1067,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     3,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 							},
@@ -1093,7 +1093,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(60),
+									AverageUtilization: ptr.To[int32](60),
 								},
 								Container: "app",
 							},
@@ -1103,7 +1103,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 								},
 								Container: "istio-proxy",
 							},
@@ -1128,7 +1128,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(90),
+									AverageUtilization: ptr.To[int32](90),
 								},
 								Container: "app",
 							},
@@ -1138,7 +1138,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(80),
+									AverageUtilization: ptr.To[int32](80),
 								},
 								Container: "istio-proxy",
 							},
@@ -1194,7 +1194,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     6,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 								MinReplicas: []autoscalingv1beta3.ReplicasRecommendation{
@@ -1203,7 +1203,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     3,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 							},
@@ -1229,7 +1229,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(60),
+									AverageUtilization: ptr.To[int32](60),
 								},
 								Container: "app",
 							},
@@ -1239,7 +1239,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 								},
 								Container: "istio-proxy",
 							},
@@ -1264,7 +1264,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(90),
+									AverageUtilization: ptr.To[int32](90),
 								},
 								Container: "app",
 							},
@@ -1274,7 +1274,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(80),
+									AverageUtilization: ptr.To[int32](80),
 								},
 								Container: "istio-proxy",
 							},
@@ -1330,7 +1330,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     6,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 								MinReplicas: []autoscalingv1beta3.ReplicasRecommendation{
@@ -1339,7 +1339,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 										To:        2,
 										Value:     3,
 										UpdatedAt: now,
-										WeekDay:   pointer.String(now.Weekday().String()),
+										WeekDay:   ptr.To(now.Weekday().String()),
 									},
 								},
 							},
@@ -1365,7 +1365,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(60),
+									AverageUtilization: ptr.To[int32](60),
 								},
 								Container: "app",
 							},
@@ -1375,7 +1375,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 								},
 								Container: "istio-proxy",
 							},
@@ -1400,7 +1400,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceMemory,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(90),
+									AverageUtilization: ptr.To[int32](90),
 								},
 								Container: "app",
 							},
@@ -1410,7 +1410,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 							ContainerResource: &v2.ContainerResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(80),
+									AverageUtilization: ptr.To[int32](80),
 								},
 								Container: "istio-proxy",
 							},
@@ -1472,7 +1472,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 									To:        2,
 									Value:     6,
 									UpdatedAt: now,
-									WeekDay:   pointer.String(now.Weekday().String()),
+									WeekDay:   ptr.To(now.Weekday().String()),
 								},
 							},
 							MinReplicas: []autoscalingv1beta3.ReplicasRecommendation{
@@ -1481,7 +1481,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 									To:        2,
 									Value:     3,
 									UpdatedAt: now,
-									WeekDay:   pointer.String(now.Weekday().String()),
+									WeekDay:   ptr.To(now.Weekday().String()),
 								},
 							},
 						},
@@ -1585,7 +1585,7 @@ func TestService_InitializeHPA(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -1596,7 +1596,7 @@ func TestService_InitializeHPA(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -1640,7 +1640,7 @@ func TestService_InitializeHPA(t *testing.T) {
 					},
 					Spec: autoscalingv1beta3.TortoiseSpec{
 						TargetRefs: autoscalingv1beta3.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+							HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 							ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 								Kind: "Deployment",
 								Name: "deployment",
@@ -1766,7 +1766,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 					},
 					Spec: autoscalingv1beta3.TortoiseSpec{
 						TargetRefs: autoscalingv1beta3.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+							HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 							ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 								Kind: "Deployment",
 								Name: "deployment",
@@ -1844,7 +1844,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -1870,7 +1870,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				},
 				Spec: autoscalingv1beta3.TortoiseSpec{
 					TargetRefs: autoscalingv1beta3.TargetRefs{
-						HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+						HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 						ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 							Kind: "Deployment",
 							Name: "deployment",
@@ -1946,7 +1946,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -1957,7 +1957,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -1987,7 +1987,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 					},
 					Spec: autoscalingv1beta3.TortoiseSpec{
 						TargetRefs: autoscalingv1beta3.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+							HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 							ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 								Kind: "Deployment",
 								Name: "deployment",
@@ -2065,7 +2065,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2076,7 +2076,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2102,7 +2102,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				},
 				Spec: autoscalingv1beta3.TortoiseSpec{
 					TargetRefs: autoscalingv1beta3.TargetRefs{
-						HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+						HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 						ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 							Kind: "Deployment",
 							Name: "deployment",
@@ -2178,7 +2178,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2209,7 +2209,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 					Spec: autoscalingv1beta3.TortoiseSpec{
 						DeletionPolicy: autoscalingv1beta3.DeletionPolicyDeleteAll,
 						TargetRefs: autoscalingv1beta3.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+							HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 							ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 								Kind: "Deployment",
 								Name: "deployment",
@@ -2288,7 +2288,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2299,7 +2299,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2326,7 +2326,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				Spec: autoscalingv1beta3.TortoiseSpec{
 					DeletionPolicy: autoscalingv1beta3.DeletionPolicyDeleteAll,
 					TargetRefs: autoscalingv1beta3.TargetRefs{
-						HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+						HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 						ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 							Kind: "Deployment",
 							Name: "deployment",
@@ -2391,7 +2391,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 					},
 					Spec: autoscalingv1beta3.TortoiseSpec{
 						TargetRefs: autoscalingv1beta3.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+							HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 							ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 								Kind: "Deployment",
 								Name: "deployment",
@@ -2469,7 +2469,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2480,7 +2480,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2514,7 +2514,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				},
 				Spec: autoscalingv1beta3.TortoiseSpec{
 					TargetRefs: autoscalingv1beta3.TargetRefs{
-						HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+						HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 						ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 							Kind: "Deployment",
 							Name: "deployment",
@@ -2590,7 +2590,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2628,7 +2628,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 					},
 					Spec: autoscalingv1beta3.TortoiseSpec{
 						TargetRefs: autoscalingv1beta3.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+							HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 							ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 								Kind: "Deployment",
 								Name: "deployment",
@@ -2706,7 +2706,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2740,7 +2740,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				},
 				Spec: autoscalingv1beta3.TortoiseSpec{
 					TargetRefs: autoscalingv1beta3.TargetRefs{
-						HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+						HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 						ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 							Kind: "Deployment",
 							Name: "deployment",
@@ -2816,7 +2816,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2835,7 +2835,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2865,7 +2865,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 					},
 					Spec: autoscalingv1beta3.TortoiseSpec{
 						TargetRefs: autoscalingv1beta3.TargetRefs{
-							HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+							HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 							ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 								Kind: "Deployment",
 								Name: "deployment",
@@ -2942,7 +2942,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 							Resource: &v2.ResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2953,7 +2953,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2964,7 +2964,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2998,7 +2998,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				},
 				Spec: autoscalingv1beta3.TortoiseSpec{
 					TargetRefs: autoscalingv1beta3.TargetRefs{
-						HorizontalPodAutoscalerName: pointer.String("existing-hpa"),
+						HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 						ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 							Kind: "Deployment",
 							Name: "deployment",
@@ -3074,7 +3074,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To[int32](50),
 									Type:               v2.UtilizationMetricType,
 								},
 							},

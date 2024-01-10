@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/utils"
@@ -118,7 +118,7 @@ func TestUpdateRecommendation(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceMemory,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(60),
+										AverageUtilization: ptr.To[int32](60),
 									},
 									Container: "app",
 								},
@@ -128,7 +128,7 @@ func TestUpdateRecommendation(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceCPU,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(50),
+										AverageUtilization: ptr.To[int32](50),
 									},
 									Container: "istio-proxy",
 								},
@@ -308,7 +308,7 @@ func TestUpdateRecommendation(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceCPU,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(50),
+										AverageUtilization: ptr.To[int32](50),
 									},
 									Container: "istio-proxy",
 								},
@@ -487,7 +487,7 @@ func TestUpdateRecommendation(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceCPU,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(50),
+										AverageUtilization: ptr.To[int32](50),
 									},
 									Container: "istio-proxy",
 								},
@@ -553,7 +553,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     3,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      2,
@@ -561,7 +561,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     1,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      3,
@@ -569,7 +569,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     1,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 								},
 								MaxReplicas: []v1beta3.ReplicasRecommendation{
@@ -579,7 +579,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     9,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      2,
@@ -587,7 +587,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     7,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      3,
@@ -595,7 +595,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     7,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 								},
 							},
@@ -616,7 +616,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     5,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      2,
@@ -624,7 +624,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     1,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      3,
@@ -632,7 +632,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     1,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 							},
 							MaxReplicas: []v1beta3.ReplicasRecommendation{
@@ -642,7 +642,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     20,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      2,
@@ -650,7 +650,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     7,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      3,
@@ -658,7 +658,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     7,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 							},
 						},
@@ -681,7 +681,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     8,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      2,
@@ -689,7 +689,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     1,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      3,
@@ -697,7 +697,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     1,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 								},
 								MaxReplicas: []v1beta3.ReplicasRecommendation{
@@ -707,7 +707,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     30,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      2,
@@ -715,7 +715,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     7,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      3,
@@ -723,7 +723,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     7,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 								},
 							},
@@ -744,7 +744,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     7,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      2,
@@ -752,7 +752,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     1,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      3,
@@ -760,7 +760,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     1,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 							},
 							MaxReplicas: []v1beta3.ReplicasRecommendation{
@@ -770,7 +770,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     28,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      2,
@@ -778,7 +778,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     7,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      3,
@@ -786,7 +786,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     7,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 							},
 						},
@@ -809,7 +809,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)), // recently updated.
 										TimeZone:  timeZone,
 										Value:     8,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      2,
@@ -817,7 +817,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     1,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      3,
@@ -825,7 +825,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     1,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 								},
 								MaxReplicas: []v1beta3.ReplicasRecommendation{
@@ -835,7 +835,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)), // recently updated.
 										TimeZone:  timeZone,
 										Value:     30,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      2,
@@ -843,7 +843,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     7,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      3,
@@ -851,7 +851,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     7,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 								},
 							},
@@ -872,7 +872,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     8,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      2,
@@ -880,7 +880,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     1,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      3,
@@ -888,7 +888,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     1,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 							},
 							MaxReplicas: []v1beta3.ReplicasRecommendation{
@@ -898,7 +898,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     30,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      2,
@@ -906,7 +906,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     7,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      3,
@@ -914,7 +914,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     7,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 							},
 						},
@@ -937,7 +937,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     0,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      2,
@@ -945,7 +945,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     1,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      3,
@@ -953,7 +953,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     1,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 								},
 								MaxReplicas: []v1beta3.ReplicasRecommendation{
@@ -963,7 +963,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     0,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      2,
@@ -971,7 +971,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     7,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      3,
@@ -979,7 +979,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     7,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 								},
 							},
@@ -1000,7 +1000,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     3,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      2,
@@ -1008,7 +1008,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     1,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      3,
@@ -1016,7 +1016,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     1,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 							},
 							MaxReplicas: []v1beta3.ReplicasRecommendation{
@@ -1026,7 +1026,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     12,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      2,
@@ -1034,7 +1034,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     7,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      3,
@@ -1042,7 +1042,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     7,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 							},
 						},
@@ -1065,7 +1065,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     3,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      2,
@@ -1073,7 +1073,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     1,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      3,
@@ -1081,7 +1081,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     1,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 								},
 								MaxReplicas: []v1beta3.ReplicasRecommendation{
@@ -1091,7 +1091,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     9,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      2,
@@ -1099,7 +1099,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     7,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 									{
 										From:      3,
@@ -1107,7 +1107,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     7,
-										WeekDay:   pointer.String(time.Sunday.String()),
+										WeekDay:   ptr.To(time.Sunday.String()),
 									},
 								},
 							},
@@ -1128,7 +1128,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     3,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      2,
@@ -1136,7 +1136,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     1,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      3,
@@ -1144,7 +1144,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     1,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 							},
 							MaxReplicas: []v1beta3.ReplicasRecommendation{
@@ -1154,7 +1154,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     9,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      2,
@@ -1162,7 +1162,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     7,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 								{
 									From:      3,
@@ -1170,7 +1170,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
 									Value:     7,
-									WeekDay:   pointer.String(time.Sunday.String()),
+									WeekDay:   ptr.To(time.Sunday.String()),
 								},
 							},
 						},
@@ -1393,7 +1393,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceCPU,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(20),
+										AverageUtilization: ptr.To[int32](20),
 									},
 									Container: "test-container",
 								},
@@ -1403,7 +1403,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceMemory,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(20),
+										AverageUtilization: ptr.To[int32](20),
 									},
 									Container: "test-container",
 								},
@@ -1489,7 +1489,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceCPU,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(20),
+										AverageUtilization: ptr.To[int32](20),
 									},
 									Container: "test-container",
 								},
@@ -1499,7 +1499,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceMemory,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(20),
+										AverageUtilization: ptr.To[int32](20),
 									},
 									Container: "test-container",
 								},
@@ -1751,7 +1751,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceCPU,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(80),
+										AverageUtilization: ptr.To[int32](80),
 									},
 									Container: "test-container",
 								},
@@ -1761,7 +1761,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceMemory,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(80),
+										AverageUtilization: ptr.To[int32](80),
 									},
 									Container: "test-container",
 								},
@@ -1771,7 +1771,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceCPU,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(70),
+										AverageUtilization: ptr.To[int32](70),
 									},
 									Container: "test-container2",
 								},
@@ -1781,7 +1781,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 								ContainerResource: &v2.ContainerResourceMetricSource{
 									Name: corev1.ResourceMemory,
 									Target: v2.MetricTarget{
-										AverageUtilization: pointer.Int32(70),
+										AverageUtilization: ptr.To[int32](70),
 									},
 									Container: "test-container2",
 								},
