@@ -243,7 +243,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
-	_, tortoise, err = r.VpaService.UpdateVPAContainerResourcePolicy(ctx, tortoise, monitorvpa)
+	_, err = r.VpaService.UpdateVPAContainerResourcePolicy(ctx, tortoise, monitorvpa)
 	if err != nil {
 		logger.Error(err, "update VPA Container Resource Policy", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err

@@ -419,21 +419,17 @@ func TestVPAContainerResourcePolicy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Service{
-				c:        fake.NewSimpleClientset(tt.initialVPA), // import "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake".
+				c:        fake.NewSimpleClientset(tt.initialVPA),
 				recorder: record.NewFakeRecorder(10),
 			}
 
-			got, tortoise, err := c.UpdateVPAContainerResourcePolicy(tt.args.ctx, tt.args.tortoise, tt.initialVPA)
+			got, err := c.UpdateVPAContainerResourcePolicy(tt.args.ctx, tt.args.tortoise, tt.initialVPA)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateVPAContainerResourcePolicy error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantTortoise != nil {
-				if d := cmp.Diff(tt.wantTortoise, tortoise); d != "" {
-					t.Errorf("UpdateVPAContainerResourcePolicy tortoise diff = %v", d)
-				}
-			}
+
 			if d := cmp.Diff(tt.want.Spec, got.Spec); d != "" {
 				t.Errorf("UpdateVPAContainerResourcePolicy vpa diff = %v", d)
 			}

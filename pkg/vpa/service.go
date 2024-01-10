@@ -150,11 +150,10 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 }
 
 // UpdateVPAContainerResourcePolicy is update VPAs to have appropriate container policies based on tortoises' resource policy.
-func (c *Service) UpdateVPAContainerResourcePolicy(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, vpa *v1.VerticalPodAutoscaler) (*v1.VerticalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
+func (c *Service) UpdateVPAContainerResourcePolicy(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, vpa *v1.VerticalPodAutoscaler) (*v1.VerticalPodAutoscaler, error) {
 	retVPA := &v1.VerticalPodAutoscaler{}
 	var err error
-	// we only want to record metric once in every reconcile loop.
-	//metricsRecorded := false
+
 	updateFn := func() error {
 		crp := make([]v1.ContainerResourcePolicy, 0, len(tortoise.Spec.ResourcePolicy))
 		for _, c := range tortoise.Spec.ResourcePolicy {
@@ -164,15 +163,15 @@ func (c *Service) UpdateVPAContainerResourcePolicy(ctx context.Context, tortoise
 			})
 		}
 		vpa.Spec.ResourcePolicy = &v1.PodResourcePolicy{ContainerPolicies: crp}
-		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
+		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Update(ctx, vpa, metav1.UpdateOptions{})
 		return err
 	}
 
 	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
-		return retVPA, tortoise, fmt.Errorf("update VPA CRP status: %w", err)
+		return retVPA, fmt.Errorf("update VPA ContainerResourcePolicy status: %w", err)
 	}
 
-	return retVPA, tortoise, nil
+	return retVPA, nil
 }
 
 func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
