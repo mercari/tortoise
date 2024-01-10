@@ -18,6 +18,7 @@ import (
 
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/annotation"
+	"github.com/mercari/tortoise/pkg/event"
 	"github.com/mercari/tortoise/pkg/metrics"
 )
 
@@ -34,16 +35,16 @@ func New(c *rest.Config, recorder record.EventRecorder) (*Service, error) {
 	return &Service{c: cli, recorder: recorder}, nil
 }
 
-const TortoiseMonitorVPANamePrefix = "tortoise-monitor-"
-const TortoiseUpdaterVPANamePrefix = "tortoise-updater-"
-const TortoiseVPARecommenderName = "tortoise-controller"
+const tortoiseMonitorVPANamePrefix = "tortoise-monitor-"
+const tortoiseUpdaterVPANamePrefix = "tortoise-updater-"
+const tortoiseVPARecommenderName = "tortoise-controller"
 
 func TortoiseMonitorVPAName(tortoiseName string) string {
-	return TortoiseMonitorVPANamePrefix + tortoiseName
+	return tortoiseMonitorVPANamePrefix + tortoiseName
 }
 
 func TortoiseUpdaterVPAName(tortoiseName string) string {
-	return TortoiseUpdaterVPANamePrefix + tortoiseName
+	return tortoiseUpdaterVPANamePrefix + tortoiseName
 }
 
 func (c *Service) DeleteTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) error {
@@ -112,7 +113,7 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 		Spec: v1.VerticalPodAutoscalerSpec{
 			Recommenders: []*v1.VerticalPodAutoscalerRecommenderSelector{
 				{
-					Name: TortoiseVPARecommenderName, // This VPA is managed by Tortoise.
+					Name: tortoiseVPARecommenderName, // This VPA is managed by Tortoise.
 				},
 			},
 			TargetRef: &autoscaling.CrossVersionObjectReference{
@@ -128,6 +129,9 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 	}
 	crp := make([]v1.ContainerResourcePolicy, 0, len(tortoise.Spec.ResourcePolicy))
 	for _, c := range tortoise.Spec.ResourcePolicy {
+		if c.MinAllocatedResources == nil {
+			continue
+		}
 		crp = append(crp, v1.ContainerResourcePolicy{
 			ContainerName: c.ContainerName,
 			MinAllowed:    c.MinAllocatedResources,
@@ -144,7 +148,7 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 		return nil, tortoise, err
 	}
 
-	c.recorder.Event(tortoise, corev1.EventTypeNormal, "VPACreated", fmt.Sprintf("Initialized a updator VPA %s/%s", vpa.Namespace, vpa.Name))
+	c.recorder.Event(tortoise, corev1.EventTypeNormal, event.VPACreated, fmt.Sprintf("Initialized a updator VPA %s/%s", vpa.Namespace, vpa.Name))
 
 	return vpa, tortoise, nil
 }
@@ -199,6 +203,9 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 	}
 	crp := make([]v1.ContainerResourcePolicy, 0, len(tortoise.Spec.ResourcePolicy))
 	for _, c := range tortoise.Spec.ResourcePolicy {
+		if c.MinAllocatedResources == nil {
+			continue
+		}
 		crp = append(crp, v1.ContainerResourcePolicy{
 			ContainerName: c.ContainerName,
 			MinAllowed:    c.MinAllocatedResources,
@@ -216,7 +223,7 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 		return nil, tortoise, err
 	}
 
-	c.recorder.Event(tortoise, corev1.EventTypeNormal, "VPACreated", fmt.Sprintf("Initialized a monitor VPA %s/%s", vpa.Namespace, vpa.Name))
+	c.recorder.Event(tortoise, corev1.EventTypeNormal, event.VPACreated, fmt.Sprintf("Initialized a monitor VPA %s/%s", vpa.Namespace, vpa.Name))
 
 	return vpa, tortoise, nil
 }
@@ -234,17 +241,18 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		newRecommendations := make([]v1.RecommendedContainerResources, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
 		for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
 			if !metricsRecorded {
+				// only record metrics once in every reconcile loop.
 				for resourcename, value := range r.RecommendedResource {
 					if resourcename == corev1.ResourceCPU {
 						metrics.ProposedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
-						if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+						if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
 							// We don't want to record applied* metric when UpdateMode is Off.
 							metrics.AppliedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
 						}
 					}
 					if resourcename == corev1.ResourceMemory {
 						metrics.ProposedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
-						if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+						if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
 							// We don't want to record applied* metric when UpdateMode is Off.
 							metrics.AppliedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
 						}
@@ -261,16 +269,31 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 				UncappedTarget: r.RecommendedResource,
 			})
 		}
+		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+			// don't update status if update mode is off. (= dryrun)
+			retVPA = vpa
+			return nil
+		}
 		if vpa.Status.Recommendation == nil {
 			vpa.Status.Recommendation = &v1.RecommendedPodResources{}
 		}
 		vpa.Status.Recommendation.ContainerRecommendations = newRecommendations
 		retVPA = vpa
-		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
-			// don't update status if update mode is off. (= dryrun)
-			return nil
-		}
 		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				// Maybe it's because VPA CRD hasn't got the status subresource yet.
+				// Try to update without status subresource.
+				var err2 error
+				retVPA, err2 = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Update(ctx, vpa, metav1.UpdateOptions{})
+				if err2 == nil {
+					return nil
+				}
+
+				// return original error
+			}
+			return fmt.Errorf("update VPA (%s/%s) status: %w", vpa.Namespace, vpa.Name, err)
+		}
 		return err
 	}
 
@@ -279,7 +302,7 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 	}
 
 	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
-		c.recorder.Event(tortoise, corev1.EventTypeNormal, "VPAUpdated", fmt.Sprintf("VPA %s/%s is updated by the recommendation. The Pods should also be updated with new resources soon by VPA if needed", retVPA.Namespace, retVPA.Name))
+		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.VPAUpdated, fmt.Sprintf("VPA %s/%s is updated by the recommendation. The Pods should also be updated with new resources soon by VPA if needed", retVPA.Namespace, retVPA.Name))
 	}
 
 	return retVPA, nil

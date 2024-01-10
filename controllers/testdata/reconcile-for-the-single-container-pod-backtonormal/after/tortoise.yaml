@@ -7,48 +7,39 @@ spec:
       apiVersion: apps/v1
       kind: Deployment
       name: mercari-app
-  updateMode: Emergency
+  updateMode: Auto
 status:
   autoscalingPolicy:
   - policy:
       cpu: Horizontal
       memory: Vertical
     containerName: app
-  - policy:
-      cpu: Horizontal
-      memory: Vertical
-    containerName: istio-proxy
   conditions:
+    containerResourceRequests:
+      - containerName: "app"
+        resource:
+          cpu: "4"
+          memory: 4Gi
+    tortoiseConditions:
+    - message: "HPA target utilization is updated"
+      reason: HPATargetUtilizationUpdated
+      status: "True"
+      type: HPATargetUtilizationUpdated
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
       recommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
-          updatedAt: null
-    - containerName: istio-proxy
-      maxRecommendation:
-        cpu:
-          quantity: "0"
-          updatedAt: null
-        memory:
-          quantity: "0"
-          updatedAt: null
-      recommendation:
-        cpu:
-          quantity: "0"
-          updatedAt: null
-        memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
   recommendations:
     horizontal:
@@ -56,23 +47,24 @@ status:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:15:47Z"
-        value: 15
+        updatedAt: "2023-10-06T01:15:45Z"
+        value: 20
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:15:47Z"
-        value: 3
+        updatedAt: "2023-10-06T01:15:45Z"
+        value: 5
       targetUtilizations:
       - containerName: app
         targetUtilization:
-          cpu: 50
-      - containerName: istio-proxy
-        targetUtilization:
-          cpu: 50
+          cpu: 75
     vertical:
-      containerResourceRecommendation: null
+      containerResourceRecommendation:
+      - RecommendedResource:
+          cpu: "4"
+          memory: 3Gi
+        containerName: app
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
@@ -80,7 +72,7 @@ status:
       role: Updater
     - name: tortoise-monitor-mercari
       role: Monitor
-  tortoisePhase: Working
+  tortoisePhase: BackToNormal
   containerResourcePhases:
     - containerName: "app"
       resourcePhases:

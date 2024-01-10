@@ -15,6 +15,11 @@ status:
       memory: Vertical
     containerName: app
   conditions:
+    containerResourceRequests:
+      - containerName: "app"
+        resource:
+          cpu: "4"
+          memory: 4Gi
     tortoiseConditions:
     - message: "HPA target utilization is updated"
       reason: HPATargetUtilizationUpdated
@@ -43,17 +48,17 @@ status:
         timezone: Local
         to: 24
         updatedAt: "2023-10-06T01:15:45Z"
-        value: 20
+        value: 15
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
         updatedAt: "2023-10-06T01:15:45Z"
-        value: 5
+        value: 3
       targetUtilizations:
       - containerName: app
         targetUtilization:
-          cpu: 75
+          cpu: 30
     vertical:
       containerResourceRecommendation:
       - RecommendedResource:

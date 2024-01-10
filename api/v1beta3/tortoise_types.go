@@ -68,13 +68,15 @@ type TortoiseSpec struct {
 	// 1. Allow Tortoise to automatically determine the appropriate autoscaling policy for each resource.
 	// 2. Manually define the autoscaling policy for each resource.
 	//
-	// For the first option, simply leave this field unset. In this case, Tortoise will adjust the autoscaling policies using the following logic:
+	// For the first option, simply leave this field unset. In this case, Tortoise will adjust the autoscaling policies using the following rules:
 	// - If .spec.TargetRefs.HorizontalPodAutoscalerName is not provided, the policies default to "Horizontal" for CPU and "Vertical" for memory across all containers.
 	// - If .spec.TargetRefs.HorizontalPodAutoscalerName is specified, resources governed by the referenced Horizontal Pod Autoscaler will use a "Horizontal" policy,
 	//   while those not managed by the HPA will use a "Vertical" policy.
 	//   Note that Tortoise supports only the ContainerResource metric type for HPAs; other metric types will be disregarded.
 	//   Additionally, if a ContainerResource metric is later added to an HPA associated with Tortoise,
 	//   Tortoise will automatically update relevant resources to utilize a "Horizontal" policy.
+	// - if a container doesn't have the resource request, that container's autoscaling policy is always set to "Off"
+	//   because tortoise cannot generate any recommendation without the resource request.
 	//
 	// With the second option, you must manually specify the AutoscalingPolicy for the resources of each container within this field.
 	// If policies are defined for some but not all containers or resources, Tortoise will assign a default "Off" policy to unspecified resources.
@@ -251,8 +253,9 @@ type Recommendations struct {
 }
 
 type VerticalRecommendations struct {
+	// ContainerResourceRecommendation has the recommendation of container resource request.
 	// +optional
-	ContainerResourceRecommendation []RecommendedContainerResources `json:"containerResourceRecommendation" protobuf:"bytes,1,name=containerResourceRecommendation"`
+	ContainerResourceRecommendation []RecommendedContainerResources `json:"containerResourceRecommendation" protobuf:"bytes,1,opt,name=containerResourceRecommendation"`
 }
 
 type RecommendedContainerResources struct {
@@ -265,7 +268,7 @@ type RecommendedContainerResources struct {
 	// But, when the number of replicas are too small or too large,
 	// tortoise may try to increase/decrease the amount of resources given to the container,
 	// so that the number of replicas won't be very small or very large.
-	RecommendedResource v1.ResourceList `json:"RecommendedResource" protobuf:"bytes,2,name=containerName"`
+	RecommendedResource v1.ResourceList `json:"RecommendedResource" protobuf:"bytes,2,name=recommendedResource"`
 }
 
 type HorizontalRecommendations struct {
@@ -315,7 +318,16 @@ type Conditions struct {
 	TortoiseConditions []TortoiseCondition `json:"tortoiseConditions" protobuf:"bytes,1,name=tortoiseConditions"`
 	// ContainerRecommendationFromVPA is the condition of container recommendation from VPA, which is observed last time.
 	// +optional
-	ContainerRecommendationFromVPA []ContainerRecommendationFromVPA `json:"containerRecommendationFromVPA,omitempty" protobuf:"bytes,1,opt,name=containerRecommendationFromVPA"`
+	ContainerRecommendationFromVPA []ContainerRecommendationFromVPA `json:"containerRecommendationFromVPA,omitempty" protobuf:"bytes,2,opt,name=containerRecommendationFromVPA"`
+	// ContainerResourceRequests has the last observed resource request of each container.
+	// +optional
+	ContainerResourceRequests []ContainerResourceRequests `json:"containerResourceRequests,omitempty" protobuf:"bytes,3,opt,name=containerResourceRequests"`
+}
+
+type ContainerResourceRequests struct {
+	// ContainerName is the name of target container.
+	ContainerName string          `json:"containerName" protobuf:"bytes,1,name=containerName"`
+	Resource      v1.ResourceList `json:"resource" protobuf:"bytes,2,name=resource"`
 }
 
 // TortoiseConditionType are the valid conditions of a Tortoise.

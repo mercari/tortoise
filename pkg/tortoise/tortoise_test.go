@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
@@ -36,23 +35,28 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 			name: "success: the current recommendation on tortoise is less than the one on the current VPA",
 			tortoise: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
 								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("1"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("1"),
 									},
 								},
 								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("5"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("5"),
 									},
 								},
@@ -68,16 +72,16 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 							{
 								ContainerName: "app",
 								LowerBound: map[corev1.ResourceName]resource.Quantity{
-									"cpu": resource.MustParse("1"),
-									"mem": resource.MustParse("1"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1"),
 								},
 								Target: map[corev1.ResourceName]resource.Quantity{
-									"cpu": resource.MustParse("5"),
-									"mem": resource.MustParse("8"),
+									corev1.ResourceCPU:    resource.MustParse("5"),
+									corev1.ResourceMemory: resource.MustParse("8"),
 								},
 								UpperBound: map[corev1.ResourceName]resource.Quantity{
-									"cpu": resource.MustParse("8"),
-									"mem": resource.MustParse("10"),
+									corev1.ResourceCPU:    resource.MustParse("8"),
+									corev1.ResourceMemory: resource.MustParse("10"),
 								},
 							},
 						},
@@ -86,23 +90,327 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 			},
 			want: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
 								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("5"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("8"),
 									},
 								},
 								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("5"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "remove slot for non-existing containers",
+			tortoise: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
+							{
+								ContainerName: "app",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("1"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("1"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("5"),
+									},
+								},
+							},
+							{
+								ContainerName: "non-exist",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("1"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("1"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("5"),
+									},
+								},
+							},
+							{
+								ContainerName: "non-exist2",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("1"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("1"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("5"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			vpa: &v1.VerticalPodAutoscaler{
+				Status: v1.VerticalPodAutoscalerStatus{
+					Recommendation: &v1.RecommendedPodResources{
+						ContainerRecommendations: []v1.RecommendedContainerResources{
+							{
+								ContainerName: "app",
+								LowerBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1"),
+								},
+								Target: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("5"),
+									corev1.ResourceMemory: resource.MustParse("8"),
+								},
+								UpperBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("8"),
+									corev1.ResourceMemory: resource.MustParse("10"),
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
+							{
+								ContainerName: "app",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "create a slot for a new container",
+			tortoise: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "new1",
+						},
+						{
+							ContainerName: "app",
+						},
+						{
+							ContainerName: "new2",
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
+							{
+								ContainerName: "app",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("1"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("1"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("5"),
+									},
+								},
+							},
+							// no slot for "new"
+						},
+					},
+				},
+			},
+			vpa: &v1.VerticalPodAutoscaler{
+				Status: v1.VerticalPodAutoscalerStatus{
+					Recommendation: &v1.RecommendedPodResources{
+						ContainerRecommendations: []v1.RecommendedContainerResources{
+							{
+								ContainerName: "app",
+								LowerBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1"),
+								},
+								Target: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("5"),
+									corev1.ResourceMemory: resource.MustParse("8"),
+								},
+								UpperBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("8"),
+									corev1.ResourceMemory: resource.MustParse("10"),
+								},
+							},
+							{
+								ContainerName: "new1",
+								LowerBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1"),
+								},
+								Target: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("5"),
+									corev1.ResourceMemory: resource.MustParse("8"),
+								},
+								UpperBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("8"),
+									corev1.ResourceMemory: resource.MustParse("10"),
+								},
+							},
+							{
+								ContainerName: "new2",
+								LowerBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1"),
+								},
+								Target: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("5"),
+									corev1.ResourceMemory: resource.MustParse("8"),
+								},
+								UpperBound: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse("8"),
+									corev1.ResourceMemory: resource.MustParse("10"),
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "new1",
+						},
+						{
+							ContainerName: "app",
+						},
+						{
+							ContainerName: "new2",
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
+							{
+								ContainerName: "app",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+							},
+							{
+								ContainerName: "new1",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+							},
+							{
+								ContainerName: "new2",
+								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("8"),
+									},
+								},
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("5"),
+									},
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("8"),
 									},
 								},
@@ -116,23 +424,28 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 			name: "success: the current recommendation on tortoise is more than the upper bound on the current VPA",
 			tortoise: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
 								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("1"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("1"),
 									},
 								},
 								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("5"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("5"),
 									},
 								},
@@ -148,16 +461,16 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 							{
 								ContainerName: "app",
 								Target: map[corev1.ResourceName]resource.Quantity{
-									"cpu": resource.MustParse("2"),
-									"mem": resource.MustParse("2"),
+									corev1.ResourceCPU:    resource.MustParse("2"),
+									corev1.ResourceMemory: resource.MustParse("2"),
 								},
 								LowerBound: map[corev1.ResourceName]resource.Quantity{
-									"cpu": resource.MustParse("1"),
-									"mem": resource.MustParse("1"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1"),
 								},
 								UpperBound: map[corev1.ResourceName]resource.Quantity{
-									"cpu": resource.MustParse("6"),
-									"mem": resource.MustParse("3"),
+									corev1.ResourceCPU:    resource.MustParse("6"),
+									corev1.ResourceMemory: resource.MustParse("3"),
 								},
 							},
 						},
@@ -166,23 +479,28 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 			},
 			want: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
 								Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("2"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("2"),
 									},
 								},
 								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
-									"cpu": {
+									corev1.ResourceCPU: {
 										Quantity: resource.MustParse("5"),
 									},
-									"mem": {
+									corev1.ResourceMemory: {
 										Quantity: resource.MustParse("2"),
 									},
 								},
@@ -196,9 +514,9 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Service{}
-			got := s.UpdateUpperRecommendation(tt.tortoise, tt.vpa)
-			if !cmp.Equal(got, tt.want, cmpopts.IgnoreTypes(metav1.Time{})) {
-				t.Errorf("updateUpperRecommendation() = %v, want %v", got, tt.want)
+			got := s.UpdateContainerRecommendationFromVPA(tt.tortoise, tt.vpa)
+			if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreTypes(metav1.Time{})); diff != "" {
+				t.Fatalf("diff: %s", diff)
 			}
 		})
 	}
@@ -1615,9 +1933,8 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 
 func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 	type args struct {
-		tortoise       *v1beta3.Tortoise
-		containerNames sets.Set[string]
-		hpa            *v2.HorizontalPodAutoscaler
+		tortoise *v1beta3.Tortoise
+		hpa      *v2.HorizontalPodAutoscaler
 	}
 	tests := []struct {
 		name string
@@ -1684,9 +2001,26 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								},
 							},
 						},
+						Conditions: v1beta3.Conditions{
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+								{
+									ContainerName: "app2",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+							},
+						},
 					},
 				},
-				containerNames: sets.New([]string{"app", "app2"}...),
 			},
 			want: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
@@ -1703,6 +2037,101 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
 								corev1.ResourceCPU:    v1beta3.AutoscalingTypeOff,
 								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+							{
+								ContainerName: "app2",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "autoscaling policy is empty, and somehow some containers lost resource request",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					Status: v1beta3.TortoiseStatus{
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+									corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+									corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								},
+							},
+							{
+								ContainerName: "app2",
+								Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+									corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+									corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "app2",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeOff,
+							},
+						},
+						{
+							ContainerName: "app2",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeOff,
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU: resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "app2",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
 							},
 						},
 					},
@@ -1744,9 +2173,26 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								},
 							},
 						},
+						Conditions: v1beta3.Conditions{
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+								{
+									ContainerName: "app2",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+							},
+						},
 					},
 				},
-				containerNames: sets.New([]string{"app", "app2"}...),
 			},
 			want: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
@@ -1763,6 +2209,24 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
 								corev1.ResourceCPU:    v1beta3.AutoscalingTypeOff,
 								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+							{
+								ContainerName: "app2",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
 							},
 						},
 					},
@@ -1790,9 +2254,40 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								},
 							},
 						},
+						Conditions: v1beta3.Conditions{
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+								{
+									ContainerName: "new",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+								{
+									ContainerName: "app2",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+								{
+									ContainerName: "new2",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+							},
+						},
 					},
 				},
-				containerNames: sets.New([]string{"app", "new", "app2", "new2"}...),
 			},
 			want: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
@@ -1823,6 +2318,157 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
 								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
 								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+							{
+								ContainerName: "new",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+							{
+								ContainerName: "app2",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+							{
+								ContainerName: "new2",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "autoscaling policy is empty, and some containers don't have policy, but some resources doesn't have resource request",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					Status: v1beta3.TortoiseStatus{
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+									corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+									corev1.ResourceMemory: v1beta3.AutoscalingTypeOff,
+								},
+							},
+							{
+								ContainerName: "app2",
+								Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+									corev1.ResourceCPU:    v1beta3.AutoscalingTypeOff,
+									corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+								{
+									ContainerName: "new",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+								{
+									ContainerName: "app2",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+								{
+									ContainerName: "new2",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeOff,
+							},
+						},
+						{
+							ContainerName: "app2",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeOff, // Off
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+							},
+						},
+						{
+							ContainerName: "new",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeOff, // Off
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+							},
+						},
+						{
+							ContainerName: "new2",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeOff,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+							{
+								ContainerName: "new",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+							{
+								ContainerName: "app2",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+							{
+								ContainerName: "new2",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU: resource.MustParse("1"),
+								},
 							},
 						},
 					},
@@ -1864,9 +2510,40 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								},
 							},
 						},
+						Conditions: v1beta3.Conditions{
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+								{
+									ContainerName: "new",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+								{
+									ContainerName: "app2",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+								{
+									ContainerName: "new2",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+							},
+						},
 					},
 				},
-				containerNames: sets.New([]string{"app", "new", "app2", "new2"}...),
 			},
 			want: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
@@ -1900,6 +2577,38 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 							},
 						},
 					},
+					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+							{
+								ContainerName: "new",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+							{
+								ContainerName: "app2",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+							{
+								ContainerName: "new2",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -1912,9 +2621,27 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 							HorizontalPodAutoscalerName: pointer.String("hoge"),
 						},
 					},
-					Status: v1beta3.TortoiseStatus{},
+					Status: v1beta3.TortoiseStatus{
+						Conditions: v1beta3.Conditions{
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+								{
+									ContainerName: "app2",
+									Resource: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("1"),
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+							},
+						},
+					},
 				},
-				containerNames: sets.New([]string{"app", "app2"}...),
 				hpa: &v2.HorizontalPodAutoscaler{
 					Spec: v2.HorizontalPodAutoscalerSpec{
 						Metrics: []v2.MetricSpec{
@@ -1965,13 +2692,128 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 							},
 						},
 					},
+					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+							{
+								ContainerName: "app2",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "autoscaling policy is empty, and hpa is attached. But some containers don't have resource request",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						TargetRefs: v1beta3.TargetRefs{
+							HorizontalPodAutoscalerName: pointer.String("hoge"),
+						},
+					},
+					Status: v1beta3.TortoiseStatus{
+						Conditions: v1beta3.Conditions{
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+								{
+									ContainerName: "app2",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+							},
+						},
+					},
+				},
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						Metrics: []v2.MetricSpec{
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceMemory,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(80),
+									},
+									Container: "app",
+								},
+							},
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceCPU,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(80),
+									},
+									Container: "app2",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1beta3.Tortoise{
+				Spec: v1beta3.TortoiseSpec{
+					TargetRefs: v1beta3.TargetRefs{
+						HorizontalPodAutoscalerName: pointer.String("hoge"),
+					},
+				},
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeOff,
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "app2",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeOff,
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+							{
+								ContainerName: "app2",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := UpdateTortoiseAutoscalingPolicyInStatus(tt.args.tortoise, tt.args.containerNames, tt.args.hpa)
+			got := UpdateTortoiseAutoscalingPolicyInStatus(tt.args.tortoise, tt.args.hpa)
 			if d := cmp.Diff(got, tt.want, cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
 				t.Errorf("UpdateTortoiseAutoscalingPolicyInStatus() diff = %v", d)
 			}

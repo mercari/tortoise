@@ -29,13 +29,15 @@ import (
 	"flag"
 	"os"
 
+	"github.com/go-logr/zapr"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	v2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	autoscalingv2 "github.com/mercari/tortoise/api/autoscaling/v2"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
@@ -77,15 +79,29 @@ func main() {
 
 	// Tortoise specific flags
 	var configPath string
+	var logLevel string
 	flag.StringVar(&configPath, "config", "", "The path to the config file.")
-
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
+	flag.StringVar(&logLevel, "log-level", "DEBUG", "The log level: DEBUG, INFO, or ERROR")
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	level, err := zapcore.ParseLevel(logLevel)
+	if err != nil {
+		setupLog.Error(err, "failed to parse log level, valid values are DEBUG, INFO, or ERROR")
+		os.Exit(1)
+	}
+	zapconfig := zap.NewProductionConfig()
+	zapconfig.Level = zap.NewAtomicLevelAt(level)
+	zapconfig.DisableStacktrace = true
+	zapconfig.Sampling = nil
+	zapconfig.OutputPaths = []string{"stdout"}
+	zapconfig.ErrorOutputPaths = []string{"stderr"}
+	l, err := zapconfig.Build()
+	if err != nil {
+		setupLog.Error(err, "failed to create logger")
+		os.Exit(1)
+	}
+
+	ctrl.SetLogger(zapr.NewLogger(l))
 
 	config, err := config.ParseConfig(configPath)
 	if err != nil {
@@ -134,16 +150,14 @@ func main() {
 	hpaService := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.UpperTargetResourceUtilization, config.TortoiseHPATargetUtilizationMaxIncrease, config.TortoiseHPATargetUtilizationUpdateInterval)
 
 	if err = (&controllers.TortoiseReconciler{
-		Scheme:                         mgr.GetScheme(),
-		HpaService:                     hpaService,
-		VpaService:                     vpaClient,
-		DeploymentService:              deployment.New(mgr.GetClient()),
-		RecommenderService:             recommender.New(config.TTLHoursOfMinMaxReplicasRecommendation, config.MaxReplicasFactor, config.MinReplicasFactor, config.UpperTargetResourceUtilization, config.MinimumMinReplicas, config.PreferredReplicaNumUpperLimit, config.MaximumCPUCores, config.MaximumMemoryBytes),
-		TortoiseService:                tortoiseService,
-		Interval:                       config.TortoiseUpdateInterval,
-		EventRecorder:                  eventRecorder,
-		IstioSidecarProxyDefaultCPU:    config.IstioSidecarProxyDefaultCPU,
-		IstioSidecarProxyDefaultMemory: config.IstioSidecarProxyDefaultMemory,
+		Scheme:             mgr.GetScheme(),
+		HpaService:         hpaService,
+		VpaService:         vpaClient,
+		DeploymentService:  deployment.New(mgr.GetClient(), config.IstioSidecarProxyDefaultCPU, config.IstioSidecarProxyDefaultMemory),
+		RecommenderService: recommender.New(config.MaxReplicasFactor, config.MinReplicasFactor, config.UpperTargetResourceUtilization, config.MinimumMinReplicas, config.PreferredReplicaNumUpperLimit, config.MaximumCPUCores, config.MaximumMemoryBytes, eventRecorder),
+		TortoiseService:    tortoiseService,
+		Interval:           config.TortoiseUpdateInterval,
+		EventRecorder:      eventRecorder,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Tortoise")
 		os.Exit(1)

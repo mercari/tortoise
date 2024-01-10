@@ -9,5 +9,7 @@ linters-settings:
     skip-generated: false
     custom-order: true
 linters:
+# We only configure a few linters now, 
+# if you want to enforce other rules, please open an issue and discuss.
   enable:
     - gci

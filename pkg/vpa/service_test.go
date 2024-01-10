@@ -151,12 +151,11 @@ func TestVPAContainerResourcePolicy(t *testing.T) {
 		now          time.Time
 	}
 	tests := []struct {
-		name         string
-		args         args
-		initialVPA   *vpav1.VerticalPodAutoscaler
-		want         *vpav1.VerticalPodAutoscaler
-		wantTortoise *autoscalingv1beta3.Tortoise
-		wantErr      bool
+		name       string
+		args       args
+		initialVPA *vpav1.VerticalPodAutoscaler
+		want       *vpav1.VerticalPodAutoscaler
+		wantErr    bool
 	}{
 		{
 			name: "modified correctly",
@@ -343,72 +342,6 @@ func TestVPAContainerResourcePolicy(t *testing.T) {
 									v1.ResourceMemory: resource.MustParse("1Gi"),
 									v1.ResourceCPU:    resource.MustParse("1"),
 								},
-							},
-						},
-					},
-				},
-			},
-			wantTortoise: &autoscalingv1beta3.Tortoise{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "tortoise",
-					Namespace: "default",
-				},
-				Status: autoscalingv1beta3.TortoiseStatus{
-					AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
-						{
-							ContainerName: "app",
-							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
-								v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
-								v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
-							},
-						},
-						{
-							ContainerName: "istio-proxy",
-							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
-								v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
-								v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
-							},
-						},
-					},
-					ContainerResourcePhases: []autoscalingv1beta3.ContainerResourcePhases{
-						{
-							ContainerName: "app",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
-								v1.ResourceCPU: {
-									Phase: autoscalingv1beta3.ContainerResourcePhaseGatheringData,
-								},
-								v1.ResourceMemory: {
-									Phase: autoscalingv1beta3.ContainerResourcePhaseGatheringData,
-								},
-							},
-						},
-						{
-							ContainerName: "istio-proxy",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
-								v1.ResourceCPU: {
-									Phase: autoscalingv1beta3.ContainerResourcePhaseGatheringData,
-								},
-								v1.ResourceMemory: {
-									Phase: autoscalingv1beta3.ContainerResourcePhaseGatheringData,
-								},
-							},
-						},
-					},
-				},
-				Spec: autoscalingv1beta3.TortoiseSpec{
-					ResourcePolicy: []autoscalingv1beta3.ContainerResourcePolicy{
-						{
-							ContainerName: "app",
-							MinAllocatedResources: v1.ResourceList{
-								v1.ResourceMemory: resource.MustParse("1Gi"),
-								v1.ResourceCPU:    resource.MustParse("1"),
-							},
-						},
-						{
-							ContainerName: "istio-proxy",
-							MinAllocatedResources: v1.ResourceList{
-								v1.ResourceMemory: resource.MustParse("1Gi"),
-								v1.ResourceCPU:    resource.MustParse("1"),
 							},
 						},
 					},

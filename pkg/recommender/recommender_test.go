@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 
 	"github.com/mercari/tortoise/api/v1beta3"
@@ -74,23 +75,19 @@ func TestUpdateRecommendation(t *testing.T) {
 									},
 								},
 							},
-						},
-						Recommendations: v1beta3.Recommendations{
-							Vertical: v1beta3.VerticalRecommendations{
-								ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-									{
-										ContainerName: "app",
-										RecommendedResource: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("5Gi"),
-											corev1.ResourceCPU:    resource.MustParse("5"),
-										},
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("5Gi"),
+										corev1.ResourceCPU:    resource.MustParse("5"),
 									},
-									{
-										ContainerName: "istio-proxy",
-										RecommendedResource: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("1Gi"),
-											corev1.ResourceCPU:    resource.MustParse("1"),
-										},
+								},
+								{
+									ContainerName: "istio-proxy",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
 									},
 								},
 							},
@@ -176,26 +173,24 @@ func TestUpdateRecommendation(t *testing.T) {
 								},
 							},
 						},
-						Vertical: v1beta3.VerticalRecommendations{
-							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-								{
-									ContainerName: "app",
-									RecommendedResource: corev1.ResourceList{
-										corev1.ResourceMemory: resource.MustParse("5Gi"),
-										corev1.ResourceCPU:    resource.MustParse("5"),
-									},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("5Gi"),
+									corev1.ResourceCPU:    resource.MustParse("5"),
 								},
-								{
-									ContainerName: "istio-proxy",
-									RecommendedResource: corev1.ResourceList{
-										corev1.ResourceMemory: resource.MustParse("1Gi"),
-										corev1.ResourceCPU:    resource.MustParse("1"),
-									},
+							},
+							{
+								ContainerName: "istio-proxy",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
 								},
 							},
 						},
-					},
-					Conditions: v1beta3.Conditions{
 						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
@@ -270,23 +265,19 @@ func TestUpdateRecommendation(t *testing.T) {
 									},
 								},
 							},
-						},
-						Recommendations: v1beta3.Recommendations{
-							Vertical: v1beta3.VerticalRecommendations{
-								ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-									{
-										ContainerName: "app",
-										RecommendedResource: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("5Gi"),
-											corev1.ResourceCPU:    resource.MustParse("5"),
-										},
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("5Gi"),
+										corev1.ResourceCPU:    resource.MustParse("5"),
 									},
-									{
-										ContainerName: "istio-proxy",
-										RecommendedResource: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("1Gi"),
-											corev1.ResourceCPU:    resource.MustParse("1"),
-										},
+								},
+								{
+									ContainerName: "istio-proxy",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
 									},
 								},
 							},
@@ -346,24 +337,6 @@ func TestUpdateRecommendation(t *testing.T) {
 						},
 					},
 					Recommendations: v1beta3.Recommendations{
-						Vertical: v1beta3.VerticalRecommendations{
-							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-								{
-									ContainerName: "app",
-									RecommendedResource: corev1.ResourceList{
-										corev1.ResourceMemory: resource.MustParse("5Gi"),
-										corev1.ResourceCPU:    resource.MustParse("5"),
-									},
-								},
-								{
-									ContainerName: "istio-proxy",
-									RecommendedResource: corev1.ResourceList{
-										corev1.ResourceMemory: resource.MustParse("1Gi"),
-										corev1.ResourceCPU:    resource.MustParse("1"),
-									},
-								},
-							},
-						},
 						Horizontal: v1beta3.HorizontalRecommendations{
 							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
 								{
@@ -380,6 +353,22 @@ func TestUpdateRecommendation(t *testing.T) {
 						},
 					},
 					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("5Gi"),
+									corev1.ResourceCPU:    resource.MustParse("5"),
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
 						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
 							{
 								ContainerName: "app",
@@ -454,23 +443,19 @@ func TestUpdateRecommendation(t *testing.T) {
 									},
 								},
 							},
-						},
-						Recommendations: v1beta3.Recommendations{
-							Vertical: v1beta3.VerticalRecommendations{
-								ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-									{
-										ContainerName: "app",
-										RecommendedResource: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("5Gi"),
-											corev1.ResourceCPU:    resource.MustParse("5"),
-										},
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "app",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("5Gi"),
+										corev1.ResourceCPU:    resource.MustParse("5"),
 									},
-									{
-										ContainerName: "istio-proxy",
-										RecommendedResource: corev1.ResourceList{
-											corev1.ResourceMemory: resource.MustParse("1Gi"),
-											corev1.ResourceCPU:    resource.MustParse("1"),
-										},
+								},
+								{
+									ContainerName: "istio-proxy",
+									Resource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
 									},
 								},
 							},
@@ -517,7 +502,7 @@ func TestUpdateRecommendation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi")
+			s := New(2.0, 0.5, 90, 3, 30, "10", "10Gi", record.NewFakeRecorder(10))
 			got, err := s.updateHPATargetUtilizationRecommendations(context.Background(), tt.args.tortoise, tt.args.hpa)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateHPATargetUtilizationRecommendations() error = %v, wantErr %v", err, tt.wantErr)
@@ -555,7 +540,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Basic case",
+			name: "replica recommendation is replaced",
 			args: args{
 				tortoise: &v1beta3.Tortoise{
 					Status: v1beta3.TortoiseStatus{
@@ -567,6 +552,22 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
+										Value:     3,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
 										Value:     1,
 										WeekDay:   pointer.String(time.Sunday.String()),
 									},
@@ -575,6 +576,22 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									{
 										From:      0,
 										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     9,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     7,
@@ -601,6 +618,22 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									Value:     5,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
 							},
 							MaxReplicas: []v1beta3.ReplicasRecommendation{
 								{
@@ -611,98 +644,20 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									Value:     20,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
-							},
-						},
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "No recommendation slot",
-			args: args{
-				tortoise: &v1beta3.Tortoise{
-					Status: v1beta3.TortoiseStatus{
-						Recommendations: v1beta3.Recommendations{
-							Horizontal: v1beta3.HorizontalRecommendations{
-								MinReplicas: []v1beta3.ReplicasRecommendation{},
-								MaxReplicas: []v1beta3.ReplicasRecommendation{},
-							},
-						},
-					},
-				},
-				replicaNum: 5,
-				now:        time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
-			},
-			want: &v1beta3.Tortoise{
-				Status: v1beta3.TortoiseStatus{
-					Recommendations: v1beta3.Recommendations{
-						Horizontal: v1beta3.HorizontalRecommendations{
-							MinReplicas: []v1beta3.ReplicasRecommendation{},
-							MaxReplicas: []v1beta3.ReplicasRecommendation{},
-						},
-					},
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "Lower recommendation value",
-			args: args{
-				tortoise: &v1beta3.Tortoise{
-					Status: v1beta3.TortoiseStatus{
-						Recommendations: v1beta3.Recommendations{
-							Horizontal: v1beta3.HorizontalRecommendations{
-								MinReplicas: []v1beta3.ReplicasRecommendation{
-									{
-										From:      0,
-										To:        1,
-										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
-										TimeZone:  timeZone,
-										Value:     10,
-										WeekDay:   pointer.String(time.Sunday.String()),
-									},
-								},
-								MaxReplicas: []v1beta3.ReplicasRecommendation{
-									{
-										From:      0,
-										To:        1,
-										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
-										TimeZone:  timeZone,
-										Value:     25,
-										WeekDay:   pointer.String(time.Sunday.String()),
-									},
-								},
-							},
-						},
-					},
-				},
-				replicaNum: 5,
-				now:        time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
-			},
-			want: &v1beta3.Tortoise{
-				Status: v1beta3.TortoiseStatus{
-					Recommendations: v1beta3.Recommendations{
-						Horizontal: v1beta3.HorizontalRecommendations{
-							MinReplicas: []v1beta3.ReplicasRecommendation{
 								{
-									From: 0,
-									To:   1,
-									// UpdatedAt is updated.
-									TimeZone:  timeZone,
+									From:      2,
+									To:        3,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
-									Value:     10,
+									TimeZone:  timeZone,
+									Value:     7,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
-							},
-							MaxReplicas: []v1beta3.ReplicasRecommendation{
 								{
-									From: 0,
-									To:   1,
-									// UpdatedAt is updated.
-									TimeZone:  timeZone,
+									From:      3,
+									To:        4,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
-									Value:     25,
+									TimeZone:  timeZone,
+									Value:     7,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
 							},
@@ -713,29 +668,61 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Same recommendation value",
+			name: "replica recommendation is not replaced",
 			args: args{
 				tortoise: &v1beta3.Tortoise{
 					Status: v1beta3.TortoiseStatus{
 						Recommendations: v1beta3.Recommendations{
 							Horizontal: v1beta3.HorizontalRecommendations{
 								MinReplicas: []v1beta3.ReplicasRecommendation{
-									{
-										From:      0,
-										To:        1,
-										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
-										TimeZone:  timeZone,
-										Value:     3,
-										WeekDay:   pointer.String(time.Sunday.String()),
-									},
-								},
-								MaxReplicas: []v1beta3.ReplicasRecommendation{
 									{
 										From:      0,
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
 										Value:     8,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     30,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
 										WeekDay:   pointer.String(time.Sunday.String()),
 									},
 								},
@@ -756,7 +743,23 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									To:        1,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
-									Value:     5,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
 							},
@@ -766,7 +769,23 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									To:        1,
 									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
 									TimeZone:  timeZone,
-									Value:     20,
+									Value:     28,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
 							},
@@ -777,7 +796,135 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "minimum MinReplicas and minimum MaxReplicas",
+			name: "replica recommendation is not replaced and time-bias isn't applied",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					Status: v1beta3.TortoiseStatus{
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)), // recently updated.
+										TimeZone:  timeZone,
+										Value:     8,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)), // recently updated.
+										TimeZone:  timeZone,
+										Value:     30,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				replicaNum: 10,
+				now:        time.Date(2023, 3, 19, 0, 0, 0, 0, jst),
+			},
+			want: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     8,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 19, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     30,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "hit minimumMinReplicas",
 			args: args{
 				tortoise: &v1beta3.Tortoise{
 					Status: v1beta3.TortoiseStatus{
@@ -789,7 +936,23 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
-										Value:     3,
+										Value:     0,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
 										WeekDay:   pointer.String(time.Sunday.String()),
 									},
 								},
@@ -799,7 +962,23 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 										To:        1,
 										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
 										TimeZone:  timeZone,
-										Value:     8,
+										Value:     0,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
 										WeekDay:   pointer.String(time.Sunday.String()),
 									},
 								},
@@ -823,6 +1002,22 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									Value:     3,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
 							},
 							MaxReplicas: []v1beta3.ReplicasRecommendation{
 								{
@@ -833,6 +1028,22 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 									Value:     12,
 									WeekDay:   pointer.String(time.Sunday.String()),
 								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
 							},
 						},
 					},
@@ -840,10 +1051,138 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "No recommendation slot",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					Status: v1beta3.TortoiseStatus{
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     3,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     1,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        1,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     9,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      2,
+										To:        3,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+									{
+										From:      3,
+										To:        4,
+										UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+										TimeZone:  timeZone,
+										Value:     7,
+										WeekDay:   pointer.String(time.Sunday.String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				replicaNum: 10,
+				now:        time.Date(2023, 3, 19, 5, 0, 0, 0, jst),
+			},
+			want: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     3,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     1,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        1,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     9,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      2,
+									To:        3,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+								{
+									From:      3,
+									To:        4,
+									UpdatedAt: metav1.NewTime(time.Date(2023, 3, 12, 0, 0, 0, 0, jst)),
+									TimeZone:  timeZone,
+									Value:     7,
+									WeekDay:   pointer.String(time.Sunday.String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := New(24*30, 2.0, 0.5, 90, 3, 30, "10", "10Gi")
+			s := New(2.0, 0.5, 90, 3, 30, "10", "10Gi", record.NewFakeRecorder(10))
 			got, err := s.updateHPAMinMaxReplicasRecommendations(tt.args.tortoise, tt.args.replicaNum, tt.args.now)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateHPAMinMaxReplicasRecommendations() error = %v, wantErr %v", err, tt.wantErr)
@@ -860,7 +1199,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 	type fields struct {
 		preferredReplicaNumUpperLimit int32
 		minimumMinReplicas            int32
-		suggestedResourceSizeAtMax    corev1.ResourceList
+		maxResourceSize               corev1.ResourceList
 	}
 	type args struct {
 		tortoise   *v1beta3.Tortoise
@@ -875,13 +1214,22 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "replica count above preferredReplicaNumUpperLimit",
+			name: "all horizontal: replica count above preferredReplicaNumUpperLimit: increase the resources a bit",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 3,
-				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
+				maxResourceSize:               createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise: createTortoise().AddCondition(
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -893,19 +1241,22 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 							},
 						},
 					},
-				).SetRecommendations(v1beta3.Recommendations{
-					Vertical: v1beta3.VerticalRecommendations{
-						ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-							{
-								ContainerName:       "test-container",
-								RecommendedResource: createResourceList("500m", "500Mi"),
-							},
-						},
-					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("500m", "500Mi"),
 				}).Build(),
 				replicaNum: 4,
 			},
-			want: createTortoise().AddCondition(
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -917,12 +1268,15 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).SetRecommendations(v1beta3.Recommendations{
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("500m", "500Mi"),
+			}).SetRecommendations(v1beta3.Recommendations{
 				Vertical: v1beta3.VerticalRecommendations{
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
 							ContainerName:       "test-container",
-							RecommendedResource: createResourceList("550m", "550Mi"),
+							RecommendedResource: createResourceList("550m", "550Mi"), // current * 1.1
 						},
 					},
 				},
@@ -930,38 +1284,145 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "requested resources exceed maxResourceSize",
+			name: "horizontal/vertical: replica count above preferredReplicaNumUpperLimit: increase the resource a bit",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 3,
-				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
+				maxResourceSize:               createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise: createTortoise().AddCondition(
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
 							corev1.ResourceCPU: {
-								Quantity: resource.MustParse("1500m"),
+								Quantity: resource.MustParse("500m"),
 							},
 							corev1.ResourceMemory: {
-								Quantity: resource.MustParse("1.5Gi"),
+								Quantity: resource.MustParse("800Mi"),
 							},
 						},
 					},
-				).SetRecommendations(v1beta3.Recommendations{
-					Vertical: v1beta3.VerticalRecommendations{
-						ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-							{
-								ContainerName:       "test-container",
-								RecommendedResource: createResourceList("1500m", "1.5Gi"),
-							},
-						},
-					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("500m", "500Mi"),
 				}).Build(),
 				replicaNum: 4,
 			},
-			want: createTortoise().AddCondition(
-				// Unchanged!
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
+				v1beta3.ContainerRecommendationFromVPA{
+					ContainerName: "test-container",
+					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+						corev1.ResourceCPU: {
+							Quantity: resource.MustParse("500m"),
+						},
+						corev1.ResourceMemory: {
+							Quantity: resource.MustParse("800Mi"),
+						},
+					},
+				},
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("500m", "500Mi"),
+			}).SetRecommendations(v1beta3.Recommendations{
+				Vertical: v1beta3.VerticalRecommendations{
+					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+						{
+							ContainerName:       "test-container",
+							RecommendedResource: createResourceList("550m" /* current * 1.1*/, "800Mi" /* VPA recommendation*/),
+						},
+					},
+				},
+			}).Build(),
+			wantErr: false,
+		},
+		{
+			name: "all horizontal: requested resources exceed maxResourceSize",
+			fields: fields{
+				preferredReplicaNumUpperLimit: 5,
+				maxResourceSize:               createResourceList("1000m", "1Gi"),
+			},
+			args: args{
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
+					v1beta3.ContainerRecommendationFromVPA{
+						ContainerName: "test-container",
+						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+							corev1.ResourceCPU: {
+								Quantity: resource.MustParse("1500m"), // exceed maxResourceSize
+							},
+							corev1.ResourceMemory: {
+								Quantity: resource.MustParse("1.5Gi"), // exceed maxResourceSize
+							},
+						},
+					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("1500m", "1.5Gi"), // exceed maxResourceSize
+				}).Build(),
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						Metrics: []v2.MetricSpec{
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceCPU,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(20),
+									},
+									Container: "test-container",
+								},
+							},
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceMemory,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(20),
+									},
+									Container: "test-container",
+								},
+							},
+						},
+					},
+				},
+				replicaNum: 4,
+			},
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -973,12 +1434,15 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).SetRecommendations(v1beta3.Recommendations{
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("1500m", "1.5Gi"),
+			}).SetRecommendations(v1beta3.Recommendations{
 				Vertical: v1beta3.VerticalRecommendations{
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
 							ContainerName:       "test-container",
-							RecommendedResource: createResourceList("1500m", "1.5Gi"),
+							RecommendedResource: createResourceList("1000m", "1Gi"), // maxResourceSize
 						},
 					},
 				},
@@ -986,14 +1450,119 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "reduced resources based on VPA recommendation",
+			name: "all horizontal: requested resources is smaller than MinAllocatedResources",
+			fields: fields{
+				preferredReplicaNumUpperLimit: 5,
+				maxResourceSize:               createResourceList("1000m", "1Gi"),
+			},
+			args: args{
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
+					v1beta3.ContainerRecommendationFromVPA{
+						ContainerName: "test-container",
+						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+							corev1.ResourceCPU: {
+								Quantity: resource.MustParse("15m"), // smaller than MinAllocatedResources
+							},
+							corev1.ResourceMemory: {
+								Quantity: resource.MustParse("1.5Mi"), //smaller than MinAllocatedResources
+							},
+						},
+					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("15m", "1.5Mi"), //smaller than MinAllocatedResources
+				}).Build(),
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						Metrics: []v2.MetricSpec{
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceCPU,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(20),
+									},
+									Container: "test-container",
+								},
+							},
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceMemory,
+									Target: v2.MetricTarget{
+										AverageUtilization: pointer.Int32(20),
+									},
+									Container: "test-container",
+								},
+							},
+						},
+					},
+				},
+				replicaNum: 4,
+			},
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
+				v1beta3.ContainerRecommendationFromVPA{
+					ContainerName: "test-container",
+					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+						corev1.ResourceCPU: {
+							Quantity: resource.MustParse("15m"), // smaller than MinAllocatedResources
+						},
+						corev1.ResourceMemory: {
+							Quantity: resource.MustParse("1.5Mi"), //smaller than MinAllocatedResources
+						},
+					},
+				},
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("15m", "1.5Mi"), //smaller than MinAllocatedResources
+			}).SetRecommendations(v1beta3.Recommendations{
+				Vertical: v1beta3.VerticalRecommendations{
+					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+						{
+							ContainerName:       "test-container",
+							RecommendedResource: createResourceList("100m", "100Mi"), // minAllocatedResources
+						},
+					},
+				},
+			}).Build(),
+			wantErr: false,
+		},
+		{
+			name: "all horizontal: replica number is too small: reduce resources based on VPA recommendation",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 6,
-				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
+				maxResourceSize:               createResourceList("1000m", "1Gi"),
 				minimumMinReplicas:            3,
 			},
 			args: args{
-				tortoise: createTortoise().AddCondition(
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1005,19 +1574,22 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 							},
 						},
 					},
-				).SetRecommendations(v1beta3.Recommendations{
-					Vertical: v1beta3.VerticalRecommendations{
-						ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-							{
-								ContainerName:       "test-container",
-								RecommendedResource: createResourceList("130m", "130Mi"),
-							},
-						},
-					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("130m", "130Mi"),
 				}).Build(),
-				replicaNum: 3,
+				replicaNum: 3, // Too small
 			},
-			want: createTortoise().AddCondition(
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1029,7 +1601,10 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).SetRecommendations(v1beta3.Recommendations{
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("130m", "130Mi"),
+			}).SetRecommendations(v1beta3.Recommendations{
 				Vertical: v1beta3.VerticalRecommendations{
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
@@ -1042,13 +1617,22 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "vertical only: reduced resources based on VPA recommendation",
+			name: "all vertical: reduce resources based on VPA recommendation",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 6,
-				suggestedResourceSizeAtMax:    createResourceList("1000m", "1Gi"),
+				maxResourceSize:               createResourceList("1000m", "1Gi"),
 			},
 			args: args{
-				tortoise: createVerticalTortoise().AddCondition(
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1060,19 +1644,22 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 							},
 						},
 					},
-				).SetRecommendations(v1beta3.Recommendations{
-					Vertical: v1beta3.VerticalRecommendations{
-						ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-							{
-								ContainerName:       "test-container",
-								RecommendedResource: createResourceList("130m", "130Mi"),
-							},
-						},
-					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("130m", "130Mi"),
 				}).Build(),
 				replicaNum: 3,
 			},
-			want: createVerticalTortoise().AddCondition(
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1084,7 +1671,10 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).SetRecommendations(v1beta3.Recommendations{
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("130m", "130Mi"),
+			}).SetRecommendations(v1beta3.Recommendations{
 				Vertical: v1beta3.VerticalRecommendations{
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
@@ -1097,25 +1687,43 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "reduced resources based on VPA recommendation when unbalanced container size in multiple containers Pod",
+			name: "all horizontal: reduced resources based on VPA recommendation when unbalanced container size in multiple containers Pod",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 6,
-				suggestedResourceSizeAtMax:    createResourceList("10000m", "100Gi"),
+				maxResourceSize:               createResourceList("10000m", "100Gi"),
 			},
 			args: args{
-				tortoise: createTortoiseWithMultipleContainers().AddCondition(
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container2",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container2",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
 							corev1.ResourceCPU: {
-								Quantity: resource.MustParse("80m"),
+								Quantity: resource.MustParse("80m"), // smaller than expectation (800m+)
 							},
 							corev1.ResourceMemory: {
 								Quantity: resource.MustParse("9Gi"),
 							},
 						},
 					},
-				).AddCondition(
+				).AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container2",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1123,23 +1731,16 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 								Quantity: resource.MustParse("800m"),
 							},
 							corev1.ResourceMemory: {
-								Quantity: resource.MustParse("0.7Gi"),
+								Quantity: resource.MustParse("0.7Gi"), // smaller than expectation (7Gi+)
 							},
 						},
 					},
-				).SetRecommendations(v1beta3.Recommendations{
-					Vertical: v1beta3.VerticalRecommendations{
-						ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
-							{
-								ContainerName:       "test-container",
-								RecommendedResource: createResourceList("1000m", "10Gi"),
-							},
-							{
-								ContainerName:       "test-container2",
-								RecommendedResource: createResourceList("1000m", "10Gi"),
-							},
-						},
-					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("1000m", "10Gi"),
+				}).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container2",
+					Resource:      createResourceList("1000m", "10Gi"),
 				}).Build(),
 				replicaNum: 5,
 				hpa: &v2.HorizontalPodAutoscaler{
@@ -1189,7 +1790,25 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 					},
 				},
 			},
-			want: createTortoiseWithMultipleContainers().AddCondition(
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container2",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container2",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1201,7 +1820,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).AddCondition(
+			).AddContainerRecommendationFromVPA(
 				v1beta3.ContainerRecommendationFromVPA{
 					ContainerName: "test-container2",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
@@ -1213,7 +1832,13 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).SetRecommendations(v1beta3.Recommendations{
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("1000m", "10Gi"),
+			}).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container2",
+				Resource:      createResourceList("1000m", "10Gi"),
+			}).SetRecommendations(v1beta3.Recommendations{
 				Vertical: v1beta3.VerticalRecommendations{
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
@@ -1235,9 +1860,10 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			s := &Service{
 				minimumMinReplicas:            tt.fields.minimumMinReplicas,
 				preferredReplicaNumUpperLimit: tt.fields.preferredReplicaNumUpperLimit,
-				maxResourceSize:               tt.fields.suggestedResourceSizeAtMax,
+				maxResourceSize:               tt.fields.maxResourceSize,
+				eventRecorder:                 record.NewFakeRecorder(10),
 			}
-			got, err := s.updateVPARecommendation(tt.args.tortoise, tt.args.hpa, tt.args.replicaNum)
+			got, err := s.updateVPARecommendation(context.Background(), tt.args.tortoise, tt.args.hpa, tt.args.replicaNum)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateVPARecommendation() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1255,52 +1881,4 @@ func createResourceList(cpu, memory string) corev1.ResourceList {
 		corev1.ResourceCPU:    resource.MustParse(cpu),
 		corev1.ResourceMemory: resource.MustParse(memory),
 	}
-}
-func createVerticalTortoise() *utils.TortoiseBuilder {
-	return utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
-		ContainerName: "test-container",
-		Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
-			corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
-			corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
-		},
-	}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
-		ContainerName:         "test-container",
-		MinAllocatedResources: createResourceList("100m", "100Mi"),
-	})
-}
-func createTortoise() *utils.TortoiseBuilder {
-	b := utils.NewTortoiseBuilder()
-	// Build the above tortoise via builder
-	b.AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
-		ContainerName: "test-container",
-		Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
-			corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
-			corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
-		},
-	}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
-		ContainerName:         "test-container",
-		MinAllocatedResources: createResourceList("100m", "100Mi"),
-	})
-	return b
-}
-func createTortoiseWithMultipleContainers() *utils.TortoiseBuilder {
-	return utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
-		ContainerName: "test-container",
-		Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
-			corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
-			corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
-		},
-	}).AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
-		ContainerName: "test-container2",
-		Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
-			corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
-			corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
-		},
-	}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
-		ContainerName:         "test-container2",
-		MinAllocatedResources: createResourceList("100m", "100Mi"),
-	}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
-		ContainerName:         "test-container",
-		MinAllocatedResources: createResourceList("100m", "100Mi"),
-	})
 }

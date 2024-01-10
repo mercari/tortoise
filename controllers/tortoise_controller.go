@@ -30,17 +30,14 @@ import (
 	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/mercari/tortoise/api/v1beta3"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
-	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/hpa"
 	"github.com/mercari/tortoise/pkg/metrics"
@@ -61,12 +58,6 @@ type TortoiseReconciler struct {
 	TortoiseService    *tortoiseService.Service
 	RecommenderService *recommender.Service
 	EventRecorder      record.EventRecorder
-
-	// TODO: the following fields should be removed after we stop depending on deployment.
-	// IstioSidecarProxyDefaultCPU is the default CPU resource request of the istio sidecar proxy
-	IstioSidecarProxyDefaultCPU string
-	// IstioSidecarProxyDefaultMemory is the default Memory resource request of the istio sidecar proxy
-	IstioSidecarProxyDefaultMemory string
 }
 
 //+kubebuilder:rbac:groups=autoscaling.mercari.com,resources=tortoises,verbs=get;list;watch;create;update;patch;delete
@@ -75,19 +66,20 @@ type TortoiseReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=events,verbs=create;update;patch
 
 //+kubebuilder:rbac:groups=autoscaling.k8s.io,resources=verticalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=autoscaling.k8s.io,resources=verticalpodautoscalers/status,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 
 func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	logger := log.FromContext(ctx)
 	now := time.Now()
-	logger.V(4).Info("the reconciliation is started", "tortoise", req.NamespacedName)
+	logger.Info("the reconciliation is started", "tortoise", req.NamespacedName)
 
 	tortoise, err := r.TortoiseService.GetTortoise(ctx, req.NamespacedName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// Probably deleted already and finalizer is already removed.
-			logger.V(4).Info("tortoise is not found", "tortoise", req.NamespacedName)
+			logger.Info("tortoise is not found", "tortoise", req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
 
@@ -109,13 +101,18 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
-	metrics.RecordTortoise(tortoise, false)
+	oldTortoise := tortoise.DeepCopy()
 
 	defer func() {
 		if tortoise == nil {
 			logger.Error(reterr, "get error during the reconciliation, but cannot record the event because tortoise object is nil", "tortoise", req.NamespacedName)
 			return
 		}
+
+		if metrics.ShouldRerecordTortoise(oldTortoise, tortoise) {
+			metrics.RecordTortoise(oldTortoise, true)
+		}
+		metrics.RecordTortoise(tortoise, false)
 
 		tortoise = r.TortoiseService.RecordReconciliationFailure(tortoise, reterr, now)
 		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, false)
@@ -126,7 +123,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	reconcileNow, requeueAfter := r.TortoiseService.ShouldReconcileTortoiseNow(tortoise, now)
 	if !reconcileNow {
-		logger.V(4).Info("the reconciliation is skipped because this tortoise is recently updated", "tortoise", req.NamespacedName)
+		logger.Info("the reconciliation is skipped because this tortoise is recently updated", "tortoise", req.NamespacedName)
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
@@ -142,58 +139,13 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 	currentReplicaNum := dm.Status.Replicas
-
-	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseInitializing ||
-		tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation == nil /* only the integration test */ {
-		// Put the current resource requests into tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation.
-		// Once we stop depending on deployments, we should put this logic in initializeTortoise.
-
-		tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation = nil // reset
-		for _, c := range dm.Spec.Template.Spec.Containers {
-			rcr := v1beta3.RecommendedContainerResources{
-				ContainerName:       c.Name,
-				RecommendedResource: corev1.ResourceList{},
-			}
-			for name, r := range c.Resources.Requests {
-				rcr.RecommendedResource[name] = r
-			}
-			tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation = append(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation, rcr)
-		}
-
-		if dm.Spec.Template.Annotations != nil {
-			if v, ok := dm.Spec.Template.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
-				// Istio sidecar injection is enabled.
-				// Because the istio container spec is not in the deployment spec, we need to get it from the deployment's annotation.
-
-				cpuReq, ok := dm.Spec.Template.Annotations[annotation.IstioSidecarProxyCPUAnnotation]
-				if !ok {
-					cpuReq = r.IstioSidecarProxyDefaultCPU
-				}
-				cpu, err := resource.ParseQuantity(cpuReq)
-				if err != nil {
-					return ctrl.Result{}, fmt.Errorf("parse CPU request of istio sidecar: %w", err)
-				}
-
-				memoryReq, ok := dm.Spec.Template.Annotations[annotation.IstioSidecarProxyMemoryAnnotation]
-				if !ok {
-					memoryReq = r.IstioSidecarProxyDefaultMemory
-				}
-				memory, err := resource.ParseQuantity(memoryReq)
-				if err != nil {
-					return ctrl.Result{}, fmt.Errorf("parse Memory request of istio sidecar: %w", err)
-				}
-				// If the deployment has the sidecar injection annotation, the Pods will have the sidecar container in addition.
-				tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation = append(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation, v1beta3.RecommendedContainerResources{
-					ContainerName: "istio-proxy",
-					RecommendedResource: corev1.ResourceList{
-						corev1.ResourceCPU:    cpu,
-						corev1.ResourceMemory: memory,
-					},
-				})
-			}
-		}
+	acr, err := r.DeploymentService.GetResourceRequests(dm)
+	if err != nil {
+		logger.Error(err, "failed to get resource requests in deployment", "tortoise", req.NamespacedName, "deployment", klog.KObj(dm))
+		return ctrl.Result{}, err
 	}
-	containerNames := deployment.GetContainerNames(dm)
+
+	tortoise.Status.Conditions.ContainerResourceRequests = acr
 
 	// === Finish the part depending on deployment ===
 	// From here, we shouldn't use `dm` anymore.
@@ -203,10 +155,10 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		logger.Error(err, "failed to get HPA", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
-	tortoise = tortoiseService.UpdateTortoiseAutoscalingPolicyInStatus(tortoise, containerNames, hpa)
+	tortoise = tortoiseService.UpdateTortoiseAutoscalingPolicyInStatus(tortoise, hpa)
 	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, now)
 	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseInitializing {
-		logger.V(4).Info("initializing tortoise", "tortoise", req.NamespacedName)
+		logger.Info("initializing tortoise", "tortoise", req.NamespacedName)
 		// need to initialize HPA and VPA.
 		if err := r.initializeVPAAndHPA(ctx, tortoise, currentReplicaNum, now); err != nil {
 			return ctrl.Result{}, fmt.Errorf("initialize VPAs and HPA: %w", err)
@@ -233,7 +185,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 	if !ready {
-		logger.V(4).Info("VPA created by tortoise isn't ready yet", "tortoise", req.NamespacedName)
+		logger.Info("VPA created by tortoise isn't ready yet", "tortoise", req.NamespacedName)
 		tortoise.Status.TortoisePhase = autoscalingv1beta3.TortoisePhaseInitializing
 		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, true)
 		if err != nil {
@@ -252,14 +204,14 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	// VPA is ready, we mark all Vertical scaling resources as Running.
 	tortoise = vpa.SetAllVerticalContainerResourcePhaseWorking(tortoise, now)
 
-	logger.V(4).Info("VPA created by tortoise is ready, proceeding to generate the recommendation", "tortoise", req.NamespacedName)
+	logger.Info("VPA created by tortoise is ready, proceeding to generate the recommendation", "tortoise", req.NamespacedName)
 	hpa, err = r.HpaService.GetHPAOnTortoise(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get HPA", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
 
-	tortoise = r.TortoiseService.UpdateUpperRecommendation(tortoise, monitorvpa)
+	tortoise = r.TortoiseService.UpdateContainerRecommendationFromVPA(tortoise, monitorvpa)
 
 	tortoise, err = r.RecommenderService.UpdateRecommendations(ctx, tortoise, hpa, currentReplicaNum, now)
 	if err != nil {
@@ -273,10 +225,8 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	r.EventRecorder.Event(tortoise, corev1.EventTypeNormal, "RecommendationUpdated", "The recommendation on Tortoise status is updated")
-
 	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseGatheringData {
-		logger.V(4).Info("tortoise is GatheringData phase; skip applying the recommendation to HPA or VPAs")
+		logger.Info("tortoise is GatheringData phase; skip applying the recommendation to HPA or VPAs")
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 

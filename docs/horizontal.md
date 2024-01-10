@@ -34,8 +34,6 @@ max{replica numbers at the same time} * MaxReplicasFactor
 
 (refer to [admin-guide.md](./admin-guide.md) about each parameter)
 
-It only takes the num of replicas of the last 4 weeks into consideration.
-
 ### MinReplicas
 
 MinReplicas is calculated by:
@@ -49,8 +47,6 @@ max{replica numbers at the same time} * MinReplicasFactor
 ```
 
 (refer to [admin-guide.md](./admin-guide.md) about each parameter)
-
-It only takes the num of replicas of the last 4 weeks into consideration.
 
 ### Target utilization
 

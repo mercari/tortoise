@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/mercari/tortoise/api/v1beta3"
+	"github.com/mercari/tortoise/pkg/event"
 )
 
 const tortoiseFinalizer = "tortoise.autoscaling.mercari.com/finalizer"
@@ -89,7 +90,7 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1beta3.Tortoise, now time.Time)
 		if s.gatheringDataDuration == "daily" {
 			r = "1 day"
 		}
-		s.recorder.Event(tortoise, corev1.EventTypeNormal, "Initialized", fmt.Sprintf("Tortoise is initialized and starts to gather data to make recommendations. It will take %s to finish gathering data and then tortoise starts to work actually", r))
+		s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Initialized, fmt.Sprintf("Tortoise is initialized and starts to gather data to make recommendations. It will take %s to finish gathering data and then tortoise starts to work actually", r))
 
 	case v1beta3.TortoisePhaseInitializing:
 		// change it to GatheringData anyway. Later the controller may change it back to initialize if VPA isn't ready.
@@ -97,32 +98,49 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1beta3.Tortoise, now time.Time)
 	case v1beta3.TortoisePhaseGatheringData:
 		tortoise = s.changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise, now)
 		if tortoise.Status.TortoisePhase == v1beta3.TortoisePhaseWorking {
-			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Working", "Tortoise finishes gathering data and it starts to work on autoscaling")
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Working, "Tortoise finishes gathering data and it starts to work on autoscaling")
 		}
 		if tortoise.Status.TortoisePhase == v1beta3.TortoisePhasePartlyWorking {
-			s.recorder.Event(tortoise, corev1.EventTypeNormal, "PartlyWorking", "Tortoise finishes gathering data in some metrics and it starts to work on autoscaling for those metrics. But some metrics are still gathering data")
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.PartlyWorking, "Tortoise finishes gathering data in some metrics and it starts to work on autoscaling for those metrics. But some metrics are still gathering data")
 		}
 	case v1beta3.TortoisePhasePartlyWorking:
 		tortoise = s.changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise, now)
 		if tortoise.Status.TortoisePhase == v1beta3.TortoisePhaseWorking {
-			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Working", "Tortoise finishes gathering data and it starts to work on autoscaling")
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Working, "Tortoise finishes gathering data and it starts to work on autoscaling")
 		}
 	case v1beta3.TortoisePhaseEmergency:
 		if tortoise.Spec.UpdateMode != v1beta3.UpdateModeEmergency {
 			// Emergency mode is turned off.
-			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Working", "Emergency mode is turned off. Tortoise starts to work on autoscaling normally")
-			tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseEmergency
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Working, "Emergency mode is turned off. Tortoise starts to work on autoscaling normally. HPA.Spec.MinReplica will gradually be reduced")
+			tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseBackToNormal
 		}
 	}
 
 	if tortoise.Spec.UpdateMode == v1beta3.UpdateModeEmergency {
 		if tortoise.Status.TortoisePhase != v1beta3.TortoisePhaseEmergency {
-			s.recorder.Event(tortoise, corev1.EventTypeNormal, "Emergency", "Tortoise is in Emergency mode")
-			tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseEmergency
+			if !hasHorizontal(tortoise) {
+				s.recorder.Event(tortoise, corev1.EventTypeWarning, event.EmergencyModeFailed, "Tortoise cannot move to Emergency mode because it doesn't have any horizontal autoscaling policy")
+			} else if tortoise.Status.TortoisePhase != v1beta3.TortoisePhasePartlyWorking && tortoise.Status.TortoisePhase != v1beta3.TortoisePhaseWorking {
+				s.recorder.Event(tortoise, corev1.EventTypeWarning, event.EmergencyModeFailed, "Tortoise cannot move to Emergency mode because it doesn't have enough historical data to increase the number of replicas")
+			} else {
+				s.recorder.Event(tortoise, corev1.EventTypeNormal, event.EmergencyModeEnabled, "Tortoise is in Emergency mode. It will increase the number of replicas")
+				tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseEmergency
+			}
 		}
 	}
 
 	return tortoise
+}
+
+func hasHorizontal(tortoise *v1beta3.Tortoise) bool {
+	for _, r := range tortoise.Status.AutoscalingPolicy {
+		for _, p := range r.Policy {
+			if p == v1beta3.AutoscalingTypeHorizontal {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (s *Service) changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise *v1beta3.Tortoise, now time.Time) *v1beta3.Tortoise {
@@ -266,7 +284,55 @@ func (s *Service) initializeTortoise(tortoise *v1beta3.Tortoise, now time.Time) 
 	return tortoise.DeepCopy()
 }
 
-func (s *Service) UpdateUpperRecommendation(tortoise *v1beta3.Tortoise, vpa *v1.VerticalPodAutoscaler) *v1beta3.Tortoise {
+// SyncContainerRecommendationFromVPA makes sure that ContainerRecommendationFromVPA has all containers
+func (s *Service) syncContainerRecommendationFromVPA(tortoise *v1beta3.Tortoise) *v1beta3.Tortoise {
+	containerNames := sets.New[string]()
+	for _, c := range tortoise.Status.AutoscalingPolicy {
+		// check the containers from the autoscaling policy.
+		containerNames.Insert(c.ContainerName)
+	}
+
+	containersInContainerRecommendationFromVPA := sets.New[string]()
+	for _, r := range tortoise.Status.Conditions.ContainerRecommendationFromVPA {
+		containersInContainerRecommendationFromVPA.Insert(r.ContainerName)
+	}
+
+	containersToAdd := containerNames.Difference(containersInContainerRecommendationFromVPA).UnsortedList()
+	sort.Slice(containersToAdd, func(i, j int) bool {
+		return containersToAdd[i] < containersToAdd[j]
+	})
+	containersToRemove := containersInContainerRecommendationFromVPA.Difference(containerNames)
+	for _, c := range containersToAdd {
+		// Containers are not included in tortoise.Status.Conditions.ContainerRecommendationFromVPA, probably new containers.
+		tortoise.Status.Conditions.ContainerRecommendationFromVPA = append(tortoise.Status.Conditions.ContainerRecommendationFromVPA, v1beta3.ContainerRecommendationFromVPA{
+			ContainerName: c,
+			Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+				corev1.ResourceCPU:    {},
+				corev1.ResourceMemory: {},
+			},
+			MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+				corev1.ResourceCPU:    {},
+				corev1.ResourceMemory: {},
+			},
+		})
+	}
+
+	// remove containersToRemove from tortoise.Status.Conditions.ContainerRecommendationFromVPA
+	for _, c := range containersToRemove.UnsortedList() {
+		for i, r := range tortoise.Status.Conditions.ContainerRecommendationFromVPA {
+			if r.ContainerName == c {
+				tortoise.Status.Conditions.ContainerRecommendationFromVPA = append(tortoise.Status.Conditions.ContainerRecommendationFromVPA[:i], tortoise.Status.Conditions.ContainerRecommendationFromVPA[i+1:]...)
+				break
+			}
+		}
+	}
+
+	return tortoise
+}
+
+func (s *Service) UpdateContainerRecommendationFromVPA(tortoise *v1beta3.Tortoise, vpa *v1.VerticalPodAutoscaler) *v1beta3.Tortoise {
+	tortoise = s.syncContainerRecommendationFromVPA(tortoise)
+
 	upperMap := make(map[string]map[corev1.ResourceName]resource.Quantity, len(vpa.Status.Recommendation.ContainerRecommendations))
 	for _, c := range vpa.Status.Recommendation.ContainerRecommendations {
 		upperMap[c.ContainerName] = make(map[corev1.ResourceName]resource.Quantity, len(c.UpperBound))
@@ -313,6 +379,7 @@ func (s *Service) UpdateUpperRecommendation(tortoise *v1beta3.Tortoise, vpa *v1.
 			tortoise.Status.Conditions.ContainerRecommendationFromVPA[k].MaxRecommendation[rn] = rq
 		}
 	}
+
 	return tortoise
 }
 
@@ -370,7 +437,7 @@ func (s *Service) RemoveFinalizer(ctx context.Context, tortoise *v1beta3.Tortois
 
 func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1beta3.Tortoise, now time.Time, timeRecord bool) (*v1beta3.Tortoise, error) {
 	logger := log.FromContext(ctx)
-	logger.V(4).Info("update tortoise status", "tortoise", klog.KObj(originalTortoise))
+	logger.Info("update tortoise status", "tortoise", klog.KObj(originalTortoise))
 	retTortoise := &v1beta3.Tortoise{}
 	updateFn := func() error {
 		retTortoise = &v1beta3.Tortoise{}
@@ -454,11 +521,23 @@ type resourceNameAndContainerName struct {
 
 // UpdateTortoiseAutoscalingPolicyInStatus updates .status.autoscalingPolicy based on the policy in .spec.autoscalingPolicy,
 // and the existing container names in the workload.
-func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, containerNames sets.Set[string], hpa *v2.HorizontalPodAutoscaler) *v1beta3.Tortoise {
+func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) *v1beta3.Tortoise {
 	if tortoise.Spec.AutoscalingPolicy != nil {
 		// we just use the policy in the spec if it's non-empty.
 		tortoise.Status.AutoscalingPolicy = tortoise.Spec.AutoscalingPolicy
 		return tortoise
+	}
+
+	containerWOResourceRequest := sets.New[resourceNameAndContainerName]() // container names which doesn't have resource requests
+	containerNames := sets.New[string]()                                   // all container names
+	for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
+		containerNames.Insert(r.ContainerName)
+		if r.Resource.Cpu().Value() == 0 {
+			containerWOResourceRequest.Insert(resourceNameAndContainerName{corev1.ResourceCPU, r.ContainerName})
+		}
+		if r.Resource.Memory().Value() == 0 {
+			containerWOResourceRequest.Insert(resourceNameAndContainerName{corev1.ResourceMemory, r.ContainerName})
+		}
 	}
 
 	// First, we checked the existing policies and the containers in the workload
@@ -515,6 +594,16 @@ func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, contain
 				// Otherwise, set Vertical.
 				tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] = v1beta3.AutoscalingTypeVertical
 			}
+		}
+	}
+
+	// If the container doesn't have resource request, we set the policy to Off because we couldn't make a recommendation.
+	for i := range tortoise.Status.AutoscalingPolicy {
+		if containerWOResourceRequest.Has(resourceNameAndContainerName{corev1.ResourceCPU, tortoise.Status.AutoscalingPolicy[i].ContainerName}) {
+			tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] = v1beta3.AutoscalingTypeOff
+		}
+		if containerWOResourceRequest.Has(resourceNameAndContainerName{corev1.ResourceMemory, tortoise.Status.AutoscalingPolicy[i].ContainerName}) {
+			tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] = v1beta3.AutoscalingTypeOff
 		}
 	}
 

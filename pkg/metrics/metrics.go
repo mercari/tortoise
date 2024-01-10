@@ -3,11 +3,24 @@ package metrics
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
-
-	"github.com/mercari/tortoise/api/v1beta3"
 )
 
 var (
+	ActualHPATargetUtilization = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "actual_hpa_utilization_target",
+		Help: "hpa utilization target values that hpa actually has",
+	}, []string{"tortoise_name", "namespace", "container_name", "resource_name", "hpa_name"})
+
+	ActualHPAMinReplicas = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "actual_hpa_minreplicas",
+		Help: "hpa minReplicas that hpa actually has",
+	}, []string{"tortoise_name", "namespace", "hpa_name"})
+
+	ActualHPAMaxReplicas = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "actual_hpa_maxreplicas",
+		Help: "hpa maxReplicas that hpa actually has",
+	}, []string{"tortoise_name", "namespace", "hpa_name"})
+
 	AppliedHPATargetUtilization = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "applied_hpa_utilization_target",
 		Help: "hpa utilization target values that tortoises actually applys to hpa",
@@ -65,8 +78,10 @@ var (
 )
 
 func init() {
-	//Register metrics with prometheus
 	metrics.Registry.MustRegister(
+		ActualHPAMaxReplicas,
+		ActualHPAMinReplicas,
+		ActualHPATargetUtilization,
 		AppliedHPATargetUtilization,
 		AppliedHPAMaxReplicas,
 		AppliedHPAMinReplicas,
@@ -79,19 +94,4 @@ func init() {
 		ProposedMemoryRequest,
 		TortoiseNumber,
 	)
-}
-
-func RecordTortoise(t *v1beta3.Tortoise, deleted bool) {
-	value := 1.0
-	if deleted {
-		value = 0
-	}
-	TortoiseNumber.WithLabelValues(
-		t.Name,
-		t.Namespace,
-		t.Spec.TargetRefs.ScaleTargetRef.Name,
-		t.Spec.TargetRefs.ScaleTargetRef.Kind,
-		string(t.Spec.UpdateMode),
-		string(t.Status.TortoisePhase),
-	).Set(value)
 }

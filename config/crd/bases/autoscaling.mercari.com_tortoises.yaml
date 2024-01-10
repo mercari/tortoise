@@ -21,529 +21,6 @@ spec:
     - jsonPath: .status.tortoisePhase
       name: PHASE
       type: string
-    name: v1beta2
-    schema:
-      openAPIV3Schema:
-        description: Tortoise is the Schema for the tortoises API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: TortoiseSpec defines the desired state of Tortoise
-            properties:
-              autoscalingPolicy:
-                description: "AutoscalingPolicy is an optional field to specify how
-                  each resource in each container is scaled. \n You basically have
-                  two options to configure how each resource in each container is
-                  scaled - 1. you let tortoise manage which resource is scaled with
-                  which autoscaling policy. 2. you manage which resource is scaled
-                  with which autoscaling policy by yourself. \n For the first option,
-                  you just have to leave this field empty. Then, when tortoise is
-                  created, tortoise will configure the AutoscalingPolicy for each
-                  resource in each container based on the following rules: - If .spec.TargetRefs.HorizontalPodAutoscalerName
-                  is empty, the initial policy being used is \"Horizontal\" for cpu,
-                  and \"Vertical\" for memory. - If .spec.TargetRefs.HorizontalPodAutoscalerName
-                  is not empty, tortoise sets \"Horizontal\" to resources managed
-                  by the attached HPA, and \"Vertical\" to resources not managed by
-                  the attached HPA. Also, when a new container is added to the workload,
-                  tortoise will notice it and configure the AutoscalingPolicy for
-                  each resource in the new container. (\"Horizontal\" for cpu, and
-                  \"Vertical\" for memory) \n For the second option, you have to specify
-                  the AutoscalingPolicy for each resource in each container in this
-                  field. If you specify the AutoscalingPolicy for some containers,
-                  but not for all, tortoise will set the default value \"Off\" to
-                  the all resources in the containers not specified. Note that when
-                  a new container is added to the workload, you have to update the
-                  AutoscalingPolicy field by yourself, otherwise, tortoise will never
-                  scale the resources in the new container. \n Those two options are
-                  created for different use cases: - Basically, you should use the
-                  first option that keep configuring the AutoscalingPolicy for each
-                  resource in each container automatically. - If you have a special
-                  reason that you want to scale, for example, memory with horizontal
-                  scaling, you should use the second option that provides you the
-                  flexibility to configure the AutoscalingPolicy for each resource
-                  in each container. \n This field is mutable - you can even change
-                  this field from non-empty to empty. In that case, tortoise will
-                  just keep the way each container is scaled, but, you can obtain
-                  the merit of the first option - when a new container is added to
-                  the workload, tortoise will notice it and configure the AutoscalingPolicy
-                  for each resource in the new container automatically."
-                items:
-                  properties:
-                    containerName:
-                      description: ContainerName is the name of target container.
-                      type: string
-                    policy:
-                      additionalProperties:
-                        enum:
-                        - "Off"
-                        - Horizontal
-                        - Vertical
-                        type: string
-                      description: Policy specifies how each resource is scaled. See
-                        .spec.AutoscalingPolicy for more defail.
-                      type: object
-                  required:
-                  - containerName
-                  type: object
-                type: array
-              deletionPolicy:
-                description: "DeletionPolicy is the policy how the controller deletes
-                  associated HPA and VPAs when tortoise is removed. If \"DeleteAll\",
-                  tortoise deletes all associated HPA and VPAs, created by tortoise.
-                  If the associated HPA is not created by tortoise, which is associated
-                  by spec.targetRefs.horizontalPodAutoscalerName, tortoise never delete
-                  the HPA. If \"NoDelete\", tortoise doesn't delete any associated
-                  HPA and VPAs. \n \"NoDelete\" is the default value."
-                enum:
-                - DeleteAll
-                - NoDelete
-                type: string
-              resourcePolicy:
-                description: ResourcePolicy contains the policy how each resource
-                  is updated.
-                items:
-                  properties:
-                    autoscalingPolicy:
-                      additionalProperties:
-                        enum:
-                        - "Off"
-                        - Horizontal
-                        - Vertical
-                        type: string
-                      description: "AutoscalingPolicy specifies how each resource
-                        is scaled. If \"Horizontal\", the resource is horizontally
-                        scaled. If \"Vertical\", the resource is vertically scaled.
-                        If \"Off\", tortoise doesn't scale at all based on that resource.
-                        \n If .spec.TargetRefs.HorizontalPodAutoscalerName is empty,
-                        the default value is \"Horizontal\" for cpu, and \"Vertical\"
-                        for memory. If .spec.TargetRefs.HorizontalPodAutoscalerName
-                        is not empty, by default, it sets \"Horizontal\" to resources
-                        managed by the attached HPA, and \"Vertical\" to resources
-                        not managed by the attached HPA. \n Deprecated: Use spec.AutoscalingPolicy
-                        instead. It's now the alias of .spec.AutoscalingPolicy, and
-                        will be removed in a future version. If both fields are specified,
-                        this field's value is just ignored."
-                      type: object
-                    containerName:
-                      description: ContainerName is the name of target container.
-                      type: string
-                    minAllocatedResources:
-                      additionalProperties:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      description: "MinAllocatedResources is the minimum amount of
-                        resources which is given to the container. Tortoise never
-                        set the resources request on the container than MinAllocatedResources.
-                        \n If empty, tortoise may reduce the resource request to the
-                        value which is suggested from VPA. Given the VPA suggests
-                        values based on the historical resource usage, you have no
-                        choice but to use MinAllocatedResources to pre-scaling your
-                        Pods, for example, when maybe your application change will
-                        result in consuming resources more than the past."
-                      type: object
-                  required:
-                  - containerName
-                  type: object
-                type: array
-              targetRefs:
-                description: TargetRefs has reference to involved resources.
-                properties:
-                  horizontalPodAutoscalerName:
-                    description: "HorizontalPodAutoscalerName is the name of the target
-                      HPA. The target of this HPA should be the same as the ScaleTargetRef
-                      above. The target HPA should have the ContainerResource type
-                      metric that refers to the container resource utilization. Please
-                      check out the document for more detail: https://github.com/mercari/tortoise/blob/master/docs/horizontal.md#supported-metrics-in-hpa
-                      Also, note that you must not edit the HPA directly after you
-                      attach the HPA to the tortoise of Auto mode. Even if you edit
-                      your HPA in that case, tortoise will overwrite the HPA with
-                      the metrics/values. \n You can specify either of existing HPA
-                      only. This is an optional field, and if you don't specify this
-                      field, tortoise will create a new default HPA named `tortoise-hpa-{tortoise
-                      name}`."
-                    type: string
-                  scaleTargetRef:
-                    description: ScaleTargetRef is the target of scaling. It should
-                      be the same as the target of HPA.
-                    properties:
-                      apiVersion:
-                        description: apiVersion is the API version of the referent
-                        type: string
-                      kind:
-                        description: 'kind is the kind of the referent; More info:
-                          https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                        type: string
-                      name:
-                        description: 'name is the name of the referent; More info:
-                          https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                        type: string
-                    required:
-                    - kind
-                    - name
-                    type: object
-                required:
-                - scaleTargetRef
-                type: object
-              updateMode:
-                description: "UpdateMode is how tortoise update resources. If \"Off\",
-                  tortoise generates the recommendations in .Status, but doesn't apply
-                  it actually. If \"Auto\", tortoise generates the recommendations
-                  in .Status, and apply it to resources. If \"Emergency\", tortoise
-                  generates the recommendations in .Status as usual, but increase
-                  replica number high enough value. \"Emergency\" is useful when something
-                  unexpected happens in workloads, and you want to scale up the workload
-                  with high enough resources. See https://github.com/mercari/tortoise/blob/main/docs/emergency.md
-                  to know more about emergency mode. \n \"Off\" is the default value."
-                enum:
-                - "Off"
-                - Auto
-                - Emergency
-                type: string
-            required:
-            - targetRefs
-            type: object
-          status:
-            description: TortoiseStatus defines the observed state of Tortoise
-            properties:
-              autoscalingPolicy:
-                description: AutoscalingPolicy contains the policy how this tortoise
-                  actually scales each resource. It should basically be the same as
-                  .spec.autoscalingPolicy. But, if .spec.autoscalingPolicy is empty,
-                  tortoise manages/generates the policies generated based on HPA and
-                  the target deployment.
-                items:
-                  properties:
-                    containerName:
-                      description: ContainerName is the name of target container.
-                      type: string
-                    policy:
-                      additionalProperties:
-                        enum:
-                        - "Off"
-                        - Horizontal
-                        - Vertical
-                        type: string
-                      description: Policy specifies how each resource is scaled. See
-                        .spec.AutoscalingPolicy for more defail.
-                      type: object
-                  required:
-                  - containerName
-                  type: object
-                type: array
-              conditions:
-                properties:
-                  containerRecommendationFromVPA:
-                    description: ContainerRecommendationFromVPA is the condition of
-                      container recommendation from VPA, which is observed last time.
-                    items:
-                      properties:
-                        containerName:
-                          description: ContainerName is the name of target container.
-                          type: string
-                        maxRecommendation:
-                          additionalProperties:
-                            properties:
-                              quantity:
-                                anyOf:
-                                - type: integer
-                                - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                x-kubernetes-int-or-string: true
-                              updatedAt:
-                                format: date-time
-                                type: string
-                            type: object
-                          description: MaxRecommendation is the max recommendation
-                            value from VPA in a certain period (1 week). Tortoise
-                            generates all recommendation based on this MaxRecommendation.
-                          type: object
-                        recommendation:
-                          additionalProperties:
-                            properties:
-                              quantity:
-                                anyOf:
-                                - type: integer
-                                - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                x-kubernetes-int-or-string: true
-                              updatedAt:
-                                format: date-time
-                                type: string
-                            type: object
-                          description: Recommendation is the recommendation value
-                            from VPA that the tortoise controller observed in the
-                            last reconciliation..
-                          type: object
-                      required:
-                      - containerName
-                      - maxRecommendation
-                      - recommendation
-                      type: object
-                    type: array
-                  tortoiseConditions:
-                    description: TortoiseConditions is the condition of this tortoise.
-                    items:
-                      properties:
-                        lastTransitionTime:
-                          description: lastTransitionTime is the last time the condition
-                            transitioned from one status to another
-                          format: date-time
-                          type: string
-                        lastUpdateTime:
-                          description: The last time this condition was updated.
-                          format: date-time
-                          type: string
-                        message:
-                          description: message is a human-readable explanation containing
-                            details about the transition
-                          type: string
-                        reason:
-                          description: reason is the reason for the condition's last
-                            transition.
-                          type: string
-                        status:
-                          description: Status is the status of the condition. (True,
-                            False, Unknown)
-                          type: string
-                        type:
-                          description: Type is the type of the condition.
-                          type: string
-                      required:
-                      - status
-                      - type
-                      type: object
-                    type: array
-                    x-kubernetes-list-map-keys:
-                    - type
-                    x-kubernetes-list-type: map
-                type: object
-              containerResourcePhases:
-                items:
-                  properties:
-                    containerName:
-                      description: ContainerName is the name of target container.
-                      type: string
-                    resourcePhases:
-                      additionalProperties:
-                        properties:
-                          lastTransitionTime:
-                            description: lastTransitionTime is the last time the condition
-                              transitioned from one status to another
-                            format: date-time
-                            type: string
-                          phase:
-                            type: string
-                        required:
-                        - phase
-                        type: object
-                      description: ResourcePhases is the phase of each resource of
-                        this container.
-                      type: object
-                  required:
-                  - containerName
-                  - resourcePhases
-                  type: object
-                type: array
-              recommendations:
-                properties:
-                  horizontal:
-                    properties:
-                      maxReplicas:
-                        description: MaxReplicas has the recommendation of maxReplicas.
-                          It contains the recommendations for each time slot.
-                        items:
-                          properties:
-                            from:
-                              description: From represented in hour.
-                              type: integer
-                            timezone:
-                              type: string
-                            to:
-                              description: To represented in hour.
-                              type: integer
-                            updatedAt:
-                              format: date-time
-                              type: string
-                            value:
-                              description: Value is the recommendation value. It's
-                                calculated every reconciliation, and updated if the
-                                calculated recommendation value is more than the current
-                                recommendation value on tortoise.
-                              format: int32
-                              type: integer
-                            weekday:
-                              description: WeekDay is the day of the week. If empty,
-                                it means it applies to all days of the week.
-                              type: string
-                          required:
-                          - from
-                          - timezone
-                          - to
-                          - value
-                          type: object
-                        type: array
-                      minReplicas:
-                        description: MinReplicas has the recommendation of minReplicas.
-                          It contains the recommendations for each time slot.
-                        items:
-                          properties:
-                            from:
-                              description: From represented in hour.
-                              type: integer
-                            timezone:
-                              type: string
-                            to:
-                              description: To represented in hour.
-                              type: integer
-                            updatedAt:
-                              format: date-time
-                              type: string
-                            value:
-                              description: Value is the recommendation value. It's
-                                calculated every reconciliation, and updated if the
-                                calculated recommendation value is more than the current
-                                recommendation value on tortoise.
-                              format: int32
-                              type: integer
-                            weekday:
-                              description: WeekDay is the day of the week. If empty,
-                                it means it applies to all days of the week.
-                              type: string
-                          required:
-                          - from
-                          - timezone
-                          - to
-                          - value
-                          type: object
-                        type: array
-                      targetUtilizations:
-                        items:
-                          properties:
-                            containerName:
-                              description: ContainerName is the name of target container.
-                              type: string
-                            targetUtilization:
-                              additionalProperties:
-                                format: int32
-                                type: integer
-                              description: TargetUtilization is the recommendation
-                                of targetUtilization of HPA.
-                              type: object
-                          required:
-                          - containerName
-                          - targetUtilization
-                          type: object
-                        type: array
-                    type: object
-                  vertical:
-                    properties:
-                      containerResourceRecommendation:
-                        items:
-                          properties:
-                            RecommendedResource:
-                              additionalProperties:
-                                anyOf:
-                                - type: integer
-                                - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                x-kubernetes-int-or-string: true
-                              description: "RecommendedResource is the recommendation
-                                calculated by the tortoise. \n If AutoscalingPolicy
-                                is vertical, it's the same value as the VPA suggests.
-                                If AutoscalingPolicy is horizontal, it's basically
-                                the same value as the current resource request. But,
-                                when the number of replicas are too small or too large,
-                                tortoise may try to increase/decrease the amount of
-                                resources given to the container, so that the number
-                                of replicas won't be very small or very large."
-                              type: object
-                            containerName:
-                              description: ContainerName is the name of target container.
-                              type: string
-                          required:
-                          - RecommendedResource
-                          - containerName
-                          type: object
-                        type: array
-                    type: object
-                type: object
-              targets:
-                properties:
-                  horizontalPodAutoscaler:
-                    type: string
-                  scaleTargetRef:
-                    description: CrossVersionObjectReference contains enough information
-                      toet identify the referred resource.
-                    properties:
-                      apiVersion:
-                        description: apiVersion is the API version of the referent
-                        type: string
-                      kind:
-                        description: 'kind is the kind of the referent; More info:
-                          https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                        type: string
-                      name:
-                        description: 'name is the name of the referent; More info:
-                          https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                        type: string
-                    required:
-                    - kind
-                    - name
-                    type: object
-                  verticalPodAutoscalers:
-                    items:
-                      properties:
-                        name:
-                          type: string
-                        role:
-                          enum:
-                          - Updater
-                          - Monitor
-                          type: string
-                      required:
-                      - name
-                      - role
-                      type: object
-                    type: array
-                required:
-                - scaleTargetRef
-                - verticalPodAutoscalers
-                type: object
-              tortoisePhase:
-                type: string
-            required:
-            - conditions
-            - containerResourcePhases
-            - recommendations
-            - targets
-            - tortoisePhase
-            type: object
-        type: object
-    served: true
-    storage: false
-    subresources:
-      status: {}
-  - additionalPrinterColumns:
-    - jsonPath: .spec.updateMode
-      name: MODE
-      type: string
-    - jsonPath: .status.tortoisePhase
-      name: PHASE
-      type: string
     name: v1beta3
     schema:
       openAPIV3Schema:
@@ -572,7 +49,7 @@ spec:
                   autoscaling policy for each resource. 2. Manually define the autoscaling
                   policy for each resource. \n For the first option, simply leave
                   this field unset. In this case, Tortoise will adjust the autoscaling
-                  policies using the following logic: - If .spec.TargetRefs.HorizontalPodAutoscalerName
+                  policies using the following rules: - If .spec.TargetRefs.HorizontalPodAutoscalerName
                   is not provided, the policies default to \"Horizontal\" for CPU
                   and \"Vertical\" for memory across all containers. - If .spec.TargetRefs.HorizontalPodAutoscalerName
                   is specified, resources governed by the referenced Horizontal Pod
@@ -582,7 +59,10 @@ spec:
                   will be disregarded. Additionally, if a ContainerResource metric
                   is later added to an HPA associated with Tortoise, Tortoise will
                   automatically update relevant resources to utilize a \"Horizontal\"
-                  policy. \n With the second option, you must manually specify the
+                  policy. - if a container doesn't have the resource request, that
+                  container's autoscaling policy is always set to \"Off\" because
+                  tortoise cannot generate any recommendation without the resource
+                  request. \n With the second option, you must manually specify the
                   AutoscalingPolicy for the resources of each container within this
                   field. If policies are defined for some but not all containers or
                   resources, Tortoise will assign a default \"Off\" policy to unspecified
@@ -787,6 +267,29 @@ spec:
                       - recommendation
                       type: object
                     type: array
+                  containerResourceRequests:
+                    description: ContainerResourceRequests has the last observed resource
+                      request of each container.
+                    items:
+                      properties:
+                        containerName:
+                          description: ContainerName is the name of target container.
+                          type: string
+                        resource:
+                          additionalProperties:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: ResourceList is a set of (resource name, quantity)
+                            pairs.
+                          type: object
+                      required:
+                      - containerName
+                      - resource
+                      type: object
+                    type: array
                   tortoiseConditions:
                     description: TortoiseConditions is the condition of this tortoise.
                     items:
@@ -945,6 +448,8 @@ spec:
                   vertical:
                     properties:
                       containerResourceRecommendation:
+                        description: ContainerResourceRecommendation has the recommendation
+                          of container resource request.
                         items:
                           properties:
                             RecommendedResource:

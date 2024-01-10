@@ -16,12 +16,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/mercari/tortoise/api/v1beta3"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/annotation"
+	"github.com/mercari/tortoise/pkg/event"
 	"github.com/mercari/tortoise/pkg/metrics"
 )
 
@@ -50,12 +53,12 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta
 	logger := log.FromContext(ctx)
 	// if all policy is off or Vertical, we don't need HPA.
 	if !HasHorizontal(tortoise) {
-		logger.V(4).Info("no horizontal policy, no need to create HPA")
+		logger.Info("no horizontal policy, no need to create HPA")
 		return tortoise, nil
 	}
 
 	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
-		logger.V(4).Info("user specified the existing HPA, no need to create HPA")
+		logger.Info("user specified the existing HPA, no need to create HPA")
 
 		// update the existing HPA that the user set on tortoise.
 		tortoise, err := c.giveAnnotationsOnExistingHPA(ctx, tortoise)
@@ -63,11 +66,11 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta
 			return tortoise, fmt.Errorf("give annotations on a hpa specified in targetrefs: %w", err)
 		}
 
-		c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPAUpdated", fmt.Sprintf("Updated HPA %s/%s", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
+		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPAUpdated, fmt.Sprintf("Updated HPA %s/%s", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
 
 		return tortoise, nil
 	}
-	logger.V(4).Info("no existing HPA specified, creating HPA")
+	logger.Info("no existing HPA specified, creating HPA")
 
 	// create default HPA.
 	_, tortoise, err := c.CreateHPA(ctx, tortoise, replicaNum, now)
@@ -75,7 +78,7 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta
 		return tortoise, fmt.Errorf("create hpa: %w", err)
 	}
 
-	c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPACreated", fmt.Sprintf("Initialized a HPA %s/%s for a created tortoise", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
+	c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPACreated, fmt.Sprintf("Initialized a HPA %s/%s for a created tortoise", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
 
 	return tortoise, nil
 }
@@ -316,6 +319,9 @@ func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1b
 	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Status.Targets.HorizontalPodAutoscaler}, hpa); err != nil {
 		return nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
 	}
+
+	recordHPAMetric(ctx, tortoise, hpa)
+
 	return hpa, nil
 }
 
@@ -422,12 +428,14 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		// when emergency mode, we set the same value on minReplicas.
 		minToActuallyApply = recommendMax
 	case autoscalingv1beta3.TortoisePhaseBackToNormal:
+		// gradually reduce the minReplicas.
 		currentMin := *hpa.Spec.MinReplicas
 		reduced := int32(math.Trunc(float64(currentMin) * c.replicaReductionFactor))
 		if recommendMin > reduced {
 			minToActuallyApply = recommendMin
 			// BackToNormal is finished
 			tortoise.Status.TortoisePhase = autoscalingv1beta3.TortoisePhaseWorking
+			c.recorder.Event(tortoise, corev1.EventTypeNormal, event.Working, fmt.Sprintf("Tortoise %s/%s is working %v", tortoise.Namespace, tortoise.Name, currentMin))
 		} else {
 			minToActuallyApply = reduced
 		}
@@ -474,7 +482,7 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context
 				return tortoise, fmt.Errorf("initialize hpa: %w", err)
 			}
 
-			c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPACreated", fmt.Sprintf("Initialized a HPA %s/%s because tortoise has resource to scale horizontally", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
+			c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPACreated, fmt.Sprintf("Initialized a HPA %s/%s because tortoise has resource to scale horizontally", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
 			return tortoise, nil
 		}
 		return tortoise, fmt.Errorf("failed to get hpa on tortoise: %w", err)
@@ -508,7 +516,7 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context
 		return tortoise, err
 	}
 
-	c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPAUpdated", fmt.Sprintf("Updated a HPA %s/%s because the autoscaling policy is changed in the tortoise", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
+	c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPAUpdated, fmt.Sprintf("Updated a HPA %s/%s because the autoscaling policy is changed in the tortoise", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
 
 	return tortoise, nil
 }
@@ -557,11 +565,11 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 	}
 
 	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
-		return nil, nil, err
+		return nil, retTortoise, err
 	}
 
 	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
-		c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPAUpdated", fmt.Sprintf("HPA %s/%s is updated by the recommendation", retHPA.Namespace, retHPA.Name))
+		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPAUpdated, fmt.Sprintf("HPA %s/%s is updated by the recommendation", retHPA.Namespace, retHPA.Name))
 	}
 
 	return retHPA, retTortoise, nil
@@ -610,4 +618,50 @@ func (c *Service) updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containe
 	}
 
 	return fmt.Errorf("no corresponding metric found: %s/%s", hpa.Namespace, hpa.Name)
+}
+
+func recordHPAMetric(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) {
+	for _, policies := range tortoise.Status.AutoscalingPolicy {
+		for k, p := range policies.Policy {
+			if p != autoscalingv1beta3.AutoscalingTypeHorizontal {
+				continue
+			}
+
+			target, err := GetHPATargetValue(ctx, hpa, policies.ContainerName, k)
+			if err != nil {
+				log.FromContext(ctx).Error(err, "failed to get target value of the HPA", "hpa", klog.KObj(hpa))
+				// ignore the error and go through all policies anyway.
+				continue
+			}
+
+			metrics.ActualHPATargetUtilization.WithLabelValues(tortoise.Name, tortoise.Namespace, policies.ContainerName, k.String(), hpa.Name).Set(float64(target))
+		}
+	}
+
+	metrics.ActualHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(*hpa.Spec.MinReplicas))
+	metrics.ActualHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(hpa.Spec.MaxReplicas))
+}
+
+// GetHPATargetValue gets the target value of the HPA.
+// It looks for the corresponding metric (ContainerResource) and gets the target value.
+func GetHPATargetValue(ctx context.Context, hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName) (int32, error) {
+	for _, m := range hpa.Spec.Metrics {
+		if m.Type != v2.ContainerResourceMetricSourceType {
+			continue
+		}
+
+		if m.ContainerResource == nil {
+			// shouldn't reach here
+			log.FromContext(ctx).Error(nil, "invalid container resource metric", "hpa", klog.KObj(hpa))
+			continue
+		}
+
+		if m.ContainerResource.Container != containerName || m.ContainerResource.Name != k || m.ContainerResource.Target.AverageUtilization == nil {
+			continue
+		}
+
+		return *m.ContainerResource.Target.AverageUtilization, nil
+	}
+
+	return 0, fmt.Errorf("the metric for the container isn't found in the hpa: %s. (resource name: %s, container name: %s)", client.ObjectKeyFromObject(hpa).String(), k, containerName)
 }
