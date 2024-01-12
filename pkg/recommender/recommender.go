@@ -178,13 +178,20 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 		return jastified, fmt.Sprintf("the current number of replicas is equal or smaller than the minimum min replica number in this cluster (%v), so make %v request (%v) smaller (%v → %v) based on VPA suggestion", s.minimumMinReplicas, k, containerName, resourceRequest.MilliValue(), jastified), nil
 	}
 
+	// The replica number is OK based on minimumMinReplicas and preferredReplicaNumUpperLimit.
+
+	if !isMultipleContainersPod {
+		// nothing else to do.
+		return s.justifyNewSizeByMaxMin(resourceRequest.MilliValue(), k, minAllocatedResources), "", nil
+	}
+
 	targetUtilizationValue, err := hpaservice.GetHPATargetValue(ctx, hpa, containerName, k)
 	if err != nil {
 		return 0, "", fmt.Errorf("get the target value from HPA: %w", err)
 	}
 
 	upperUtilization := math.Ceil((float64(recommendedResourceRequest.MilliValue()) / float64(resourceRequest.MilliValue())) * 100)
-	if targetUtilizationValue > int32(upperUtilization) && isMultipleContainersPod {
+	if targetUtilizationValue > int32(upperUtilization) {
 		// upperUtilization is less than targetUtilizationValue, which seems weird in normal cases.
 		// In this case, most likely the container size is unbalanced. (= we need multi-container specific optimization)
 		// So, for example, when app:istio use the resource in the ratio of 1:5, but the resource request is 1:1,
