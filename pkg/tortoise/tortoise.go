@@ -439,7 +439,9 @@ func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1
 	logger := log.FromContext(ctx)
 	logger.Info("update tortoise status", "tortoise", klog.KObj(originalTortoise))
 	retTortoise := &v1beta3.Tortoise{}
+	retried := -1
 	updateFn := func() error {
+		retried++ // To debug how many times it retried.
 		retTortoise = &v1beta3.Tortoise{}
 		err := s.c.Get(ctx, client.ObjectKeyFromObject(originalTortoise), retTortoise)
 		if err != nil {
@@ -450,21 +452,21 @@ func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1
 
 		err = s.c.Status().Update(ctx, retTortoise)
 		if err != nil {
-			return fmt.Errorf("update tortoise status: %w", err)
+			return err
 		}
 		return nil
 	}
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, updateFn)
 	if err != nil {
-		return originalTortoise, err
+		return originalTortoise, fmt.Errorf("failed to update tortoise status (retried: %v): %w", retried, err)
 	}
 
 	if timeRecord {
 		s.updateLastTimeUpdateTortoise(originalTortoise, now)
 	}
 
-	return originalTortoise, nil
+	return retTortoise, nil
 }
 
 func (s *Service) updateLastTimeUpdateTortoise(tortoise *v1beta3.Tortoise, now time.Time) {

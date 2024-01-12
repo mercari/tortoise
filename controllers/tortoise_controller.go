@@ -219,7 +219,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, true)
+	tortoise, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, true)
 	if err != nil {
 		logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -242,7 +242,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, true)
+	tortoise, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, true)
 	if err != nil {
 		logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err

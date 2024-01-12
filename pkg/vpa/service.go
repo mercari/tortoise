@@ -270,11 +270,12 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 				UncappedTarget: r.RecommendedResource,
 			})
 		}
+		retVPA = vpa
 		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
-			// don't update status if update mode is off. (= dryrun)
-			retVPA = vpa
+			// don't update vpa if update mode is off. (= dryrun)
 			return nil
 		}
+
 		if vpa.Status.Recommendation == nil {
 			vpa.Status.Recommendation = &v1.RecommendedPodResources{}
 		}
@@ -285,16 +286,16 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 			UpdateMode:  ptr.To(v1.UpdateModeAuto),
 		}
 		vpa.Status.Recommendation.ContainerRecommendations = newRecommendations
-		retVPA = vpa
 		// First, we update VPA spec (MinReplicas).
 		// If VPA CRD in the cluster hasn't got the status subresource yet, this will update the status as well.
-		_, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Update(ctx, vpa, metav1.UpdateOptions{})
+		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Update(ctx, vpa, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("update VPA MinReplicas (%s/%s): %w", vpa.Namespace, vpa.Name, err)
 		}
+		retVPA.Status = vpa.Status
 
 		// Then, we update VPA status (Recommendation).
-		_, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, vpa, metav1.UpdateOptions{})
+		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, retVPA, metav1.UpdateOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				// Ignore it. Probably it's because VPA CRD hasn't got the status subresource yet.
