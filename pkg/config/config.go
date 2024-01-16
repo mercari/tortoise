@@ -37,7 +37,7 @@ type Config struct {
 	TortoiseUpdateInterval time.Duration `yaml:"TortoiseUpdateInterval"`
 	// TortoiseHPATargetUtilizationMaxIncrease is the max increase of target utilization that tortoise can give to the HPA (default: 5)
 	TortoiseHPATargetUtilizationMaxIncrease int `yaml:"TortoiseHPATargetUtilizationMaxIncrease"`
-	// TortoiseHPATargetUtilizationUpdateInterval is the interval of updating target utilization of each HPA (default: 1h)
+	// TortoiseHPATargetUtilizationUpdateInterval is the interval of increasing target utilization of each HPA. (default: 1h)
 	TortoiseHPATargetUtilizationUpdateInterval time.Duration `yaml:"TortoiseHPATargetUtilizationUpdateInterval"`
 
 	// TODO: the following fields should be removed after we stop depending on deployment.
