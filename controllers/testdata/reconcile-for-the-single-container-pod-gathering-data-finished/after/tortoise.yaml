@@ -20,10 +20,10 @@ status:
           cpu: "4"
           memory: 4Gi
     tortoiseConditions:
-    - message: "HPA target utilization is updated"
-      reason: HPATargetUtilizationUpdated
+    - message: "HPA target utilization is increased"
+      reason: HPATargetUtilizationIncreased
       status: "True"
-      type: HPATargetUtilizationUpdated
+      type: HPATargetUtilizationIncreased
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:

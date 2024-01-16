@@ -327,10 +327,10 @@ func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1b
 
 func (s *Service) UpdatingHPATargetUtilizationAllowed(tortoise *autoscalingv1beta3.Tortoise, now time.Time) (*autoscalingv1beta3.Tortoise, bool) {
 	for i, c := range tortoise.Status.Conditions.TortoiseConditions {
-		if c.Type == autoscalingv1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated {
-			tortoise.Status.Conditions.TortoiseConditions[i].LastUpdateTime = metav1.NewTime(now)
-			// if the last update is within the interval, we don't update the HPA.
-			return tortoise, c.LastTransitionTime.Add(s.tortoiseHPATargetUtilizationUpdateInterval).Before(now)
+		if c.Type == autoscalingv1beta3.TortoiseConditionTypeHPATargetUtilizationIncreased {
+			tortoise.Status.Conditions.TortoiseConditions[i].LastUpdateTime = metav1.NewTime(now) // We always update the LastUpdateTime, regardless of whether the update would be allowed or not.
+			// if the last LastTransitionTime is within the interval, we don't update the HPA.
+			return tortoise, c.LastTransitionTime.Add(s.tortoiseHPATargetUtilizationUpdateInterval).Before(now) // And, we use LastTransitionTime to decide whether we should update the HPA or not.
 		}
 	}
 	// It's the first time to update the HPA. (Or someone modified the status)
@@ -339,7 +339,7 @@ func (s *Service) UpdatingHPATargetUtilizationAllowed(tortoise *autoscalingv1bet
 
 func (s *Service) RecordHPATargetUtilizationUpdate(tortoise *autoscalingv1beta3.Tortoise, now time.Time) *autoscalingv1beta3.Tortoise {
 	for i, c := range tortoise.Status.Conditions.TortoiseConditions {
-		if c.Type == autoscalingv1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated {
+		if c.Type == autoscalingv1beta3.TortoiseConditionTypeHPATargetUtilizationIncreased {
 			tortoise.Status.Conditions.TortoiseConditions[i].LastTransitionTime = metav1.NewTime(now)
 			tortoise.Status.Conditions.TortoiseConditions[i].LastUpdateTime = metav1.NewTime(now)
 			return tortoise
@@ -348,12 +348,12 @@ func (s *Service) RecordHPATargetUtilizationUpdate(tortoise *autoscalingv1beta3.
 
 	// It's the first time to update the HPA. (Or someone modified the status)
 	tortoise.Status.Conditions.TortoiseConditions = append(tortoise.Status.Conditions.TortoiseConditions, autoscalingv1beta3.TortoiseCondition{
-		Type:               autoscalingv1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+		Type:               autoscalingv1beta3.TortoiseConditionTypeHPATargetUtilizationIncreased,
 		Status:             corev1.ConditionTrue,
 		LastUpdateTime:     metav1.NewTime(now),
 		LastTransitionTime: metav1.NewTime(now),
-		Reason:             "HPATargetUtilizationUpdated",
-		Message:            "HPA target utilization is updated",
+		Reason:             "HPATargetUtilizationIncreased",
+		Message:            "HPA target utilization is increased",
 	})
 	return tortoise
 }
@@ -375,8 +375,9 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		}
 	}
 
-	var allowed bool
-	tortoise, allowed = c.UpdatingHPATargetUtilizationAllowed(tortoise, now)
+	var increaseAllowed bool
+	var increased bool
+	tortoise, increaseAllowed = c.UpdatingHPATargetUtilizationAllowed(tortoise, now)
 	for _, t := range tortoise.Status.Recommendations.Horizontal.TargetUtilizations {
 		for resourcename, proposedTarget := range t.TargetUtilization {
 			if !readyHorizontalResourceAndContainer.Has(resourceNameAndContainerName{resourcename, t.ContainerName}) {
@@ -384,24 +385,28 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 				continue
 			}
 
-			metrics.ProposedHPATargetUtilization.WithLabelValues(tortoise.Name, tortoise.Namespace, t.ContainerName, resourcename.String(), hpa.Name).Set(float64(proposedTarget))
-			if !allowed {
-				// we don't want to update the HPA too frequently.
-				// But, we record the proposed HPA target utilization in metrics.
-				continue
+			if recordMetrics {
+				metrics.ProposedHPATargetUtilization.WithLabelValues(tortoise.Name, tortoise.Namespace, t.ContainerName, resourcename.String(), hpa.Name).Set(float64(proposedTarget))
 			}
 
-			if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
-				metrics.AppliedHPATargetUtilization.WithLabelValues(tortoise.Name, tortoise.Namespace, t.ContainerName, resourcename.String(), hpa.Name).Set(float64(proposedTarget))
-			}
-
-			if err := c.updateHPATargetValue(hpa, t.ContainerName, resourcename, proposedTarget); err != nil {
+			act, val, err := c.updateHPATargetValue(hpa, t.ContainerName, resourcename, proposedTarget, increaseAllowed)
+			if err != nil {
 				return nil, tortoise, fmt.Errorf("update HPA from the recommendation from tortoise")
+			}
+
+			if act == actionIncrease {
+				// Record some metrics are actually increased.
+				increased = true
+			}
+
+			if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && recordMetrics {
+				metrics.AppliedHPATargetUtilization.WithLabelValues(tortoise.Name, tortoise.Namespace, t.ContainerName, resourcename.String(), hpa.Name).Set(float64(val))
 			}
 
 		}
 	}
-	if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
+	if increased && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
+		// Only when some metrics' target value is increased, we record the update.
 		tortoise = c.RecordHPATargetUtilizationUpdate(tortoise, now)
 	}
 
@@ -585,9 +590,17 @@ func GetReplicasRecommendation(recommendations []autoscalingv1beta3.ReplicasReco
 	return 0, errors.New("no recommendation slot")
 }
 
+type action string
+
+const (
+	actionNoChange action = "nochange"
+	actionIncrease action = "increase"
+	actionReduce   action = "reduce"
+)
+
 // updateHPATargetValue updates the target value of the HPA.
 // It looks for the corresponding metric (ContainerResource) and updates the target value.
-func (c *Service) updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName, targetValue int32) error {
+func (c *Service) updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containerName string, k corev1.ResourceName, suggestedTargetValue int32, increaseAllowed bool) (action, int32, error) {
 	for _, m := range hpa.Spec.Metrics {
 		if m.Type != v2.ContainerResourceMetricSourceType {
 			continue
@@ -595,29 +608,41 @@ func (c *Service) updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containe
 
 		if m.ContainerResource == nil {
 			// shouldn't reach here
-			return fmt.Errorf("invalid container resource metric: %s/%s", hpa.Namespace, hpa.Name)
+			return actionNoChange, 0, fmt.Errorf("invalid container resource metric: %s/%s", hpa.Namespace, hpa.Name)
 		}
 
 		if m.ContainerResource.Container != containerName || m.ContainerResource.Name != k || m.ContainerResource.Target.AverageUtilization == nil {
 			continue
 		}
 
-		if targetValue-*m.ContainerResource.Target.AverageUtilization > int32(c.tortoiseHPATargetUtilizationMaxIncrease) {
+		if suggestedTargetValue > *m.ContainerResource.Target.AverageUtilization && !increaseAllowed {
+			// We don't want to increase the target utilization because of tortoiseHPATargetUtilizationUpdateInterval.
+			return actionNoChange, *m.ContainerResource.Target.AverageUtilization, nil
+		}
+
+		if suggestedTargetValue-*m.ContainerResource.Target.AverageUtilization > int32(c.tortoiseHPATargetUtilizationMaxIncrease) {
 			// We don't want to increase the target utilization that much because it might be dangerous.
 			// (Reduce is OK)
 
 			// We only allow to increase the target utilization by c.tortoiseHPATargetUtilizationMaxIncrease.
 			maxIncrease := *m.ContainerResource.Target.AverageUtilization + int32(c.tortoiseHPATargetUtilizationMaxIncrease)
 			m.ContainerResource.Target.AverageUtilization = &maxIncrease
-			return nil
+			return actionIncrease, maxIncrease, nil
 		}
 
-		m.ContainerResource.Target.AverageUtilization = &targetValue
+		act := actionNoChange
+		if suggestedTargetValue < *m.ContainerResource.Target.AverageUtilization {
+			act = actionReduce
+		} else if suggestedTargetValue > *m.ContainerResource.Target.AverageUtilization {
+			act = actionIncrease
+		}
 
-		return nil
+		m.ContainerResource.Target.AverageUtilization = &suggestedTargetValue
+
+		return act, suggestedTargetValue, nil
 	}
 
-	return fmt.Errorf("no corresponding metric found: %s/%s", hpa.Namespace, hpa.Name)
+	return actionNoChange, 0, fmt.Errorf("no corresponding metric found: %s/%s", hpa.Namespace, hpa.Name)
 }
 
 func recordHPAMetric(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) {
