@@ -382,6 +382,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 			}
 
 			upperUsage := math.Ceil((float64(recom.MilliValue()) / float64(req.MilliValue())) * 100)
+			reason := ""
 			if currentTargetValue > int32(upperUsage) {
 				// upperUsage is less than targetValue.
 				// This case, there're some scenarios:
@@ -389,18 +390,23 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 				// - hitting minReplicas.
 				//
 				// And this case, rather than changing the target value, we'd like to change the container size.
-				recommendedTargetUtilization[k] = currentTargetValue // no change
+				recommendedTargetUtilization[k] = currentTargetValue // no change (except the current value exceeds upperTargetResourceUtilization)
+				reason = "the current resource utilization is too small and it's due to unbalanced container size or minReplicas, so keep the current target utilization"
 			} else {
 				newRecom := updateRecommendedContainerBasedMetric(int32(upperUsage), currentTargetValue)
 				if newRecom <= 0 || newRecom > 100 {
 					logger.Error(nil, "generated recommended HPA target utilization is invalid, fallback to the current target value", "current target utilization", currentTargetValue, "recommended target utilization", newRecom, "upper usage", upperUsage, "container name", r.ContainerName, "resource name", k)
 					newRecom = currentTargetValue
+					reason = "the generated recommended HPA target utilization is invalid, fallback to the current target value"
+				} else {
+					reason = "generated recommendation is valid"
 				}
 
 				recommendedTargetUtilization[k] = newRecom
-				if recommendedTargetUtilization[k] > s.upperTargetResourceUtilization {
-					recommendedTargetUtilization[k] = s.upperTargetResourceUtilization
-				}
+			}
+			if recommendedTargetUtilization[k] > s.upperTargetResourceUtilization {
+				reason = "the generated recommended HPA target utilization is too high, fallback to the upper target utilization"
+				recommendedTargetUtilization[k] = s.upperTargetResourceUtilization
 			}
 
 			if currentTargetValue != recommendedTargetUtilization[k] {
@@ -409,7 +415,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 				logger.Info("The recommendation of the container is not updated", "container name", r.ContainerName, "resource name", k, "reason", fmt.Sprintf("HPA target utilization %v%% → %v%%", currentTargetValue, recommendedTargetUtilization[k]))
 			}
 
-			logger.Info("HPA target utilization recommendation is created", "current target utilization", currentTargetValue, "recommended target utilization", recommendedTargetUtilization[k], "upper usage", upperUsage, "container name", r.ContainerName, "resource name", k)
+			logger.Info("HPA target utilization recommendation is generated", "current target utilization", currentTargetValue, "recommended target utilization", recommendedTargetUtilization[k], "upper usage", upperUsage, "container name", r.ContainerName, "resource name", k, "reason", reason)
 		}
 		newHPATargetUtilizationRecommendationPerContainer = append(newHPATargetUtilizationRecommendationPerContainer, v1beta3.HPATargetUtilizationRecommendationPerContainer{
 			ContainerName:     r.ContainerName,
