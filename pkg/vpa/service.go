@@ -259,7 +259,6 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 						}
 					}
 				}
-				metricsRecorded = true
 			}
 
 			newRecommendations = append(newRecommendations, v1.RecommendedContainerResources{
@@ -270,6 +269,7 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 				UncappedTarget: r.RecommendedResource,
 			})
 		}
+		metricsRecorded = true
 		retVPA = vpa
 		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 			// don't update vpa if update mode is off. (= dryrun)
