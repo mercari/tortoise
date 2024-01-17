@@ -36,9 +36,10 @@ type Service struct {
 	tortoiseHPATargetUtilizationMaxIncrease    int
 	recorder                                   record.EventRecorder
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration
+	maximumMinReplica                          int32
 }
 
-func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor float64, upperTargetResourceUtilization, tortoiseHPATargetUtilizationMaxIncrease int, tortoiseHPATargetUtilizationUpdateInterval time.Duration) *Service {
+func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor float64, upperTargetResourceUtilization, tortoiseHPATargetUtilizationMaxIncrease int, tortoiseHPATargetUtilizationUpdateInterval time.Duration, maxReplica int32) *Service {
 	return &Service{
 		c:                                       c,
 		replicaReductionFactor:                  replicaReductionFactor,
@@ -46,6 +47,7 @@ func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor 
 		tortoiseHPATargetUtilizationMaxIncrease: tortoiseHPATargetUtilizationMaxIncrease,
 		recorder:                                recorder,
 		tortoiseHPATargetUtilizationUpdateInterval: tortoiseHPATargetUtilizationUpdateInterval,
+		maximumMinReplica:                          maxReplica,
 	}
 }
 
@@ -421,6 +423,11 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	if err != nil {
 		return nil, tortoise, fmt.Errorf("get minReplicas recommendation: %w", err)
 	}
+	if recommendMin > c.maximumMinReplica {
+		recommendMin = c.maximumMinReplica
+		// We don't change the maxReplica because it's dangerous to limit.
+	}
+
 	if recordMetrics {
 		metrics.ProposedHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(recommendMin))
 		metrics.ProposedHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(recommendMax))
@@ -447,6 +454,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	default:
 		minToActuallyApply = recommendMin
 	}
+
 	hpa.Spec.MinReplicas = &minToActuallyApply
 	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && recordMetrics {
 		// We don't want to record applied* metric when UpdateMode is Off.
