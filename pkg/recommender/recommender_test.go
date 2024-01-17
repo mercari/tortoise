@@ -1771,7 +1771,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 					},
 				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
 					ContainerName:         "test-container",
-					MinAllocatedResources: createResourceList("1m", "1Mi"),
+					MinAllocatedResources: createResourceList("1m", "1Mi"), // They're overwriteen by minResourceSize because minResourceSize is bigger than them.
 				}).AddContainerRecommendationFromVPA(
 					v1beta3.ContainerRecommendationFromVPA{
 						ContainerName: "test-container",
