@@ -583,6 +583,12 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 // GetReplicasRecommendation finds the corresponding recommendations.
 func GetReplicasRecommendation(recommendations []autoscalingv1beta3.ReplicasRecommendation, now time.Time) (int32, error) {
 	for _, r := range recommendations {
+		tz, err := time.LoadLocation(r.TimeZone)
+		if err == nil {
+			// if the timezone is invalid, just ignore it.
+			now = now.In(tz)
+		}
+
 		if now.Hour() < r.To && now.Hour() >= r.From && (r.WeekDay == nil || now.Weekday().String() == *r.WeekDay) {
 			return r.Value, nil
 		}
