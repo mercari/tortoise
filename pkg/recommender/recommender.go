@@ -25,18 +25,20 @@ type Service struct {
 	maxReplicasFactor float64
 	minReplicasFactor float64
 
-	eventRecorder                  record.EventRecorder
-	minimumMinReplicas             int32
-	upperTargetResourceUtilization int32
-	preferredReplicaNumUpperLimit  int32
-	maxResourceSize                corev1.ResourceList
-	minResourceSize                corev1.ResourceList
+	eventRecorder                    record.EventRecorder
+	minimumMinReplicas               int32
+	maximumTargetResourceUtilization int32
+	minimumTargetResourceUtilization int32
+	preferredReplicaNumUpperLimit    int32
+	maxResourceSize                  corev1.ResourceList
+	minResourceSize                  corev1.ResourceList
 }
 
 func New(
 	maxReplicasFactor float64,
 	minReplicasFactor float64,
-	upperTargetResourceUtilization int,
+	maximumTargetResourceUtilization int,
+	minimumTargetResourceUtilization int,
 	minimumMinReplicas int,
 	preferredReplicaNumUpperLimit int,
 	minCPUPerContainer string,
@@ -46,12 +48,13 @@ func New(
 	eventRecorder record.EventRecorder,
 ) *Service {
 	return &Service{
-		eventRecorder:                  eventRecorder,
-		maxReplicasFactor:              maxReplicasFactor,
-		minReplicasFactor:              minReplicasFactor,
-		upperTargetResourceUtilization: int32(upperTargetResourceUtilization),
-		minimumMinReplicas:             int32(minimumMinReplicas),
-		preferredReplicaNumUpperLimit:  int32(preferredReplicaNumUpperLimit),
+		eventRecorder:                    eventRecorder,
+		maxReplicasFactor:                maxReplicasFactor,
+		minReplicasFactor:                minReplicasFactor,
+		maximumTargetResourceUtilization: int32(maximumTargetResourceUtilization),
+		minimumTargetResourceUtilization: int32(minimumTargetResourceUtilization),
+		minimumMinReplicas:               int32(minimumMinReplicas),
+		preferredReplicaNumUpperLimit:    int32(preferredReplicaNumUpperLimit),
 		maxResourceSize: map[corev1.ResourceName]resource.Quantity{
 			corev1.ResourceCPU:    resource.MustParse(maxCPUPerContainer),
 			corev1.ResourceMemory: resource.MustParse(maxMemoryPerContainer),
@@ -403,7 +406,7 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 				// - hitting minReplicas.
 				//
 				// And this case, rather than changing the target value, we'd like to change the container size.
-				recommendedTargetUtilization[k] = currentTargetValue // no change (except the current value exceeds upperTargetResourceUtilization)
+				recommendedTargetUtilization[k] = currentTargetValue // no change (except the current value exceeds maximumTargetResourceUtilization)
 				reason = "the current resource utilization is too small and it's due to unbalanced container size or minReplicas, so keep the current target utilization"
 			} else {
 				newRecom := updateRecommendedContainerBasedMetric(int32(upperUsage), currentTargetValue)
@@ -417,9 +420,13 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 
 				recommendedTargetUtilization[k] = newRecom
 			}
-			if recommendedTargetUtilization[k] > s.upperTargetResourceUtilization {
+			if recommendedTargetUtilization[k] > s.maximumTargetResourceUtilization {
 				reason = "the generated recommended HPA target utilization is too high, fallback to the upper target utilization"
-				recommendedTargetUtilization[k] = s.upperTargetResourceUtilization
+				recommendedTargetUtilization[k] = s.maximumTargetResourceUtilization
+			}
+			if recommendedTargetUtilization[k] < s.minimumTargetResourceUtilization {
+				reason = "the generated recommended HPA target utilization is too low, fallback to the lower target utilization"
+				recommendedTargetUtilization[k] = s.minimumTargetResourceUtilization
 			}
 
 			if currentTargetValue != recommendedTargetUtilization[k] {

@@ -32,18 +32,18 @@ type Service struct {
 	c client.Client
 
 	replicaReductionFactor                     float64
-	upperTargetResourceUtilization             int32
+	maximumTargetResourceUtilization           int32
 	tortoiseHPATargetUtilizationMaxIncrease    int
 	recorder                                   record.EventRecorder
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration
 	maximumMinReplica                          int32
 }
 
-func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor float64, upperTargetResourceUtilization, tortoiseHPATargetUtilizationMaxIncrease int, tortoiseHPATargetUtilizationUpdateInterval time.Duration, maxReplica int32) *Service {
+func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor float64, maximumTargetResourceUtilization, tortoiseHPATargetUtilizationMaxIncrease int, tortoiseHPATargetUtilizationUpdateInterval time.Duration, maxReplica int32) *Service {
 	return &Service{
 		c:                                       c,
 		replicaReductionFactor:                  replicaReductionFactor,
-		upperTargetResourceUtilization:          int32(upperTargetResourceUtilization),
+		maximumTargetResourceUtilization:        int32(maximumTargetResourceUtilization),
 		tortoiseHPATargetUtilizationMaxIncrease: tortoiseHPATargetUtilizationMaxIncrease,
 		recorder:                                recorder,
 		tortoiseHPATargetUtilizationUpdateInterval: tortoiseHPATargetUtilizationUpdateInterval,
