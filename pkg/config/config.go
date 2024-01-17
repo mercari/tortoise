@@ -44,6 +44,9 @@ type Config struct {
 	// TortoiseHPATargetUtilizationUpdateInterval is the interval of increasing target utilization of each HPA. (default: 1h)
 	TortoiseHPATargetUtilizationUpdateInterval time.Duration `yaml:"TortoiseHPATargetUtilizationUpdateInterval"`
 
+	// TortoiseHPAMaximumMinReplica is the maximum minReplica that tortoise can give to the HPA (default: 10)
+	TortoiseHPAMaximumMinReplica int32 `yaml:"TortoiseHPAMaximumMinReplica"`
+
 	// TODO: the following fields should be removed after we stop depending on deployment.
 	// So, we don't put them in the documentation.
 	// IstioSidecarProxyDefaultCPU is the default CPU resource request of the istio sidecar proxy (default: 100m)
@@ -71,6 +74,7 @@ func ParseConfig(path string) (*Config, error) {
 		TortoiseUpdateInterval:                     15 * time.Second,
 		TortoiseHPATargetUtilizationMaxIncrease:    5,
 		TortoiseHPATargetUtilizationUpdateInterval: time.Hour,
+		TortoiseHPAMaximumMinReplica:               10,
 		IstioSidecarProxyDefaultCPU:                "100m",
 		IstioSidecarProxyDefaultMemory:             "200Mi",
 	}
