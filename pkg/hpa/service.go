@@ -243,6 +243,28 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 	return currenthpa, tortoise, hpaEdited
 }
 
+// TODO: move this to configuration
+var globalRecommendedHPABehavior = &v2.HorizontalPodAutoscalerBehavior{
+	ScaleUp: &v2.HPAScalingRules{
+		Policies: []v2.HPAScalingPolicy{
+			{
+				Type:          v2.PercentScalingPolicy,
+				Value:         100,
+				PeriodSeconds: 60,
+			},
+		},
+	},
+	ScaleDown: &v2.HPAScalingRules{
+		Policies: []v2.HPAScalingPolicy{
+			{
+				Type:          v2.PercentScalingPolicy,
+				Value:         2,
+				PeriodSeconds: 90,
+			},
+		},
+	},
+}
+
 func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replicaNum int32, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
 	if !HasHorizontal(tortoise) {
 		// no need to create HPA
@@ -270,26 +292,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 			},
 			MinReplicas: ptr.To[int32](int32(math.Ceil(float64(replicaNum) / 2.0))),
 			MaxReplicas: replicaNum * 2,
-			Behavior: &v2.HorizontalPodAutoscalerBehavior{
-				ScaleUp: &v2.HPAScalingRules{
-					Policies: []v2.HPAScalingPolicy{
-						{
-							Type:          v2.PercentScalingPolicy,
-							Value:         100,
-							PeriodSeconds: 60,
-						},
-					},
-				},
-				ScaleDown: &v2.HPAScalingRules{
-					Policies: []v2.HPAScalingPolicy{
-						{
-							Type:          v2.PercentScalingPolicy,
-							Value:         2,
-							PeriodSeconds: 90,
-						},
-					},
-				},
-			},
+			Behavior:    globalRecommendedHPABehavior,
 		},
 	}
 
@@ -568,6 +571,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 			return fmt.Errorf("change HPA from tortoise recommendation: %w", err)
 		}
 		metricsRecorded = true
+		hpa.Spec.Behavior = globalRecommendedHPABehavior // overwrite
 		retTortoise = tortoise
 		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 			// don't update status if update mode is off. (= dryrun)
