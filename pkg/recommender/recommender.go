@@ -30,6 +30,7 @@ type Service struct {
 	upperTargetResourceUtilization int32
 	preferredReplicaNumUpperLimit  int32
 	maxResourceSize                corev1.ResourceList
+	minResourceSize                corev1.ResourceList
 }
 
 func New(
@@ -38,6 +39,8 @@ func New(
 	upperTargetResourceUtilization int,
 	minimumMinReplicas int,
 	preferredReplicaNumUpperLimit int,
+	minCPUPerContainer string,
+	minMemoryPerContainer string,
 	maxCPUPerContainer string,
 	maxMemoryPerContainer string,
 	eventRecorder record.EventRecorder,
@@ -52,6 +55,10 @@ func New(
 		maxResourceSize: map[corev1.ResourceName]resource.Quantity{
 			corev1.ResourceCPU:    resource.MustParse(maxCPUPerContainer),
 			corev1.ResourceMemory: resource.MustParse(maxMemoryPerContainer),
+		},
+		minResourceSize: map[corev1.ResourceName]resource.Quantity{
+			corev1.ResourceCPU:    resource.MustParse(minCPUPerContainer),
+			corev1.ResourceMemory: resource.MustParse(minMemoryPerContainer),
 		},
 	}
 }
@@ -212,6 +219,12 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 func (s *Service) justifyNewSizeByMaxMin(newSizeMilli int64, k corev1.ResourceName, minAllocatedResources corev1.ResourceList) int64 {
 	max := s.maxResourceSize[k]
 	min := minAllocatedResources[k]
+
+	// Bigger min requirement is used.
+	if min.Cmp(s.minResourceSize[k]) < 0 {
+		// s.minResourceSize[k] is bigger than minAllocatedResources[k]
+		min = s.minResourceSize[k]
+	}
 
 	if newSizeMilli > max.MilliValue() {
 		return max.MilliValue()

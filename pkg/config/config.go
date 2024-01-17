@@ -31,6 +31,10 @@ type Config struct {
 	MaximumCPUCores string `yaml:"MaximumCPUCores"`
 	// MaximumMemoryBytes is the maximum memory bytes that the tortoise can give to the container (default: 10Gi)
 	MaximumMemoryBytes string `yaml:"MaximumMemoryBytes"`
+	// MinimumCPUCores is the minimum CPU cores that the tortoise can give to the container (default: 50m)
+	MinimumCPUCores string `yaml:"MinimumCPUCores"`
+	// MinimumMemoryBytes is the minimum memory bytes that the tortoise can give to the container (default: 50Mi)
+	MinimumMemoryBytes string `yaml:"MinimumMemoryBytes"`
 	// TimeZone is the timezone used to record time in tortoise objects (default: Asia/Tokyo)
 	TimeZone string `yaml:"TimeZone"`
 	// TortoiseUpdateInterval is the interval of updating each tortoise (default: 15s)
@@ -60,7 +64,9 @@ func ParseConfig(path string) (*Config, error) {
 		MinimumMinReplicas:                         3,
 		PreferredReplicaNumUpperLimit:              30,
 		MaximumCPUCores:                            "10",
+		MinimumCPUCores:                            "50m",
 		MaximumMemoryBytes:                         "10Gi",
+		MinimumMemoryBytes:                         "50Mi",
 		TimeZone:                                   "Asia/Tokyo",
 		TortoiseUpdateInterval:                     15 * time.Second,
 		TortoiseHPATargetUtilizationMaxIncrease:    5,
