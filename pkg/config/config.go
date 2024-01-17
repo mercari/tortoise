@@ -23,6 +23,8 @@ type Config struct {
 	ReplicaReductionFactor float64 `yaml:"ReplicaReductionFactor"`
 	// UpperTargetResourceUtilization is the max target utilization that tortoise can give to the HPA (default: 90)
 	UpperTargetResourceUtilization int `yaml:"UpperTargetResourceUtilization"`
+	// MinimumTargetResourceUtilization is the min target utilization that tortoise can give to the HPA (default: 65)
+	MinimumTargetResourceUtilization int `yaml:"MinimumTargetResourceUtilization"`
 	// MinimumMinReplicas is the minimum minReplicas that tortoise can give to the HPA (default: 3)
 	MinimumMinReplicas int `yaml:"MinimumMinReplicas"`
 	// PreferredReplicaNumUpperLimit is the replica number which the tortoise tries to keep the replica number less than. As it says "preferred", the tortoise **tries** to keep the replicas number less than this, but the replica number may be more than this when other "required" rule will be violated by this limit. (default: 30)
@@ -63,6 +65,7 @@ func ParseConfig(path string) (*Config, error) {
 		MaxReplicasFactor:                          2.0,
 		MinReplicasFactor:                          0.5,
 		ReplicaReductionFactor:                     0.95,
+		MinimumTargetResourceUtilization:           65,
 		UpperTargetResourceUtilization:             90,
 		MinimumMinReplicas:                         3,
 		PreferredReplicaNumUpperLimit:              30,
