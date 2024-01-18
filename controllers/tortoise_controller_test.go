@@ -168,7 +168,7 @@ func startController(ctx context.Context) func() {
 		HpaService:         hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour, 1000, 10000),
 		EventRecorder:      record.NewFakeRecorder(10),
 		VpaService:         cli,
-		DeploymentService:  deployment.New(mgr.GetClient(), "100m", "100Mi"),
+		DeploymentService:  deployment.New(mgr.GetClient(), "100m", "100Mi", recorder),
 		TortoiseService:    tortoiseService,
 		RecommenderService: recommender.New(2.0, 0.5, 90, 40, 3, 30, "10m", "10Mi", "10", "10Gi", recorder),
 	}
@@ -239,10 +239,20 @@ var _ = Describe("Test TortoiseController", func() {
 			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, gotMonitorVPA)
 			g.Expect(err).ShouldNot(HaveOccurred())
 
-			err = tc.compare(resources{tortoise: gotTortoise, hpa: gotHPA, vpa: map[v1beta3.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
-				v1beta3.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
-				v1beta3.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
-			}})
+			// get deployment
+			gotDeployment := &v1.Deployment{}
+			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari-app"}, gotDeployment)
+			g.Expect(err).ShouldNot(HaveOccurred())
+
+			err = tc.compare(resources{
+				tortoise: gotTortoise,
+				hpa:      gotHPA,
+				vpa: map[v1beta3.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
+					v1beta3.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
+					v1beta3.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
+				},
+				deployment: gotDeployment,
+			})
 			g.Expect(err).ShouldNot(HaveOccurred())
 		}).Should(Succeed())
 	}
@@ -443,6 +453,13 @@ func (t *testCase) compare(got resources) error {
 	}
 	if d := cmp.Diff(t.want.hpa, got.hpa, cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "ObjectMeta"), cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
 		return fmt.Errorf("unexpected hpa: diff = %s", d)
+	}
+	// Only restartedAt annotation could be modified by the reconciliation
+	// We don't care about the value, but the existence of the annotation.
+	_, okActual := got.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"]
+	_, okWant := t.want.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"]
+	if okActual != okWant {
+		return fmt.Errorf("restartedAt annotation is not expected: whether each has restartedAt annotation: got = %v, want = %v", okActual, okWant)
 	}
 
 	for k, vpa := range t.want.vpa {

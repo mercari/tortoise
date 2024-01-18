@@ -153,7 +153,7 @@ func main() {
 		Scheme:             mgr.GetScheme(),
 		HpaService:         hpaService,
 		VpaService:         vpaClient,
-		DeploymentService:  deployment.New(mgr.GetClient(), config.IstioSidecarProxyDefaultCPU, config.IstioSidecarProxyDefaultMemory),
+		DeploymentService:  deployment.New(mgr.GetClient(), config.IstioSidecarProxyDefaultCPU, config.IstioSidecarProxyDefaultMemory, eventRecorder),
 		RecommenderService: recommender.New(config.MaxReplicasFactor, config.MinReplicasFactor, config.UpperTargetResourceUtilization, config.MinimumTargetResourceUtilization, config.MinimumMinReplicas, config.PreferredReplicaNumUpperLimit, config.MinimumCPUCores, config.MinimumMemoryBytes, config.MaximumCPUCores, config.MaximumMemoryBytes, eventRecorder),
 		TortoiseService:    tortoiseService,
 		Interval:           config.TortoiseUpdateInterval,

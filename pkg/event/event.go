@@ -14,6 +14,7 @@ const (
 	PartlyWorking        = "PartlyWorking"
 	EmergencyModeEnabled = "EmergencyModeEnabled"
 	EmergencyModeFailed  = "EmergencyModeFailed"
+	RestartDeployment    = "RestartDeployment"
 
 	WarningHittingHardMaxReplicaLimit = "HitHardMaxReplicaLimit"
 )

@@ -15,7 +15,7 @@ spec:
     kind: Deployment
     name: mercari-app
   updatePolicy:
-    updateMode: Auto
+    updateMode: Initial
     minReplicas: 9
 status:
   recommendation:

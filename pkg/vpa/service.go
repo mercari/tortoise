@@ -7,6 +7,7 @@ import (
 
 	autoscaling "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -101,7 +102,6 @@ func (c *Service) DeleteTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 }
 
 func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
-	auto := v1.UpdateModeAuto
 	vpa := &v1.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: tortoise.Namespace,
@@ -123,7 +123,7 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 				APIVersion: "apps/v1",
 			},
 			UpdatePolicy: &v1.PodUpdatePolicy{
-				UpdateMode: &auto,
+				UpdateMode: ptr.To(v1.UpdateModeInitial),
 			},
 			ResourcePolicy: &v1.PodResourcePolicy{},
 		},
@@ -229,8 +229,11 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 	return vpa, tortoise, nil
 }
 
-func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replica int32) (*v1.VerticalPodAutoscaler, error) {
+// UpdateVPAFromTortoiseRecommendation updates VPA with the recommendation from Tortoise.
+// In the second return value, it returns true if the recommendation in VPA is actually updated.
+func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replica int32) (*v1.VerticalPodAutoscaler, bool, error) {
 	retVPA := &v1.VerticalPodAutoscaler{}
+	updated := false
 
 	// we only want to record metric once in every reconcile loop.
 	metricsRecorded := false
@@ -280,10 +283,12 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 			vpa.Status.Recommendation = &v1.RecommendedPodResources{}
 		}
 
+		updated = !equality.Semantic.DeepEqual(newRecommendations, vpa.Status.Recommendation.ContainerRecommendations)
+
 		vpa.Spec.UpdatePolicy = &v1.PodUpdatePolicy{
 			// Make it very conservative. We don't want to replace many Pods at the same time.
 			MinReplicas: ptr.To(replica - 1),
-			UpdateMode:  ptr.To(v1.UpdateModeAuto),
+			UpdateMode:  ptr.To(v1.UpdateModeInitial),
 		}
 		vpa.Status.Recommendation.ContainerRecommendations = newRecommendations
 		// First, we update VPA spec (MinReplicas).
@@ -307,14 +312,14 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 	}
 
 	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
-		return retVPA, fmt.Errorf("update VPA status: %w", err)
+		return retVPA, updated, fmt.Errorf("update VPA status: %w", err)
 	}
 
 	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
 		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.VPAUpdated, fmt.Sprintf("VPA %s/%s is updated by the recommendation. The Pods should also be updated with new resources soon by VPA if needed", retVPA.Namespace, retVPA.Name))
 	}
 
-	return retVPA, nil
+	return retVPA, updated, nil
 }
 
 func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, error) {
