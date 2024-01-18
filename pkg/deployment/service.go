@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
@@ -53,6 +54,7 @@ func (c *Service) RolloutRestart(ctx context.Context, dm *v1.Deployment, tortois
 	}
 
 	c.recorder.Event(tortoise, corev1.EventTypeNormal, event.RestartDeployment, "Deployment is restarted to apply the recommendation from Tortoise")
+	log.FromContext(ctx).Info("Deployment is restarted to apply the recommendation from Tortoise", "tortoise", tortoise)
 
 	return nil
 }
