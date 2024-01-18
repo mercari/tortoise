@@ -15,5 +15,5 @@ spec:
     kind: Deployment
     name: mercari-app
   updatePolicy:
-    updateMode: Auto
+    updateMode: Initial
 status: {}

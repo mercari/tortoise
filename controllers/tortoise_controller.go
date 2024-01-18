@@ -236,7 +236,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.VpaService.UpdateVPAFromTortoiseRecommendation(ctx, tortoise, currentReplicaNum)
+	_, updated, err := r.VpaService.UpdateVPAFromTortoiseRecommendation(ctx, tortoise, currentReplicaNum)
 	if err != nil {
 		logger.Error(err, "update VPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -246,6 +246,14 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	if err != nil {
 		logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
+	}
+
+	if updated && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
+		err := r.DeploymentService.RolloutRestart(ctx, dm, tortoise)
+		if err != nil {
+			logger.Error(err, "failed to rollout restart", "tortoise", req.NamespacedName)
+			return ctrl.Result{}, err
+		}
 	}
 
 	return ctrl.Result{RequeueAfter: r.Interval}, nil
