@@ -37,9 +37,10 @@ type Service struct {
 	recorder                                   record.EventRecorder
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration
 	maximumMinReplica                          int32
+	maximumMaxReplica                          int32
 }
 
-func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor float64, maximumTargetResourceUtilization, tortoiseHPATargetUtilizationMaxIncrease int, tortoiseHPATargetUtilizationUpdateInterval time.Duration, maxReplica int32) *Service {
+func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor float64, maximumTargetResourceUtilization, tortoiseHPATargetUtilizationMaxIncrease int, tortoiseHPATargetUtilizationUpdateInterval time.Duration, maximumMinReplica, maximumMaxReplica int32) *Service {
 	return &Service{
 		c:                                       c,
 		replicaReductionFactor:                  replicaReductionFactor,
@@ -47,7 +48,8 @@ func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor 
 		tortoiseHPATargetUtilizationMaxIncrease: tortoiseHPATargetUtilizationMaxIncrease,
 		recorder:                                recorder,
 		tortoiseHPATargetUtilizationUpdateInterval: tortoiseHPATargetUtilizationUpdateInterval,
-		maximumMinReplica:                          maxReplica,
+		maximumMinReplica:                          maximumMinReplica,
+		maximumMaxReplica:                          maximumMaxReplica,
 	}
 }
 
@@ -419,7 +421,12 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	if err != nil {
 		return nil, tortoise, fmt.Errorf("get maxReplicas recommendation: %w", err)
 	}
-	// We always set the maxReplicas to the the recommended one.
+
+	if recommendMax > c.maximumMaxReplica {
+		c.recorder.Event(tortoise, corev1.EventTypeWarning, event.WarningHittingHardMaxReplicaLimit, fmt.Sprintf("MaxReplica (%v) suggested from Tortoise (%s/%s) hits a cluster-wide maximum replica number (%v). It wouldn't be a problem until the replica number actually grows to %v though, you may want to reach out to your cluster admin.", recommendMax, tortoise.Namespace, tortoise.Name, c.maximumMaxReplica, c.maximumMaxReplica))
+		recommendMax = c.maximumMaxReplica
+	}
+
 	hpa.Spec.MaxReplicas = recommendMax
 
 	recommendMin, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
