@@ -669,7 +669,6 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
 					Namespace: "default",
 				},
-				Status: vpav1.VerticalPodAutoscalerStatus{},
 			},
 			wantUpdated: false,
 			want: &vpav1.VerticalPodAutoscaler{
@@ -677,7 +676,84 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
 					Namespace: "default",
 				},
-				Status: vpav1.VerticalPodAutoscalerStatus{},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode:  ptr.To(vpav1.UpdateModeInitial),
+						MinReplicas: ptr.To[int32](9),
+					},
+				},
+				Status: vpav1.VerticalPodAutoscalerStatus{
+					Recommendation: &vpav1.RecommendedPodResources{},
+				},
+			},
+		},
+		{
+			name: "the recommendation on VPA is removed when tortoise is Off mode (= probably this tortoise is changed back from auto to off)",
+			tortoise: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeOff,
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					Recommendations: autoscalingv1beta3.Recommendations{
+						Vertical: autoscalingv1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []autoscalingv1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			initialVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
+					Namespace: "default",
+				},
+				Status: vpav1.VerticalPodAutoscalerStatus{
+					Recommendation: &vpav1.RecommendedPodResources{
+						ContainerRecommendations: []vpav1.RecommendedContainerResources{
+							// This will be removed.
+							{
+								ContainerName: "app",
+								Target: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+			want: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
+					Namespace: "default",
+				},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode:  ptr.To(vpav1.UpdateModeInitial),
+						MinReplicas: ptr.To[int32](9),
+					},
+				},
+				Status: vpav1.VerticalPodAutoscalerStatus{
+					Recommendation: &vpav1.RecommendedPodResources{},
+				},
 			},
 		},
 	}

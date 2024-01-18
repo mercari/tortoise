@@ -275,8 +275,8 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		metricsRecorded = true
 		retVPA = vpa
 		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
-			// don't update vpa if update mode is off. (= dryrun)
-			return nil
+			// remove recommendation if UpdateMode is Off so that VPA won't update the Pod.
+			newRecommendations = nil
 		}
 
 		if vpa.Status.Recommendation == nil {
