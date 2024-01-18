@@ -27,8 +27,15 @@ type Config struct {
 	MinimumTargetResourceUtilization int `yaml:"MinimumTargetResourceUtilization"`
 	// MinimumMinReplicas is the minimum minReplicas that tortoise can give to the HPA (default: 3)
 	MinimumMinReplicas int `yaml:"MinimumMinReplicas"`
+	// MaximumMinReplica is the maximum minReplica that tortoise can give to the HPA (default: 10)
+	MaximumMinReplica int32 `yaml:"MaximumMinReplica"`
 	// PreferredReplicaNumUpperLimit is the replica number which the tortoise tries to keep the replica number less than. As it says "preferred", the tortoise **tries** to keep the replicas number less than this, but the replica number may be more than this when other "required" rule will be violated by this limit. (default: 30)
 	PreferredReplicaNumUpperLimit int `yaml:"PreferredReplicaNumUpperLimit"`
+	// MaximumMaxReplica is the maximum maxReplica that tortoise can give to the HPA (default: 100)
+	// Note that this is very dangerous. If you set this value too low, the HPA may not be able to scale up the workload.
+	// The motivation is to use it has a hard limit to prevent the HPA from scaling up the workload too much in cases of Tortoise's bug, abnormal traffic increase, etc.
+	// If some Tortoise hits this limit, the tortoise controller emits an error log, which may or may not imply you have to change this value.
+	MaximumMaxReplica int32 `yaml:"MaximumMaxReplica"`
 	// MaximumCPUCores is the maximum CPU cores that the tortoise can give to the container (default: 10)
 	MaximumCPUCores string `yaml:"MaximumCPUCores"`
 	// MaximumMemoryBytes is the maximum memory bytes that the tortoise can give to the container (default: 10Gi)
@@ -46,9 +53,6 @@ type Config struct {
 	// TortoiseHPATargetUtilizationUpdateInterval is the interval of increasing target utilization of each HPA. (default: 1h)
 	TortoiseHPATargetUtilizationUpdateInterval time.Duration `yaml:"TortoiseHPATargetUtilizationUpdateInterval"`
 
-	// TortoiseHPAMaximumMinReplica is the maximum minReplica that tortoise can give to the HPA (default: 10)
-	TortoiseHPAMaximumMinReplica int32 `yaml:"TortoiseHPAMaximumMinReplica"`
-
 	// TODO: the following fields should be removed after we stop depending on deployment.
 	// So, we don't put them in the documentation.
 	// IstioSidecarProxyDefaultCPU is the default CPU resource request of the istio sidecar proxy (default: 100m)
@@ -57,9 +61,8 @@ type Config struct {
 	IstioSidecarProxyDefaultMemory string `yaml:"IstioSidecarProxyDefaultMemory"`
 }
 
-// ParseConfig parses the config file (yaml) and returns Config.
-func ParseConfig(path string) (*Config, error) {
-	config := &Config{
+func defaultConfig() *Config {
+	return &Config{
 		RangeOfMinMaxReplicasRecommendationHours:   1,
 		GatheringDataPeriodType:                    "weekly",
 		MaxReplicasFactor:                          2.0,
@@ -77,10 +80,16 @@ func ParseConfig(path string) (*Config, error) {
 		TortoiseUpdateInterval:                     15 * time.Second,
 		TortoiseHPATargetUtilizationMaxIncrease:    5,
 		TortoiseHPATargetUtilizationUpdateInterval: time.Hour,
-		TortoiseHPAMaximumMinReplica:               10,
+		MaximumMinReplica:                          10,
+		MaximumMaxReplica:                          100,
 		IstioSidecarProxyDefaultCPU:                "100m",
 		IstioSidecarProxyDefaultMemory:             "200Mi",
 	}
+}
+
+// ParseConfig parses the config file (yaml) and returns Config.
+func ParseConfig(path string) (*Config, error) {
+	config := defaultConfig()
 	if path == "" {
 		return config, nil
 	}
@@ -113,6 +122,20 @@ func validate(config *Config) error {
 
 	if config.TortoiseHPATargetUtilizationMaxIncrease > 100 || config.TortoiseHPATargetUtilizationMaxIncrease <= 0 {
 		return fmt.Errorf("TortoiseHPATargetUtilizationMaxIncrease should be between 1 and 100")
+	}
+
+	// MinimumMinReplica < MaximumMinReplica <= MaximumMaxReplica
+	if config.MinimumMinReplicas >= int(config.MaximumMinReplica) {
+		return fmt.Errorf("MinimumMinReplicas should be less than MaximumMinReplica")
+	}
+	if config.MaximumMinReplica > config.MaximumMaxReplica {
+		return fmt.Errorf("MaximumMinReplica should be less than or equal to MaximumMaxReplica")
+	}
+	if config.PreferredReplicaNumUpperLimit >= int(config.MaximumMaxReplica) {
+		return fmt.Errorf("PreferredReplicaNumUpperLimit should be less than MaximumMaxReplica")
+	}
+	if config.PreferredReplicaNumUpperLimit <= config.MinimumMinReplicas {
+		return fmt.Errorf("PreferredReplicaNumUpperLimit should be greater than or equal to MinimumMinReplicas")
 	}
 
 	return nil
