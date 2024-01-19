@@ -228,10 +228,8 @@ the target utilization is actually change from 50 to 55.
 
 ### TortoiseHPATargetUtilizationUpdateInterval
 
-The interval of increasing target utilization of each HPA (default: 1h)
+The interval of updating target utilization of each HPA (default: 1h)
 
-So, similarily to TortoiseHPATargetUtilizationMaxIncrease, it's also a safety guard to prevent HPA target utilization from suddenly increased.
+So, similarily to TortoiseHPATargetUtilizationMaxIncrease, it's also a safety guard to prevent HPA target utilization from suddenly changed.
 If TortoiseHPATargetUtilizationMaxIncrease is 1h, TortoiseHPATargetUtilizationMaxIncrease is 5, and tortoise keep suggesting changing the HPA target resource utilization from 50 to 80,
 the target resource utilization would be changing like 50 -(1h)-> 55 -(1h)-> 60 → ... → 80.
-
-Note that the controller ignores this when decreasing the target utilization is suggested because ignoring such is another dangerous.

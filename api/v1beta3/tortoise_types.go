@@ -335,8 +335,8 @@ type TortoiseConditionType string
 
 const (
 	// TortoiseConditionTypeFailedToReconcile means tortoise failed to reconcile due to some reasons.
-	TortoiseConditionTypeFailedToReconcile             TortoiseConditionType = "FailedToReconcile"
-	TortoiseConditionTypeHPATargetUtilizationIncreased TortoiseConditionType = "HPATargetUtilizationIncreased"
+	TortoiseConditionTypeFailedToReconcile           TortoiseConditionType = "FailedToReconcile"
+	TortoiseConditionTypeHPATargetUtilizationUpdated TortoiseConditionType = "HPATargetUtilizationUpdated"
 )
 
 type TortoiseCondition struct {
