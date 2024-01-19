@@ -52,6 +52,11 @@ type Config struct {
 	TortoiseHPATargetUtilizationMaxIncrease int `yaml:"TortoiseHPATargetUtilizationMaxIncrease"`
 	// TortoiseHPATargetUtilizationUpdateInterval is the interval of increasing target utilization of each HPA. (default: 1h)
 	TortoiseHPATargetUtilizationUpdateInterval time.Duration `yaml:"TortoiseHPATargetUtilizationUpdateInterval"`
+	// HPAExternalMetricExclusionRegex is the regex to exclude external metrics from HPA. (default: "")
+	// Basically, if HPA has external metrics, the tortoise keeps that external metric.
+	// But, if you want to remove some external metrics from HPA, you can use this regex.
+	// Note, the exclusion is done only when tortoise is not Off mode.
+	HPAExternalMetricExclusionRegex string `yaml:"HPAExternalMetricExclusionRegex"`
 
 	// TODO: the following fields should be removed after we stop depending on deployment.
 	// So, we don't put them in the documentation.

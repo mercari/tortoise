@@ -163,9 +163,11 @@ func startController(ctx context.Context) func() {
 	Expect(err).ShouldNot(HaveOccurred())
 	cli, err := vpa.New(mgr.GetConfig(), recorder)
 	Expect(err).ShouldNot(HaveOccurred())
+	hpaS, err := hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour, 1000, 10000, ".*-exclude-metric")
+	Expect(err).ShouldNot(HaveOccurred())
 	reconciler := &TortoiseReconciler{
 		Scheme:             scheme,
-		HpaService:         hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour, 1000, 10000),
+		HpaService:         hpaS,
 		EventRecorder:      record.NewFakeRecorder(10),
 		VpaService:         cli,
 		DeploymentService:  deployment.New(mgr.GetClient(), "100m", "100Mi", recorder),
