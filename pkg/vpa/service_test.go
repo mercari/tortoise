@@ -420,8 +420,7 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 				},
 				Spec: vpav1.VerticalPodAutoscalerSpec{
 					UpdatePolicy: &vpav1.PodUpdatePolicy{
-						UpdateMode:  ptr.To(vpav1.UpdateModeInitial),
-						MinReplicas: ptr.To[int32](9),
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
 					},
 				},
 				Status: vpav1.VerticalPodAutoscalerStatus{},
@@ -434,8 +433,7 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 				},
 				Spec: vpav1.VerticalPodAutoscalerSpec{
 					UpdatePolicy: &vpav1.PodUpdatePolicy{
-						UpdateMode:  ptr.To(vpav1.UpdateModeInitial),
-						MinReplicas: ptr.To[int32](9),
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
 					},
 				},
 				Status: vpav1.VerticalPodAutoscalerStatus{
@@ -524,8 +522,7 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 				},
 				Spec: vpav1.VerticalPodAutoscalerSpec{
 					UpdatePolicy: &vpav1.PodUpdatePolicy{
-						UpdateMode:  ptr.To(vpav1.UpdateModeInitial),
-						MinReplicas: ptr.To[int32](9),
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
 					},
 				},
 				Status: vpav1.VerticalPodAutoscalerStatus{
@@ -581,8 +578,7 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 				},
 				Spec: vpav1.VerticalPodAutoscalerSpec{
 					UpdatePolicy: &vpav1.PodUpdatePolicy{
-						UpdateMode:  ptr.To(vpav1.UpdateModeInitial),
-						MinReplicas: ptr.To[int32](9),
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
 					},
 				},
 				Status: vpav1.VerticalPodAutoscalerStatus{
@@ -678,8 +674,7 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 				},
 				Spec: vpav1.VerticalPodAutoscalerSpec{
 					UpdatePolicy: &vpav1.PodUpdatePolicy{
-						UpdateMode:  ptr.To(vpav1.UpdateModeInitial),
-						MinReplicas: ptr.To[int32](9),
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
 					},
 				},
 				Status: vpav1.VerticalPodAutoscalerStatus{
@@ -747,8 +742,7 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 				},
 				Spec: vpav1.VerticalPodAutoscalerSpec{
 					UpdatePolicy: &vpav1.PodUpdatePolicy{
-						UpdateMode:  ptr.To(vpav1.UpdateModeInitial),
-						MinReplicas: ptr.To[int32](9),
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
 					},
 				},
 				Status: vpav1.VerticalPodAutoscalerStatus{

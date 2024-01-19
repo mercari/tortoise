@@ -286,12 +286,9 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		updated = !equality.Semantic.DeepEqual(newRecommendations, vpa.Status.Recommendation.ContainerRecommendations)
 
 		vpa.Spec.UpdatePolicy = &v1.PodUpdatePolicy{
-			// Make it very conservative. We don't want to replace many Pods at the same time.
-			MinReplicas: ptr.To(replica - 1),
-			UpdateMode:  ptr.To(v1.UpdateModeInitial),
+			UpdateMode: ptr.To(v1.UpdateModeInitial),
 		}
 		vpa.Status.Recommendation.ContainerRecommendations = newRecommendations
-		// First, we update VPA spec (MinReplicas).
 		// If VPA CRD in the cluster hasn't got the status subresource yet, this will update the status as well.
 		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Update(ctx, vpa, metav1.UpdateOptions{})
 		if err != nil {

@@ -17,7 +17,6 @@ spec:
     name: mercari-app
   updatePolicy:
     updateMode: Initial
-    minReplicas: 9
 status:
   recommendation:
     containerRecommendations:
