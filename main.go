@@ -147,7 +147,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	hpaService := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.UpperTargetResourceUtilization, config.TortoiseHPATargetUtilizationMaxIncrease, config.TortoiseHPATargetUtilizationUpdateInterval, config.MaximumMinReplica, config.MaximumMaxReplica)
+	hpaService, err := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.UpperTargetResourceUtilization, config.TortoiseHPATargetUtilizationMaxIncrease, config.TortoiseHPATargetUtilizationUpdateInterval, config.MaximumMinReplica, config.MaximumMaxReplica, config.HPAExternalMetricExclusionRegex)
+	if err != nil {
+		setupLog.Error(err, "unable to start hpa service")
+		os.Exit(1)
+	}
 
 	if err = (&controllers.TortoiseReconciler{
 		Scheme:             mgr.GetScheme(),

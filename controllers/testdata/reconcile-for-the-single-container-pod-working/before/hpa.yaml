@@ -21,6 +21,20 @@ spec:
       stabilizationWindowSeconds: 0
   maxReplicas: 100
   metrics:
+  - external:
+      metric:
+        name: hoge-kept-metric
+      target:
+        type: Value
+        value: "1"
+    type: External
+  - external:
+      metric:
+        name: hoge-exclude-metric
+      target:
+        type: Value
+        value: "1"
+    type: External
   - containerResource:
       container: app
       name: cpu

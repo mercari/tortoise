@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"sort"
 	"time"
 
@@ -38,9 +39,29 @@ type Service struct {
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration
 	maximumMinReplica                          int32
 	maximumMaxReplica                          int32
+	externalMetricExclusionRegex               *regexp.Regexp
 }
 
-func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor float64, maximumTargetResourceUtilization, tortoiseHPATargetUtilizationMaxIncrease int, tortoiseHPATargetUtilizationUpdateInterval time.Duration, maximumMinReplica, maximumMaxReplica int32) *Service {
+func New(
+	c client.Client,
+	recorder record.EventRecorder,
+	replicaReductionFactor float64,
+	maximumTargetResourceUtilization,
+	tortoiseHPATargetUtilizationMaxIncrease int,
+	tortoiseHPATargetUtilizationUpdateInterval time.Duration,
+	maximumMinReplica, maximumMaxReplica int32,
+	externalMetricExclusionRegex string,
+) (*Service, error) {
+	var regex *regexp.Regexp
+	if externalMetricExclusionRegex != "" {
+		var err error
+		// parse the regex
+		regex, err = regexp.Compile(externalMetricExclusionRegex)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile regex: %w", err)
+		}
+	}
+
 	return &Service{
 		c:                                       c,
 		replicaReductionFactor:                  replicaReductionFactor,
@@ -50,7 +71,8 @@ func New(c client.Client, recorder record.EventRecorder, replicaReductionFactor 
 		tortoiseHPATargetUtilizationUpdateInterval: tortoiseHPATargetUtilizationUpdateInterval,
 		maximumMinReplica:                          maximumMinReplica,
 		maximumMaxReplica:                          maximumMaxReplica,
-	}
+		externalMetricExclusionRegex:               regex,
+	}, nil
 }
 
 func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replicaNum int32, now time.Time) (*autoscalingv1beta3.Tortoise, error) {
@@ -584,6 +606,8 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 			// don't update status if update mode is off. (= dryrun)
 			return nil
 		}
+
+		hpa = c.excludeExternalMetric(ctx, hpa)
 		retHPA = hpa
 		return c.c.Update(ctx, hpa)
 	}
@@ -714,4 +738,40 @@ func GetHPATargetValue(ctx context.Context, hpa *v2.HorizontalPodAutoscaler, con
 	}
 
 	return 0, fmt.Errorf("the metric for the container isn't found in the hpa: %s. (resource name: %s, container name: %s)", client.ObjectKeyFromObject(hpa).String(), k, containerName)
+}
+
+// excludeExternalMetric excludes the external metric from the HPA, based on the regex.
+func (c *Service) excludeExternalMetric(ctx context.Context, hpa *v2.HorizontalPodAutoscaler) *v2.HorizontalPodAutoscaler {
+	if c.externalMetricExclusionRegex == nil {
+		// Do nothing.
+		return hpa
+	}
+	newHPA := hpa.DeepCopy()
+	newHPA.Spec.Metrics = []v2.MetricSpec{}
+	for _, m := range hpa.Spec.Metrics {
+		if m.Type != v2.ExternalMetricSourceType {
+			// No need to exclude.
+			newHPA.Spec.Metrics = append(newHPA.Spec.Metrics, m)
+			continue
+		}
+
+		if m.External == nil {
+			// shouldn't reach here
+			log.FromContext(ctx).Error(nil, "invalid external metric", "hpa", klog.KObj(hpa))
+
+			// Keep it just in case.
+			newHPA.Spec.Metrics = append(newHPA.Spec.Metrics, m)
+			continue
+		}
+
+		if c.externalMetricExclusionRegex.MatchString(m.External.Metric.Name) {
+			// Exclude
+			log.FromContext(ctx).Info("exclude external metric", "hpa", klog.KObj(hpa), "excluded metric", m.External.Metric.Name)
+			continue
+		}
+		// Not match = keep it
+		newHPA.Spec.Metrics = append(newHPA.Spec.Metrics, m)
+	}
+
+	return newHPA
 }
