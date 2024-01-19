@@ -50,7 +50,7 @@ type Config struct {
 	TortoiseUpdateInterval time.Duration `yaml:"TortoiseUpdateInterval"`
 	// TortoiseHPATargetUtilizationMaxIncrease is the max increase of target utilization that tortoise can give to the HPA (default: 5)
 	TortoiseHPATargetUtilizationMaxIncrease int `yaml:"TortoiseHPATargetUtilizationMaxIncrease"`
-	// TortoiseHPATargetUtilizationUpdateInterval is the interval of increasing target utilization of each HPA. (default: 1h)
+	// TortoiseHPATargetUtilizationUpdateInterval is the interval of updating target utilization of each HPA (default: 24h)
 	TortoiseHPATargetUtilizationUpdateInterval time.Duration `yaml:"TortoiseHPATargetUtilizationUpdateInterval"`
 	// HPAExternalMetricExclusionRegex is the regex to exclude external metrics from HPA. (default: Not delete any external metrics)
 	// Basically, if HPA has external metrics, the tortoise keeps that external metric.
@@ -84,7 +84,7 @@ func defaultConfig() *Config {
 		TimeZone:                                   "Asia/Tokyo",
 		TortoiseUpdateInterval:                     15 * time.Second,
 		TortoiseHPATargetUtilizationMaxIncrease:    5,
-		TortoiseHPATargetUtilizationUpdateInterval: time.Hour,
+		TortoiseHPATargetUtilizationUpdateInterval: time.Hour * 24,
 		MaximumMinReplica:                          10,
 		MaximumMaxReplica:                          100,
 		IstioSidecarProxyDefaultCPU:                "100m",
