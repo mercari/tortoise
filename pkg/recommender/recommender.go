@@ -32,6 +32,7 @@ type Service struct {
 	preferredReplicaNumUpperLimit    int32
 	maxResourceSize                  corev1.ResourceList
 	minResourceSize                  corev1.ResourceList
+	maximumMaxReplica                int32
 }
 
 func New(
@@ -45,6 +46,7 @@ func New(
 	minMemoryPerContainer string,
 	maxCPUPerContainer string,
 	maxMemoryPerContainer string,
+	maximumMaxReplica int32,
 	eventRecorder record.EventRecorder,
 ) *Service {
 	return &Service{
@@ -63,6 +65,7 @@ func New(
 			corev1.ResourceCPU:    resource.MustParse(minCPUPerContainer),
 			corev1.ResourceMemory: resource.MustParse(minMemoryPerContainer),
 		},
+		maximumMaxReplica: maximumMaxReplica,
 	}
 }
 
@@ -164,6 +167,8 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 
 	// When the current replica num is more than or equal to the preferredReplicaNumUpperLimit,
 	// make the container size bigger (just multiple by 1.1) so that the replica number will be descreased.
+	//
+	// Here also covers the scenario where the current replica num hits MaximumMaxReplica.
 	if replicaNum >= s.preferredReplicaNumUpperLimit {
 		// We keep increasing the size until we hit the maxResourceSize.
 		newSize := int64(float64(resourceRequest.MilliValue()) * 1.1)
@@ -191,7 +196,7 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 	// The replica number is OK based on minimumMinReplicas and preferredReplicaNumUpperLimit.
 
 	if !isMultipleContainersPod {
-		// nothing else to do.
+		// nothing else to do for a single container Pod.
 		return s.justifyNewSizeByMaxMin(resourceRequest.MilliValue(), k, minAllocatedResources), "", nil
 	}
 
@@ -240,7 +245,7 @@ func (s *Service) justifyNewSizeByMaxMin(newSizeMilli int64, k corev1.ResourceNa
 
 func (s *Service) updateHPARecommendation(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, now time.Time) (*v1beta3.Tortoise, error) {
 	var err error
-	tortoise, err = s.updateHPATargetUtilizationRecommendations(ctx, tortoise, hpa)
+	tortoise, err = s.updateHPATargetUtilizationRecommendations(ctx, tortoise, hpa, replicaNum)
 	if err != nil {
 		return tortoise, fmt.Errorf("update HPA target utilization recommendations: %w", err)
 	}
@@ -269,6 +274,7 @@ func (s *Service) UpdateRecommendations(ctx context.Context, tortoise *v1beta3.T
 	if err != nil {
 		return tortoise, fmt.Errorf("update HPA recommendations: %w", err)
 	}
+
 	tortoise, err = s.updateVPARecommendation(ctx, tortoise, hpa, replicaNum)
 	if err != nil {
 		return tortoise, fmt.Errorf("update VPA recommendations: %w", err)
@@ -344,8 +350,20 @@ func (s *Service) updateReplicasRecommendation(value int32, recommendations []v1
 	return recommendations, nil
 }
 
-func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) (*v1beta3.Tortoise, error) {
+func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, replicaNum int32) (*v1beta3.Tortoise, error) {
 	logger := log.FromContext(ctx)
+	if replicaNum == s.maximumMaxReplica {
+		// We skip generating HPA recommendations if the current replica number is equal to the maximumMaxReplica
+		// because HPA recommendation would be not valid in this case
+		// and, either way, editing HPA would not change any situation because the replica number is already at the maximum.
+		//
+		// This situation should be rare because the replica number shouldn't reach the maximumMaxReplica in normal situation.
+		logger.Error(nil, "The recommendation of HPA is not updated because the current replica number is equal to the maximumMaxReplica", "current replica number", replicaNum, "maximumMaxReplica", s.maximumMaxReplica)
+
+		// We still update VPA recommendations because VPA recommendations are not affected by the replica number
+		// and hopefully making the container bigger would help the situation.
+		return tortoise, nil
+	}
 
 	requestMap := map[string]map[corev1.ResourceName]resource.Quantity{}
 	for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
