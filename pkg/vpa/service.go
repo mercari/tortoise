@@ -3,11 +3,11 @@ package vpa
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	autoscaling "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/annotation"
@@ -230,36 +231,36 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 }
 
 // UpdateVPAFromTortoiseRecommendation updates VPA with the recommendation from Tortoise.
-// In the second return value, it returns true if the recommendation in VPA is actually updated.
-func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replica int32) (*v1.VerticalPodAutoscaler, bool, error) {
-	retVPA := &v1.VerticalPodAutoscaler{}
-	updated := false
+// In the second return value, it returns true if the Pods should be updated with new resources.
+func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replica int32, now time.Time) (*v1.VerticalPodAutoscaler, bool, error) {
+	newVPA := &v1.VerticalPodAutoscaler{}
+	// At the end of this function, this will be true:
+	// - if UpdateMode is Off, this will be always false.
+	// - if UpdateMode is Auto, this will be true if any of the recommended resources is increased,
+	//   OR, if all the recommended resources is decreased and it's been a while (1h) after the last update.
+	//   (We don't want to update the Pod too frequently if it's only for scaling down.)
+	podShouldBeUpdatedWithNewResource := false
 
 	// we only want to record metric once in every reconcile loop.
 	metricsRecorded := false
 	updateFn := func() error {
-		vpa, err := c.GetTortoiseUpdaterVPA(ctx, tortoise)
+		oldVPA, err := c.GetTortoiseUpdaterVPA(ctx, tortoise)
 		if err != nil {
 			return fmt.Errorf("get tortoise VPA: %w", err)
 		}
+		newVPA = oldVPA.DeepCopy()
 		newRecommendations := make([]v1.RecommendedContainerResources, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
 		for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
 			if !metricsRecorded {
 				// only record metrics once in every reconcile loop.
+				//
+				// We only records proposed* metrics and don't record applied* metrics here.
 				for resourcename, value := range r.RecommendedResource {
 					if resourcename == corev1.ResourceCPU {
 						metrics.ProposedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
-						if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
-							// We don't want to record applied* metric when UpdateMode is Off.
-							metrics.AppliedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
-						}
 					}
 					if resourcename == corev1.ResourceMemory {
 						metrics.ProposedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
-						if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
-							// We don't want to record applied* metric when UpdateMode is Off.
-							metrics.AppliedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
-						}
 					}
 				}
 			}
@@ -273,50 +274,141 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 			})
 		}
 		metricsRecorded = true
-		retVPA = vpa
 		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+			if oldVPA.Status.Recommendation == nil {
+				// nothing to do.
+				return nil
+			}
+
 			// remove recommendation if UpdateMode is Off so that VPA won't update the Pod.
 			newRecommendations = nil
 		}
 
-		if vpa.Status.Recommendation == nil {
-			vpa.Status.Recommendation = &v1.RecommendedPodResources{}
+		if newVPA.Status.Recommendation == nil {
+			// It's the first time to update VPA.
+			newVPA.Status.Recommendation = &v1.RecommendedPodResources{}
+			newVPA.Status.Conditions = nil // make sure it's nil
 		}
 
-		updated = !equality.Semantic.DeepEqual(newRecommendations, vpa.Status.Recommendation.ContainerRecommendations)
-
-		vpa.Spec.UpdatePolicy = &v1.PodUpdatePolicy{
+		newVPA.Spec.UpdatePolicy = &v1.PodUpdatePolicy{
 			UpdateMode: ptr.To(v1.UpdateModeInitial),
 		}
-		vpa.Status.Recommendation.ContainerRecommendations = newRecommendations
-		// If VPA CRD in the cluster hasn't got the status subresource yet, this will update the status as well.
-		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Update(ctx, vpa, metav1.UpdateOptions{})
-		if err != nil {
-			return fmt.Errorf("update VPA MinReplicas (%s/%s): %w", vpa.Namespace, vpa.Name, err)
+		newVPA.Status.Recommendation.ContainerRecommendations = newRecommendations
+
+		if oldVPA.Status.Recommendation != nil && reflect.DeepEqual(newRecommendations, oldVPA.Status.Recommendation.ContainerRecommendations) {
+			// If the recommendation is not changed at all, we don't need to update VPA and Pods.
+			podShouldBeUpdatedWithNewResource = false
+			newVPA = oldVPA
+			return nil
 		}
-		retVPA.Status = vpa.Status
+
+		increased := recommendationIncreaseAnyResource(oldVPA, newVPA)
+		for _, v := range newVPA.Status.Conditions {
+			if v.Type == v1.RecommendationProvided && v.Status == corev1.ConditionTrue {
+				if v.LastTransitionTime.Add(time.Hour).After(now) && !increased {
+					// if all the recommended resources is decreased and it's NOT yet been 1h after the last update,
+					// we don't want to update the Pod too frequently.
+					log.FromContext(ctx).Info("Skip updating VPA status because it's been less than 1h since the last update", "tortoise", tortoise.Name, "namespace", tortoise.Namespace, "vpa", newVPA.Name)
+					newVPA = oldVPA
+					podShouldBeUpdatedWithNewResource = false
+					return nil
+				}
+			}
+		}
+
+		newVPA.Status.Conditions = []v1.VerticalPodAutoscalerCondition{
+			{
+				Type:               v1.RecommendationProvided,
+				Status:             corev1.ConditionTrue,
+				LastTransitionTime: metav1.NewTime(now),
+				Message:            fmt.Sprintf("The recommendation is provided from Tortoise(%v)", tortoise.Name),
+			},
+		}
+		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+			newVPA.Status.Conditions = []v1.VerticalPodAutoscalerCondition{
+				{
+					Type:               v1.RecommendationProvided,
+					Status:             corev1.ConditionFalse,
+					LastTransitionTime: metav1.NewTime(now),
+					Message:            fmt.Sprintf("The recommendation is not provided from Tortoise(%v) because it's Off mode", tortoise.Name),
+				},
+			}
+		}
+
+		// If VPA CRD in the cluster hasn't got the status subresource yet, this will update the status as well.
+		newVPA2, err := c.c.AutoscalingV1().VerticalPodAutoscalers(newVPA.Namespace).Update(ctx, newVPA, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("update VPA MinReplicas (%s/%s): %w", newVPA.Namespace, newVPA.Name, err)
+		}
+		newVPA2.Status = newVPA.Status
 
 		// Then, we update VPA status (Recommendation).
-		retVPA, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).UpdateStatus(ctx, retVPA, metav1.UpdateOptions{})
+		newVPA3, err := c.c.AutoscalingV1().VerticalPodAutoscalers(newVPA.Namespace).UpdateStatus(ctx, newVPA2, metav1.UpdateOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				// Ignore it. Probably it's because VPA CRD hasn't got the status subresource yet.
+				newVPA = newVPA2
 				return nil
 			}
-			return fmt.Errorf("update VPA (%s/%s) status: %w", vpa.Namespace, vpa.Name, err)
+			return fmt.Errorf("update VPA (%s/%s) status: %w", newVPA.Namespace, newVPA.Name, err)
 		}
+		newVPA = newVPA3
+		podShouldBeUpdatedWithNewResource = true
+
 		return nil
 	}
 
 	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
-		return retVPA, updated, fmt.Errorf("update VPA status: %w", err)
+		return newVPA, podShouldBeUpdatedWithNewResource, fmt.Errorf("update VPA status: %w", err)
 	}
 
-	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
-		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.VPAUpdated, fmt.Sprintf("VPA %s/%s is updated by the recommendation. The Pods should also be updated with new resources soon by VPA if needed", retVPA.Namespace, retVPA.Name))
+	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && podShouldBeUpdatedWithNewResource {
+		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.VPAUpdated, fmt.Sprintf("VPA %s/%s is updated by the recommendation. The Pods should also be updated with new resources soon", newVPA.Namespace, newVPA.Name))
+		for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
+			// only record metrics once in every reconcile loop.
+			for resourcename, value := range r.RecommendedResource {
+				if resourcename == corev1.ResourceCPU {
+					// We don't want to record applied* metric when UpdateMode is Off.
+					metrics.AppliedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
+				}
+				if resourcename == corev1.ResourceMemory {
+					metrics.AppliedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
+				}
+			}
+		}
 	}
 
-	return retVPA, updated, nil
+	return newVPA, podShouldBeUpdatedWithNewResource, nil
+}
+
+func recommendationIncreaseAnyResource(oldVPA, newVPA *v1.VerticalPodAutoscaler) bool {
+	if oldVPA.Status.Recommendation == nil {
+		// if oldVPA doesn't have recommendation, it means it's the first time to update VPA.
+		return true
+	}
+	if newVPA.Status.Recommendation == nil {
+		// if newVPA doesn't have recommendation, it means we're going to remove the recommendation.
+		return true
+	}
+
+	for _, new := range newVPA.Status.Recommendation.ContainerRecommendations {
+		found := false
+		for _, old := range oldVPA.Status.Recommendation.ContainerRecommendations {
+			if old.ContainerName != new.ContainerName {
+				continue
+			}
+			found = true
+			if old.Target.Cpu().Cmp(*new.Target.Cpu()) < 0 || old.Target.Memory().Cmp(*new.Target.Memory()) < 0 {
+				return true
+			}
+		}
+		if !found {
+			// if the container is not found in oldVPA, it means it's the first time to update VPA with that container's recommendation.
+			return true
+		}
+	}
+
+	return false
 }
 
 func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, error) {

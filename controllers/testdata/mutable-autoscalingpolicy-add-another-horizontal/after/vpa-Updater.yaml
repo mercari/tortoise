@@ -18,6 +18,10 @@ spec:
   updatePolicy:
     updateMode: Initial
 status:
+  conditions:
+    - type: RecommendationProvided
+      status: "True"
+      Message: "The recommendation is provided from Tortoise(mercari)"
   recommendation:
     containerRecommendations:
     - containerName: app

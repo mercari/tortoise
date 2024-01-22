@@ -2,6 +2,7 @@ package vpa
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -372,16 +373,17 @@ func TestVPAContainerResourcePolicy(t *testing.T) {
 }
 
 func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
+	now := time.Now()
 	tests := []struct {
-		name        string
-		initialVPA  *vpav1.VerticalPodAutoscaler
-		tortoise    *autoscalingv1beta3.Tortoise
-		want        *vpav1.VerticalPodAutoscaler
-		wantUpdated bool
-		wantErr     bool
+		name                                  string
+		initialVPA                            *vpav1.VerticalPodAutoscaler
+		tortoise                              *autoscalingv1beta3.Tortoise
+		want                                  *vpav1.VerticalPodAutoscaler
+		wantPodShouldBeUpdatedWithNewResource bool
+		wantErr                               bool
 	}{
 		{
-			name: "VPA is modified when tortoise is Auto mode",
+			name: "VPA is modified at the first time (tortoise is Auto)",
 			tortoise: &autoscalingv1beta3.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "tortoise",
@@ -423,9 +425,11 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
 					},
 				},
+				// No recommendation yet.
 				Status: vpav1.VerticalPodAutoscalerStatus{},
 			},
-			wantUpdated: true,
+			// It should be true because the VPA has got a first recommendation.
+			wantPodShouldBeUpdatedWithNewResource: true,
 			want: &vpav1.VerticalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
@@ -437,6 +441,14 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					},
 				},
 				Status: vpav1.VerticalPodAutoscalerStatus{
+					Conditions: []vpav1.VerticalPodAutoscalerCondition{
+						{
+							Type:               vpav1.RecommendationProvided,
+							Status:             v1.ConditionTrue,
+							LastTransitionTime: metav1.NewTime(now),
+							Message:            fmt.Sprintf("The recommendation is provided from Tortoise(%v)", "tortoise"),
+						},
+					},
 					Recommendation: &vpav1.RecommendedPodResources{
 						ContainerRecommendations: []vpav1.RecommendedContainerResources{
 							{
@@ -483,7 +495,328 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 			},
 		},
 		{
-			name: "VPA is not modified and updated:false is returned",
+			name: "The recommendation is smaller than before, and we recently update the value. podShouldBeUpdatedWithNewResource:false is returned",
+			tortoise: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					Recommendations: autoscalingv1beta3.Recommendations{
+						Vertical: autoscalingv1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []autoscalingv1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			initialVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
+					Namespace: "default",
+				},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
+					},
+				},
+				Status: vpav1.VerticalPodAutoscalerStatus{
+					Conditions: []vpav1.VerticalPodAutoscalerCondition{
+						{
+							Type:   vpav1.RecommendationProvided,
+							Status: v1.ConditionTrue,
+							// Very recently
+							LastTransitionTime: metav1.NewTime(now.Add(-time.Minute)),
+						},
+					},
+					Recommendation: &vpav1.RecommendedPodResources{
+						ContainerRecommendations: []vpav1.RecommendedContainerResources{
+							{
+								ContainerName: "app",
+								Target: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								LowerBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								UpperBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								UncappedTarget: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Target: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								LowerBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								UpperBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								UncappedTarget: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantPodShouldBeUpdatedWithNewResource: false,
+			want: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
+					Namespace: "default",
+				},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
+					},
+				},
+				Status: vpav1.VerticalPodAutoscalerStatus{
+					Conditions: []vpav1.VerticalPodAutoscalerCondition{
+						{
+							Type:               vpav1.RecommendationProvided,
+							Status:             v1.ConditionTrue,
+							LastTransitionTime: metav1.NewTime(now.Add(-time.Minute)), // no change.
+						},
+					},
+					Recommendation: &vpav1.RecommendedPodResources{
+						ContainerRecommendations: []vpav1.RecommendedContainerResources{
+							{
+								ContainerName: "app",
+								Target: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								LowerBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								UpperBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								UncappedTarget: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Target: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								LowerBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								UpperBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								UncappedTarget: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "The recommendation is smaller than before, but we don't recently update the value. podShouldBeUpdatedWithNewResource:true is returned",
+			tortoise: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					Recommendations: autoscalingv1beta3.Recommendations{
+						Vertical: autoscalingv1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []autoscalingv1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			initialVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
+					Namespace: "default",
+				},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
+					},
+				},
+				Status: vpav1.VerticalPodAutoscalerStatus{
+					Conditions: []vpav1.VerticalPodAutoscalerCondition{
+						{
+							Type:   vpav1.RecommendationProvided,
+							Status: v1.ConditionTrue,
+							// The last update is 24 hours ago.
+							LastTransitionTime: metav1.NewTime(now.Add(-24 * time.Hour)),
+						},
+					},
+					Recommendation: &vpav1.RecommendedPodResources{
+						ContainerRecommendations: []vpav1.RecommendedContainerResources{
+							{
+								ContainerName: "app",
+								Target: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								LowerBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								UpperBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								UncappedTarget: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Target: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								LowerBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								UpperBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+								UncappedTarget: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("2Gi"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantPodShouldBeUpdatedWithNewResource: true,
+			want: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
+					Namespace: "default",
+				},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
+					},
+				},
+				Status: vpav1.VerticalPodAutoscalerStatus{
+					Conditions: []vpav1.VerticalPodAutoscalerCondition{
+						{
+							Type:               vpav1.RecommendationProvided,
+							Status:             v1.ConditionTrue,
+							LastTransitionTime: metav1.NewTime(now), // updated
+							Message:            fmt.Sprintf("The recommendation is provided from Tortoise(%v)", "tortoise"),
+						},
+					},
+					Recommendation: &vpav1.RecommendedPodResources{
+						ContainerRecommendations: []vpav1.RecommendedContainerResources{
+							{
+								ContainerName: "app",
+								Target: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+								LowerBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+								UpperBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+								UncappedTarget: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Target: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+								LowerBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+								UpperBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+								UncappedTarget: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "VPA is not modified and podShouldBeUpdatedWithNewResource:false is always returned",
 			tortoise: &autoscalingv1beta3.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "tortoise",
@@ -570,7 +903,7 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					},
 				},
 			},
-			wantUpdated: false,
+			wantPodShouldBeUpdatedWithNewResource: false,
 			want: &vpav1.VerticalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
@@ -665,8 +998,16 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
 					Namespace: "default",
 				},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
+					},
+				},
+				Status: vpav1.VerticalPodAutoscalerStatus{
+					Recommendation: &vpav1.RecommendedPodResources{},
+				},
 			},
-			wantUpdated: false,
+			wantPodShouldBeUpdatedWithNewResource: false,
 			want: &vpav1.VerticalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
@@ -734,7 +1075,7 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					},
 				},
 			},
-			wantUpdated: true,
+			wantPodShouldBeUpdatedWithNewResource: true,
 			want: &vpav1.VerticalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
@@ -746,7 +1087,136 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					},
 				},
 				Status: vpav1.VerticalPodAutoscalerStatus{
+					Conditions: []vpav1.VerticalPodAutoscalerCondition{
+						{
+							Type:               vpav1.RecommendationProvided,
+							Status:             v1.ConditionFalse,
+							LastTransitionTime: metav1.NewTime(now),
+							Message:            fmt.Sprintf("The recommendation is not provided from Tortoise(%v) because it's Off mode", "tortoise"),
+						},
+					},
 					Recommendation: &vpav1.RecommendedPodResources{},
+				},
+			},
+		},
+		{
+			name: "Tortoise's mode changed: Auto → Off → Auto",
+			tortoise: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					Recommendations: autoscalingv1beta3.Recommendations{
+						Vertical: autoscalingv1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []autoscalingv1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			initialVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
+					Namespace: "default",
+				},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
+					},
+				},
+				Status: vpav1.VerticalPodAutoscalerStatus{
+					// Previously, it was Auto mode.
+					Conditions: []vpav1.VerticalPodAutoscalerCondition{
+						{
+							Type:               vpav1.RecommendationProvided,
+							Status:             v1.ConditionFalse,
+							LastTransitionTime: metav1.NewTime(now.Add(-time.Minute)), // very recently.
+							Message:            fmt.Sprintf("The recommendation is not provided from Tortoise(%v) because it's Off mode", "tortoise"),
+						},
+					},
+				},
+			},
+			// It should be true because the VPA has got a first recommendation.
+			wantPodShouldBeUpdatedWithNewResource: true,
+			want: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
+					Namespace: "default",
+				},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
+					},
+				},
+				Status: vpav1.VerticalPodAutoscalerStatus{
+					Conditions: []vpav1.VerticalPodAutoscalerCondition{
+						{
+							Type:               vpav1.RecommendationProvided,
+							Status:             v1.ConditionTrue,
+							LastTransitionTime: metav1.NewTime(now),
+							Message:            fmt.Sprintf("The recommendation is provided from Tortoise(%v)", "tortoise"),
+						},
+					},
+					Recommendation: &vpav1.RecommendedPodResources{
+						ContainerRecommendations: []vpav1.RecommendedContainerResources{
+							{
+								ContainerName: "app",
+								Target: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+								LowerBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+								UpperBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+								UncappedTarget: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Target: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+								LowerBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+								UpperBound: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+								UncappedTarget: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -758,14 +1228,14 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 				recorder: record.NewFakeRecorder(10),
 			}
 
-			got, updated, err := c.UpdateVPAFromTortoiseRecommendation(context.Background(), tt.tortoise, 10)
+			got, updated, err := c.UpdateVPAFromTortoiseRecommendation(context.Background(), tt.tortoise, 10, now)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Service.UpdateVPAFromTortoiseRecommendation() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			if updated != tt.wantUpdated {
-				t.Errorf("Service.UpdateVPAFromTortoiseRecommendation() updated = %v, wantUpdated %v", updated, tt.wantUpdated)
+			if updated != tt.wantPodShouldBeUpdatedWithNewResource {
+				t.Errorf("Service.UpdateVPAFromTortoiseRecommendation() PodShouldBeUpdatedWithNewResource = %v, wantPodShouldBeUpdatedWithNewResource %v", updated, tt.wantPodShouldBeUpdatedWithNewResource)
 				return
 			}
 
