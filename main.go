@@ -158,7 +158,7 @@ func main() {
 		HpaService:         hpaService,
 		VpaService:         vpaClient,
 		DeploymentService:  deployment.New(mgr.GetClient(), config.IstioSidecarProxyDefaultCPU, config.IstioSidecarProxyDefaultMemory, eventRecorder),
-		RecommenderService: recommender.New(config.MaxReplicasFactor, config.MinReplicasFactor, config.UpperTargetResourceUtilization, config.MinimumTargetResourceUtilization, config.MinimumMinReplicas, config.PreferredReplicaNumUpperLimit, config.MinimumCPUCores, config.MinimumMemoryBytes, config.MaximumCPUCores, config.MaximumMemoryBytes, eventRecorder),
+		RecommenderService: recommender.New(config.MaxReplicasFactor, config.MinReplicasFactor, config.UpperTargetResourceUtilization, config.MinimumTargetResourceUtilization, config.MinimumMinReplicas, config.PreferredReplicaNumUpperLimit, config.MinimumCPUCores, config.MinimumMemoryBytes, config.MaximumCPUCores, config.MaximumMemoryBytes, config.MaximumMaxReplica, eventRecorder),
 		TortoiseService:    tortoiseService,
 		Interval:           config.TortoiseUpdateInterval,
 		EventRecorder:      eventRecorder,
