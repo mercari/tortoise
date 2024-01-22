@@ -16,5 +16,3 @@ spec:
     name: mercari-app
   updatePolicy:
     updateMode: Initial
-status: 
-  recommendation: {}
