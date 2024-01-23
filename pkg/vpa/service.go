@@ -334,6 +334,7 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 				},
 			}
 		}
+		podShouldBeUpdatedWithNewResource = true
 
 		// If VPA CRD in the cluster hasn't got the status subresource yet, this will update the status as well.
 		newVPA2, err := c.c.AutoscalingV1().VerticalPodAutoscalers(newVPA.Namespace).Update(ctx, newVPA, metav1.UpdateOptions{})
@@ -353,7 +354,6 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 			return fmt.Errorf("update VPA (%s/%s) status: %w", newVPA.Namespace, newVPA.Name, err)
 		}
 		newVPA = newVPA3
-		podShouldBeUpdatedWithNewResource = true
 
 		return nil
 	}
