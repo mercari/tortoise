@@ -41,9 +41,3 @@ Thus, Tortoise is allowed to scale down only once an hour, even if the resource 
 
 On the other hand, Tortoise always scales **up** the resource request as soon as possible
 regardless of whether Tortoise recently has scaled the resources or not.
-
-### exceptional case; behave like Horizontal
-
-Rarely the number of replicas get increased/decreased instead of increasing the resource request.
-- When the resource request reaches `MaximumMemoryBytes` or `MaximumCPUCores`.
-- When the resource usage gets increased unusually and the resource utilization is more than `UpperTargetResourceUtilization`.
