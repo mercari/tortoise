@@ -207,7 +207,7 @@ So, Tortoise won't change anything further.
 ### container size adjustment for the multiple container Pods
 
 Although it says "Horizontal",
-again, this optimization is kind of vertical change.
+again, this optimization makes vertical change in your resource.
 
 If several resources are managed by HPA,
 it often happens that one resource always kick HPA to scale up the deployment
