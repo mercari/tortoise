@@ -81,6 +81,8 @@ and how they can configure Tortoise so that they can let tortoises autoscale the
 Before implementing any feature changes as Pull Requests,
 please raise the Issue and discuss what you propose with maintainers.
 
+A major change may have to be proposed via [proposal](./proposals/) process.
+
 Also, please read the CLA carefully before submitting your contribution to Mercari. 
 Under any circumstances, by submitting your contribution, 
 you are deemed to accept and agree to be bound by the terms and conditions of the CLA.
