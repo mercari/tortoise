@@ -3,12 +3,12 @@ GatheringDataPeriodType:         "daily"
 MaxReplicasFactor:                        2.0
 MinReplicasFactor:                        0.5
 ReplicaReductionFactor:                   0.95
-UpperTargetResourceUtilization:           90
+MaximumTargetResourceUtilization:           90
 MinimumMinReplicas:                       3
-PreferredReplicaNumUpperLimit:            30
+PreferredMaxReplicas:            30
 MaximumCPUCores:                         "10"
 MaximumMemoryBytes:                      "10Gi"
 TimeZone:                                 "Asia/Tokyo"
 TortoiseUpdateInterval:                   "1h"
-TortoiseHPATargetUtilizationMaxIncrease:   10
-TortoiseHPATargetUtilizationUpdateInterval:                   "3h"
+HPATargetUtilizationMaxIncrease:   10
+HPATargetUtilizationUpdateInterval:                   "3h"

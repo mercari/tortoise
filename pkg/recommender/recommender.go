@@ -168,7 +168,7 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 	// When the current replica num is more than or equal to the preferredReplicaNumUpperLimit,
 	// make the container size bigger (just multiple by 1.1) so that the replica number will be descreased.
 	//
-	// Here also covers the scenario where the current replica num hits MaximumMaxReplica.
+	// Here also covers the scenario where the current replica num hits MaximumMaxReplicas.
 	if replicaNum >= s.preferredReplicaNumUpperLimit {
 		// We keep increasing the size until we hit the maxResourceSize.
 		newSize := int64(float64(resourceRequest.MilliValue()) * 1.1)
