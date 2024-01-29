@@ -3,6 +3,7 @@ metadata:
   namespace: default
 spec:
   targetRefs:
+    horizontalPodAutoscalerName: tortoise-hpa-mercari
     scaleTargetRef:
       apiVersion: apps/v1
       kind: Deployment
@@ -27,36 +28,45 @@ status:
       memory: Vertical
     containerName: istio-proxy
   conditions:
+    containerResourceRequests:
+      - containerName: "app"
+        resource:
+          cpu: "10"
+          memory: 10Gi
+      - containerName: "istio-proxy"
+        resource:
+          cpu: "4"
+          memory: 4Gi
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
       recommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
     - containerName: istio-proxy
       maxRecommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
       recommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
   recommendations:
     horizontal:
@@ -65,22 +75,28 @@ status:
         timezone: Local
         to: 24
         updatedAt: "2023-10-06T01:15:46Z"
-        value: 15
+        value: 20
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
         updatedAt: "2023-10-06T01:15:46Z"
-        value: 3
+        value: 5
       targetUtilizations:
       - containerName: app
-        targetUtilization:
-          cpu: 50
+        targetUtilization: {}
       - containerName: istio-proxy
-        targetUtilization:
-          cpu: 50
+        targetUtilization: {}
     vertical:
-      containerResourceRecommendation: null
+      containerResourceRecommendation:
+      - RecommendedResource:
+          cpu: "3"
+          memory: 3Gi
+        containerName: app
+      - RecommendedResource:
+          cpu: "3"
+          memory: 3Gi
+        containerName: istio-proxy
   targets:
     scaleTargetRef:
       kind: Deployment

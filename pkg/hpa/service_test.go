@@ -3005,7 +3005,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 			},
 		},
 		{
-			name: "remove all metrics from hpa",
+			name: "when remove all horizontal, hpa would be removed if it's created by Tortoise",
 			args: args{
 				tortoise: &autoscalingv1beta3.Tortoise{
 					ObjectMeta: metav1.ObjectMeta{
@@ -3015,7 +3015,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 					Spec: autoscalingv1beta3.TortoiseSpec{
 						DeletionPolicy: autoscalingv1beta3.DeletionPolicyDeleteAll,
 						TargetRefs: autoscalingv1beta3.TargetRefs{
-							HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 							ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 								Kind: "Deployment",
 								Name: "deployment",
@@ -3132,6 +3131,188 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				Spec: autoscalingv1beta3.TortoiseSpec{
 					DeletionPolicy: autoscalingv1beta3.DeletionPolicyDeleteAll,
 					TargetRefs: autoscalingv1beta3.TargetRefs{
+						ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
+							Kind: "Deployment",
+							Name: "deployment",
+						},
+					},
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								v1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								v1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+							},
+						},
+					},
+					ContainerResourcePhases: []autoscalingv1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
+								},
+								v1.ResourceMemory: {
+									Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
+								},
+								v1.ResourceMemory: {
+									Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: autoscalingv1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+				},
+			},
+			afterHPA: nil, // hpa would be removed
+		},
+		{
+			name: "when remove all horizontal, hpa would be disabled if it's created by users",
+			args: args{
+				tortoise: &autoscalingv1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+					},
+					Spec: autoscalingv1beta3.TortoiseSpec{
+						DeletionPolicy: autoscalingv1beta3.DeletionPolicyDeleteAll,
+						TargetRefs: autoscalingv1beta3.TargetRefs{
+							HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
+							ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
+								Kind: "Deployment",
+								Name: "deployment",
+							},
+						},
+					},
+					Status: autoscalingv1beta3.TortoiseStatus{
+						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+								},
+							},
+						},
+						ContainerResourcePhases: []autoscalingv1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
+									},
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
+									},
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: autoscalingv1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+					},
+				},
+				replicaNum: 4,
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "existing-hpa",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annotation.TortoiseNameAnnotation:      "tortoise",
+						annotation.ManagedByTortoiseAnnotation: "true",
+					},
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					ScaleTargetRef: v2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name:      v1.ResourceCPU,
+								Container: "app",
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](50),
+									Type:               v2.UtilizationMetricType,
+								},
+							},
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name:      v1.ResourceCPU,
+								Container: "istio-proxy",
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](50),
+									Type:               v2.UtilizationMetricType,
+								},
+							},
+						},
+					},
+					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleDown: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         2,
+									PeriodSeconds: 90,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					DeletionPolicy: autoscalingv1beta3.DeletionPolicyDeleteAll,
+					TargetRefs: autoscalingv1beta3.TargetRefs{
 						HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
 						ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
 							Kind: "Deployment",
@@ -3185,7 +3366,36 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 					},
 				},
 			},
-			afterHPA: nil,
+			afterHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "existing-hpa",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annotation.TortoiseNameAnnotation:      "tortoise",
+						annotation.ManagedByTortoiseAnnotation: "true",
+					},
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(4), // disabled
+					MaxReplicas: 4,           // disabled
+					ScaleTargetRef: v2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleDown: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         2,
+									PeriodSeconds: 90,
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		{
 			name: "remove metrics from hpa, but not remove the external metrics",

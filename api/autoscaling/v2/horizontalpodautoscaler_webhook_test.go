@@ -154,6 +154,9 @@ var _ = Describe("v2.HPA Webhook", func() {
 		It("HPA is mutated based on the recommendation", func() {
 			mutateTest(filepath.Join("testdata", "mutating", "mutate-by-recommendations", "before.yaml"), filepath.Join("testdata", "mutating", "mutate-by-recommendations", "after.yaml"), filepath.Join("testdata", "mutating", "mutate-by-recommendations", "tortoise.yaml"))
 		})
+		It("HPA is partly mutated based on the recommendation", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "mutate-by-one-recommendation", "before.yaml"), filepath.Join("testdata", "mutating", "mutate-by-one-recommendation", "after.yaml"), filepath.Join("testdata", "mutating", "mutate-by-one-recommendation", "tortoise.yaml"))
+		})
 		It("HPA is not mutated (dryrun)", func() {
 			mutateTest(filepath.Join("testdata", "mutating", "no-mutate-by-recommendations-when-dryrun", "before.yaml"), filepath.Join("testdata", "mutating", "no-mutate-by-recommendations-when-dryrun", "after.yaml"), filepath.Join("testdata", "mutating", "no-mutate-by-recommendations-when-dryrun", "tortoise.yaml"))
 		})

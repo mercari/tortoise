@@ -28,9 +28,15 @@ spec:
         averageUtilization: 50
         type: Utilization
     type: ContainerResource
+  - containerResource:
+      container: istio-proxy
+      name: cpu
+      target:
+        averageUtilization: 50
+        type: Utilization
+    type: ContainerResource
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: mercari-app
-

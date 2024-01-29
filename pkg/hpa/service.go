@@ -494,6 +494,32 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	return hpa, tortoise, nil
 }
 
+// disableHPA disables the HPA created by users without removing it, by removing all metrics and setting the minReplicas to the specified value.
+func (c *Service) disableHPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replicaNum int32) error {
+	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
+		// nothing to do.
+		return nil
+	}
+	updateFn := func() error {
+		hpa := &v2.HorizontalPodAutoscaler{}
+		if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName}, hpa); err != nil {
+			return fmt.Errorf("failed to get hpa on tortoise: %w", err)
+		}
+
+		hpa.Spec.Metrics = nil
+		hpa.Spec.MaxReplicas = replicaNum
+		hpa.Spec.MinReplicas = ptr.To(replicaNum)
+
+		return c.c.Update(ctx, hpa)
+	}
+
+	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replicaNum int32, now time.Time) (*autoscalingv1beta3.Tortoise, error) {
 	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 		// When UpdateMode is Off, we don't update HPA.
@@ -501,13 +527,23 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context
 	}
 
 	if !HasHorizontal(tortoise) {
-		err := c.DeleteHPACreatedByTortoise(ctx, tortoise)
-		if err != nil && !apierrors.IsNotFound(err) {
-			return tortoise, fmt.Errorf("delete hpa created by tortoise: %w", err)
+		if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
+			// HPA should be created by Tortoise, which can be deleted.
+			err := c.DeleteHPACreatedByTortoise(ctx, tortoise)
+			if err != nil && !apierrors.IsNotFound(err) {
+				return tortoise, fmt.Errorf("delete hpa created by tortoise: %w", err)
+			}
+			c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPADeleted, fmt.Sprintf("Deleted a HPA %s/%s because tortoise has no resource to scale horizontally", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
+		} else {
+			// We cannot delete the HPA because it's specified by the user.
+			err := c.disableHPA(ctx, tortoise, replicaNum)
+			if err != nil {
+				return tortoise, fmt.Errorf("disable hpa: %w", err)
+			}
+			c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPADisabled, fmt.Sprintf("Disabled a HPA %s/%s because tortoise has no resource to scale horizontally", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
 		}
-		// No need to edit container resource phase.
 
-		c.recorder.Event(tortoise, corev1.EventTypeNormal, "HPADeleted", fmt.Sprintf("Deleted a HPA %s/%s because tortoise has no resource to scale horizontally", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
+		// No need to edit container resource phase.
 
 		return tortoise, nil
 	}
@@ -518,7 +554,7 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context
 			// If not found, it's one of:
 			// - the user didn't specify Horizontal in any autoscalingPolicy previously,
 			//   but just updated tortoise to have Horizontal in some.
-			//   - In that case, we need to create an initial HPA.
+			//   - In that case, we need to create an initial HPA or give an annotation to existing HPA.
 			tortoise, err = c.InitializeHPA(ctx, tortoise, replicaNum, now)
 			if err != nil {
 				return tortoise, fmt.Errorf("initialize hpa: %w", err)

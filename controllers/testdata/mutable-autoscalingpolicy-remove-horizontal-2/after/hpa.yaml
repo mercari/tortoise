@@ -19,18 +19,16 @@ spec:
         value: 100
       selectPolicy: Max
       stabilizationWindowSeconds: 0
-  maxReplicas: 100
+  minReplicas: 10 # disabled
+  maxReplicas: 10 # disabled
   metrics:
-  - containerResource:
-      container: app
+  - resource:
       name: cpu
       target:
-        averageUtilization: 50
+        averageUtilization: 80
         type: Utilization
-    type: ContainerResource
-  minReplicas: 1
+    type: Resource
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: mercari-app
-
