@@ -388,8 +388,11 @@ var _ = Describe("Test TortoiseController", func() {
 		It("Tortoise get another Horizontal and modify the existing HPA", func() {
 			runTest(filepath.Join("testdata", "mutable-autoscalingpolicy-add-another-horizontal"))
 		})
-		It("Horizontal is removed and modify the existing HPA", func() {
+		It("Horizontal is removed and remove the HPA created by tortoise", func() {
 			runTest(filepath.Join("testdata", "mutable-autoscalingpolicy-remove-horizontal"))
+		})
+		It("Horizontal is removed and modify the existing HPA", func() {
+			runTest(filepath.Join("testdata", "mutable-autoscalingpolicy-remove-horizontal-2"))
 		})
 	})
 	Context("DeletionPolicy is handled correctly", func() {

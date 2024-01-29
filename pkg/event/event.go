@@ -4,8 +4,10 @@ const (
 	VPACreated = "VPACreated"
 	VPAUpdated = "VPAUpdated"
 
-	HPACreated = "HPACreated"
-	HPAUpdated = "HPAUpdated"
+	HPACreated  = "HPACreated"
+	HPAUpdated  = "HPAUpdated"
+	HPADeleted  = "HPADeleted"
+	HPADisabled = "HPADisabled"
 
 	RecommendationUpdated = "RecommendationUpdated"
 

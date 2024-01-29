@@ -3,6 +3,7 @@ metadata:
   namespace: default
 spec:
   targetRefs:
+    horizontalPodAutoscalerName: tortoise-hpa-mercari
     scaleTargetRef:
       apiVersion: apps/v1
       kind: Deployment
