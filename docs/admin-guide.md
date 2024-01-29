@@ -13,7 +13,7 @@ GatheringDataPeriodType:                      How long do we gather data for min
 MaxReplicasFactor:                            The factor to calculate the maxReplicas recommendation from the current replica number (default: 2.0)
 MinReplicasFactor:                            The factor to calculate the minReplicas recommendation from the current replica number (default: 0.5)
 ReplicaReductionFactor:                       The factor to reduce the minReplicas gradually after turning off Emergency mode (default: 0.95)
-MaximumTargetResourceUtilization:               The max target utilization that tortoise can give to the HPA (default: 90)
+MaximumTargetResourceUtilization:             The max target utilization that tortoise can give to the HPA (default: 90)
 MinimumMinReplicas:                           The minimum minReplicas that tortoise can give to the HPA (default: 3)
 MaximumMinReplicas:                           The maximum minReplica that tortoise can give to the HPA (default: 10)
 MaximumMaxReplicas:                           The maximum maxReplica that tortoise can give to the HPA (default: 100)
@@ -22,8 +22,8 @@ MaximumCPUCores:                              The maximum CPU cores that the tor
 MaximumMemoryBytes:                           The maximum memory bytes that the tortoise can give to the container (default: 10Gi)
 Timezone:                                     The timezone used to record time in tortoise objects (default: Asia/Tokyo)
 TortoiseUpdateInterval:                       The interval of updating each tortoise (default: 15s)
-HPATargetUtilizationMaxIncrease:      The max increase of target utilization that tortoise can give to the HPA (default: 5)
-HPATargetUtilizationUpdateInterval:   The interval of updating target utilization of each HPA (default: 1h)
+HPATargetUtilizationMaxIncrease:              The max increase of target utilization that tortoise can give to the HPA (default: 5)
+HPATargetUtilizationUpdateInterval:           The interval of updating target utilization of each HPA (default: 1h)
 HPAExternalMetricExclusionRegex:              The regex to exclude external metrics from HPA. (default: Not delete any external metrics)
 ```
 
