@@ -7,42 +7,14 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
-  controller: true
-  domain: mercari.com
-  group: autoscaling
-  kind: Tortoise
-  path: github.com/mercari/tortoise/api/v1alpha1
-  version: v1alpha1
-  webhooks:
-    conversion: true
-    defaulting: true
-    validation: true
-    webhookVersion: v1
-- api:
-    crdVersion: v1
-    namespaced: true
-  domain: mercari.com
-  group: autoscaling
-  kind: Tortoise
-  path: github.com/mercari/tortoise/api/v1beta1
-  version: v1beta1
-  webhooks:
-    conversion: true
-    webhookVersion: v1
-- api:
-    crdVersion: v1
-    namespaced: true
-  domain: mercari.com
-  group: autoscaling
-  kind: Tortoise
-  path: github.com/mercari/tortoise/api/v1beta2
-  version: v1beta2
-- api:
-    crdVersion: v1
-    namespaced: true
   domain: mercari.com
   group: autoscaling
   kind: Tortoise
   path: github.com/mercari/tortoise/api/v1beta3
   version: v1beta3
+  webhooks:
+    conversion: true
+    defaulting: true
+    validation: true
+    webhookVersion: v1
 version: "3"
