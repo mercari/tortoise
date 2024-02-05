@@ -44,8 +44,29 @@ type Config struct {
 	MaximumMemoryBytes string `yaml:"MaximumMemoryBytes"`
 	// MinimumCPUCores is the minimum CPU cores that the tortoise can give to the container (default: 50m)
 	MinimumCPUCores string `yaml:"MinimumCPUCores"`
+	// MinimumCPUCoresPerContainer is the minimum CPU cores per container that the tortoise can give to the container (default: nil)
+	// It has a higher priority than MinimumCPUCores.
+	// If you specify both, the tortoise uses MinimumCPUCoresPerContainer basically, but if the container name is not found in this map, the tortoise uses MinimumCPUCores.
+	//
+	// You can specify like this:
+	// ```
+	// MinimumCPUCoresPerContainer:
+	//  istio-proxy: 100m
+	//  hoge-agent: 120m
+	// ```
+	MinimumCPUCoresPerContainer map[string]string `yaml:"MinimumCPUCoresPerContainer"`
 	// MinimumMemoryBytes is the minimum memory bytes that the tortoise can give to the container (default: 50Mi)
 	MinimumMemoryBytes string `yaml:"MinimumMemoryBytes"`
+	// MinimumMemoryBytesPerContainer is the minimum memory bytes per container that the tortoise can give to the container (default: nil)
+	// If you specify both, the tortoise uses MinimumMemoryBytesPerContainer basically, but if the container name is not found in this map, the tortoise uses MinimumMemoryBytes.
+	//
+	// You can specify like this:
+	// ```
+	// MinimumMemoryBytesPerContainer:
+	//  istio-proxy: 100m
+	//  hoge-agent: 120m
+	// ```
+	MinimumMemoryBytesPerContainer map[string]string `yaml:"MinimumMemoryBytesPerContainer"`
 	// TimeZone is the timezone used to record time in tortoise objects (default: Asia/Tokyo)
 	TimeZone string `yaml:"TimeZone"`
 	// TortoiseUpdateInterval is the interval of updating each tortoise (default: 15s)
@@ -81,8 +102,10 @@ func defaultConfig() *Config {
 		PreferredMaxReplicas:                     30,
 		MaximumCPUCores:                          "10",
 		MinimumCPUCores:                          "50m",
+		MinimumCPUCoresPerContainer:              map[string]string{},
 		MaximumMemoryBytes:                       "10Gi",
 		MinimumMemoryBytes:                       "50Mi",
+		MinimumMemoryBytesPerContainer:           map[string]string{},
 		TimeZone:                                 "Asia/Tokyo",
 		TortoiseUpdateInterval:                   15 * time.Second,
 		HPATargetUtilizationMaxIncrease:          5,

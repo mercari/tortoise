@@ -43,6 +43,14 @@ func TestParseConfig(t *testing.T) {
 				HPATargetUtilizationUpdateInterval:       3 * time.Hour,
 				IstioSidecarProxyDefaultCPU:              "100m",
 				IstioSidecarProxyDefaultMemory:           "200Mi",
+				MinimumCPUCoresPerContainer: map[string]string{
+					"istio-proxy": "100m",
+					"hoge-agent":  "120m",
+				},
+				MinimumMemoryBytesPerContainer: map[string]string{
+					"istio-proxy": "1Mi",
+					"hoge-agent":  "2Mi",
+				},
 			},
 		},
 		{
@@ -72,6 +80,8 @@ func TestParseConfig(t *testing.T) {
 				HPATargetUtilizationUpdateInterval:       24 * time.Hour,
 				IstioSidecarProxyDefaultCPU:              "100m",
 				IstioSidecarProxyDefaultMemory:           "200Mi",
+				MinimumCPUCoresPerContainer:              map[string]string{},
+				MinimumMemoryBytesPerContainer:           map[string]string{},
 			},
 		},
 		{
@@ -108,6 +118,8 @@ func TestParseConfig(t *testing.T) {
 				HPATargetUtilizationUpdateInterval:       24 * time.Hour,
 				IstioSidecarProxyDefaultCPU:              "100m",
 				IstioSidecarProxyDefaultMemory:           "200Mi",
+				MinimumCPUCoresPerContainer:              map[string]string{},
+				MinimumMemoryBytesPerContainer:           map[string]string{},
 			},
 		},
 	}

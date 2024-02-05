@@ -11,6 +11,8 @@ spec:
       creationTimestamp: null
       labels:
         app: mercari
+      annotations:
+        sidecar.istio.io/inject: "true"
     spec:
       containers:
       - image: awesome-mercari-app-image

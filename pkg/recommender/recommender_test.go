@@ -872,7 +872,7 @@ func TestUpdateRecommendation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := New(2.0, 0.5, 90, 40, 3, 30, "50m", "50Mi", "10", "10Gi", 1000, record.NewFakeRecorder(10))
+			s := New(2.0, 0.5, 90, 40, 3, 30, "50m", "50Mi", map[string]string{"istio-proxy": "100m"}, map[string]string{"istio-proxy": "100m"}, "10", "10Gi", 1000, record.NewFakeRecorder(10))
 			got, err := s.updateHPATargetUtilizationRecommendations(context.Background(), tt.args.tortoise, tt.args.hpa, tt.args.currentReplicaNum)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateHPATargetUtilizationRecommendations() error = %v, wantErr %v", err, tt.wantErr)
@@ -1552,7 +1552,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := New(2.0, 0.5, 90, 40, 3, 30, "50m", "50Mi", "10", "10Gi", 1000, record.NewFakeRecorder(10))
+			s := New(2.0, 0.5, 90, 40, 3, 30, "50m", "50Mi", map[string]string{"istio-proxy": "100m"}, map[string]string{"istio-proxy": "100m"}, "10", "10Gi", 1000, record.NewFakeRecorder(10))
 			got, err := s.updateHPAMinMaxReplicasRecommendations(tt.args.tortoise, tt.args.replicaNum, tt.args.now)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateHPAMinMaxReplicasRecommendations() error = %v, wantErr %v", err, tt.wantErr)
@@ -1569,7 +1569,8 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 	type fields struct {
 		preferredReplicaNumUpperLimit int32
 		minimumMinReplicas            int32
-		maxResourceSize               corev1.ResourceList
+		maxCPU                        string
+		maxMemory                     string
 	}
 	type args struct {
 		tortoise   *v1beta3.Tortoise
@@ -1587,7 +1588,8 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			name: "all horizontal: replica count above preferredReplicaNumUpperLimit: increase the resources a bit",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 3,
-				maxResourceSize:               createResourceList("1000m", "1Gi"),
+				maxCPU:                        "1000m",
+				maxMemory:                     "1Gi",
 			},
 			args: args{
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
@@ -1657,7 +1659,8 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			name: "horizontal/vertical: replica count above preferredReplicaNumUpperLimit: increase the resource a bit",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 3,
-				maxResourceSize:               createResourceList("1000m", "1Gi"),
+				maxCPU:                        "1000m",
+				maxMemory:                     "1Gi",
 			},
 			args: args{
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
@@ -1727,7 +1730,8 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			name: "all horizontal: requested resources exceed maxResourceSize",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 5,
-				maxResourceSize:               createResourceList("1000m", "1Gi"),
+				maxCPU:                        "1000m",
+				maxMemory:                     "1Gi",
 			},
 			args: args{
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
@@ -1823,7 +1827,8 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			name: "all horizontal: requested resources is smaller than MinAllocatedResources",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 5,
-				maxResourceSize:               createResourceList("1000m", "1Gi"),
+				maxCPU:                        "1000m",
+				maxMemory:                     "1Gi",
 			},
 			args: args{
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
@@ -1919,7 +1924,8 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			name: "all horizontal: replica number is too small: reduce resources based on VPA recommendation",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 6,
-				maxResourceSize:               createResourceList("1000m", "1Gi"),
+				maxCPU:                        "1000m",
+				maxMemory:                     "1Gi",
 				minimumMinReplicas:            3,
 			},
 			args: args{
@@ -1990,7 +1996,8 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			name: "all vertical: reduce resources based on VPA recommendation",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 6,
-				maxResourceSize:               createResourceList("1000m", "1Gi"),
+				maxCPU:                        "1000m",
+				maxMemory:                     "1Gi",
 			},
 			args: args{
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
@@ -2060,7 +2067,8 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			name: "all vertical: use MinAllocatedResources when VPA recommendation is smaller than MinAllocatedResources",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 6,
-				maxResourceSize:               createResourceList("1000m", "1Gi"),
+				maxCPU:                        "1000m",
+				maxMemory:                     "1Gi",
 			},
 			args: args{
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
@@ -2130,7 +2138,8 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			name: "all vertical: use minResourceSize when VPA recommendation is smaller than minResourceSize",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 6,
-				maxResourceSize:               createResourceList("1000m", "1Gi"),
+				maxCPU:                        "1000m",
+				maxMemory:                     "1Gi",
 			},
 			args: args{
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
@@ -2197,10 +2206,82 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "all vertical: use minResourceSize (per container) when VPA recommendation is smaller than minResourceSize",
+			fields: fields{
+				preferredReplicaNumUpperLimit: 6,
+				maxCPU:                        "1000m",
+				maxMemory:                     "1Gi",
+			},
+			args: args{
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "istio-proxy",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "istio-proxy",
+					MinAllocatedResources: createResourceList("1m", "1Mi"), // They're overwriteen by minResourceSize because minResourceSize is bigger than them.
+				}).AddContainerRecommendationFromVPA(
+					v1beta3.ContainerRecommendationFromVPA{
+						ContainerName: "istio-proxy",
+						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+							corev1.ResourceCPU: {
+								Quantity: resource.MustParse("2m"),
+							},
+							corev1.ResourceMemory: {
+								Quantity: resource.MustParse("2Mi"),
+							},
+						},
+					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "istio-proxy",
+					Resource:      createResourceList("130m", "130Mi"),
+				}).Build(),
+				replicaNum: 3,
+			},
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "istio-proxy",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "istio-proxy",
+				MinAllocatedResources: createResourceList("1m", "1Mi"),
+			}).AddContainerRecommendationFromVPA(
+				v1beta3.ContainerRecommendationFromVPA{
+					ContainerName: "istio-proxy",
+					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+						corev1.ResourceCPU: {
+							Quantity: resource.MustParse("2m"),
+						},
+						corev1.ResourceMemory: {
+							Quantity: resource.MustParse("2Mi"),
+						},
+					},
+				},
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "istio-proxy",
+				Resource:      createResourceList("130m", "130Mi"),
+			}).SetRecommendations(v1beta3.Recommendations{
+				Vertical: v1beta3.VerticalRecommendations{
+					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+						{
+							ContainerName:       "istio-proxy",
+							RecommendedResource: createResourceList("7m", "7Mi"),
+						},
+					},
+				},
+			}).Build(),
+			wantErr: false,
+		},
+		{
 			name: "all horizontal: reduced resources based on VPA recommendation when unbalanced container size in multiple containers Pod",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 6,
-				maxResourceSize:               createResourceList("10000m", "100Gi"),
+				maxCPU:                        "10000m",
+				maxMemory:                     "100Gi",
 			},
 			args: args{
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
@@ -2367,13 +2448,8 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &Service{
-				minimumMinReplicas:            tt.fields.minimumMinReplicas,
-				preferredReplicaNumUpperLimit: tt.fields.preferredReplicaNumUpperLimit,
-				maxResourceSize:               tt.fields.maxResourceSize,
-				eventRecorder:                 record.NewFakeRecorder(10),
-				minResourceSize:               createResourceList("5m", "5Mi"),
-			}
+
+			s := New(0, 0, 0, 0, int(tt.fields.minimumMinReplicas), int(tt.fields.preferredReplicaNumUpperLimit), "5m", "5Mi", map[string]string{"istio-proxy": "7m"}, map[string]string{"istio-proxy": "7Mi"}, tt.fields.maxCPU, tt.fields.maxMemory, 10000, record.NewFakeRecorder(10))
 			got, err := s.updateVPARecommendation(context.Background(), tt.args.tortoise, tt.args.hpa, tt.args.replicaNum)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateVPARecommendation() error = %v, wantErr %v", err, tt.wantErr)

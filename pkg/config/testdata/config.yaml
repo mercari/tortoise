@@ -12,3 +12,9 @@ TimeZone:                                 "Asia/Tokyo"
 TortoiseUpdateInterval:                   "1h"
 HPATargetUtilizationMaxIncrease:   10
 HPATargetUtilizationUpdateInterval:                   "3h"
+MinimumMemoryBytesPerContainer:
+  istio-proxy: 1Mi
+  hoge-agent: 2Mi
+MinimumCPUCoresPerContainer:
+  istio-proxy: 100m
+  hoge-agent: 120m
