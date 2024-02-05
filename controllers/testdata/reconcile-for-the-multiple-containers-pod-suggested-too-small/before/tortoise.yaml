@@ -13,9 +13,28 @@ status:
       cpu: Horizontal
       memory: Vertical
     containerName: app
+  - policy:
+      cpu: Horizontal
+      memory: Vertical
+    containerName: istio-proxy
   conditions:
     containerRecommendationFromVPA:
     - containerName: app
+      maxRecommendation:
+        cpu:
+          quantity: "0"
+          updatedAt: null
+        memory:
+          quantity: "0"
+          updatedAt: null
+      recommendation:
+        cpu:
+          quantity: "0"
+          updatedAt: null
+        memory:
+          quantity: "0"
+          updatedAt: null
+    - containerName: istio-proxy
       maxRecommendation:
         cpu:
           quantity: "0"
@@ -60,6 +79,12 @@ status:
   tortoisePhase: Working
   containerResourcePhases:
     - containerName: "app"
+      resourcePhases:
+        cpu: 
+          phase: Working 
+        memory:
+          phase: Working 
+    - containerName: "istio-proxy"
       resourcePhases:
         cpu: 
           phase: Working 

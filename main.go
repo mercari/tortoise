@@ -154,14 +154,29 @@ func main() {
 	}
 
 	if err = (&controllers.TortoiseReconciler{
-		Scheme:             mgr.GetScheme(),
-		HpaService:         hpaService,
-		VpaService:         vpaClient,
-		DeploymentService:  deployment.New(mgr.GetClient(), config.IstioSidecarProxyDefaultCPU, config.IstioSidecarProxyDefaultMemory, eventRecorder),
-		RecommenderService: recommender.New(config.MaxReplicasFactor, config.MinReplicasFactor, config.MaximumTargetResourceUtilization, config.MinimumTargetResourceUtilization, config.MinimumMinReplicas, config.PreferredMaxReplicas, config.MinimumCPUCores, config.MinimumMemoryBytes, config.MaximumCPUCores, config.MaximumMemoryBytes, config.MaximumMaxReplicas, eventRecorder),
-		TortoiseService:    tortoiseService,
-		Interval:           config.TortoiseUpdateInterval,
-		EventRecorder:      eventRecorder,
+		Scheme:            mgr.GetScheme(),
+		HpaService:        hpaService,
+		VpaService:        vpaClient,
+		DeploymentService: deployment.New(mgr.GetClient(), config.IstioSidecarProxyDefaultCPU, config.IstioSidecarProxyDefaultMemory, eventRecorder),
+		RecommenderService: recommender.New(
+			config.MaxReplicasFactor,
+			config.MinReplicasFactor,
+			config.MaximumTargetResourceUtilization,
+			config.MinimumTargetResourceUtilization,
+			config.MinimumMinReplicas,
+			config.PreferredMaxReplicas,
+			config.MinimumCPUCores,
+			config.MinimumMemoryBytes,
+			config.MinimumCPUCoresPerContainer,
+			config.MinimumMemoryBytesPerContainer,
+			config.MaximumCPUCores,
+			config.MaximumMemoryBytes,
+			config.MaximumMaxReplicas,
+			eventRecorder,
+		),
+		TortoiseService: tortoiseService,
+		Interval:        config.TortoiseUpdateInterval,
+		EventRecorder:   eventRecorder,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Tortoise")
 		os.Exit(1)

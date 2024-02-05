@@ -36,3 +36,16 @@ status:
       upperBound:
         cpu: "4"
         memory: "10Mi"
+    - containerName: istio-proxy
+      lowerBound:
+        cpu: "100m"
+        memory: "11Mi"
+      target:
+        cpu: "100m"
+        memory: "11Mi"
+      uncappedTarget:
+        cpu: "100m"
+        memory: "11Mi"
+      upperBound:
+        cpu: "100m"
+        memory: "11Mi"

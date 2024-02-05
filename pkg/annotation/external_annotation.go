@@ -6,4 +6,6 @@ const (
 
 	IstioSidecarProxyCPUAnnotation    = "sidecar.istio.io/proxyCPU"
 	IstioSidecarProxyMemoryAnnotation = "sidecar.istio.io/proxyMemory"
+
+	UpdatedAtAnnotation = "kubectl.kubernetes.io/restartedAt"
 )

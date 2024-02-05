@@ -13,12 +13,20 @@ status:
       cpu: Horizontal
       memory: Vertical
     containerName: app
+  - policy:
+      cpu: Horizontal
+      memory: Vertical
+    containerName: istio-proxy
   conditions:
     containerResourceRequests:
       - containerName: "app"
         resource:
           cpu: "4"
           memory: 4Gi
+      - containerName: "istio-proxy"
+        resource:
+          cpu: "100m"
+          memory: "100Mi"
     tortoiseConditions:
     - message: "HPA target utilization is updated"
       reason: HPATargetUtilizationUpdated
@@ -36,6 +44,21 @@ status:
       recommendation:
         cpu:
           quantity: "3"
+          updatedAt: null
+        memory:
+          quantity: "1Mi"
+          updatedAt: null
+    - containerName: istio-proxy
+      maxRecommendation:
+        cpu:
+          quantity: "75m"
+          updatedAt: null
+        memory:
+          quantity: "1Mi"
+          updatedAt: null
+      recommendation:
+        cpu:
+          quantity: "75m"
           updatedAt: null
         memory:
           quantity: "1Mi"
@@ -58,12 +81,19 @@ status:
       - containerName: app
         targetUtilization:
           cpu: 75
+      - containerName: istio-proxy
+        targetUtilization:
+          cpu: 75
     vertical:
       containerResourceRecommendation:
       - RecommendedResource:
           cpu: "4"
           memory: "10Mi" # global min
         containerName: app
+      - RecommendedResource:
+          cpu: "100m"
+          memory: "11Mi" # istio-proxy min
+        containerName: istio-proxy
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
@@ -74,6 +104,12 @@ status:
   tortoisePhase: Working
   containerResourcePhases:
     - containerName: "app"
+      resourcePhases:
+        cpu: 
+          phase: Working 
+        memory:
+          phase: Working 
+    - containerName: "istio-proxy"
       resourcePhases:
         cpu: 
           phase: Working 

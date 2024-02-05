@@ -172,7 +172,7 @@ func startController(ctx context.Context) func() {
 		VpaService:         cli,
 		DeploymentService:  deployment.New(mgr.GetClient(), "100m", "100Mi", recorder),
 		TortoiseService:    tortoiseService,
-		RecommenderService: recommender.New(2.0, 0.5, 90, 40, 3, 30, "10m", "10Mi", "10", "10Gi", 10000, recorder),
+		RecommenderService: recommender.New(2.0, 0.5, 90, 40, 3, 30, "10m", "10Mi", map[string]string{"istio-proxy": "11m"}, map[string]string{"istio-proxy": "11Mi"}, "10", "10Gi", 10000, recorder),
 	}
 	err = reconciler.SetupWithManager(mgr)
 	Expect(err).ShouldNot(HaveOccurred())
@@ -345,9 +345,6 @@ var _ = Describe("Test TortoiseController", func() {
 		It("TortoisePhaseWorking (GatheringData is just finished)", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-gathering-data-finished"))
 		})
-		It("TortoisePhaseWorking (VPA suggestion too small)", func() {
-			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-suggested-too-small"))
-		})
 		It("TortoisePhaseWorking (dryrun)", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-dryrun"))
 		})
@@ -373,6 +370,9 @@ var _ = Describe("Test TortoiseController", func() {
 		})
 		It("TortoisePhaseWorking (All AutoscalingTypeOff)", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-multiple-containers-pod-all-off"))
+		})
+		It("TortoisePhaseWorking (VPA suggestion too small)", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-multiple-containers-pod-suggested-too-small"))
 		})
 		It("user just enabled TortoisePhaseEmergency", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-multiple-containers-pod-emergency-started"))

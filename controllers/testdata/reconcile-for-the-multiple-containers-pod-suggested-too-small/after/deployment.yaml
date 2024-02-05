@@ -12,6 +12,7 @@ spec:
       labels:
         app: mercari
       annotations:
+        sidecar.istio.io/inject: "true"
         kubectl.kubernetes.io/restartedAt: "exist"
     spec:
       containers:
