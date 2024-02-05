@@ -130,6 +130,7 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 			}
 
 			if newSize != req.MilliValue() {
+				logger.Info("The recommendation of resource request in Tortoise is updated", "container name", r.ContainerName, "resource name", k, "reason", reason)
 				s.eventRecorder.Event(tortoise, corev1.EventTypeNormal, event.RecommendationUpdated, fmt.Sprintf("The recommendation of %v request (%v) in Tortoise status is updated. Reason: %v", k, r.ContainerName, reason))
 			} else {
 				logger.Info("The recommendation of the container is not updated", "container name", r.ContainerName, "resource name", k, "reason", reason)
