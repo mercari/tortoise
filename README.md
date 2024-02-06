@@ -39,8 +39,8 @@ Application teams just need to set up Tortoise, and the platform team will never
 all actual optimization is done by Tortoise automatically. 
 
 See a detailed motivation in the blog post:
-- English: https://engineering.mercari.com/en/blog/entry/20240206-3a12bb1288/ 
-- 日本語: https://engineering.mercari.com/blog/entry/20240206-3a12bb1288/ 
+- [Tortoise: Outpacing the Optimization Challenges in Kubernetes at Mercari](https://engineering.mercari.com/en/blog/entry/20240206-3a12bb1288/) 
+- [人間によるKubernetesリソース最適化の”諦め”とそこに見るリクガメの可能性](https://engineering.mercari.com/blog/entry/20240206-3a12bb1288/)
 
 ## Usage
 
