@@ -186,7 +186,9 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 	// make the container size bigger (just multiple by 1.1) so that the replica number will be descreased.
 	//
 	// Here also covers the scenario where the current replica num hits MaximumMaxReplicas.
-	if replicaNum >= s.preferredReplicaNumUpperLimit {
+	if replicaNum >= s.preferredReplicaNumUpperLimit &&
+		// If the current replica number is equal to the maximumMaxReplica, increasing the resource request would not change the situation that the replica number is higher than preferredReplicaNumUpperLimit.
+		*hpa.Spec.MinReplicas != replicaNum {
 		// We keep increasing the size until we hit the maxResourceSize.
 		newSize := int64(float64(resourceRequest.MilliValue()) * 1.1)
 		jastifiedNewSize := s.justifyNewSizeByMaxMin(newSize, k, minAllocatedResources, containerName)

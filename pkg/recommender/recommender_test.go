@@ -1592,6 +1592,12 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				maxMemory:                     "1Gi",
 			},
 			args: args{
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						MinReplicas: ptr.To[int32](1),
+						Metrics:     []v2.MetricSpec{},
+					},
+				},
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
 					ContainerName: "test-container",
 					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
@@ -1656,6 +1662,83 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "all horizontal: replica count above preferredReplicaNumUpperLimit: don't increase the resources when reaching minReplica",
+			fields: fields{
+				preferredReplicaNumUpperLimit: 3,
+				maxCPU:                        "1000m",
+				maxMemory:                     "1Gi",
+			},
+			args: args{
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						MinReplicas: ptr.To[int32](4),
+						Metrics:     []v2.MetricSpec{},
+					},
+				},
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
+					v1beta3.ContainerRecommendationFromVPA{
+						ContainerName: "test-container",
+						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+							corev1.ResourceCPU: {
+								Quantity: resource.MustParse("500m"),
+							},
+							corev1.ResourceMemory: {
+								Quantity: resource.MustParse("500Mi"),
+							},
+						},
+					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("500m", "500Mi"),
+				}).Build(),
+				replicaNum: 4,
+			},
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
+				v1beta3.ContainerRecommendationFromVPA{
+					ContainerName: "test-container",
+					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+						corev1.ResourceCPU: {
+							Quantity: resource.MustParse("500m"),
+						},
+						corev1.ResourceMemory: {
+							Quantity: resource.MustParse("500Mi"),
+						},
+					},
+				},
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("500m", "500Mi"),
+			}).SetRecommendations(v1beta3.Recommendations{
+				Vertical: v1beta3.VerticalRecommendations{
+					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+						{
+							ContainerName:       "test-container",
+							RecommendedResource: createResourceList("500m", "500Mi"), // current * 1.1
+						},
+					},
+				},
+			}).Build(),
+			wantErr: false,
+		},
+		{
 			name: "horizontal/vertical: replica count above preferredReplicaNumUpperLimit: increase the resource a bit",
 			fields: fields{
 				preferredReplicaNumUpperLimit: 3,
@@ -1663,6 +1746,12 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				maxMemory:                     "1Gi",
 			},
 			args: args{
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						MinReplicas: ptr.To[int32](1),
+						Metrics:     []v2.MetricSpec{},
+					},
+				},
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
 					ContainerName: "test-container",
 					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
@@ -1761,6 +1850,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				}).Build(),
 				hpa: &v2.HorizontalPodAutoscaler{
 					Spec: v2.HorizontalPodAutoscalerSpec{
+						MinReplicas: ptr.To[int32](1),
 						Metrics: []v2.MetricSpec{
 							{
 								Type: v2.ContainerResourceMetricSourceType,
@@ -1858,6 +1948,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				}).Build(),
 				hpa: &v2.HorizontalPodAutoscaler{
 					Spec: v2.HorizontalPodAutoscalerSpec{
+						MinReplicas: ptr.To[int32](1),
 						Metrics: []v2.MetricSpec{
 							{
 								Type: v2.ContainerResourceMetricSourceType,
@@ -1929,6 +2020,12 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				minimumMinReplicas:            3,
 			},
 			args: args{
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						MinReplicas: ptr.To[int32](1),
+						Metrics:     []v2.MetricSpec{},
+					},
+				},
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
 					ContainerName: "test-container",
 					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
@@ -2000,6 +2097,12 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				maxMemory:                     "1Gi",
 			},
 			args: args{
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						MinReplicas: ptr.To[int32](1),
+						Metrics:     []v2.MetricSpec{},
+					},
+				},
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
 					ContainerName: "test-container",
 					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
@@ -2071,6 +2174,12 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				maxMemory:                     "1Gi",
 			},
 			args: args{
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						MinReplicas: ptr.To[int32](1),
+						Metrics:     []v2.MetricSpec{},
+					},
+				},
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
 					ContainerName: "test-container",
 					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
@@ -2142,6 +2251,12 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				maxMemory:                     "1Gi",
 			},
 			args: args{
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						MinReplicas: ptr.To[int32](1),
+						Metrics:     []v2.MetricSpec{},
+					},
+				},
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
 					ContainerName: "test-container",
 					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
@@ -2213,6 +2328,12 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				maxMemory:                     "1Gi",
 			},
 			args: args{
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						MinReplicas: ptr.To[int32](1),
+						Metrics:     []v2.MetricSpec{},
+					},
+				},
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
 					ContainerName: "istio-proxy",
 					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
@@ -2336,6 +2457,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				replicaNum: 5,
 				hpa: &v2.HorizontalPodAutoscaler{
 					Spec: v2.HorizontalPodAutoscalerSpec{
+						MinReplicas: ptr.To[int32](1),
 						Metrics: []v2.MetricSpec{
 							{
 								Type: v2.ContainerResourceMetricSourceType,
