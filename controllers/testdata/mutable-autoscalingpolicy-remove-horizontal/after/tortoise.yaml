@@ -30,12 +30,12 @@ status:
     containerResourceRequests:
       - containerName: "app"
         resource:
-          cpu: "10"
-          memory: 10Gi
+          cpu: "3"
+          memory: 3Gi
       - containerName: "istio-proxy"
         resource:
-          cpu: "4"
-          memory: 4Gi
+          cpu: "3"
+          memory: 3Gi
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:

@@ -19,7 +19,7 @@ status:
       - containerName: "app"
         resource:
           cpu: "4"
-          memory: 4Gi
+          memory: 3Gi
     tortoiseConditions:
     - message: "HPA target utilization is updated"
       reason: HPATargetUtilizationUpdated

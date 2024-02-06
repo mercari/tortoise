@@ -57,6 +57,7 @@ func (c *Service) RolloutRestart(ctx context.Context, dm *v1.Deployment, tortois
 	return nil
 }
 
+// GetResourceRequests returns the resource requests of the containers in the deployment.
 func (c *Service) GetResourceRequests(dm *v1.Deployment) ([]autoscalingv1beta3.ContainerResourceRequests, error) {
 	actualContainerResource := []autoscalingv1beta3.ContainerResourceRequests{}
 	for _, c := range dm.Spec.Template.Spec.Containers {

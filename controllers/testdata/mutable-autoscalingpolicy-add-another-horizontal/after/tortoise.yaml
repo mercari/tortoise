@@ -21,8 +21,8 @@ status:
     containerResourceRequests:
       - containerName: "app"
         resource:
-          cpu: "10"
-          memory: 10Gi
+          cpu: "6"
+          memory: 3Gi
       - containerName: "istio-proxy"
         resource:
           cpu: "4"
