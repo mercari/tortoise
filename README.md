@@ -38,6 +38,10 @@ It aims to move the responsibility of optimizing the workloads from the applicat
 Application teams just need to set up Tortoise, and the platform team will never bother them again for the resource optimization - 
 all actual optimization is done by Tortoise automatically. 
 
+See a detailed motivation in the blog post:
+- English: https://engineering.mercari.com/en/blog/entry/20240206-3a12bb1288/ 
+- 日本語: https://engineering.mercari.com/blog/entry/20240206-3a12bb1288/ 
+
 ## Usage
 
 Tortoise has a very simple interface:
