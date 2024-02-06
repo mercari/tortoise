@@ -379,11 +379,25 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 		initialVPA                            *vpav1.VerticalPodAutoscaler
 		tortoise                              *autoscalingv1beta3.Tortoise
 		want                                  *vpav1.VerticalPodAutoscaler
+		wantTortoise                          *autoscalingv1beta3.Tortoise
 		wantPodShouldBeUpdatedWithNewResource bool
 		wantErr                               bool
 	}{
 		{
 			name: "VPA is modified at the first time (tortoise is Auto)",
+			initialVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
+					Namespace: "default",
+				},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
+					},
+				},
+				// No recommendation yet.
+				Status: vpav1.VerticalPodAutoscalerStatus{},
+			},
 			tortoise: &autoscalingv1beta3.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "tortoise",
@@ -415,18 +429,54 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					},
 				},
 			},
-			initialVPA: &vpav1.VerticalPodAutoscaler{
+			wantTortoise: &autoscalingv1beta3.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      tortoiseUpdaterVPANamePrefix + "tortoise",
+					Name:      "tortoise",
 					Namespace: "default",
 				},
-				Spec: vpav1.VerticalPodAutoscalerSpec{
-					UpdatePolicy: &vpav1.PodUpdatePolicy{
-						UpdateMode: ptr.To(vpav1.UpdateModeInitial),
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					Conditions: autoscalingv1beta3.Conditions{
+						ContainerResourceRequests: []autoscalingv1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
+					},
+					Recommendations: autoscalingv1beta3.Recommendations{
+						Vertical: autoscalingv1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []autoscalingv1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
 					},
 				},
-				// No recommendation yet.
-				Status: vpav1.VerticalPodAutoscalerStatus{},
 			},
 			// It should be true because the VPA has got a first recommendation.
 			wantPodShouldBeUpdatedWithNewResource: true,
@@ -590,6 +640,38 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					},
 				},
 			},
+			wantTortoise: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					Recommendations: autoscalingv1beta3.Recommendations{
+						Vertical: autoscalingv1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []autoscalingv1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+					// ContainerResourceRequests isn't updated because we won't apply it.
+				},
+			},
 			wantPodShouldBeUpdatedWithNewResource: false,
 			want: &vpav1.VerticalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
@@ -750,6 +832,55 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					},
 				},
 			},
+			wantTortoise: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					Conditions: autoscalingv1beta3.Conditions{
+						ContainerResourceRequests: []autoscalingv1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
+					},
+					Recommendations: autoscalingv1beta3.Recommendations{
+						Vertical: autoscalingv1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []autoscalingv1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 			wantPodShouldBeUpdatedWithNewResource: true,
 			want: &vpav1.VerticalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
@@ -903,6 +1034,38 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					},
 				},
 			},
+			wantTortoise: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					Recommendations: autoscalingv1beta3.Recommendations{
+						Vertical: autoscalingv1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []autoscalingv1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+					// ContainerResourceRequests isn't updated because we won't apply it.
+				},
+			},
 			wantPodShouldBeUpdatedWithNewResource: false,
 			want: &vpav1.VerticalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1022,6 +1185,38 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					Recommendation: &vpav1.RecommendedPodResources{},
 				},
 			},
+			wantTortoise: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeOff,
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					Recommendations: autoscalingv1beta3.Recommendations{
+						Vertical: autoscalingv1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []autoscalingv1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+				// ContainerResourceRequests isn't updated because it's dry-run.
+			},
 		},
 		{
 			name: "the recommendation on VPA is removed when tortoise is Off mode (= probably this tortoise is changed back from auto to off)",
@@ -1098,6 +1293,55 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 					Recommendation: &vpav1.RecommendedPodResources{},
 				},
 			},
+			wantTortoise: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeOff,
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					Recommendations: autoscalingv1beta3.Recommendations{
+						Vertical: autoscalingv1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []autoscalingv1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+					Conditions: autoscalingv1beta3.Conditions{
+						ContainerResourceRequests: []autoscalingv1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		{
 			name: "Tortoise's mode changed: Auto → Off → Auto",
@@ -1150,6 +1394,55 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 							Status:             v1.ConditionFalse,
 							LastTransitionTime: metav1.NewTime(now.Add(-time.Minute)), // very recently.
 							Message:            fmt.Sprintf("The recommendation is not provided from Tortoise(%v) because it's Off mode", "tortoise"),
+						},
+					},
+				},
+			},
+			wantTortoise: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeOff,
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					Recommendations: autoscalingv1beta3.Recommendations{
+						Vertical: autoscalingv1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []autoscalingv1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+					Conditions: autoscalingv1beta3.Conditions{
+						ContainerResourceRequests: []autoscalingv1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("1Gi"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
 						},
 					},
 				},
@@ -1228,7 +1521,7 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 				recorder: record.NewFakeRecorder(10),
 			}
 
-			got, updated, err := c.UpdateVPAFromTortoiseRecommendation(context.Background(), tt.tortoise, 10, now)
+			got, gotTortoise, updated, err := c.UpdateVPAFromTortoiseRecommendation(context.Background(), tt.tortoise, 10, now)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Service.UpdateVPAFromTortoiseRecommendation() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1240,6 +1533,10 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(got, tt.want); diff != "" {
+				t.Errorf("Service.UpdateVPAFromTortoiseRecommendation() mismatch (-want +got):\n%s", diff)
+			}
+
+			if diff := cmp.Diff(gotTortoise, tt.tortoise); diff != "" {
 				t.Errorf("Service.UpdateVPAFromTortoiseRecommendation() mismatch (-want +got):\n%s", diff)
 			}
 		})
