@@ -1,0 +1,4 @@
+# https://github.com/github-linguist/linguist/blob/master/docs/overrides.md
+
+# kubebuilder
+PROJECT linguist-language=yaml
