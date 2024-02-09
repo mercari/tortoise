@@ -174,7 +174,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, fmt.Errorf("add finalizer: %w", err)
 	}
 
-	tortoise, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, currentReplicaNum, now)
+	tortoise, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa, currentReplicaNum, now)
 	if err != nil {
 		logger.Error(err, "update HPA spec from Tortoise autoscaling policy", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err

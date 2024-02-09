@@ -114,6 +114,15 @@ func (c *Service) giveAnnotationsOnExistingHPA(ctx context.Context, tortoise *au
 		// shouldn't reach here since the caller should check this.
 		return tortoise, fmt.Errorf("tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName is nil")
 	}
+
+	tortoise.Status.Targets.HorizontalPodAutoscaler = *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName
+	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+		// When UpdateMode is Off, we don't want to update HPA at all.
+		// The annotation is just for the mutating webhook to know by which tortoise the HPA is managed.
+		// So, Off mode doesn't need to give the annotation.
+		return tortoise, nil
+	}
+
 	updateFn := func() error {
 		hpa := &v2.HorizontalPodAutoscaler{}
 		if err := c.c.Get(ctx, client.ObjectKey{
@@ -129,7 +138,6 @@ func (c *Service) giveAnnotationsOnExistingHPA(ctx context.Context, tortoise *au
 		hpa.Annotations[annotation.ManagedByTortoiseAnnotation] = "true"
 		return c.c.Update(ctx, hpa)
 	}
-	tortoise.Status.Targets.HorizontalPodAutoscaler = *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName
 
 	return tortoise, retry.RetryOnConflict(retry.DefaultRetry, updateFn)
 }
@@ -520,10 +528,29 @@ func (c *Service) disableHPA(ctx context.Context, tortoise *autoscalingv1beta3.T
 	return nil
 }
 
-func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replicaNum int32, now time.Time) (*autoscalingv1beta3.Tortoise, error) {
+func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
+	ctx context.Context,
+	tortoise *autoscalingv1beta3.Tortoise,
+	// givenHPA is the HPA that is specified in the targetRefs.
+	// If the user didn't specify the HPA, it's nil.
+	givenHPA *v2.HorizontalPodAutoscaler,
+	replicaNum int32,
+	now time.Time,
+) (*autoscalingv1beta3.Tortoise, error) {
 	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 		// When UpdateMode is Off, we don't update HPA.
 		return tortoise, nil
+	}
+
+	if givenHPA != nil {
+		// when the user specified the HPA, we need to make sure the HPA has the annotation so that the mutating webhook works correctly.
+		// (It may not have because we don't add the annotation for Off mode Tortoise.)
+		if _, ok := givenHPA.Annotations[annotation.ManagedByTortoiseAnnotation]; !ok {
+			tortoise, err := c.giveAnnotationsOnExistingHPA(ctx, tortoise)
+			if err != nil {
+				return tortoise, fmt.Errorf("give annotations on a hpa specified in targetrefs: %w", err)
+			}
+		}
 	}
 
 	if !HasHorizontal(tortoise) {
