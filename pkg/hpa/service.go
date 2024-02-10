@@ -134,7 +134,7 @@ func (c *Service) giveAnnotationsOnExistingHPA(ctx context.Context, tortoise *au
 		if hpa.Annotations == nil {
 			hpa.Annotations = map[string]string{}
 		}
-		hpa.Annotations[annotation.TortoiseNameAnnotation] = tortoise.Name
+		hpa.Annotations[annotation.TortoiseNameAnnotationV1] = tortoise.Name
 		hpa.Annotations[annotation.ManagedByTortoiseAnnotation] = "true"
 		return c.c.Update(ctx, hpa)
 	}
@@ -312,7 +312,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 			Name:      autoscalingv1beta3.TortoiseDefaultHPAName(tortoise.Name),
 			Namespace: tortoise.Namespace,
 			Annotations: map[string]string{
-				annotation.TortoiseNameAnnotation:      tortoise.Name,
+				annotation.TortoiseNameAnnotationV1:    tortoise.Name,
 				annotation.ManagedByTortoiseAnnotation: "true",
 			},
 		},
@@ -668,6 +668,9 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 
 		hpa = c.excludeExternalMetric(ctx, hpa)
+		if tortoiseName, ok := hpa.Annotations[annotation.TortoiseNameAnnotation]; ok {
+			hpa.Annotations[annotation.TortoiseNameAnnotationV1] = tortoiseName
+		}
 		retHPA = hpa
 		return c.c.Update(ctx, hpa)
 	}
