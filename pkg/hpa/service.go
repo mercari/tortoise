@@ -670,6 +670,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		hpa = c.excludeExternalMetric(ctx, hpa)
 		if tortoiseName, ok := hpa.Annotations[annotation.TortoiseNameAnnotation]; ok {
 			hpa.Annotations[annotation.TortoiseNameAnnotationV1] = tortoiseName
+			delete(hpa.Annotations, annotation.TortoiseNameAnnotation)
 		}
 		retHPA = hpa
 		return c.c.Update(ctx, hpa)
