@@ -65,7 +65,7 @@ func (h *HPAWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	hpa := obj.(*v2.HorizontalPodAutoscaler)
 	tortoiseName, ok := hpa.GetAnnotations()[annotation.TortoiseNameAnnotation]
 	if !ok {
-		tortoiseName, ok = hpa.GetAnnotations()[annotation.TortoiseNameAnnotationV1]
+		tortoiseName, ok = hpa.GetAnnotations()[annotation.DeprecatedTortoiseNameAnnotation]
 	}
 	if !ok {
 		// not managed by tortoise
@@ -130,7 +130,7 @@ func (h *HPAWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) (wa
 	hpa := obj.(*v2.HorizontalPodAutoscaler)
 	tortoiseName, ok := hpa.GetAnnotations()[annotation.TortoiseNameAnnotation]
 	if !ok {
-		tortoiseName, ok = hpa.GetAnnotations()[annotation.TortoiseNameAnnotationV1]
+		tortoiseName, ok = hpa.GetAnnotations()[annotation.DeprecatedTortoiseNameAnnotation]
 	}
 	if !ok {
 		// not managed by tortoise

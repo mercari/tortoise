@@ -134,7 +134,7 @@ func (c *Service) giveAnnotationsOnExistingHPA(ctx context.Context, tortoise *au
 		if hpa.Annotations == nil {
 			hpa.Annotations = map[string]string{}
 		}
-		hpa.Annotations[annotation.TortoiseNameAnnotationV1] = tortoise.Name
+		hpa.Annotations[annotation.TortoiseNameAnnotation] = tortoise.Name
 		hpa.Annotations[annotation.ManagedByTortoiseAnnotation] = "true"
 		return c.c.Update(ctx, hpa)
 	}
@@ -312,7 +312,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 			Name:      autoscalingv1beta3.TortoiseDefaultHPAName(tortoise.Name),
 			Namespace: tortoise.Namespace,
 			Annotations: map[string]string{
-				annotation.TortoiseNameAnnotationV1:    tortoise.Name,
+				annotation.TortoiseNameAnnotation:      tortoise.Name,
 				annotation.ManagedByTortoiseAnnotation: "true",
 			},
 		},
@@ -668,10 +668,12 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 
 		hpa = c.excludeExternalMetric(ctx, hpa)
-		if tortoiseName, ok := hpa.Annotations[annotation.TortoiseNameAnnotation]; ok {
-			hpa.Annotations[annotation.TortoiseNameAnnotationV1] = tortoiseName
-			delete(hpa.Annotations, annotation.TortoiseNameAnnotation)
+		if tortoiseName, ok := hpa.Annotations[annotation.DeprecatedTortoiseNameAnnotation]; ok {
+			hpa.Annotations[annotation.TortoiseNameAnnotation] = tortoiseName
+			delete(hpa.Annotations, annotation.DeprecatedTortoiseNameAnnotation)
 		}
+		// If HPA has a deprecated annotation, we replace it with a new one.
+		// It allows us to remove a deprecated annotation completely later
 		retHPA = hpa
 		return c.c.Update(ctx, hpa)
 	}

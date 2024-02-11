@@ -109,7 +109,7 @@ func (c *Service) CreateTortoiseUpdaterVPA(ctx context.Context, tortoise *autosc
 			Name:      TortoiseUpdaterVPAName(tortoise.Name),
 			Annotations: map[string]string{
 				annotation.ManagedByTortoiseAnnotation: "true",
-				annotation.TortoiseNameAnnotationV1:    tortoise.Name,
+				annotation.TortoiseNameAnnotation:      tortoise.Name,
 			},
 		},
 		Spec: v1.VerticalPodAutoscalerSpec{
@@ -188,7 +188,7 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 			Name:      TortoiseMonitorVPAName(tortoise.Name),
 			Annotations: map[string]string{
 				annotation.ManagedByTortoiseAnnotation: "true",
-				annotation.TortoiseNameAnnotationV1:    tortoise.Name,
+				annotation.TortoiseNameAnnotation:      tortoise.Name,
 			},
 		},
 		Spec: v1.VerticalPodAutoscalerSpec{
