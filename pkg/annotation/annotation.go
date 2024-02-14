@@ -3,6 +3,7 @@ package annotation
 // annotation on HPA and VPA resource.
 const (
 	// Deprecated: TortoiseNameAnnotation - VPA and HPA managed by tortoise have this label.
+	// If an existing HPA has this label, it's automatically replaced with TortoiseNameAnnotation by the controller.
 	DeprecatedTortoiseNameAnnotation = "tortoises.autoscaling.mercari.com/tortoise-name"
 	// TortoiseNameAnnotation - VPA and HPA managed by tortoise have this label.
 	TortoiseNameAnnotation = "tortoise.autoscaling.mercari.com/tortoise-name"
