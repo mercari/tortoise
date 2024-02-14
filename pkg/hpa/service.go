@@ -668,6 +668,14 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 
 		hpa = c.excludeExternalMetric(ctx, hpa)
+		//nolint // We use the deprecated annotation deliberately so that we don't break existing users.
+		if tortoiseName, ok := hpa.Annotations[annotation.DeprecatedTortoiseNameAnnotation]; ok {
+			hpa.Annotations[annotation.TortoiseNameAnnotation] = tortoiseName
+			//nolint // We use the deprecated annotation deliberately so that we don't break existing users.
+			delete(hpa.Annotations, annotation.DeprecatedTortoiseNameAnnotation)
+		}
+		// If HPA has a deprecated annotation, we replace it with a new one.
+		// It allows us to remove a deprecated annotation completely later
 		retHPA = hpa
 		return c.c.Update(ctx, hpa)
 	}
