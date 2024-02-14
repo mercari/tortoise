@@ -141,13 +141,22 @@ type TargetRefs struct {
 	// It should be the same as the target of HPA.
 	ScaleTargetRef CrossVersionObjectReference `json:"scaleTargetRef" protobuf:"bytes,1,name=scaleTargetRef"`
 	// HorizontalPodAutoscalerName is the name of the target HPA.
+	// You can specify existing HPA only, otherwise Tortoise errors out.
+	//
 	// The target of this HPA should be the same as the ScaleTargetRef above.
 	// The target HPA should have the ContainerResource type metric that refers to the container resource utilization.
+	// If HPA has Resource type metrics,
+	// Tortoise just removes them because they'd be conflict with ContainerResource type metrics managed by Tortoise.
+	// If HPA has metrics other than Resource or ContainerResource, Tortoise just keeps them unless the administrator uses the HPAExternalMetricExclusionRegex feature.
+	// HPAExternalMetricExclusionRegex feature: https://github.com/mercari/tortoise/blob/main/docs/admin-guide.md#hpaexternalmetricexclusionregex
+	//
 	// Please check out the document for more detail: https://github.com/mercari/tortoise/blob/master/docs/horizontal.md#attach-your-hpa
-	// Also, note that you must not edit the HPA directly after you attach the HPA to the tortoise of Auto mode.
+	//
+	// Also, if your Tortoise is in the Auto mode, you should not edit the target resource utilization in HPA directly.
 	// Even if you edit your HPA in that case, tortoise will overwrite the HPA with the metrics/values.
 	//
-	// You can specify either of existing HPA only.
+	// You may also want to see the document in .spec.autoscalingPolicy to understand how tortoise with this field decides the autoscaling policy.
+	//
 	// This is an optional field, and if you don't specify this field, tortoise will create a new default HPA named `tortoise-hpa-{tortoise name}`.
 	// +optional
 	HorizontalPodAutoscalerName *string `json:"horizontalPodAutoscalerName,omitempty" protobuf:"bytes,2,opt,name=horizontalPodAutoscalerName"`

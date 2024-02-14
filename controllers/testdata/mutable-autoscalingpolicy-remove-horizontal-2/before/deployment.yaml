@@ -17,6 +17,12 @@ spec:
         name: app
         resources:
           requests:
+            cpu: "10"
+            memory: 10Gi
+      - image: awesome-istio-proxy-image
+        name: istio-proxy
+        resources:
+          requests:
             cpu: "4"
             memory: 4Gi
 status:

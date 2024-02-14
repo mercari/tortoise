@@ -2,7 +2,7 @@
 
 <img alt="Tortoise" src="docs/images/tortoise_big.jpg" width="400px"/> 
 
-Get a cute Tortoise into your Kubernetes garden and say goodbye to the days optimizing your rigid autoscalers. 
+Get cute Tortoises into your Kubernetes garden and say goodbye to the days optimizing your rigid autoscalers. 
 
 ## Install
 
@@ -20,21 +20,27 @@ You don't need a rearing cage, but need VPA in your Kubernetes cluster before in
 ## Motivation
 
 Many developers are working in Mercari, and not all of them are the experts of Kubernetes. 
-The platform has many tools and guides to simplify the task of optimizing resource requests, 
-but it takes a lot of human effort because the situation around the applications gets changed very frequently and we have to keep optimizing them every time. 
+The platform has many tools and guides to simplify the task of optimizing resource requests,
+but the optimization takes engineering cost in every team constantly. 
+
+The optimization should be done every time the situation around the service get changed, which could happen easily and frequently. 
 (e.g., the implementation change could change the way of consuming resources, the amount of traffic could be changed, etc)
 
-Also, there are another important component to be optimized for the K8s resource optimization, which is HorizontalPodAutoscaler. 
+Also, when it comes to HorizontalPodAutoscaler(HPA), it's nearly impossible for human to optimize.
 It’s not a simple problem which we just set the target utilization as high as possible – 
-there are many scenarios where the actual resource utilization doesn’t reach the target resource utilization 
+there are many scenarios where the actual resource utilization doesn’t reach the target resource utilization in the first place
 (because of multiple containers, minReplicas, unbalanced container’s size etc).
 
-To reduce the human effort to keep optimizing the workloads, 
-the platform team start to have Tortoise, which is designed to simplify the interface of autoscaling for users.
+To overcome those challenges,
+the platform team start to have Tortoise, which is the automated solution for all optimization needs to be done for Kubernetes resource.
 
-It aims to move the responsibility of optimizing the workloads from the application teams to tortoises. 
+It aims to move the responsibility of optimizing the workloads from the application teams to tortoises (Platform team). 
 Application teams just need to set up Tortoise, and the platform team will never bother them again for the resource optimization - 
 all actual optimization is done by Tortoise automatically. 
+
+See a detailed motivation in the blog post:
+- [Tortoise: Outpacing the Optimization Challenges in Kubernetes at Mercari](https://engineering.mercari.com/en/blog/entry/20240206-3a12bb1288/) 
+- [人間によるKubernetesリソース最適化の”諦め”とそこに見るリクガメの可能性](https://engineering.mercari.com/blog/entry/20240206-3a12bb1288/)
 
 ## Usage
 

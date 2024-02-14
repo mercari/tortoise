@@ -7,6 +7,15 @@ spec:
       apiVersion: apps/v1
       kind: Deployment
       name: mercari-app
+  autoscalingPolicy:
+  - policy:
+      cpu: Vertical
+      memory: Vertical
+    containerName: app
+  - policy:
+      cpu: Vertical
+      memory: Vertical
+    containerName: istio-proxy
 status:
   autoscalingPolicy:
   - policy:

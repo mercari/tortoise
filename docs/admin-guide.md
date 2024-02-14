@@ -13,15 +13,18 @@ GatheringDataPeriodType:                      How long do we gather data for min
 MaxReplicasFactor:                            The factor to calculate the maxReplicas recommendation from the current replica number (default: 2.0)
 MinReplicasFactor:                            The factor to calculate the minReplicas recommendation from the current replica number (default: 0.5)
 ReplicaReductionFactor:                       The factor to reduce the minReplicas gradually after turning off Emergency mode (default: 0.95)
-UpperTargetResourceUtilization:               The max target utilization that tortoise can give to the HPA (default: 90)
+MaximumTargetResourceUtilization:             The max target utilization that tortoise can give to the HPA (default: 90)
 MinimumMinReplicas:                           The minimum minReplicas that tortoise can give to the HPA (default: 3)
-PreferredReplicaNumUpperLimit:                The replica number which the tortoise tries to keep the replica number less than. As it says "preferred", the tortoise **tries** to keep the replicas number less than this, but the replica number may be more than this when other "required" rule will be violated by this limit. (default: 30)
+MaximumMinReplicas:                           The maximum minReplica that tortoise can give to the HPA (default: 10)
+MaximumMaxReplicas:                           The maximum maxReplica that tortoise can give to the HPA (default: 100)
+PreferredMaxReplicas:                         The replica number which the tortoise tries to keep the replica number less than. As it says "preferred", the tortoise **tries** to keep the replicas number less than this, but the replica number may be more than this when other "required" rule will be violated by this limit. (default: 30)
 MaximumCPUCores:                              The maximum CPU cores that the tortoise can give to the container (default: 10)
 MaximumMemoryBytes:                           The maximum memory bytes that the tortoise can give to the container (default: 10Gi)
 Timezone:                                     The timezone used to record time in tortoise objects (default: Asia/Tokyo)
 TortoiseUpdateInterval:                       The interval of updating each tortoise (default: 15s)
-TortoiseHPATargetUtilizationMaxIncrease:      The max increase of target utilization that tortoise can give to the HPA (default: 5)
-TortoiseHPATargetUtilizationUpdateInterval:   The interval of updating target utilization of each HPA (default: 1h)
+HPATargetUtilizationMaxIncrease:              The max increase of target utilization that tortoise can give to the HPA (default: 5)
+HPATargetUtilizationUpdateInterval:           The interval of updating target utilization of each HPA (default: 1h)
+HPAExternalMetricExclusionRegex:              The regex to exclude external metrics from HPA. (default: Not delete any external metrics)
 ```
 
 ### RangeOfMinMaxReplicasRecommendationHours
@@ -172,7 +175,7 @@ Then, the `minReplicas` is going to change like:
 
 It's reduced every time tortoise is evaluated by the controller. (= once a `TortoiseUpdateInterval`)
 
-### UpperTargetResourceUtilization
+### MaximumTargetResourceUtilization
 
 The max target utilization that tortoise can give to the HPA (default: 90)
 So, HPA target utilization managed by tortoise won't be higher than this value.
@@ -182,18 +185,29 @@ So, HPA target utilization managed by tortoise won't be higher than this value.
 The minimum minReplicas that tortoise can give to the HPA (default: 3)
 So, HPA minReplicas managed by tortoise won't be smaller than this value.
 
-### PreferredReplicaNumUpperLimit
+## MaximumMinReplicas
+
+MaximumMinReplicas is the maximum minReplica that tortoise can give to the HPA (default: 10)
+
+## MaximumMaxReplicas
+
+MaximumMaxReplicas is the maximum maxReplica that tortoise can give to the HPA (default: 100)
+Note that this is very dangerous. If you set this value too low, the HPA may not be able to scale up the workload.
+The motivation is to use it has a hard limit to prevent the HPA from scaling up the workload too much in cases of Tortoise's bug, abnormal huge traffic increase, etc.
+If some Tortoise hits this limit, the tortoise controller emits an error log, which may or may not imply you have to change this value.
+
+### PreferredMaxReplicas
 
 The replica number which the tortoise tries to keep the replica number less than. (default: 30)
 
 As it says "preferred", the tortoise **tries** to keep the replicas number less than this, 
 but the replica number may be more than this when other "required" rules (`MaximumCPUCores` and `MaximumMemoryBytes`) will be violated by this limit. 
 
-So, when the number of replicas reaches `PreferredReplicaNumUpperLimit`,
+So, when the number of replicas reaches `PreferredMaxReplicas`,
 a tortoise will increase the Pod's resource request instead of increasing the number of replicas.
 
 But, when the resource request reaches `MaximumCPUCores` or `MaximumMemoryBytes`,
-a tortoise will ignore `PreferredReplicaNumUpperLimit`, and increase the number of replicas.
+a tortoise will ignore `PreferredMaxReplicas`, and increase the number of replicas.
 
 ### MaximumCPUCores
 
@@ -207,7 +221,7 @@ The maximum memory bytes that the tortoise can give to the container (default: 1
 
 Note that it's the upper limit for the container, not for the Pod.
 
-### timezone
+### Timezone
 
 The timezone which used to record time in tortoise objects (default: Asia/Tokyo)
 
@@ -217,19 +231,27 @@ The interval of updating each tortoise (default: 15s)
 
 But, it may delay if there are many tortoise objects in the cluster.
 
-### TortoiseHPATargetUtilizationMaxIncrease
+### HPATargetUtilizationMaxIncrease
 
 The max increase of target utilization that tortoise can give to the HPA (default: 5)
 
 If tortoise suggests changing the HPA target resource utilization from 50 to 80, it might be dangerous to give the change at once.
 By configuring this, we can limit the max increase that tortoise can make. 
-So, if TortoiseHPATargetUtilizationMaxIncrease is 5, even if tortoise suggests changing the HPA target resource utilization from 50 to 80, 
+So, if HPATargetUtilizationMaxIncrease is 5, even if tortoise suggests changing the HPA target resource utilization from 50 to 80, 
 the target utilization is actually change from 50 to 55.
 
-### TortoiseHPATargetUtilizationUpdateInterval
+### HPATargetUtilizationUpdateInterval
 
 The interval of updating target utilization of each HPA (default: 1h)
 
-So, similarily to TortoiseHPATargetUtilizationMaxIncrease, it's also a safety guard to prevent HPA target utilization from suddenly changed.
-If TortoiseHPATargetUtilizationMaxIncrease is 1h, TortoiseHPATargetUtilizationMaxIncrease is 5, and tortoise keep suggesting changing the HPA target resource utilization from 50 to 80,
+So, similarily to HPATargetUtilizationMaxIncrease, it's also a safety guard to prevent HPA target utilization from suddenly changed.
+If HPATargetUtilizationMaxIncrease is 1h, HPATargetUtilizationMaxIncrease is 5, and tortoise keep suggesting changing the HPA target resource utilization from 50 to 80,
 the target resource utilization would be changing like 50 -(1h)-> 55 -(1h)-> 60 → ... → 80.
+
+### HPAExternalMetricExclusionRegex
+
+As described in [the doc](./horizontal.md), basically Tortoise doesn't edit/remove any metrics other than `type: Resource` or `type: ContainerResource`.
+But, if you set `HPAExternalMetricExclusionRegex`, you can let Tortoise remove some of `type: External` metrics if Tortoise is in Auto mode.
+
+For example, if you set `datadogmetric.*` in `HPAExternalMetricExclusionRegex`, 
+all the external metric which name matches `datadogmetric.*` regex are removed by Tortoise once Tortoise is in Auto mode.

@@ -139,16 +139,17 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 	currentReplicaNum := dm.Status.Replicas
-	acr, err := r.DeploymentService.GetResourceRequests(dm)
-	if err != nil {
-		logger.Error(err, "failed to get resource requests in deployment", "tortoise", req.NamespacedName, "deployment", klog.KObj(dm))
-		return ctrl.Result{}, err
+
+	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff || tortoise.Status.Conditions.ContainerResourceRequests == nil {
+		// If the update mode is off, we have to update ContainerResourceRequests from the deployment directly.
+		// If it's not off, ContainerResourceRequests should be updated in UpdateVPAFromTortoiseRecommendation in the last reconciliation.
+		acr, err := r.DeploymentService.GetResourceRequests(dm)
+		if err != nil {
+			logger.Error(err, "failed to get resource requests in deployment", "tortoise", req.NamespacedName, "deployment", klog.KObj(dm))
+			return ctrl.Result{}, err
+		}
+		tortoise.Status.Conditions.ContainerResourceRequests = acr
 	}
-
-	tortoise.Status.Conditions.ContainerResourceRequests = acr
-
-	// === Finish the part depending on deployment ===
-	// From here, we shouldn't use `dm` anymore.
 
 	hpa, err := r.HpaService.GetHPAOnTortoiseSpec(ctx, tortoise)
 	if err != nil {
@@ -173,7 +174,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, fmt.Errorf("add finalizer: %w", err)
 	}
 
-	tortoise, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, currentReplicaNum, now)
+	tortoise, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa, currentReplicaNum, now)
 	if err != nil {
 		logger.Error(err, "update HPA spec from Tortoise autoscaling policy", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -236,7 +237,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	_, updated, err := r.VpaService.UpdateVPAFromTortoiseRecommendation(ctx, tortoise, currentReplicaNum, now)
+	_, tortoise, updated, err := r.VpaService.UpdateVPAFromTortoiseRecommendation(ctx, tortoise, currentReplicaNum, now)
 	if err != nil {
 		logger.Error(err, "update VPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err

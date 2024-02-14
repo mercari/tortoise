@@ -232,7 +232,7 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 
 // UpdateVPAFromTortoiseRecommendation updates VPA with the recommendation from Tortoise.
 // In the second return value, it returns true if the Pods should be updated with new resources.
-func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replica int32, now time.Time) (*v1.VerticalPodAutoscaler, bool, error) {
+func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replica int32, now time.Time) (*v1.VerticalPodAutoscaler, *autoscalingv1beta3.Tortoise, bool, error) {
 	newVPA := &v1.VerticalPodAutoscaler{}
 	// At the end of this function, this will be true:
 	// - if UpdateMode is Off, this will be always false.
@@ -250,6 +250,7 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 		newVPA = oldVPA.DeepCopy()
 		newRecommendations := make([]v1.RecommendedContainerResources, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
+		newRequests := make([]autoscalingv1beta3.ContainerResourceRequests, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
 		for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
 			if !metricsRecorded {
 				// only record metrics once in every reconcile loop.
@@ -271,6 +272,10 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 				LowerBound:     r.RecommendedResource,
 				UpperBound:     r.RecommendedResource,
 				UncappedTarget: r.RecommendedResource,
+			})
+			newRequests = append(newRequests, autoscalingv1beta3.ContainerResourceRequests{
+				ContainerName: r.ContainerName,
+				Resource:      r.RecommendedResource,
 			})
 		}
 		metricsRecorded = true
@@ -316,6 +321,10 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 			}
 		}
 
+		// The recommendation will be applied to VPA and the deployment will be restarted with the new resources.
+		// Update the request recorded in the status, which will be used in the next reconcile loop.
+		tortoise.Status.Conditions.ContainerResourceRequests = newRequests
+
 		newVPA.Status.Conditions = []v1.VerticalPodAutoscalerCondition{
 			{
 				Type:               v1.RecommendationProvided,
@@ -359,7 +368,7 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 	}
 
 	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
-		return newVPA, podShouldBeUpdatedWithNewResource, fmt.Errorf("update VPA status: %w", err)
+		return newVPA, tortoise, podShouldBeUpdatedWithNewResource, fmt.Errorf("update VPA status: %w", err)
 	}
 
 	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && podShouldBeUpdatedWithNewResource {
@@ -378,7 +387,7 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 	}
 
-	return newVPA, podShouldBeUpdatedWithNewResource, nil
+	return newVPA, tortoise, podShouldBeUpdatedWithNewResource, nil
 }
 
 func recommendationIncreaseAnyResource(oldVPA, newVPA *v1.VerticalPodAutoscaler) bool {

@@ -41,13 +41,11 @@ func (c *Service) GetDeploymentOnTortoise(ctx context.Context, tortoise *autosca
 	return d, nil
 }
 
-const updatedAtAnnotation = "kubectl.kubernetes.io/restartedAt"
-
 func (c *Service) RolloutRestart(ctx context.Context, dm *v1.Deployment, tortoise *autoscalingv1beta3.Tortoise) error {
 	if dm.Spec.Template.ObjectMeta.Annotations == nil {
 		dm.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
 	}
-	dm.Spec.Template.ObjectMeta.Annotations[updatedAtAnnotation] = time.Now().Format(time.RFC3339)
+	dm.Spec.Template.ObjectMeta.Annotations[annotation.UpdatedAtAnnotation] = time.Now().Format(time.RFC3339)
 
 	if err := c.c.Update(ctx, dm); err != nil {
 		return fmt.Errorf("failed to update deployment: %w", err)
@@ -59,6 +57,7 @@ func (c *Service) RolloutRestart(ctx context.Context, dm *v1.Deployment, tortois
 	return nil
 }
 
+// GetResourceRequests returns the resource requests of the containers in the deployment.
 func (c *Service) GetResourceRequests(dm *v1.Deployment) ([]autoscalingv1beta3.ContainerResourceRequests, error) {
 	actualContainerResource := []autoscalingv1beta3.ContainerResourceRequests{}
 	for _, c := range dm.Spec.Template.Spec.Containers {

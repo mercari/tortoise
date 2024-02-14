@@ -1,0 +1,123 @@
+metadata:
+  name: mercari
+  namespace: default
+spec:
+  targetRefs:
+    horizontalPodAutoscalerName: tortoise-hpa-mercari
+    scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: mercari-app
+  autoscalingPolicy:
+  - policy:
+      cpu: Vertical
+      memory: Vertical
+    containerName: app
+  - policy:
+      cpu: Vertical
+      memory: Vertical
+    containerName: istio-proxy
+status:
+  autoscalingPolicy:
+  - policy:
+      cpu: Vertical
+      memory: Vertical
+    containerName: app
+  - policy:
+      cpu: Vertical
+      memory: Vertical
+    containerName: istio-proxy
+  conditions:
+    containerResourceRequests:
+      - containerName: "app"
+        resource:
+          cpu: "3"
+          memory: 3Gi
+      - containerName: "istio-proxy"
+        resource:
+          cpu: "3"
+          memory: 3Gi
+    containerRecommendationFromVPA:
+    - containerName: app
+      maxRecommendation:
+        cpu:
+          quantity: "3"
+          updatedAt: null
+        memory:
+          quantity: 3Gi
+          updatedAt: null
+      recommendation:
+        cpu:
+          quantity: "3"
+          updatedAt: null
+        memory:
+          quantity: 3Gi
+          updatedAt: null
+    - containerName: istio-proxy
+      maxRecommendation:
+        cpu:
+          quantity: "3"
+          updatedAt: null
+        memory:
+          quantity: 3Gi
+          updatedAt: null
+      recommendation:
+        cpu:
+          quantity: "3"
+          updatedAt: null
+        memory:
+          quantity: 3Gi
+          updatedAt: null
+  recommendations:
+    horizontal:
+      maxReplicas:
+      - from: 0
+        timezone: Local
+        to: 24
+        updatedAt: "2023-10-06T01:15:46Z"
+        value: 20
+      minReplicas:
+      - from: 0
+        timezone: Local
+        to: 24
+        updatedAt: "2023-10-06T01:15:46Z"
+        value: 5
+      targetUtilizations:
+      - containerName: app
+        targetUtilization: {}
+      - containerName: istio-proxy
+        targetUtilization: {}
+    vertical:
+      containerResourceRecommendation:
+      - RecommendedResource:
+          cpu: "3"
+          memory: 3Gi
+        containerName: app
+      - RecommendedResource:
+          cpu: "3"
+          memory: 3Gi
+        containerName: istio-proxy
+  targets:
+    scaleTargetRef:
+      kind: Deployment
+      name: mercari-app
+    horizontalPodAutoscaler: tortoise-hpa-mercari
+    verticalPodAutoscalers:
+    - name: tortoise-updater-mercari
+      role: Updater
+    - name: tortoise-monitor-mercari
+      role: Monitor
+  tortoisePhase: Working
+  containerResourcePhases:
+    - containerName: "app"
+      resourcePhases:
+        cpu: 
+          phase: Working 
+        memory:
+          phase: Working 
+    - containerName: "istio-proxy"
+      resourcePhases:
+        cpu: 
+          phase: Working 
+        memory:
+          phase: Working 
