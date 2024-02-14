@@ -2,7 +2,7 @@
 
 <img alt="Tortoise" src="images/vertical1.jpg" width="300px"/> <img alt="Tortoise" src="images/vertical2.jpg" width="300px"/>
 
-You can configure resource(s) to be scaled by horizontal scaling
+You can configure resource(s) to be scaled by vertical scaling
 by setting `Vertical` in `Spec.ResourcePolicy[*].AutoscalingPolicy`
 
 When `Vertical` is specified on the resource,
