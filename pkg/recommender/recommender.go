@@ -17,6 +17,7 @@ import (
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/event"
+	"github.com/mercari/tortoise/pkg/features"
 	hpaservice "github.com/mercari/tortoise/pkg/hpa"
 )
 
@@ -34,6 +35,7 @@ type Service struct {
 	// the key is the container name, and "*" is the value for all containers.
 	minResourceSizePerContainer map[string]corev1.ResourceList
 	maximumMaxReplica           int32
+	featureFlags                []features.FeatureFlag
 }
 
 func New(
@@ -50,6 +52,7 @@ func New(
 	maxCPU string,
 	maxMemory string,
 	maximumMaxReplica int32,
+	featureFlags []features.FeatureFlag,
 	eventRecorder record.EventRecorder,
 ) *Service {
 	minimumCPUPerContainer["*"] = minCPU
@@ -82,6 +85,7 @@ func New(
 			corev1.ResourceMemory: resource.MustParse(maxMemory),
 		},
 		maximumMaxReplica: maximumMaxReplica,
+		featureFlags:      featureFlags,
 	}
 }
 
@@ -188,7 +192,8 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 	// Here also covers the scenario where the current replica num hits MaximumMaxReplicas.
 	if replicaNum >= s.preferredReplicaNumUpperLimit &&
 		// If the current replica number is equal to the maximumMaxReplica, increasing the resource request would not change the situation that the replica number is higher than preferredReplicaNumUpperLimit.
-		*hpa.Spec.MinReplicas != replicaNum {
+		*hpa.Spec.MinReplicas != replicaNum &&
+		features.Contains(s.featureFlags, features.VerticalScalingBasedOnPreferredMaxReplicas) {
 		// We keep increasing the size until we hit the maxResourceSize.
 		newSize := int64(float64(resourceRequest.MilliValue()) * 1.1)
 		jastifiedNewSize := s.justifyNewSizeByMaxMin(newSize, k, minAllocatedResources, containerName)

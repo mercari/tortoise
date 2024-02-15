@@ -22,6 +22,7 @@ import (
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/deployment"
+	"github.com/mercari/tortoise/pkg/features"
 	"github.com/mercari/tortoise/pkg/hpa"
 	"github.com/mercari/tortoise/pkg/recommender"
 	"github.com/mercari/tortoise/pkg/tortoise"
@@ -172,7 +173,7 @@ func startController(ctx context.Context) func() {
 		VpaService:         cli,
 		DeploymentService:  deployment.New(mgr.GetClient(), "100m", "100Mi", recorder),
 		TortoiseService:    tortoiseService,
-		RecommenderService: recommender.New(2.0, 0.5, 90, 40, 3, 30, "10m", "10Mi", map[string]string{"istio-proxy": "11m"}, map[string]string{"istio-proxy": "11Mi"}, "10", "10Gi", 10000, recorder),
+		RecommenderService: recommender.New(2.0, 0.5, 90, 40, 3, 30, "10m", "10Mi", map[string]string{"istio-proxy": "11m"}, map[string]string{"istio-proxy": "11Mi"}, "10", "10Gi", 10000, []features.FeatureFlag{features.VerticalScalingBasedOnPreferredMaxReplicas}, recorder),
 	}
 	err = reconciler.SetupWithManager(mgr)
 	Expect(err).ShouldNot(HaveOccurred())
