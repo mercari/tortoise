@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/mercari/tortoise/pkg/features"
 )
 
 type Config struct {
@@ -87,6 +89,10 @@ type Config struct {
 	IstioSidecarProxyDefaultCPU string `yaml:"IstioSidecarProxyDefaultCPU"`
 	// IstioSidecarProxyDefaultMemory is the default Memory resource request of the istio sidecar proxy (default: 200Mi)
 	IstioSidecarProxyDefaultMemory string `yaml:"IstioSidecarProxyDefaultMemory"`
+
+	// FeatureFlags is the list of feature flags (default: empty = all alpha features are disabled)
+	// See the list of feature flags in features.go
+	FeatureFlags []features.FeatureFlag `yaml:"FeatureFlags"`
 }
 
 func defaultConfig() *Config {

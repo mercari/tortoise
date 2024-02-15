@@ -15,6 +15,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/mercari/tortoise/api/v1beta3"
+	"github.com/mercari/tortoise/pkg/features"
 	"github.com/mercari/tortoise/pkg/utils"
 )
 
@@ -872,7 +873,7 @@ func TestUpdateRecommendation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := New(2.0, 0.5, 90, 40, 3, 30, "50m", "50Mi", map[string]string{"istio-proxy": "100m"}, map[string]string{"istio-proxy": "100m"}, "10", "10Gi", 1000, record.NewFakeRecorder(10))
+			s := New(2.0, 0.5, 90, 40, 3, 30, "50m", "50Mi", map[string]string{"istio-proxy": "100m"}, map[string]string{"istio-proxy": "100m"}, "10", "10Gi", 1000, nil, record.NewFakeRecorder(10))
 			got, err := s.updateHPATargetUtilizationRecommendations(context.Background(), tt.args.tortoise, tt.args.hpa, tt.args.currentReplicaNum)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateHPATargetUtilizationRecommendations() error = %v, wantErr %v", err, tt.wantErr)
@@ -1552,7 +1553,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := New(2.0, 0.5, 90, 40, 3, 30, "50m", "50Mi", map[string]string{"istio-proxy": "100m"}, map[string]string{"istio-proxy": "100m"}, "10", "10Gi", 1000, record.NewFakeRecorder(10))
+			s := New(2.0, 0.5, 90, 40, 3, 30, "50m", "50Mi", map[string]string{"istio-proxy": "100m"}, map[string]string{"istio-proxy": "100m"}, "10", "10Gi", 1000, nil, record.NewFakeRecorder(10))
 			got, err := s.updateHPAMinMaxReplicasRecommendations(tt.args.tortoise, tt.args.replicaNum, tt.args.now)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateHPAMinMaxReplicasRecommendations() error = %v, wantErr %v", err, tt.wantErr)
@@ -1571,6 +1572,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		minimumMinReplicas            int32
 		maxCPU                        string
 		maxMemory                     string
+		features                      []features.FeatureFlag
 	}
 	type args struct {
 		tortoise   *v1beta3.Tortoise
@@ -1590,6 +1592,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				preferredReplicaNumUpperLimit: 3,
 				maxCPU:                        "1000m",
 				maxMemory:                     "1Gi",
+				features:                      []features.FeatureFlag{features.VerticalScalingBasedOnPreferredMaxReplicas},
 			},
 			args: args{
 				hpa: &v2.HorizontalPodAutoscaler{
@@ -1655,6 +1658,84 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						{
 							ContainerName:       "test-container",
 							RecommendedResource: createResourceList("550m", "550Mi"), // current * 1.1
+						},
+					},
+				},
+			}).Build(),
+			wantErr: false,
+		},
+		{
+			name: "all horizontal: replica count above preferredReplicaNumUpperLimit but VerticalScalingBasedOnPreferredMaxReplicas is disabled: increase the resources a bit",
+			fields: fields{
+				preferredReplicaNumUpperLimit: 3,
+				maxCPU:                        "1000m",
+				maxMemory:                     "1Gi",
+				features:                      []features.FeatureFlag{},
+			},
+			args: args{
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						MinReplicas: ptr.To[int32](1),
+						Metrics:     []v2.MetricSpec{},
+					},
+				},
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
+					v1beta3.ContainerRecommendationFromVPA{
+						ContainerName: "test-container",
+						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+							corev1.ResourceCPU: {
+								Quantity: resource.MustParse("500m"),
+							},
+							corev1.ResourceMemory: {
+								Quantity: resource.MustParse("500Mi"),
+							},
+						},
+					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("500m", "500Mi"),
+				}).Build(),
+				replicaNum: 4,
+			},
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
+				v1beta3.ContainerRecommendationFromVPA{
+					ContainerName: "test-container",
+					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+						corev1.ResourceCPU: {
+							Quantity: resource.MustParse("500m"),
+						},
+						corev1.ResourceMemory: {
+							Quantity: resource.MustParse("500Mi"),
+						},
+					},
+				},
+			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("500m", "500Mi"),
+			}).SetRecommendations(v1beta3.Recommendations{
+				Vertical: v1beta3.VerticalRecommendations{
+					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+						{
+							ContainerName:       "test-container",
+							RecommendedResource: createResourceList("500m", "500Mi"), // Unchange
 						},
 					},
 				},
@@ -1744,6 +1825,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 				preferredReplicaNumUpperLimit: 3,
 				maxCPU:                        "1000m",
 				maxMemory:                     "1Gi",
+				features:                      []features.FeatureFlag{features.VerticalScalingBasedOnPreferredMaxReplicas},
 			},
 			args: args{
 				hpa: &v2.HorizontalPodAutoscaler{
@@ -2571,7 +2653,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			s := New(0, 0, 0, 0, int(tt.fields.minimumMinReplicas), int(tt.fields.preferredReplicaNumUpperLimit), "5m", "5Mi", map[string]string{"istio-proxy": "7m"}, map[string]string{"istio-proxy": "7Mi"}, tt.fields.maxCPU, tt.fields.maxMemory, 10000, record.NewFakeRecorder(10))
+			s := New(0, 0, 0, 0, int(tt.fields.minimumMinReplicas), int(tt.fields.preferredReplicaNumUpperLimit), "5m", "5Mi", map[string]string{"istio-proxy": "7m"}, map[string]string{"istio-proxy": "7Mi"}, tt.fields.maxCPU, tt.fields.maxMemory, 10000, tt.fields.features, record.NewFakeRecorder(10))
 			got, err := s.updateVPARecommendation(context.Background(), tt.args.tortoise, tt.args.hpa, tt.args.replicaNum)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateVPARecommendation() error = %v, wantErr %v", err, tt.wantErr)
