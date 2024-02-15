@@ -5,8 +5,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/mercari/tortoise/pkg/features"
 	"gopkg.in/yaml.v3"
+
+	"github.com/mercari/tortoise/pkg/features"
 )
 
 type Config struct {
