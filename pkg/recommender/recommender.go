@@ -221,7 +221,7 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 
 	if !isMultipleContainersPod {
 		// nothing else to do for a single container Pod.
-		return s.justifyNewSizeByMaxMin(resourceRequest.MilliValue(), k, minAllocatedResources, containerName), "", nil
+		return s.justifyNewSizeByMaxMin(resourceRequest.MilliValue(), k, minAllocatedResources, containerName), "nothing to do", nil
 	}
 
 	targetUtilizationValue, err := hpaservice.GetHPATargetValue(ctx, hpa, containerName, k)
@@ -240,12 +240,12 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 		// so that the upper usage will be the target usage.
 		newSize := int64(float64(recommendedResourceRequest.MilliValue()) * 100.0 / float64(targetUtilizationValue))
 		jastified := s.justifyNewSizeByMaxMin(newSize, k, minAllocatedResources, containerName)
-		return jastified, fmt.Sprintf("the current resource utilization (%v) is too small and it's due to unbalanced container size, so make %v request (%v) smaller (%v → %v) based on VPA's recommendation and HPA target utilization %v%%", int(upperUtilization), k, containerName, resourceRequest.MilliValue(), jastified, targetUtilizationValue), nil
+		return jastified, fmt.Sprintf("the current resource usage (%v, %v%%) is too small and it's due to unbalanced container size, so make %v request (%v) smaller (%v → %v) based on VPA's recommendation and HPA target utilization %v%%", recommendedResourceRequest.MilliValue(), int(upperUtilization), k, containerName, resourceRequest.MilliValue(), jastified, targetUtilizationValue), nil
 	}
 
 	// Just keep the current resource request.
 	// Only do justification.
-	return s.justifyNewSizeByMaxMin(resourceRequest.MilliValue(), k, minAllocatedResources, containerName), "", nil
+	return s.justifyNewSizeByMaxMin(resourceRequest.MilliValue(), k, minAllocatedResources, containerName), "nothing to do", nil
 }
 
 func (s *Service) getGlobalMinResourceSize(k corev1.ResourceName, containerName string) resource.Quantity {

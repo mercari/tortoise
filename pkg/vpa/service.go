@@ -434,13 +434,36 @@ func (c *Service) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscali
 		return nil, false, fmt.Errorf("failed to get updater vpa on tortoise: %w", err)
 	}
 
+	return vpa, isMonitorVPAReady(vpa, tortoise), nil
+}
+
+func isMonitorVPAReady(vpa *v1.VerticalPodAutoscaler, tortoise *autoscalingv1beta3.Tortoise) bool {
+	provided := false
 	for _, c := range vpa.Status.Conditions {
 		if c.Type == v1.RecommendationProvided && c.Status == corev1.ConditionTrue {
-			return vpa, true, nil
+			provided = true
+		}
+	}
+	if !provided {
+		return false
+	}
+
+	// Check if VPA has the recommendation for all the containers registered in the tortoise.
+	containerInTortoise := sets.New[string]()
+	for _, p := range tortoise.Status.AutoscalingPolicy {
+		containerInTortoise.Insert(p.ContainerName)
+	}
+
+	containerInVPA := sets.New[string]()
+	for _, c := range vpa.Status.Recommendation.ContainerRecommendations {
+		containerInVPA.Insert(c.ContainerName)
+		if c.Target.Cpu().IsZero() || c.Target.Memory().IsZero() {
+			// something wrong with the recommendation.
+			return false
 		}
 	}
 
-	return vpa, false, nil
+	return containerInTortoise.Equal(containerInVPA)
 }
 
 func SetAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta3.Tortoise, now time.Time) *autoscalingv1beta3.Tortoise {

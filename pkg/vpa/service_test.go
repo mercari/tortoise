@@ -1542,3 +1542,168 @@ func TestService_UpdateVPAFromTortoiseRecommendation(t *testing.T) {
 		})
 	}
 }
+
+func Test_isMonitorVPAReady(t *testing.T) {
+	type args struct {
+		vpa      *vpav1.VerticalPodAutoscaler
+		tortoise *autoscalingv1beta3.Tortoise
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "VPA is not ready",
+			args: args{
+				vpa: &vpav1.VerticalPodAutoscaler{
+					Status: vpav1.VerticalPodAutoscalerStatus{
+						Conditions: []vpav1.VerticalPodAutoscalerCondition{
+							{
+								Type:   vpav1.RecommendationProvided,
+								Status: v1.ConditionFalse,
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "VPA doesn't have a recommendation for a container",
+			args: args{
+				vpa: &vpav1.VerticalPodAutoscaler{
+					Status: vpav1.VerticalPodAutoscalerStatus{
+						Conditions: []vpav1.VerticalPodAutoscalerCondition{
+							{
+								Type:   vpav1.RecommendationProvided,
+								Status: v1.ConditionFalse,
+							},
+						},
+						Recommendation: &vpav1.RecommendedPodResources{
+							ContainerRecommendations: []vpav1.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									Target: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								// no istio
+							},
+						},
+					},
+				},
+				tortoise: &autoscalingv1beta3.Tortoise{
+					Status: autoscalingv1beta3.TortoiseStatus{
+						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+							},
+							{
+								ContainerName: "istio",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "VPA has a invalid recommendation for a container",
+			args: args{
+				vpa: &vpav1.VerticalPodAutoscaler{
+					Status: vpav1.VerticalPodAutoscalerStatus{
+						Conditions: []vpav1.VerticalPodAutoscalerCondition{
+							{
+								Type:   vpav1.RecommendationProvided,
+								Status: v1.ConditionFalse,
+							},
+						},
+						Recommendation: &vpav1.RecommendedPodResources{
+							ContainerRecommendations: []vpav1.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									Target: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("0"), // wrong
+									},
+								},
+								{
+									ContainerName: "istio",
+									Target: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+				tortoise: &autoscalingv1beta3.Tortoise{
+					Status: autoscalingv1beta3.TortoiseStatus{
+						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+							},
+							{
+								ContainerName: "istio",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "VPA is ready",
+			args: args{
+				vpa: &vpav1.VerticalPodAutoscaler{
+					Status: vpav1.VerticalPodAutoscalerStatus{
+						Conditions: []vpav1.VerticalPodAutoscalerCondition{
+							{
+								Type:   vpav1.RecommendationProvided,
+								Status: v1.ConditionFalse,
+							},
+						},
+						Recommendation: &vpav1.RecommendedPodResources{
+							ContainerRecommendations: []vpav1.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									Target: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"), // wrong
+									},
+								},
+								{
+									ContainerName: "istio",
+									Target: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+				tortoise: &autoscalingv1beta3.Tortoise{
+					Status: autoscalingv1beta3.TortoiseStatus{
+						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+							},
+							{
+								ContainerName: "istio",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isMonitorVPAReady(tt.args.vpa, tt.args.tortoise); got != tt.want {
+				t.Errorf("isMonitorVPAReady() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
