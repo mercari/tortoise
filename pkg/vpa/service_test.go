@@ -8,8 +8,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/mercari/tortoise/api/v1beta3"
-	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,6 +15,9 @@ import (
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
+
+	"github.com/mercari/tortoise/api/v1beta3"
+	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 )
 
 func TestMakeAllVerticalContainerResourcePhaseRunning(t *testing.T) {
