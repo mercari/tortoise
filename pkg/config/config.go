@@ -12,16 +12,140 @@ import (
 
 type Config struct {
 	// RangeOfMinMaxReplicasRecommendationHours is the time (hours) range of minReplicas and maxReplicas recommendation (default: 1)
+	//
+	//```yaml
+	// kind: Tortoise
+	// #...
+	// status:
+	//   recommendations:
+	//     horizontal:
+	//       minReplicas:
+	//         - from: 0
+	//           to: 1
+	//           weekday: Sunday
+	//           timezone: Asia/Tokyo
+	//           value: 3
+	//           updatedAt: 2023-01-01T00:00:00Z
+	//         - from: 1
+	//           to: 2
+	//           weekday: Sunday
+	//           timezone: Asia/Tokyo
+	//           value: 3
+	//           updatedAt: 2023-01-01T00:00:00Z
+	// ```
 	RangeOfMinMaxReplicasRecommendationHours int `yaml:"RangeOfMinMaxReplicasRecommendationHours"`
 	// GatheringDataPeriodType means how long do we gather data for minReplica/maxReplica or data from VPA. "daily" and "weekly" are only valid value. (default: weekly)
 	// If "daily", tortoise will consider all workload behaves very similarly every day.
 	// If your workload may behave differently on, for example, weekdays and weekends, set this to "weekly".
+	//
+	// **daily**
+	//
+	// ```yaml
+	// kind: Tortoise
+	// #...
+	// status:
+	//   recommendations:
+	//     horizontal:
+	//       minReplicas:
+	//         # This recommendation is from 0am to 1am on all days of week.
+	//         - from: 0
+	//           to: 1
+	//           timezone: Asia/Tokyo
+	//           value: 3
+	//           updatedAt: 2023-01-01T00:00:00Z
+	//         - from: 1
+	//           to: 2
+	//           timezone: Asia/Tokyo
+	//           value: 3
+	//           updatedAt: 2023-01-01T00:00:00Z
+	//         # ...
+	//         - from: 23
+	//           to: 24
+	//           timezone: Asia/Tokyo
+	//           value: 3
+	//           updatedAt: 2023-01-01T00:00:00Z
+	// ```
+	//
+	// **weekly**
+	//
+	// ```yaml
+	// kind: Tortoise
+	// #...
+	// status:
+	//   recommendations:
+	//     horizontal:
+	//       minReplicas:
+	//         # This recommendation is from 0am to 1am on Sundays.
+	//         - from: 0
+	//           to: 1
+	//           weekday: Sunday # Recommendation is generated for each day of week.
+	//           timezone: Asia/Tokyo
+	//           value: 3
+	//           updatedAt: 2023-01-01T00:00:00Z
+	//         - from: 1
+	//           to: 2
+	//           weekday: Sunday
+	//           timezone: Asia/Tokyo
+	//           value: 3
+	//           updatedAt: 2023-01-01T00:00:00Z
+	//         # ...
+	//         - from: 23
+	//           to: 24
+	//           weekday: Saturday
+	//           timezone: Asia/Tokyo
+	//           value: 3
+	//           updatedAt: 2023-01-01T00:00:00Z
+	// ```
 	GatheringDataPeriodType string `yaml:"GatheringDataPeriodType"`
 	// MaxReplicasFactor is the factor to calculate the maxReplicas recommendation from the current replica number (default: 2.0)
+	// If the current replica number is 15 and `MaxReplicasFactor` is 2.0,
+	// the maxReplicas recommendation from the current situation will be 30 (15 * 2.0).
+	//
+	// ```yaml
+	// kind: Tortoise
+	// #...
+	// status:
+	//   recommendations:
+	//     horizontal:
+	//       maxReplicas:
+	//         - from: 0
+	//           to: 1
+	//           weekday: Sunday
+	//           timezone: Asia/Tokyo
+	//           value: 30
+	//           updatedAt: 2023-01-01T00:00:00Z
+	// ```
 	MaxReplicasFactor float64 `yaml:"MaxReplicasFactor"`
 	// MinReplicasFactor is the factor to calculate the minReplicas recommendation from the current replica number (default: 0.5)
+	// If the current replica number is 10 and `MaxReplicasFactor` is 0.5,
+	// the minReplicas recommendation from the current situation will be 5 (10 * 0.5).
+	//
+	// ```yaml
+	// kind: Tortoise
+	// #...
+	// status:
+	//   recommendations:
+	//     horizontal:
+	//       minReplicas:
+	//         - from: 0
+	//           to: 1
+	//           weekday: Sunday
+	//           timezone: Asia/Tokyo
+	//           value: 5
+	//           updatedAt: 2023-01-01T00:00:00Z
+	// ```
 	MinReplicasFactor float64 `yaml:"MinReplicasFactor"`
 	// ReplicaReductionFactor is the factor to reduce the minReplicas gradually after turning off Emergency mode (default: 0.95)
+	//
+	// Let's say `ReplicaReductionFactor` is 0.95,
+	// the minReplicas was increased to 100 due to the emergency mode,
+	// and a user just turned off the emergency mode now.
+	//
+	// Then, the `minReplicas` is going to change like:
+	//
+	// 100 --(*0.95)--> 95 --(*0.95)--> 91 -- ...
+	//
+	// It's reduced every time tortoise is evaluated by the controller. (= once a `TortoiseUpdateInterval`)
 	ReplicaReductionFactor float64 `yaml:"ReplicaReductionFactor"`
 	// MaximumTargetResourceUtilization is the max target utilization that tortoise can give to the HPA (default: 90)
 	MaximumTargetResourceUtilization int `yaml:"MaximumTargetResourceUtilization"`
@@ -34,15 +158,22 @@ type Config struct {
 	// PreferredMaxReplicas is the replica number which the tortoise tries to keep the replica number less than.
 	// As it says "preferred", the tortoise **tries** to keep the replicas number less than this,
 	// but the replica number may be more than this when other "required" rule will be violated by this limit. (default: 30)
+	//
+	// When the number of replicas reaches `PreferredMaxReplicas`,
+	// a tortoise will increase the Pod's resource request instead of increasing the number of replicas.
+	//
+	// But, when the resource request reaches `MaximumCPUCores` or `MaximumMemoryBytes`,
+	// a tortoise will ignore `PreferredMaxReplicas`, and increase the number of replicas.
+	// This feature is controlled by the feature flag `VerticalScalingBasedOnPreferredMaxReplicas`.
 	PreferredMaxReplicas int `yaml:"PreferredMaxReplicas"`
 	// MaximumMaxReplicas is the maximum maxReplica that tortoise can give to the HPA (default: 100)
 	// Note that this is very dangerous. If you set this value too low, the HPA may not be able to scale up the workload.
 	// The motivation is to use it has a hard limit to prevent the HPA from scaling up the workload too much in cases of Tortoise's bug, abnormal traffic increase, etc.
 	// If some Tortoise hits this limit, the tortoise controller emits an error log, which may or may not imply you have to change this value.
 	MaximumMaxReplicas int32 `yaml:"MaximumMaxReplicas"`
-	// MaximumCPUCores is the maximum CPU cores that the tortoise can give to the container (default: 10)
+	// MaximumCPUCores is the maximum CPU cores that the tortoise can give to the container resource request (default: 10)
 	MaximumCPUCores string `yaml:"MaximumCPUCores"`
-	// MaximumMemoryBytes is the maximum memory bytes that the tortoise can give to the container (default: 10Gi)
+	// MaximumMemoryBytes is the maximum memory bytes that the tortoise can give to the container resource request (default: 10Gi)
 	MaximumMemoryBytes string `yaml:"MaximumMemoryBytes"`
 	// MinimumCPUCores is the minimum CPU cores that the tortoise can give to the container resource request (default: 50m)
 	MinimumCPUCores string `yaml:"MinimumCPUCores"`
@@ -52,7 +183,7 @@ type Config struct {
 	// e.g., if you set `MinimumCPULimitCores: 100m` and `ResourceLimitMultiplier: cpu: 3`, and the container requests 10m CPU,
 	// Tortoise will set the limit to 100m, not 30m.
 	MinimumCPULimitCores string `yaml:"MinimumCPULimitCores"`
-	// MinimumCPUCoresPerContainer is the minimum CPU cores per container that the tortoise can give to the container (default: nil)
+	// MinimumCPUCoresPerContainer is the minimum CPU cores per container that the tortoise can give to the container resource request (default: nil)
 	// It has a higher priority than MinimumCPUCores.
 	// If you specify both, the tortoise uses MinimumCPUCoresPerContainer basically, but if the container name is not found in this map, the tortoise uses MinimumCPUCores.
 	//
@@ -78,15 +209,26 @@ type Config struct {
 	// TimeZone is the timezone used to record time in tortoise objects (default: Asia/Tokyo)
 	TimeZone string `yaml:"TimeZone"`
 	// TortoiseUpdateInterval is the interval of updating each tortoise (default: 15s)
+	// (It may delay if there are many tortoise objects in the cluster.)
 	TortoiseUpdateInterval time.Duration `yaml:"TortoiseUpdateInterval"`
 	// HPATargetUtilizationMaxIncrease is the max increase of target utilization that tortoise can give to the HPA (default: 5)
+	// If tortoise suggests changing the HPA target resource utilization from 50 to 80, it might be dangerous to give the change at once.
+	// By configuring this, we can limit the max increase that tortoise can make.
+	// So, if HPATargetUtilizationMaxIncrease is 5, even if tortoise suggests changing the HPA target resource utilization from 50 to 80,
+	// the target utilization is actually change from 50 to 55.
 	HPATargetUtilizationMaxIncrease int `yaml:"HPATargetUtilizationMaxIncrease"`
 	// HPATargetUtilizationUpdateInterval is the interval of updating target utilization of each HPA (default: 24h)
+	//
+	// So, similarily to HPATargetUtilizationMaxIncrease, it's also a safety guard to prevent HPA target utilization from suddenly changed.
+	// If HPATargetUtilizationMaxIncrease is 1h, HPATargetUtilizationMaxIncrease is 5, and tortoise keep suggesting changing the HPA target resource utilization from 50 to 80,
+	// the target resource utilization would be changing like 50 -(1h)-> 55 -(1h)-> 60 → ... → 80.
 	HPATargetUtilizationUpdateInterval time.Duration `yaml:"HPATargetUtilizationUpdateInterval"`
 	// HPAExternalMetricExclusionRegex is the regex to exclude external metrics from HPA. (default: Not delete any external metrics)
 	// Basically, if HPA has external metrics, the tortoise keeps that external metric.
 	// But, if you want to remove some external metrics from HPA, you can use this regex.
 	// Note, the exclusion is done only when tortoise is not Off mode.
+	// For example, if you set `datadogmetric.*` in `HPAExternalMetricExclusionRegex`,
+	// all the external metric which name matches `datadogmetric.*` regex are removed by Tortoise once Tortoise is in Auto mode.
 	HPAExternalMetricExclusionRegex string `yaml:"HPAExternalMetricExclusionRegex"`
 
 	// MaxAllowedVerticalScalingDownRatio is the max allowed scaling down ratio (default: 0.8)
