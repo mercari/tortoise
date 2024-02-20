@@ -53,9 +53,9 @@ import (
 func New(
 	tortoiseService *tortoise.Service,
 	resourceLimitMultiplier map[string]int64,
-	minimumCPULimitCores string,
+	MinimumCPULimit string,
 ) (*PodWebhook, error) {
-	minCPULim := resource.MustParse(minimumCPULimitCores)
+	minCPULim := resource.MustParse(MinimumCPULimit)
 	return &PodWebhook{
 		tortoiseService:         tortoiseService,
 		resourceLimitMultiplier: resourceLimitMultiplier,

@@ -1,25 +1,25 @@
 RangeOfMinMaxReplicasRecommendationHours: 2
 GatheringDataPeriodType:         "daily"
-MaxReplicasFactor:                        2.0
-MinReplicasFactor:                        0.5
+MaxReplicasRecommendationMultiplier:                        2.0
+MinReplicasRecommendationMultiplier:                        0.5
 ReplicaReductionFactor:                   0.95
 MaximumTargetResourceUtilization:           90
 MinimumMinReplicas:                       3
 PreferredMaxReplicas:            30
-MaximumCPUCores:                         "10"
-MaximumMemoryBytes:                      "10Gi"
+MaximumCPURequest:                         "10"
+MaximumMemoryRequest:                      "10Gi"
 TimeZone:                                 "Asia/Tokyo"
 TortoiseUpdateInterval:                   "1h"
 HPATargetUtilizationMaxIncrease:   10
 HPATargetUtilizationUpdateInterval:                   "3h"
-MinimumMemoryBytesPerContainer:
+MinimumMemoryRequestPerContainer:
   istio-proxy: 1Mi
   hoge-agent: 2Mi
-MinimumCPUCoresPerContainer:
+MinimumCPURequestPerContainer:
   istio-proxy: 100m
   hoge-agent: 120m
 MaxAllowedScalingDownRatio: 0.5
 ResourceLimitMultiplier:
   cpu: 3
   memory: 1
-MinimumCPULimitCores: "1"
+MinimumCPULimit: "1"
