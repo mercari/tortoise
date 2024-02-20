@@ -25,6 +25,7 @@ TortoiseUpdateInterval:                       The interval of updating each tort
 HPATargetUtilizationMaxIncrease:              The max increase of target utilization that tortoise can give to the HPA (default: 5)
 HPATargetUtilizationUpdateInterval:           The interval of updating target utilization of each HPA (default: 1h)
 HPAExternalMetricExclusionRegex:              The regex to exclude external metrics from HPA. (default: Not delete any external metrics)
+MaxAllowedScalingDownRatio:                   The max allowed scaling down ratio (default: 0.8)
 ```
 
 ### RangeOfMinMaxReplicasRecommendationHours
@@ -255,3 +256,9 @@ But, if you set `HPAExternalMetricExclusionRegex`, you can let Tortoise remove s
 
 For example, if you set `datadogmetric.*` in `HPAExternalMetricExclusionRegex`, 
 all the external metric which name matches `datadogmetric.*` regex are removed by Tortoise once Tortoise is in Auto mode.
+
+### MaxAllowedScalingDownRatio
+
+MaxAllowedVerticalScalingDownRatio is the max allowed scaling down ratio (default: 0.8)
+For example, if the current resource request is 100m, the max allowed scaling down ratio is 0.8,
+the minimum resource request that Tortoise can apply is 80m.

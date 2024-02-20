@@ -39,5 +39,7 @@ we don't want to do such replacement very frequently.
 
 Thus, Tortoise is allowed to scale down only once an hour, even if the resource request recommendation keeps decreasing in an hour.
 
+Also, to prevent a big scaling down, Tortoise has [`MaxAllowedScalingDownRatio`](./admin-guide.md#maxallowedscalingdownratio) to specify how much Tortoise can scales down at one scaling down. 
+
 On the other hand, Tortoise always scales **up** the resource request as soon as possible
 regardless of whether Tortoise recently has scaled the resources or not.

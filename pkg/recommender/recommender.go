@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/mercari/tortoise/api/v1beta3"
@@ -36,6 +37,10 @@ type Service struct {
 	minResourceSizePerContainer map[string]corev1.ResourceList
 	maximumMaxReplica           int32
 	featureFlags                []features.FeatureFlag
+	// maxAllowedScalingDownRatio is the max allowed scaling down ratio.
+	// For example, if the current resource request is 100m, the max allowed scaling down ratio is 0.8,
+	// the minimum resource request that Tortoise can apply is 80m.
+	maxAllowedScalingDownRatio float64
 }
 
 func New(
@@ -52,6 +57,7 @@ func New(
 	maxCPU string,
 	maxMemory string,
 	maximumMaxReplica int32,
+	maxAllowedScalingDownRatio float64,
 	featureFlags []features.FeatureFlag,
 	eventRecorder record.EventRecorder,
 ) *Service {
@@ -84,8 +90,9 @@ func New(
 			corev1.ResourceCPU:    resource.MustParse(maxCPU),
 			corev1.ResourceMemory: resource.MustParse(maxMemory),
 		},
-		maximumMaxReplica: maximumMaxReplica,
-		featureFlags:      featureFlags,
+		maximumMaxReplica:          maximumMaxReplica,
+		featureFlags:               featureFlags,
+		maxAllowedScalingDownRatio: maxAllowedScalingDownRatio,
 	}
 }
 
@@ -180,7 +187,7 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 		// The user configures Vertical on this container's resource. This is just vertical scaling.
 		// We always follow the recommendation from VPA.
 		newSize := recommendedResourceRequest.MilliValue()
-		jastified := s.justifyNewSizeByMaxMin(newSize, k, minAllocatedResources, containerName)
+		jastified := s.justifyNewSize(resourceRequest.MilliValue(), newSize, k, minAllocatedResources, containerName)
 		return jastified, fmt.Sprintf("change %v request (%v) (%v → %v) based on VPA suggestion", k, containerName, resourceRequest.MilliValue(), jastified), nil
 	}
 
@@ -196,7 +203,7 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 		features.Contains(s.featureFlags, features.VerticalScalingBasedOnPreferredMaxReplicas) {
 		// We keep increasing the size until we hit the maxResourceSize.
 		newSize := int64(float64(resourceRequest.MilliValue()) * 1.1)
-		jastifiedNewSize := s.justifyNewSizeByMaxMin(newSize, k, minAllocatedResources, containerName)
+		jastifiedNewSize := s.justifyNewSize(resourceRequest.MilliValue(), newSize, k, minAllocatedResources, containerName)
 		return jastifiedNewSize, fmt.Sprintf("the current number of replicas is bigger than the preferred max replica number in this cluster (%v), so make %v request (%s) bigger (%v → %v)", s.preferredReplicaNumUpperLimit, k, containerName, resourceRequest.MilliValue(), jastifiedNewSize), nil
 	}
 
@@ -212,7 +219,7 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 			// We use the recommended resource request if it's smaller than the current resource request.
 			newSize = recommendedResourceRequest.MilliValue()
 		}
-		jastified := s.justifyNewSizeByMaxMin(newSize, k, minAllocatedResources, containerName)
+		jastified := s.justifyNewSize(resourceRequest.MilliValue(), newSize, k, minAllocatedResources, containerName)
 
 		return jastified, fmt.Sprintf("the current number of replicas is equal or smaller than the minimum min replica number in this cluster (%v), so make %v request (%v) smaller (%v → %v) based on VPA suggestion", s.minimumMinReplicas, k, containerName, resourceRequest.MilliValue(), jastified), nil
 	}
@@ -221,7 +228,7 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 
 	if !isMultipleContainersPod {
 		// nothing else to do for a single container Pod.
-		return s.justifyNewSizeByMaxMin(resourceRequest.MilliValue(), k, minAllocatedResources, containerName), "nothing to do", nil
+		return s.justifyNewSize(resourceRequest.MilliValue(), resourceRequest.MilliValue(), k, minAllocatedResources, containerName), "nothing to do", nil
 	}
 
 	targetUtilizationValue, err := hpaservice.GetHPATargetValue(ctx, hpa, containerName, k)
@@ -239,13 +246,13 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 		// And this case, reducing the resource request of container in this kind of weird situation
 		// so that the upper usage will be the target usage.
 		newSize := int64(float64(recommendedResourceRequest.MilliValue()) * 100.0 / float64(targetUtilizationValue))
-		jastified := s.justifyNewSizeByMaxMin(newSize, k, minAllocatedResources, containerName)
+		jastified := s.justifyNewSize(resourceRequest.MilliValue(), newSize, k, minAllocatedResources, containerName)
 		return jastified, fmt.Sprintf("the current resource usage (%v, %v%%) is too small and it's due to unbalanced container size, so make %v request (%v) smaller (%v → %v) based on VPA's recommendation and HPA target utilization %v%%", recommendedResourceRequest.MilliValue(), int(upperUtilization), k, containerName, resourceRequest.MilliValue(), jastified, targetUtilizationValue), nil
 	}
 
 	// Just keep the current resource request.
 	// Only do justification.
-	return s.justifyNewSizeByMaxMin(resourceRequest.MilliValue(), k, minAllocatedResources, containerName), "nothing to do", nil
+	return s.justifyNewSize(resourceRequest.MilliValue(), resourceRequest.MilliValue(), k, minAllocatedResources, containerName), "nothing to do", nil
 }
 
 func (s *Service) getGlobalMinResourceSize(k corev1.ResourceName, containerName string) resource.Quantity {
@@ -256,7 +263,7 @@ func (s *Service) getGlobalMinResourceSize(k corev1.ResourceName, containerName 
 	return s.minResourceSizePerContainer["*"][k]
 }
 
-func (s *Service) justifyNewSizeByMaxMin(newSizeMilli int64, k corev1.ResourceName, minAllocatedResources corev1.ResourceList, containerName string) int64 {
+func (s *Service) justifyNewSize(oldSizeMilli, newSizeMilli int64, k corev1.ResourceName, minAllocatedResources corev1.ResourceList, containerName string) int64 {
 	max := s.maxResourceSize[k]
 	min := minAllocatedResources[k]
 
@@ -264,6 +271,15 @@ func (s *Service) justifyNewSizeByMaxMin(newSizeMilli int64, k corev1.ResourceNa
 	if min.Cmp(s.getGlobalMinResourceSize(k, containerName)) < 0 {
 		// s.minResourceSize[k] is bigger than minAllocatedResources[k]
 		min = s.getGlobalMinResourceSize(k, containerName)
+	}
+
+	// If the new size is too small, which isn't acceptable based on the maxAllowedScalingDownRatio.
+	// We use oldSizeMilli * s.maxAllowedScalingDownRatio as the new size.
+	//
+	// So, here if min is smaller than oldSizeMilli * s.maxAllowedScalingDownRatio,
+	// we use oldSizeMilli * s.maxAllowedScalingDownRatio as min.
+	if min.MilliValue() < int64(float64(oldSizeMilli)*s.maxAllowedScalingDownRatio) {
+		min = ptr.Deref(resource.NewMilliQuantity(int64(float64(oldSizeMilli)*s.maxAllowedScalingDownRatio), min.Format), min)
 	}
 
 	if newSizeMilli > max.MilliValue() {

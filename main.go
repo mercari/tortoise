@@ -172,6 +172,7 @@ func main() {
 			config.MaximumCPUCores,
 			config.MaximumMemoryBytes,
 			config.MaximumMaxReplicas,
+			config.MaxAllowedScalingDownRatio,
 			config.FeatureFlags,
 			eventRecorder,
 		),

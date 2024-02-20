@@ -83,6 +83,11 @@ type Config struct {
 	// Note, the exclusion is done only when tortoise is not Off mode.
 	HPAExternalMetricExclusionRegex string `yaml:"HPAExternalMetricExclusionRegex"`
 
+	// MaxAllowedVerticalScalingDownRatio is the max allowed scaling down ratio (default: 0.8)
+	// For example, if the current resource request is 100m, the max allowed scaling down ratio is 0.8,
+	// the minimum resource request that Tortoise can apply is 80m.
+	MaxAllowedScalingDownRatio float64 `yaml:"MaxAllowedScalingDownRatio"`
+
 	// TODO: the following fields should be removed after we stop depending on deployment.
 	// So, we don't put them in the documentation.
 	// IstioSidecarProxyDefaultCPU is the default CPU resource request of the istio sidecar proxy (default: 100m)
@@ -118,6 +123,7 @@ func defaultConfig() *Config {
 		HPATargetUtilizationUpdateInterval:       time.Hour * 24,
 		MaximumMinReplicas:                       10,
 		MaximumMaxReplicas:                       100,
+		MaxAllowedScalingDownRatio:               0.8,
 		IstioSidecarProxyDefaultCPU:              "100m",
 		IstioSidecarProxyDefaultMemory:           "200Mi",
 	}
@@ -172,6 +178,10 @@ func validate(config *Config) error {
 	}
 	if config.PreferredMaxReplicas <= config.MinimumMinReplicas {
 		return fmt.Errorf("PreferredMaxReplicas should be greater than or equal to MinimumMinReplicas")
+	}
+
+	if config.MaxAllowedScalingDownRatio < 0 || config.MaxAllowedScalingDownRatio > 1 {
+		return fmt.Errorf("MaxAllowedScalingDownRatio should be between 0 and 1")
 	}
 
 	return nil

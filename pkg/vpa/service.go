@@ -310,6 +310,7 @@ func (c *Service) UpdateVPAFromTortoiseRecommendation(ctx context.Context, torto
 		increased := recommendationIncreaseAnyResource(oldVPA, newVPA)
 		for _, v := range newVPA.Status.Conditions {
 			if v.Type == v1.RecommendationProvided && v.Status == corev1.ConditionTrue {
+				// TODO: move the 1h to a config.
 				if v.LastTransitionTime.Add(time.Hour).After(now) && !increased {
 					// if all the recommended resources is decreased and it's NOT yet been 1h after the last update,
 					// we don't want to update the Pod too frequently.
