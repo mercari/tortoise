@@ -32,11 +32,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/mercari/tortoise/api/v1beta3"
 
 	. "github.com/onsi/ginkgo/v2"
