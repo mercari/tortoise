@@ -88,6 +88,19 @@ type Config struct {
 	// the minimum resource request that Tortoise can apply is 80m.
 	MaxAllowedScalingDownRatio float64 `yaml:"MaxAllowedScalingDownRatio"`
 
+	// ResourceLimitMultiplier is the multiplier to calculate the resource limit from the resource request (default: nil)
+	// (The key is the resource name, and the value is the multiplier.)
+	//
+	// VPA changes the resource limit based on the resource request; it maintains limit to request ratio specified for all containers.
+	// Meaning, users have to configure the resource limit properly based on the resource request before adopting Tortoise
+	// so that VPA can adjust the resource limit properly.
+	// This feature is to remove the responsibility from the user to configure the resource limit and let Tortoise manage the resource limit fully.
+	// For example, if you set ResourceLimitMultiplier 3 and Pod's resource request is 100m, the limit will be changed to 300m,
+	// regardless of which resource limit is set in the Pod originally.
+	//
+	// The default value is nil; Tortoise doesn't change the resource limit itself.
+	ResourceLimitMultiplier map[string]int64 `yaml:"ResourceLimitMultiplier"`
+
 	// TODO: the following fields should be removed after we stop depending on deployment.
 	// So, we don't put them in the documentation.
 	// IstioSidecarProxyDefaultCPU is the default CPU resource request of the istio sidecar proxy (default: 100m)
@@ -126,6 +139,7 @@ func defaultConfig() *Config {
 		MaxAllowedScalingDownRatio:               0.8,
 		IstioSidecarProxyDefaultCPU:              "100m",
 		IstioSidecarProxyDefaultMemory:           "200Mi",
+		ResourceLimitMultiplier:                  map[string]int64{},
 	}
 }
 
@@ -182,6 +196,14 @@ func validate(config *Config) error {
 
 	if config.MaxAllowedScalingDownRatio < 0 || config.MaxAllowedScalingDownRatio > 1 {
 		return fmt.Errorf("MaxAllowedScalingDownRatio should be between 0 and 1")
+	}
+
+	for _, ratio := range config.ResourceLimitMultiplier {
+		if ratio < 1 {
+			// ResourceLimitMultiplier should be greater than or equal to 1.
+			// If it's less than 1, the resource limit will be less than the resource request, which doesn't make sense.
+			return fmt.Errorf("ResourceLimitMultiplier should be greater than or equal to 1")
+		}
 	}
 
 	return nil

@@ -52,6 +52,10 @@ func TestParseConfig(t *testing.T) {
 					"istio-proxy": "1Mi",
 					"hoge-agent":  "2Mi",
 				},
+				ResourceLimitMultiplier: map[string]int64{
+					"cpu":    3,
+					"memory": 1,
+				},
 			},
 		},
 		{
@@ -84,6 +88,7 @@ func TestParseConfig(t *testing.T) {
 				MaxAllowedScalingDownRatio:               0.8,
 				MinimumCPUCoresPerContainer:              map[string]string{},
 				MinimumMemoryBytesPerContainer:           map[string]string{},
+				ResourceLimitMultiplier:                  map[string]int64{},
 			},
 		},
 		{
@@ -123,6 +128,7 @@ func TestParseConfig(t *testing.T) {
 				MaxAllowedScalingDownRatio:               0.8,
 				MinimumCPUCoresPerContainer:              map[string]string{},
 				MinimumMemoryBytesPerContainer:           map[string]string{},
+				ResourceLimitMultiplier:                  map[string]int64{},
 			},
 		},
 	}
