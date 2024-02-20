@@ -22,3 +22,4 @@ MaxAllowedScalingDownRatio: 0.5
 ResourceLimitMultiplier:
   cpu: 3
   memory: 1
+MinimumCPULimitCores: "1"

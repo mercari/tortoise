@@ -50,17 +50,24 @@ import (
 // Memo: ^ I had to change the path from /mutate-core-v1-pod to /mutate--v1-pod because the former was causing an error in the test.
 // I guess kubebuilder doesn't handle core type correctly.
 
-func New(tortoiseService *tortoise.Service, resourceLimitMultiplier map[string]int64) *PodWebhook {
+func New(
+	tortoiseService *tortoise.Service,
+	resourceLimitMultiplier map[string]int64,
+	minimumCPULimitCores string,
+) (*PodWebhook, error) {
+	minCPULim := resource.MustParse(minimumCPULimitCores)
 	return &PodWebhook{
 		tortoiseService:         tortoiseService,
 		resourceLimitMultiplier: resourceLimitMultiplier,
-	}
+		minimumCPULimit:         minCPULim,
+	}, nil
 }
 
 type PodWebhook struct {
 	tortoiseService *tortoise.Service
 	// For example, if it's 3 and Pod's resource request is 100m, the limit will be changed to 300m.
 	resourceLimitMultiplier map[string]int64
+	minimumCPULimit         resource.Quantity
 }
 
 var _ admission.CustomDefaulter = &PodWebhook{}
@@ -107,7 +114,11 @@ func (h *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 			}
 
 			req := container.Resources.Requests[k].DeepCopy()
-			container.Resources.Limits[k] = ptr.Deref(resource.NewMilliQuantity(int64(req.MilliValue())*h.resourceLimitMultiplier[string(k)], req.Format), container.Resources.Limits[k])
+			newLimit := resource.NewMilliQuantity(int64(req.MilliValue())*h.resourceLimitMultiplier[string(k)], req.Format)
+			if k == v1.ResourceCPU && newLimit.Cmp(h.minimumCPULimit) < 0 {
+				newLimit = ptr.To(h.minimumCPULimit.DeepCopy())
+			}
+			container.Resources.Limits[k] = ptr.Deref(newLimit, container.Resources.Limits[k])
 		}
 	}
 

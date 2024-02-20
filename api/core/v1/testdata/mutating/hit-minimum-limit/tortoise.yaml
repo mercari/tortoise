@@ -1,0 +1,293 @@
+apiVersion: autoscaling.mercari.com/v1beta3
+kind: Tortoise
+metadata:
+  name: tortoise-sample
+  namespace: default
+spec:
+  updateMode: "Auto"
+  deletionPolicy: "DeleteAll"
+  targetRefs:
+    horizontalPodAutoscalerName: sample
+    scaleTargetRef:
+      kind: Deployment
+      name: sample
+status:
+  autoscalingPolicy:
+    - containerName: istio-proxy
+      policy:
+        cpu: Horizontal
+        memory: Vertical
+    - containerName: nginx
+      policy:
+        cpu: Horizontal
+        memory: Vertical
+  tortoisePhase: Working
+  containerResourcePhases:
+    - containerName: "nginx"
+      resourcePhases:
+        cpu: 
+          phase: Working 
+        memory:
+          phase: Working 
+    - containerName: "istio-proxy"
+      resourcePhases:
+        cpu: 
+          phase: Working 
+        memory:
+          phase: Working 
+  targets:
+    scaleTargetRef:
+      kind: Deployment
+      name: sample
+    horizontalPodAutoscaler: sample
+    verticalPodAutoscalers: 
+    - name: tortoise-monitor-sample
+      role: Monitor
+    - name: tortoise-updater-sample
+      role: Updater
+  conditions:
+    containerRecommendationFromVPA:
+    - containerName: echo
+      maxRecommendation:
+        cpu:
+          quantity: 6m
+          updatedAt: "2023-10-04T15:45:16Z"
+        memory:
+          quantity: "56623104"
+          updatedAt: "2023-10-04T15:45:16Z"
+      recommendation:
+        cpu:
+          quantity: 6m
+          updatedAt: "2023-10-04T15:45:16Z"
+        memory:
+          quantity: "56623104"
+          updatedAt: "2023-10-04T15:45:16Z"
+  recommendations:
+      horizontal:
+        targetUtilizations:
+        - containerName: "nginx"
+          targetUtilization:
+            cpu: 30
+        - containerName: "istio-proxy"
+          targetUtilization:
+            cpu: 30
+        maxReplicas:
+        - from: 0
+          timezone: Asia/Tokyo
+          to: 1
+          updatedAt: "2023-10-04T15:45:16Z"
+          value: 12
+        - from: 1
+          timezone: Asia/Tokyo
+          to: 2
+          value: 12
+        - from: 2
+          timezone: Asia/Tokyo
+          to: 3
+          value: 12
+        - from: 3
+          timezone: Asia/Tokyo
+          to: 4
+          value: 12
+        - from: 4
+          timezone: Asia/Tokyo
+          to: 5
+          value: 12
+        - from: 5
+          timezone: Asia/Tokyo
+          to: 6
+          value: 12
+        - from: 6
+          timezone: Asia/Tokyo
+          to: 7
+          value: 12
+        - from: 7
+          timezone: Asia/Tokyo
+          to: 8
+          value: 12
+        - from: 8
+          timezone: Asia/Tokyo
+          to: 9
+          value: 12
+        - from: 9
+          timezone: Asia/Tokyo
+          to: 10
+          value: 12
+        - from: 10
+          timezone: Asia/Tokyo
+          to: 11
+          value: 12
+        - from: 11
+          timezone: Asia/Tokyo
+          to: 12
+          value: 12
+        - from: 12
+          timezone: Asia/Tokyo
+          to: 13
+          value: 12
+        - from: 13
+          timezone: Asia/Tokyo
+          to: 14
+          value: 12
+        - from: 14
+          timezone: Asia/Tokyo
+          to: 15
+          value: 12
+        - from: 15
+          timezone: Asia/Tokyo
+          to: 16
+          updatedAt: "2023-10-04T06:49:34Z"
+          value: 12
+        - from: 16
+          timezone: Asia/Tokyo
+          to: 17
+          updatedAt: "2023-10-04T07:59:47Z"
+          value: 12
+        - from: 17
+          timezone: Asia/Tokyo
+          to: 18
+          updatedAt: "2023-10-04T08:59:52Z"
+          value: 12
+        - from: 18
+          timezone: Asia/Tokyo
+          to: 19
+          updatedAt: "2023-10-04T09:59:58Z"
+          value: 12
+        - from: 19
+          timezone: Asia/Tokyo
+          to: 20
+          updatedAt: "2023-10-04T10:59:53Z"
+          value: 12
+        - from: 20
+          timezone: Asia/Tokyo
+          to: 21
+          updatedAt: "2023-10-04T11:59:53Z"
+          value: 12
+        - from: 21
+          timezone: Asia/Tokyo
+          to: 22
+          updatedAt: "2023-10-04T12:59:45Z"
+          value: 12
+        - from: 22
+          timezone: Asia/Tokyo
+          to: 23
+          updatedAt: "2023-10-04T13:59:45Z"
+          value: 12
+        - from: 23
+          timezone: Asia/Tokyo
+          to: 24
+          updatedAt: "2023-10-04T14:59:46Z"
+          value: 12
+        minReplicas:
+        - from: 0
+          timezone: Asia/Tokyo
+          to: 1
+          updatedAt: "2023-10-04T15:45:16Z"
+          value: 3
+        - from: 1
+          timezone: Asia/Tokyo
+          to: 2
+          value: 3
+        - from: 2
+          timezone: Asia/Tokyo
+          to: 3
+          value: 3
+        - from: 3
+          timezone: Asia/Tokyo
+          to: 4
+          value: 3
+        - from: 4
+          timezone: Asia/Tokyo
+          to: 5
+          value: 3
+        - from: 5
+          timezone: Asia/Tokyo
+          to: 6
+          value: 3
+        - from: 6
+          timezone: Asia/Tokyo
+          to: 7
+          value: 3
+        - from: 7
+          timezone: Asia/Tokyo
+          to: 8
+          value: 3
+        - from: 8
+          timezone: Asia/Tokyo
+          to: 9
+          value: 3
+        - from: 9
+          timezone: Asia/Tokyo
+          to: 10
+          value: 3
+        - from: 10
+          timezone: Asia/Tokyo
+          to: 11
+          value: 3
+        - from: 11
+          timezone: Asia/Tokyo
+          to: 12
+          value: 3
+        - from: 12
+          timezone: Asia/Tokyo
+          to: 13
+          value: 3
+        - from: 13
+          timezone: Asia/Tokyo
+          to: 14
+          value: 3
+        - from: 14
+          timezone: Asia/Tokyo
+          to: 15
+          value: 3
+        - from: 15
+          timezone: Asia/Tokyo
+          to: 16
+          updatedAt: "2023-10-04T06:49:34Z"
+          value: 3
+        - from: 16
+          timezone: Asia/Tokyo
+          to: 17
+          updatedAt: "2023-10-04T07:59:47Z"
+          value: 3
+        - from: 17
+          timezone: Asia/Tokyo
+          to: 18
+          updatedAt: "2023-10-04T08:59:52Z"
+          value: 3
+        - from: 18
+          timezone: Asia/Tokyo
+          to: 19
+          updatedAt: "2023-10-04T09:59:58Z"
+          value: 3
+        - from: 19
+          timezone: Asia/Tokyo
+          to: 20
+          updatedAt: "2023-10-04T10:59:53Z"
+          value: 3
+        - from: 20
+          timezone: Asia/Tokyo
+          to: 21
+          updatedAt: "2023-10-04T11:59:53Z"
+          value: 3
+        - from: 21
+          timezone: Asia/Tokyo
+          to: 22
+          updatedAt: "2023-10-04T12:59:45Z"
+          value: 3
+        - from: 22
+          timezone: Asia/Tokyo
+          to: 23
+          updatedAt: "2023-10-04T13:59:45Z"
+          value: 3
+        - from: 23
+          timezone: Asia/Tokyo
+          to: 24
+          updatedAt: "2023-10-04T14:59:46Z"
+          value: 3
+      vertical:
+        containerResourceRecommendation:
+        - RecommendedResource:
+            cpu: 6m
+            memory: "56623104"
+          containerName: nginx

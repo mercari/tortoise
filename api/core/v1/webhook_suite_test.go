@@ -161,10 +161,11 @@ var _ = BeforeSuite(func() {
 	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, config.RangeOfMinMaxReplicasRecommendationHours, config.TimeZone, config.TortoiseUpdateInterval, config.GatheringDataPeriodType)
 	Expect(err).NotTo(HaveOccurred())
 
-	podWebhook := New(tortoiseService, map[string]int64{
+	podWebhook, err := New(tortoiseService, map[string]int64{
 		v1.ResourceCPU.String():    3,
 		v1.ResourceMemory.String(): 1,
-	})
+	}, "1")
+	Expect(err).NotTo(HaveOccurred())
 
 	err = ctrl.NewWebhookManagedBy(mgr).
 		WithDefaulter(podWebhook).
