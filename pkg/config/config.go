@@ -44,8 +44,14 @@ type Config struct {
 	MaximumCPUCores string `yaml:"MaximumCPUCores"`
 	// MaximumMemoryBytes is the maximum memory bytes that the tortoise can give to the container (default: 10Gi)
 	MaximumMemoryBytes string `yaml:"MaximumMemoryBytes"`
-	// MinimumCPUCores is the minimum CPU cores that the tortoise can give to the container (default: 50m)
+	// MinimumCPUCores is the minimum CPU cores that the tortoise can give to the container resource request (default: 50m)
 	MinimumCPUCores string `yaml:"MinimumCPUCores"`
+	// MinimumCPULimitCores is the minimum CPU cores that the tortoise can give to the container resource limit (default: 0)
+	// Note that this configuration is prioritized over ResourceLimitMultiplier.
+	//
+	// e.g., if you set `MinimumCPULimitCores: 100m` and `ResourceLimitMultiplier: cpu: 3`, and the container requests 10m CPU,
+	// Tortoise will set the limit to 100m, not 30m.
+	MinimumCPULimitCores string `yaml:"MinimumCPULimitCores"`
 	// MinimumCPUCoresPerContainer is the minimum CPU cores per container that the tortoise can give to the container (default: nil)
 	// It has a higher priority than MinimumCPUCores.
 	// If you specify both, the tortoise uses MinimumCPUCoresPerContainer basically, but if the container name is not found in this map, the tortoise uses MinimumCPUCores.
@@ -57,7 +63,7 @@ type Config struct {
 	//  hoge-agent: 120m
 	// ```
 	MinimumCPUCoresPerContainer map[string]string `yaml:"MinimumCPUCoresPerContainer"`
-	// MinimumMemoryBytes is the minimum memory bytes that the tortoise can give to the container (default: 50Mi)
+	// MinimumMemoryBytes is the minimum memory bytes that the tortoise can give to the container resource request (default: 50Mi)
 	MinimumMemoryBytes string `yaml:"MinimumMemoryBytes"`
 	// MinimumMemoryBytesPerContainer is the minimum memory bytes per container that the tortoise can give to the container (default: nil)
 	// If you specify both, the tortoise uses MinimumMemoryBytesPerContainer basically, but if the container name is not found in this map, the tortoise uses MinimumMemoryBytes.
@@ -97,6 +103,7 @@ type Config struct {
 	// This feature is to remove the responsibility from the user to configure the resource limit and let Tortoise manage the resource limit fully.
 	// For example, if you set ResourceLimitMultiplier 3 and Pod's resource request is 100m, the limit will be changed to 300m,
 	// regardless of which resource limit is set in the Pod originally.
+	// Also, see MinimumCPULimitCores and MinimumMemoryLimitBytes.
 	//
 	// The default value is nil; Tortoise doesn't change the resource limit itself.
 	ResourceLimitMultiplier map[string]int64 `yaml:"ResourceLimitMultiplier"`
@@ -139,6 +146,7 @@ func defaultConfig() *Config {
 		MaxAllowedScalingDownRatio:               0.8,
 		IstioSidecarProxyDefaultCPU:              "100m",
 		IstioSidecarProxyDefaultMemory:           "200Mi",
+		MinimumCPULimitCores:                     "0",
 		ResourceLimitMultiplier:                  map[string]int64{},
 	}
 }

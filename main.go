@@ -192,7 +192,11 @@ func main() {
 	//+kubebuilder:scaffold:builder
 
 	hpaWebhook := autoscalingv2.New(tortoiseService, hpaService)
-	podWebhook := v1.New(tortoiseService, config.ResourceLimitMultiplier)
+	podWebhook, err := v1.New(tortoiseService, config.ResourceLimitMultiplier, config.MinimumCPULimitCores)
+	if err != nil {
+		setupLog.Error(err, "unable to create pod webhook")
+		os.Exit(1)
+	}
 
 	if err = ctrl.NewWebhookManagedBy(mgr).
 		WithDefaulter(hpaWebhook).
