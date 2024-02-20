@@ -19,3 +19,6 @@ MinimumCPUCoresPerContainer:
   istio-proxy: 100m
   hoge-agent: 120m
 MaxAllowedScalingDownRatio: 0.5
+ResourceLimitMultiplier:
+  cpu: 3
+  memory: 1

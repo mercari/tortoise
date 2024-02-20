@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	autoscalingv2 "github.com/mercari/tortoise/api/autoscaling/v2"
+	v1 "github.com/mercari/tortoise/api/core/v1"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/controllers"
 	"github.com/mercari/tortoise/pkg/config"
@@ -48,6 +49,7 @@ import (
 	"github.com/mercari/tortoise/pkg/recommender"
 	"github.com/mercari/tortoise/pkg/tortoise"
 	"github.com/mercari/tortoise/pkg/vpa"
+	corev1 "k8s.io/api/core/v1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -190,6 +192,7 @@ func main() {
 	//+kubebuilder:scaffold:builder
 
 	hpaWebhook := autoscalingv2.New(tortoiseService, hpaService)
+	podWebhook := v1.New(tortoiseService, config.ResourceLimitMultiplier)
 
 	if err = ctrl.NewWebhookManagedBy(mgr).
 		WithDefaulter(hpaWebhook).
@@ -197,6 +200,14 @@ func main() {
 		For(&v2.HorizontalPodAutoscaler{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HorizontalPodAutoscaler")
+		os.Exit(1)
+	}
+
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		WithDefaulter(podWebhook).
+		For(&corev1.Pod{}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
 		os.Exit(1)
 	}
 
