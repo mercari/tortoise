@@ -18,3 +18,4 @@ MinimumMemoryBytesPerContainer:
 MinimumCPUCoresPerContainer:
   istio-proxy: 100m
   hoge-agent: 120m
+MaxAllowedScalingDownRatio: 0.5
