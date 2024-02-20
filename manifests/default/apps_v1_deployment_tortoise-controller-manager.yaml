@@ -47,7 +47,7 @@ spec:
         - --leader-elect
         command:
         - /manager
-        image: ghcr.io/mercari/tortoise:v0.5.0
+        image: ghcr.io/mercari/tortoise:v0.6.0
         livenessProbe:
           httpGet:
             path: /healthz
