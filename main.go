@@ -161,18 +161,18 @@ func main() {
 		VpaService:        vpaClient,
 		DeploymentService: deployment.New(mgr.GetClient(), config.IstioSidecarProxyDefaultCPU, config.IstioSidecarProxyDefaultMemory, eventRecorder),
 		RecommenderService: recommender.New(
-			config.MaxReplicasFactor,
-			config.MinReplicasFactor,
+			config.MaxReplicasRecommendationMultiplier,
+			config.MinReplicasRecommendationMultiplier,
 			config.MaximumTargetResourceUtilization,
 			config.MinimumTargetResourceUtilization,
 			config.MinimumMinReplicas,
 			config.PreferredMaxReplicas,
-			config.MinimumCPUCores,
-			config.MinimumMemoryBytes,
-			config.MinimumCPUCoresPerContainer,
-			config.MinimumMemoryBytesPerContainer,
-			config.MaximumCPUCores,
-			config.MaximumMemoryBytes,
+			config.MinimumCPURequest,
+			config.MinimumMemoryRequest,
+			config.MinimumCPURequestPerContainer,
+			config.MinimumMemoryRequestPerContainer,
+			config.MaximumCPURequest,
+			config.MaximumMemoryRequest,
 			config.MaximumMaxReplicas,
 			config.MaxAllowedScalingDownRatio,
 			config.FeatureFlags,
@@ -192,7 +192,7 @@ func main() {
 	//+kubebuilder:scaffold:builder
 
 	hpaWebhook := autoscalingv2.New(tortoiseService, hpaService)
-	podWebhook, err := v1.New(tortoiseService, config.ResourceLimitMultiplier, config.MinimumCPULimitCores)
+	podWebhook, err := v1.New(tortoiseService, config.ResourceLimitMultiplier, config.MinimumCPULimit)
 	if err != nil {
 		setupLog.Error(err, "unable to create pod webhook")
 		os.Exit(1)

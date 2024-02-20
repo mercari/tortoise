@@ -24,8 +24,8 @@ import (
 
 type Service struct {
 	// configurations
-	maxReplicasFactor float64
-	minReplicasFactor float64
+	MaxReplicasRecommendationMultiplier float64
+	MinReplicasRecommendationMultiplier float64
 
 	eventRecorder                    record.EventRecorder
 	minimumMinReplicas               int32
@@ -44,8 +44,8 @@ type Service struct {
 }
 
 func New(
-	maxReplicasFactor float64,
-	minReplicasFactor float64,
+	MaxReplicasRecommendationMultiplier float64,
+	MinReplicasRecommendationMultiplier float64,
 	maximumTargetResourceUtilization int,
 	minimumTargetResourceUtilization int,
 	minimumMinReplicas int,
@@ -78,14 +78,14 @@ func New(
 	}
 
 	return &Service{
-		eventRecorder:                    eventRecorder,
-		maxReplicasFactor:                maxReplicasFactor,
-		minReplicasFactor:                minReplicasFactor,
-		maximumTargetResourceUtilization: int32(maximumTargetResourceUtilization),
-		minimumTargetResourceUtilization: int32(minimumTargetResourceUtilization),
-		minimumMinReplicas:               int32(minimumMinReplicas),
-		preferredReplicaNumUpperLimit:    int32(preferredReplicaNumUpperLimit),
-		minResourceSizePerContainer:      minResourceSizePerContainer,
+		eventRecorder:                       eventRecorder,
+		MaxReplicasRecommendationMultiplier: MaxReplicasRecommendationMultiplier,
+		MinReplicasRecommendationMultiplier: MinReplicasRecommendationMultiplier,
+		maximumTargetResourceUtilization:    int32(maximumTargetResourceUtilization),
+		minimumTargetResourceUtilization:    int32(minimumTargetResourceUtilization),
+		minimumMinReplicas:                  int32(minimumMinReplicas),
+		preferredReplicaNumUpperLimit:       int32(preferredReplicaNumUpperLimit),
+		minResourceSizePerContainer:         minResourceSizePerContainer,
 		maxResourceSize: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse(maxCPU),
 			corev1.ResourceMemory: resource.MustParse(maxMemory),
@@ -333,12 +333,12 @@ func (s *Service) UpdateRecommendations(ctx context.Context, tortoise *v1beta3.T
 
 func (s *Service) updateHPAMinMaxReplicasRecommendations(tortoise *v1beta3.Tortoise, replicaNum int32, now time.Time) (*v1beta3.Tortoise, error) {
 	currentReplica := float64(replicaNum)
-	min, err := s.updateReplicasRecommendation(int32(math.Ceil(currentReplica*s.minReplicasFactor)), tortoise.Status.Recommendations.Horizontal.MinReplicas, now, s.minimumMinReplicas)
+	min, err := s.updateReplicasRecommendation(int32(math.Ceil(currentReplica*s.MinReplicasRecommendationMultiplier)), tortoise.Status.Recommendations.Horizontal.MinReplicas, now, s.minimumMinReplicas)
 	if err != nil {
 		return tortoise, fmt.Errorf("update MinReplicas recommendation: %w", err)
 	}
 	tortoise.Status.Recommendations.Horizontal.MinReplicas = min
-	max, err := s.updateReplicasRecommendation(int32(math.Ceil(currentReplica*s.maxReplicasFactor)), tortoise.Status.Recommendations.Horizontal.MaxReplicas, now, int32(float64(s.minimumMinReplicas)*s.maxReplicasFactor/s.minReplicasFactor))
+	max, err := s.updateReplicasRecommendation(int32(math.Ceil(currentReplica*s.MaxReplicasRecommendationMultiplier)), tortoise.Status.Recommendations.Horizontal.MaxReplicas, now, int32(float64(s.minimumMinReplicas)*s.MaxReplicasRecommendationMultiplier/s.MinReplicasRecommendationMultiplier))
 	if err != nil {
 		return tortoise, fmt.Errorf("update MaxReplicas recommendation: %w", err)
 	}

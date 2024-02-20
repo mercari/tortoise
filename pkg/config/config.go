@@ -97,8 +97,8 @@ type Config struct {
 	//           updatedAt: 2023-01-01T00:00:00Z
 	// ```
 	GatheringDataPeriodType string `yaml:"GatheringDataPeriodType"`
-	// MaxReplicasFactor is the factor to calculate the maxReplicas recommendation from the current replica number (default: 2.0)
-	// If the current replica number is 15 and `MaxReplicasFactor` is 2.0,
+	// MaxReplicasRecommendationMultiplier is the factor to calculate the maxReplicas recommendation from the current replica number (default: 2.0)
+	// If the current replica number is 15 and `MaxReplicasRecommendationMultiplier` is 2.0,
 	// the maxReplicas recommendation from the current situation will be 30 (15 * 2.0).
 	//
 	// ```yaml
@@ -115,9 +115,9 @@ type Config struct {
 	//           value: 30
 	//           updatedAt: 2023-01-01T00:00:00Z
 	// ```
-	MaxReplicasFactor float64 `yaml:"MaxReplicasFactor"`
-	// MinReplicasFactor is the factor to calculate the minReplicas recommendation from the current replica number (default: 0.5)
-	// If the current replica number is 10 and `MaxReplicasFactor` is 0.5,
+	MaxReplicasRecommendationMultiplier float64 `yaml:"MaxReplicasRecommendationMultiplier"`
+	// MinReplicasRecommendationMultiplier is the factor to calculate the minReplicas recommendation from the current replica number (default: 0.5)
+	// If the current replica number is 10 and `MaxReplicasRecommendationMultiplier` is 0.5,
 	// the minReplicas recommendation from the current situation will be 5 (10 * 0.5).
 	//
 	// ```yaml
@@ -134,7 +134,7 @@ type Config struct {
 	//           value: 5
 	//           updatedAt: 2023-01-01T00:00:00Z
 	// ```
-	MinReplicasFactor float64 `yaml:"MinReplicasFactor"`
+	MinReplicasRecommendationMultiplier float64 `yaml:"MinReplicasRecommendationMultiplier"`
 	// ReplicaReductionFactor is the factor to reduce the minReplicas gradually after turning off Emergency mode (default: 0.95)
 	//
 	// Let's say `ReplicaReductionFactor` is 0.95,
@@ -162,7 +162,7 @@ type Config struct {
 	// When the number of replicas reaches `PreferredMaxReplicas`,
 	// a tortoise will increase the Pod's resource request instead of increasing the number of replicas.
 	//
-	// But, when the resource request reaches `MaximumCPUCores` or `MaximumMemoryBytes`,
+	// But, when the resource request reaches `MaximumCPURequest` or `MaximumMemoryRequest`,
 	// a tortoise will ignore `PreferredMaxReplicas`, and increase the number of replicas.
 	// This feature is controlled by the feature flag `VerticalScalingBasedOnPreferredMaxReplicas`.
 	PreferredMaxReplicas int `yaml:"PreferredMaxReplicas"`
@@ -171,41 +171,41 @@ type Config struct {
 	// The motivation is to use it has a hard limit to prevent the HPA from scaling up the workload too much in cases of Tortoise's bug, abnormal traffic increase, etc.
 	// If some Tortoise hits this limit, the tortoise controller emits an error log, which may or may not imply you have to change this value.
 	MaximumMaxReplicas int32 `yaml:"MaximumMaxReplicas"`
-	// MaximumCPUCores is the maximum CPU cores that the tortoise can give to the container resource request (default: 10)
-	MaximumCPUCores string `yaml:"MaximumCPUCores"`
-	// MaximumMemoryBytes is the maximum memory bytes that the tortoise can give to the container resource request (default: 10Gi)
-	MaximumMemoryBytes string `yaml:"MaximumMemoryBytes"`
-	// MinimumCPUCores is the minimum CPU cores that the tortoise can give to the container resource request (default: 50m)
-	MinimumCPUCores string `yaml:"MinimumCPUCores"`
-	// MinimumCPULimitCores is the minimum CPU cores that the tortoise can give to the container resource limit (default: 0)
+	// MaximumCPURequest is the maximum CPU cores that the tortoise can give to the container resource request (default: 10)
+	MaximumCPURequest string `yaml:"MaximumCPURequest"`
+	// MaximumMemoryRequest is the maximum memory bytes that the tortoise can give to the container resource request (default: 10Gi)
+	MaximumMemoryRequest string `yaml:"MaximumMemoryRequest"`
+	// MinimumCPURequest is the minimum CPU cores that the tortoise can give to the container resource request (default: 50m)
+	MinimumCPURequest string `yaml:"MinimumCPURequest"`
+	// MinimumCPURequestPerContainer is the minimum CPU cores per container that the tortoise can give to the container resource request (default: nil)
+	// It has a higher priority than MinimumCPURequest.
+	// If you specify both, the tortoise uses MinimumCPURequestPerContainer basically, but if the container name is not found in this map, the tortoise uses MinimumCPURequest.
+	//
+	// You can specify like this:
+	// ```
+	// MinimumCPURequestPerContainer:
+	//  istio-proxy: 100m
+	//  hoge-agent: 120m
+	// ```
+	MinimumCPURequestPerContainer map[string]string `yaml:"MinimumCPURequestPerContainer"`
+	// MinimumMemoryRequest is the minimum memory bytes that the tortoise can give to the container resource request (default: 50Mi)
+	MinimumMemoryRequest string `yaml:"MinimumMemoryRequest"`
+	// MinimumMemoryRequestPerContainer is the minimum memory bytes per container that the tortoise can give to the container (default: nil)
+	// If you specify both, the tortoise uses MinimumMemoryRequestPerContainer basically, but if the container name is not found in this map, the tortoise uses MinimumMemoryRequest.
+	//
+	// You can specify like this:
+	// ```
+	// MinimumMemoryRequestPerContainer:
+	//  istio-proxy: 100m
+	//  hoge-agent: 120m
+	// ```
+	MinimumMemoryRequestPerContainer map[string]string `yaml:"MinimumMemoryRequestPerContainer"`
+	// MinimumCPULimit is the minimum CPU cores that the tortoise can give to the container resource limit (default: 0)
 	// Note that this configuration is prioritized over ResourceLimitMultiplier.
 	//
-	// e.g., if you set `MinimumCPULimitCores: 100m` and `ResourceLimitMultiplier: cpu: 3`, and the container requests 10m CPU,
+	// e.g., if you set `MinimumCPULimit: 100m` and `ResourceLimitMultiplier: cpu: 3`, and the container requests 10m CPU,
 	// Tortoise will set the limit to 100m, not 30m.
-	MinimumCPULimitCores string `yaml:"MinimumCPULimitCores"`
-	// MinimumCPUCoresPerContainer is the minimum CPU cores per container that the tortoise can give to the container resource request (default: nil)
-	// It has a higher priority than MinimumCPUCores.
-	// If you specify both, the tortoise uses MinimumCPUCoresPerContainer basically, but if the container name is not found in this map, the tortoise uses MinimumCPUCores.
-	//
-	// You can specify like this:
-	// ```
-	// MinimumCPUCoresPerContainer:
-	//  istio-proxy: 100m
-	//  hoge-agent: 120m
-	// ```
-	MinimumCPUCoresPerContainer map[string]string `yaml:"MinimumCPUCoresPerContainer"`
-	// MinimumMemoryBytes is the minimum memory bytes that the tortoise can give to the container resource request (default: 50Mi)
-	MinimumMemoryBytes string `yaml:"MinimumMemoryBytes"`
-	// MinimumMemoryBytesPerContainer is the minimum memory bytes per container that the tortoise can give to the container (default: nil)
-	// If you specify both, the tortoise uses MinimumMemoryBytesPerContainer basically, but if the container name is not found in this map, the tortoise uses MinimumMemoryBytes.
-	//
-	// You can specify like this:
-	// ```
-	// MinimumMemoryBytesPerContainer:
-	//  istio-proxy: 100m
-	//  hoge-agent: 120m
-	// ```
-	MinimumMemoryBytesPerContainer map[string]string `yaml:"MinimumMemoryBytesPerContainer"`
+	MinimumCPULimit string `yaml:"MinimumCPULimit"`
 	// TimeZone is the timezone used to record time in tortoise objects (default: Asia/Tokyo)
 	TimeZone string `yaml:"TimeZone"`
 	// TortoiseUpdateInterval is the interval of updating each tortoise (default: 15s)
@@ -245,7 +245,7 @@ type Config struct {
 	// This feature is to remove the responsibility from the user to configure the resource limit and let Tortoise manage the resource limit fully.
 	// For example, if you set ResourceLimitMultiplier 3 and Pod's resource request is 100m, the limit will be changed to 300m,
 	// regardless of which resource limit is set in the Pod originally.
-	// Also, see MinimumCPULimitCores and MinimumMemoryLimitBytes.
+	// Also, see MinimumCPULimit and MinimumMemoryLimitBytes.
 	//
 	// The default value is nil; Tortoise doesn't change the resource limit itself.
 	ResourceLimitMultiplier map[string]int64 `yaml:"ResourceLimitMultiplier"`
@@ -266,19 +266,19 @@ func defaultConfig() *Config {
 	return &Config{
 		RangeOfMinMaxReplicasRecommendationHours: 1,
 		GatheringDataPeriodType:                  "weekly",
-		MaxReplicasFactor:                        2.0,
-		MinReplicasFactor:                        0.5,
+		MaxReplicasRecommendationMultiplier:      2.0,
+		MinReplicasRecommendationMultiplier:      0.5,
 		ReplicaReductionFactor:                   0.95,
 		MinimumTargetResourceUtilization:         65,
 		MaximumTargetResourceUtilization:         90,
 		MinimumMinReplicas:                       3,
 		PreferredMaxReplicas:                     30,
-		MaximumCPUCores:                          "10",
-		MinimumCPUCores:                          "50m",
-		MinimumCPUCoresPerContainer:              map[string]string{},
-		MaximumMemoryBytes:                       "10Gi",
-		MinimumMemoryBytes:                       "50Mi",
-		MinimumMemoryBytesPerContainer:           map[string]string{},
+		MaximumCPURequest:                        "10",
+		MinimumCPURequest:                        "50m",
+		MinimumCPURequestPerContainer:            map[string]string{},
+		MaximumMemoryRequest:                     "10Gi",
+		MinimumMemoryRequest:                     "50Mi",
+		MinimumMemoryRequestPerContainer:         map[string]string{},
 		TimeZone:                                 "Asia/Tokyo",
 		TortoiseUpdateInterval:                   15 * time.Second,
 		HPATargetUtilizationMaxIncrease:          5,
@@ -288,7 +288,7 @@ func defaultConfig() *Config {
 		MaxAllowedScalingDownRatio:               0.8,
 		IstioSidecarProxyDefaultCPU:              "100m",
 		IstioSidecarProxyDefaultMemory:           "200Mi",
-		MinimumCPULimitCores:                     "0",
+		MinimumCPULimit:                          "0",
 		ResourceLimitMultiplier:                  map[string]int64{},
 	}
 }
