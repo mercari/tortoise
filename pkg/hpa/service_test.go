@@ -2385,7 +2385,7 @@ func TestService_InitializeHPA(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2396,7 +2396,7 @@ func TestService_InitializeHPA(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2651,7 +2651,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2753,7 +2753,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2764,7 +2764,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2872,7 +2872,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2976,7 +2976,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -2987,7 +2987,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -3095,7 +3095,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -3106,7 +3106,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -3208,7 +3208,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -3317,7 +3317,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -3328,7 +3328,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -3499,7 +3499,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -3510,7 +3510,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -3709,7 +3709,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -3720,7 +3720,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -3830,7 +3830,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -3946,7 +3946,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -4056,7 +4056,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -4075,7 +4075,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -4182,7 +4182,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 							Resource: &v2.ResourceMetricSource{
 								Name: v1.ResourceCPU,
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -4193,7 +4193,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "app",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -4204,7 +4204,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},
@@ -4314,7 +4314,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 								Name:      v1.ResourceCPU,
 								Container: "istio-proxy",
 								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](50),
+									AverageUtilization: ptr.To[int32](70),
 									Type:               v2.UtilizationMetricType,
 								},
 							},

@@ -220,7 +220,7 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 				Target: v2.MetricTarget{
 					Type: v2.UtilizationMetricType,
 					// we always start from a conservative value. and later will be adjusted by the recommendation.
-					AverageUtilization: ptr.To[int32](50),
+					AverageUtilization: ptr.To[int32](70),
 				},
 			},
 		}
