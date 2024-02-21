@@ -391,6 +391,16 @@ func (s *Service) GetTortoise(ctx context.Context, namespacedName types.Namespac
 	return t, nil
 }
 
+func (s *Service) ListTortoise(ctx context.Context, namespaceName string) (*v1beta3.TortoiseList, error) {
+	tl := &v1beta3.TortoiseList{}
+	if err := s.c.List(ctx, tl, &client.ListOptions{
+		Namespace: namespaceName,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list tortoise in %s: %w", namespaceName, err)
+	}
+	return tl, nil
+}
+
 func (s *Service) AddFinalizer(ctx context.Context, tortoise *v1beta3.Tortoise) (*v1beta3.Tortoise, error) {
 	if controllerutil.ContainsFinalizer(tortoise, tortoiseFinalizer) {
 		return tortoise, nil
