@@ -129,44 +129,36 @@ func (*HPAWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Ob
 // Return an error if the object is invalid.
 func (h *HPAWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
 	hpa := obj.(*v2.HorizontalPodAutoscaler)
-	tortoiseName, ok := hpa.GetAnnotations()[annotation.TortoiseNameAnnotation]
-	if !ok {
-		//nolint // We use the deprecated annotation deliberately so that we don't break existing users.
-		tortoiseName, ok = hpa.GetAnnotations()[annotation.DeprecatedTortoiseNameAnnotation]
-	}
-	if !ok {
-		// not managed by tortoise
-		return nil, nil
-	}
-
-	t, err := h.tortoiseService.GetTortoise(ctx, types.NamespacedName{
-		Namespace: hpa.Namespace,
-		Name:      tortoiseName,
-	})
+	tl, err := h.tortoiseService.ListTortoise(ctx, hpa.Namespace)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// expected scenario - tortoise is deleted before HPA is deleted.
 			return nil, nil
 		}
 		// unknown error
-		return nil, fmt.Errorf("failed to get tortoise(%s) for mutating webhook of HPA(%s/%s): %w", tortoiseName, hpa.Namespace, hpa.Name, err)
+		return nil, fmt.Errorf("failed to list tortoise in the same namespace for mutating webhook of HPA(%s/%s): %w", hpa.Namespace, hpa.Name, err)
 	}
-	if !t.ObjectMeta.DeletionTimestamp.IsZero() {
+	if len(tl.Items) == 0 {
+		// expected scenario - tortoise is deleted before HPA is deleted OR this HPA is not managed by tortoise.
+		return nil, nil
+	}
+
+	var tortoise *v1beta3.Tortoise
+	for _, t := range tl.Items {
+		if t.Status.Targets.HorizontalPodAutoscaler == hpa.Name {
+			tortoise = t.DeepCopy()
+			break
+		}
+	}
+	if tortoise == nil {
+		// expected scenario - tortoise is deleted before HPA is deleted OR this HPA is not managed by tortoise.
+		return nil, nil
+	}
+
+	if !tortoise.ObjectMeta.DeletionTimestamp.IsZero() {
 		// expected scenario - tortoise is being deleted before HPA is deleted.
 		return nil, nil
 	}
 
-	if t.Status.Targets.HorizontalPodAutoscaler != hpa.Name {
-		// should not reach here
-		return nil, nil
-	}
-
-	message := fmt.Sprintf("HPA(%s/%s) is being deleted while Tortoise(%s) is running. Please delete Tortoise first", hpa.Namespace, hpa.Name, tortoiseName)
-
-	if t.Spec.UpdateMode == v1beta3.UpdateModeOff {
-		// DryRun - don't block the deletion of HPA, but emit warning.
-		return []string{message}, nil
-	}
-
-	return nil, fmt.Errorf(message)
+	return nil, fmt.Errorf("HPA(%s/%s) is being deleted while Tortoise(%s) is running. Please delete Tortoise first", hpa.Namespace, hpa.Name, tortoise.Name)
 }

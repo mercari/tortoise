@@ -166,14 +166,14 @@ var _ = Describe("v2.HPA Webhook", func() {
 		})
 	})
 	Context("validating", func() {
-		It("valid: HPA can be deleted when Tortoise (Off) exists", func() {
-			validateDeletionTest(filepath.Join("testdata", "validating", "hpa-with-off", "hpa.yaml"), filepath.Join("testdata", "validating", "hpa-with-off", "tortoise.yaml"), true)
+		It("invalid: HPA cannot be deleted when Tortoise (Auto) exists", func() {
+			validateDeletionTest(filepath.Join("testdata", "validating", "hpa-with-auto-existing", "hpa.yaml"), filepath.Join("testdata", "validating", "hpa-with-auto-existing", "tortoise.yaml"), false)
+		})
+		It("invalid: HPA can not be deleted when Tortoise (Off) exists", func() {
+			validateDeletionTest(filepath.Join("testdata", "validating", "hpa-with-off", "hpa.yaml"), filepath.Join("testdata", "validating", "hpa-with-off", "tortoise.yaml"), false)
 		})
 		It("valid: HPA can be deleted when Tortoise (Auto) is deleted", func() {
 			validateDeletionTest(filepath.Join("testdata", "validating", "hpa-with-auto-deleted", "hpa.yaml"), "", true)
-		})
-		It("invalid: HPA cannot be deleted when Tortoise (Auto) exists", func() {
-			validateDeletionTest(filepath.Join("testdata", "validating", "hpa-with-auto-existing", "hpa.yaml"), filepath.Join("testdata", "validating", "hpa-with-auto-existing", "tortoise.yaml"), false)
 		})
 		It("valid: HPA can be deleted when Tortoise (Auto) is being deleted", func() {
 			// create tortoise
