@@ -227,6 +227,7 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 	// The replica number is OK based on minimumMinReplicas and preferredReplicaNumUpperLimit.
 
 	if !isMultipleContainersPod {
+		// TODO: we should check if there are multiple targets in the HPA instead.
 		// nothing else to do for a single container Pod.
 		return s.justifyNewSize(resourceRequest.MilliValue(), resourceRequest.MilliValue(), k, minAllocatedResources, containerName), "nothing to do", nil
 	}

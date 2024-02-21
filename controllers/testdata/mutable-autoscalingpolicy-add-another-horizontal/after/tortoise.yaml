@@ -84,7 +84,7 @@ status:
       - containerName: istio-proxy
         targetUtilization:
           cpu: 75
-          memory: 75
+          memory: 90
     vertical:
       containerResourceRecommendation:
       - RecommendedResource:

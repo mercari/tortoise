@@ -39,7 +39,7 @@ spec:
       container: istio-proxy
       name: memory
       target:
-        averageUtilization: 50
+        averageUtilization: 70
         type: Utilization
     type: ContainerResource
   minReplicas: 5

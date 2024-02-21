@@ -25,7 +25,7 @@ spec:
       container: app
       name: cpu
       target:
-        averageUtilization: 50
+        averageUtilization: 70
         type: Utilization
     type: ContainerResource
   minReplicas: 5
