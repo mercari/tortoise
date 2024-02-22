@@ -4,7 +4,7 @@ metadata:
   name: sample
   namespace: default
 spec:
-  maxReplicas: 10 # not overwritten
+  maxReplicas: 12 # not overwritten
   metrics:
     - type: ContainerResource
       containerResource:
@@ -20,7 +20,7 @@ spec:
         target:
           type: Utilization
           averageUtilization: 30
-  minReplicas: 1 # not overwritten
+  minReplicas: 3 # not overwritten
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment

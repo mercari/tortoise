@@ -3,8 +3,10 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: sample
   namespace: default
+  annotations:
+    tortoises.autoscaling.mercari.com/tortoise-name: tortoise-sample-back-to-normal
 spec:
-  maxReplicas: 12 # overwritten
+  maxReplicas: 10
   metrics:
     - type: ContainerResource
       containerResource:
@@ -12,15 +14,15 @@ spec:
         container: nginx
         target:
           type: Utilization
-          averageUtilization: 30
+          averageUtilization: 60
     - type: ContainerResource
       containerResource:
         name: cpu
         container: istio-proxy
         target:
           type: Utilization
-          averageUtilization: 30
-  minReplicas: 3 # overwritten
+          averageUtilization: 60
+  minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
