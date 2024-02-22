@@ -65,7 +65,7 @@ func TortoiseDefaultHPAName(tortoiseName string) string {
 func (r *Tortoise) defaultAutoscalingPolicy() {
 	ctx := context.Background()
 
-	if r.Spec.AutoscalingPolicy == nil {
+	if len(r.Spec.AutoscalingPolicy) == 0 {
 		return
 	}
 
