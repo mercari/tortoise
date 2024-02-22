@@ -93,15 +93,24 @@ func (h *HPAWebhook) Default(ctx context.Context, obj runtime.Object) error {
 		return nil
 	}
 
+	// tortoisePhase may be changed in ChangeHPAFromTortoiseRecommendation, so we need to get it before calling it.
+	tortoisePhase := t.Status.TortoisePhase
+
 	modifiedhpa, _, err := h.hpaService.ChangeHPAFromTortoiseRecommendation(t, hpa.DeepCopy(), time.Now(), false) // we don't need to record metrics.
 	if err != nil {
 		// Block updating HPA may be critical. Just ignore it with error logs.
 		log.FromContext(ctx).Error(err, "failed to get tortoise for mutating webhook of HPA", "hpa", klog.KObj(hpa), "tortoise", tortoiseName)
 		return nil
 	}
-	// Only overwrite metrics and ignore other fields like minReplicas and maxReplicas.
-	// If we want to overwrite minReplicas and maxReplicas, it'd be complicated because we have to consider the emergency mode.
-	hpa.Spec.Metrics = modifiedhpa.Spec.Metrics
+
+	if tortoisePhase == v1beta3.TortoisePhaseBackToNormal {
+		// If we want to overwrite minReplicas and maxReplicas, it'd be complicated.
+		hpa.Spec.Metrics = modifiedhpa.Spec.Metrics
+	} else {
+		hpa.Spec.Metrics = modifiedhpa.Spec.Metrics
+		hpa.Spec.MinReplicas = modifiedhpa.Spec.MinReplicas
+		hpa.Spec.MaxReplicas = modifiedhpa.Spec.MaxReplicas
+	}
 
 	return nil
 }

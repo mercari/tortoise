@@ -1,10 +1,10 @@
 apiVersion: autoscaling.mercari.com/v1beta3
 kind: Tortoise
 metadata:
-  name: tortoise-sample
+  name: tortoise-sample-back-to-normal
   namespace: default
 spec:
-  updateMode: "Auto"
+  updateMode: "Emergency"
   deletionPolicy: "DeleteAll"
   targetRefs:
     horizontalPodAutoscalerName: sample
@@ -21,7 +21,7 @@ status:
       policy:
         cpu: Horizontal
         memory: Vertical
-  tortoisePhase: Working
+  tortoisePhase: "BackToNormal"
   containerResourcePhases:
     - containerName: "nginx"
       resourcePhases:
