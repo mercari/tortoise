@@ -24,6 +24,7 @@ import (
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/event"
+	"github.com/mercari/tortoise/pkg/utils"
 )
 
 const tortoiseFinalizer = "tortoise.autoscaling.mercari.com/finalizer"
@@ -260,25 +261,14 @@ func (s *Service) initializeTortoise(tortoise *v1beta3.Tortoise, now time.Time) 
 	tortoise.Status.Targets.ScaleTargetRef = tortoise.Spec.TargetRefs.ScaleTargetRef
 
 	for _, p := range tortoise.Status.AutoscalingPolicy {
-		phase := v1beta3.ContainerResourcePhases{
-			ContainerName:  p.ContainerName,
-			ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{},
-		}
 		for rn, policy := range p.Policy {
 			if policy == v1beta3.AutoscalingTypeOff {
-				phase.ResourcePhases[rn] = v1beta3.ResourcePhase{
-					Phase:              v1beta3.ContainerResourcePhaseOff,
-					LastTransitionTime: metav1.NewTime(now),
-				}
+				utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, rn, now, v1beta3.ContainerResourcePhaseOff)
 				continue
 			}
 
-			phase.ResourcePhases[rn] = v1beta3.ResourcePhase{
-				Phase:              v1beta3.ContainerResourcePhaseGatheringData,
-				LastTransitionTime: metav1.NewTime(now),
-			}
+			utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, rn, now, v1beta3.ContainerResourcePhaseGatheringData)
 		}
-		tortoise.Status.ContainerResourcePhases = append(tortoise.Status.ContainerResourcePhases, phase)
 	}
 
 	return tortoise.DeepCopy()
@@ -533,7 +523,7 @@ type resourceNameAndContainerName struct {
 
 // UpdateTortoiseAutoscalingPolicyInStatus updates .status.autoscalingPolicy based on the policy in .spec.autoscalingPolicy,
 // and the existing container names in the workload.
-func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) *v1beta3.Tortoise {
+func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time) *v1beta3.Tortoise {
 	if tortoise.Spec.AutoscalingPolicy != nil {
 		// we just use the policy in the spec if it's non-empty.
 		tortoise.Status.AutoscalingPolicy = tortoise.Spec.AutoscalingPolicy
@@ -560,10 +550,12 @@ func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, hpa *v2
 	}
 
 	uselessPolicis := containersWithPolicy.Difference(containerNames)
+	// They are the container names which are in the policy but not in the workload - probably removed.
 	for _, p := range uselessPolicis.UnsortedList() {
 		for i, rp := range tortoise.Status.AutoscalingPolicy {
 			if rp.ContainerName == p {
 				tortoise.Status.AutoscalingPolicy = append(tortoise.Status.AutoscalingPolicy[:i], tortoise.Status.AutoscalingPolicy[i+1:]...)
+				tortoise = utils.RemoveTortoiseResourcePhase(tortoise, rp.ContainerName)
 				break
 			}
 		}
@@ -578,6 +570,8 @@ func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, hpa *v2
 				corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
 			},
 		})
+		tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p, corev1.ResourceCPU, now, v1beta3.ContainerResourcePhaseGatheringData)
+		tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p, corev1.ResourceMemory, now, v1beta3.ContainerResourcePhaseGatheringData)
 	}
 
 	// And, if the existing HPA is attached, we modify the policy for resources managed by the HPA to Horizontal.
@@ -591,37 +585,54 @@ func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, hpa *v2
 		}
 
 		// If the existing HPA is attached, we sets “Horizontal” to resources managed by the attached HPA by default.
-		for i := range tortoise.Status.AutoscalingPolicy {
+		for i, p := range tortoise.Status.AutoscalingPolicy {
 			if hpaManagedResourceAndContainer.Has(resourceNameAndContainerName{corev1.ResourceCPU, tortoise.Status.AutoscalingPolicy[i].ContainerName}) {
-				// If HPA has the metrics for this container's CPU, we set Horizontal.
-				tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] = v1beta3.AutoscalingTypeHorizontal
+				if tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] != v1beta3.AutoscalingTypeHorizontal {
+					// If HPA has the metrics for this container's CPU, we should set Horizontal.
+					tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] = v1beta3.AutoscalingTypeHorizontal
+					tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, corev1.ResourceCPU, now, v1beta3.ContainerResourcePhaseGatheringData)
+				}
 			} else {
-				// Otherwise, set Vertical.
-				tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] = v1beta3.AutoscalingTypeVertical
+				if tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] != v1beta3.AutoscalingTypeVertical {
+					// Otherwise, set Vertical.
+					tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] = v1beta3.AutoscalingTypeVertical
+					tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, corev1.ResourceCPU, now, v1beta3.ContainerResourcePhaseGatheringData)
+				}
 			}
 			if hpaManagedResourceAndContainer.Has(resourceNameAndContainerName{corev1.ResourceMemory, tortoise.Status.AutoscalingPolicy[i].ContainerName}) {
-				// If HPA has the metrics for this container's memory , we set Horizontal.
-				tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] = v1beta3.AutoscalingTypeHorizontal
+				if tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] != v1beta3.AutoscalingTypeHorizontal {
+					// If HPA has the metrics for this container's memory, we should set Horizontal.
+					tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] = v1beta3.AutoscalingTypeHorizontal
+					tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, corev1.ResourceMemory, now, v1beta3.ContainerResourcePhaseGatheringData)
+				}
 			} else {
-				// Otherwise, set Vertical.
-				tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] = v1beta3.AutoscalingTypeVertical
+				if tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] != v1beta3.AutoscalingTypeVertical {
+					// Otherwise, set Vertical.
+					tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] = v1beta3.AutoscalingTypeVertical
+					tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, corev1.ResourceMemory, now, v1beta3.ContainerResourcePhaseGatheringData)
+				}
 			}
 		}
 	}
 
 	// If the container doesn't have resource request, we set the policy to Off because we couldn't make a recommendation.
-	for i := range tortoise.Status.AutoscalingPolicy {
+	for i, p := range tortoise.Status.AutoscalingPolicy {
 		if containerWOResourceRequest.Has(resourceNameAndContainerName{corev1.ResourceCPU, tortoise.Status.AutoscalingPolicy[i].ContainerName}) {
 			tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] = v1beta3.AutoscalingTypeOff
+			tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, corev1.ResourceCPU, now, v1beta3.ContainerResourcePhaseOff)
 		}
 		if containerWOResourceRequest.Has(resourceNameAndContainerName{corev1.ResourceMemory, tortoise.Status.AutoscalingPolicy[i].ContainerName}) {
 			tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] = v1beta3.AutoscalingTypeOff
+			tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, corev1.ResourceMemory, now, v1beta3.ContainerResourcePhaseOff)
 		}
 	}
 
 	// sort the autoscaling policy by container name.
 	sort.Slice(tortoise.Status.AutoscalingPolicy, func(i, j int) bool {
 		return tortoise.Status.AutoscalingPolicy[i].ContainerName < tortoise.Status.AutoscalingPolicy[j].ContainerName
+	})
+	sort.Slice(tortoise.Status.ContainerResourcePhases, func(i, j int) bool {
+		return tortoise.Status.ContainerResourcePhases[i].ContainerName < tortoise.Status.ContainerResourcePhases[j].ContainerName
 	})
 
 	return tortoise

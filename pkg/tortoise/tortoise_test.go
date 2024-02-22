@@ -2098,6 +2098,30 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								},
 							},
 						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+							{
+								ContainerName: "app2",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -2131,6 +2155,30 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								ContainerName: "app2",
 								Resource: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseOff,
+								},
+							},
+						},
+						{
+							ContainerName: "app2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseOff,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
 								},
 							},
 						},
@@ -2191,6 +2239,52 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								},
 							},
 						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+							{
+								ContainerName: "non-existing2",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+							{
+								ContainerName: "app2",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+							{
+								ContainerName: "non-existing",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -2226,6 +2320,30 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								Resource: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("1"),
 									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+						{
+							ContainerName: "app2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
 								},
 							},
 						},
@@ -2282,6 +2400,30 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 									Resource: corev1.ResourceList{
 										corev1.ResourceCPU:    resource.MustParse("1"),
 										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+							{
+								ContainerName: "app2",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
 									},
 								},
 							},
@@ -2353,6 +2495,52 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 							},
 						},
 					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+						{
+							ContainerName: "app2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+						{
+							ContainerName: "new",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+							},
+						},
+						{
+							ContainerName: "new2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -2389,6 +2577,7 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								{
 									ContainerName: "new",
 									Resource: corev1.ResourceList{
+										// no cpu
 										corev1.ResourceMemory: resource.MustParse("1Gi"),
 									},
 								},
@@ -2403,6 +2592,31 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 									ContainerName: "new2",
 									Resource: corev1.ResourceList{
 										corev1.ResourceCPU: resource.MustParse("1"),
+										// no memory
+									},
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseOff,
+									},
+								},
+							},
+							{
+								ContainerName: "app2",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseOff,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
 									},
 								},
 							},
@@ -2468,6 +2682,52 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								ContainerName: "new2",
 								Resource: corev1.ResourceList{
 									corev1.ResourceCPU: resource.MustParse("1"),
+								},
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseOff,
+								},
+							},
+						},
+						{
+							ContainerName: "app2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseOff,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+						{
+							ContainerName: "new",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseOff,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+							},
+						},
+						{
+							ContainerName: "new2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseOff,
 								},
 							},
 						},
@@ -2542,6 +2802,52 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								},
 							},
 						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseOff,
+									},
+								},
+							},
+							{
+								ContainerName: "app2",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseOff,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+							{
+								ContainerName: "non-existing",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+							{
+								ContainerName: "non-existing2",
+								ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+									corev1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+									corev1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -2605,6 +2911,52 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 								Resource: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("1"),
 									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseOff,
+								},
+							},
+						},
+						{
+							ContainerName: "app2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseOff,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+						{
+							ContainerName: "new",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+							},
+						},
+						{
+							ContainerName: "new2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
 								},
 							},
 						},
@@ -2710,6 +3062,30 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 							},
 						},
 					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+							},
+						},
+						{
+							ContainerName: "app2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -2807,13 +3183,37 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 							},
 						},
 					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseOff,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+							},
+						},
+						{
+							ContainerName: "app2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseOff,
+								},
+								corev1.ResourceMemory: {
+									Phase: v1beta3.ContainerResourcePhaseGatheringData,
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := UpdateTortoiseAutoscalingPolicyInStatus(tt.args.tortoise, tt.args.hpa)
+			got := UpdateTortoiseAutoscalingPolicyInStatus(tt.args.tortoise, tt.args.hpa, time.Now())
 			if d := cmp.Diff(got, tt.want, cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
 				t.Errorf("UpdateTortoiseAutoscalingPolicyInStatus() diff = %v", d)
 			}

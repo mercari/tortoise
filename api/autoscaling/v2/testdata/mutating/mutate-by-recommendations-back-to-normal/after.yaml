@@ -4,7 +4,7 @@ metadata:
   name: sample
   namespace: default
   annotations:
-    tortoises.autoscaling.mercari.com/tortoise-name: tortoise-sample-back-to-normal
+    tortoises.autoscaling.mercari.com/tortoise-name: tortoise-sample
 spec:
   maxReplicas: 10 # not overwritten
   metrics:
