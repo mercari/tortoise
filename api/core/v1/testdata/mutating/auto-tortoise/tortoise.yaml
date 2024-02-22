@@ -46,6 +46,15 @@ status:
     - name: tortoise-updater-sample
       role: Updater
   conditions:
+    containerResourceRequests:
+    - containerName: nginx
+      resource:
+        cpu: "5"
+        memory: 300Mi
+    - containerName: istio-proxy
+      resource:
+        cpu: "3"
+        memory: 300Mi
     containerRecommendationFromVPA:
     - containerName: echo
       maxRecommendation:

@@ -197,7 +197,7 @@ spec:
                       type: object
                     type: array
                   containerResourceRequests:
-                    description: ContainerResourceRequests has the last observed resource request of each container.
+                    description: ContainerResourceRequests has the ideal resource request for each container. If the mode is Off, it should be the same value as the current resource request. If the mode is Auto, it would basically be the same value as the recommendation. (Tortoise sometimes doesn't immediately apply the recommendation value to the resource request for the sake of safety.)
                     items:
                       properties:
                         containerName:

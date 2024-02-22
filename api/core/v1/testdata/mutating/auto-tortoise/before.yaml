@@ -23,7 +23,7 @@ spec:
     image: istio
     resources:
       requests:
-        cpu: 1
+        cpu: 6
         memory: 100Mi
       limits:
         cpu: 9

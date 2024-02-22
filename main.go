@@ -47,6 +47,7 @@ import (
 	"github.com/mercari/tortoise/pkg/config"
 	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/hpa"
+	"github.com/mercari/tortoise/pkg/pod"
 	"github.com/mercari/tortoise/pkg/recommender"
 	"github.com/mercari/tortoise/pkg/tortoise"
 	"github.com/mercari/tortoise/pkg/vpa"
@@ -192,11 +193,12 @@ func main() {
 	//+kubebuilder:scaffold:builder
 
 	hpaWebhook := autoscalingv2.New(tortoiseService, hpaService)
-	podWebhook, err := v1.New(tortoiseService, config.ResourceLimitMultiplier, config.MinimumCPULimit)
+	podService, err := pod.New(config.ResourceLimitMultiplier, config.MinimumCPULimit)
 	if err != nil {
-		setupLog.Error(err, "unable to create pod webhook")
+		setupLog.Error(err, "unable to create pod service")
 		os.Exit(1)
 	}
+	podWebhook := v1.New(tortoiseService, podService)
 
 	if err = ctrl.NewWebhookManagedBy(mgr).
 		WithDefaulter(hpaWebhook).

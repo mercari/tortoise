@@ -2,7 +2,8 @@ package event
 
 const (
 	VPACreated = "VPACreated"
-	VPAUpdated = "VPAUpdated"
+
+	VerticalRecommendationUpdated = "VerticalRecommendationUpdated"
 
 	HPACreated  = "HPACreated"
 	HPAUpdated  = "HPAUpdated"

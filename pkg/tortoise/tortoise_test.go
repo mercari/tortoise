@@ -3220,3 +3220,764 @@ func TestUpdateTortoiseAutoscalingPolicyInStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestService_UpdateResourceRequest(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name         string
+		tortoise     *v1beta3.Tortoise
+		wantTortoise *v1beta3.Tortoise
+		wantErr      bool
+	}{
+		{
+			name: "Tortoise gets ContainerResourceRequests at the first time (tortoise is Auto)",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					// No ContainerResourceRequests is set.
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+								Status:             corev1.ConditionTrue,
+								LastTransitionTime: metav1.NewTime(now),
+								Message:            "The recommendation is provided",
+							},
+						},
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "The recommendation is smaller than before, and we recently update the value. podShouldBeUpdatedWithNewResource:false is returned",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:   v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+								Status: corev1.ConditionTrue,
+								// Very recently
+								LastTransitionTime: metav1.NewTime(now.Add(-time.Minute)),
+								Message:            "The recommendation is provided",
+							},
+						},
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("2Gi"),
+									corev1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("2Gi"),
+									corev1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+						},
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+								Status:             corev1.ConditionTrue,
+								LastTransitionTime: metav1.NewTime(now.Add(-time.Minute)),
+								Message:            "The recommendation is provided",
+							},
+						},
+						// Not updated because we recently updated the value.
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("2Gi"),
+									corev1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("2Gi"),
+									corev1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+						},
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "The recommendation is smaller than before, but we don't recently update the value. podShouldBeUpdatedWithNewResource:true is returned",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:   v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+								Status: corev1.ConditionTrue,
+								// Not recently
+								LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+								Message:            "The recommendation is provided",
+							},
+						},
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("2Gi"),
+									corev1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("2Gi"),
+									corev1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+						},
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+								Status:             corev1.ConditionTrue,
+								LastTransitionTime: metav1.NewTime(now),
+								Message:            "The recommendation is provided",
+							},
+						},
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							// updated
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "ContainerResourceRequests is not modified and podShouldBeUpdatedWithNewResource:false is always returned",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							// updated
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					Conditions: v1beta3.Conditions{
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+										corev1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "ContainerResourceRequests is NOT modified when tortoise is Off mode",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeOff,
+				},
+				Status: v1beta3.TortoiseStatus{
+					Conditions: v1beta3.Conditions{
+						// empty
+						ContainerResourceRequests: nil,
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeOff,
+				},
+				Status: v1beta3.TortoiseStatus{
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+								Status:             corev1.ConditionFalse,
+								LastTransitionTime: metav1.NewTime(now),
+								Message:            "The recommendation is not provided because it's Off mode",
+							},
+						},
+						// still empty because it's Off.
+						ContainerResourceRequests: nil,
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "ContainerResourceRequests is removed when tortoise is Off mode (= probably this tortoise is changed back from auto to off)",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeOff,
+				},
+				Status: v1beta3.TortoiseStatus{
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+								Status:             corev1.ConditionTrue,
+								LastTransitionTime: metav1.NewTime(now),
+								Message:            "The recommendation is provided",
+							},
+						},
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeOff,
+				},
+				Status: v1beta3.TortoiseStatus{
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+								Status:             corev1.ConditionFalse, // changed to false
+								LastTransitionTime: metav1.NewTime(now),
+								Message:            "The recommendation is not provided because it's Off mode",
+							},
+						},
+						// unchange
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Tortoise's mode changed: Auto → Off → Auto",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+								Status:             corev1.ConditionFalse,
+								LastTransitionTime: metav1.NewTime(now),
+								Message:            "The recommendation is not provided because it's Off mode",
+							},
+						},
+						ContainerResourceRequests: nil,
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+								Status:             corev1.ConditionTrue,
+								LastTransitionTime: metav1.NewTime(now),
+								Message:            "The recommendation is provided",
+							},
+						},
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("2Gi"),
+									corev1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("2Gi"),
+									corev1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Service{
+				recorder: record.NewFakeRecorder(10),
+			}
+
+			gotTortoise, err := c.UpdateResourceRequest(context.Background(), tt.tortoise.DeepCopy(), 10, now)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Service.UpdateResourceRequest() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if diff := cmp.Diff(gotTortoise, tt.wantTortoise); diff != "" {
+				t.Errorf("Service.UpdateResourceRequest() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

@@ -3,6 +3,7 @@ package tortoise
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/event"
+	"github.com/mercari/tortoise/pkg/metrics"
 	"github.com/mercari/tortoise/pkg/utils"
 )
 
@@ -605,4 +607,133 @@ func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, hpa *v2
 	})
 
 	return tortoise
+}
+
+// UpdateResourceRequest updates pods' resource requests based on the calculated recommendation.
+// In the second return value, it returns whether the Pods should be updated with new resources now.
+// It updates ContainerResourceRequests in the status of the Tortoise, when all the following conditions are met:
+//   - UpdateMode is Auto
+//   - Any of the recommended resources is increased,
+//     OR, all the recommended resources is decreased, but it's been a while (1h) after the last update.
+func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.Tortoise, replica int32, now time.Time) (
+	*v1beta3.Tortoise,
+	error,
+) {
+	oldTortoise := tortoise.DeepCopy()
+
+	newRequests := make([]v1beta3.ContainerResourceRequests, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
+	for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
+		// only record metrics once in every reconcile loop.
+		//
+		// We only records proposed* metrics and don't record applied* metrics here.
+		for resourcename, value := range r.RecommendedResource {
+			if resourcename == corev1.ResourceCPU {
+				metrics.ProposedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
+			}
+			if resourcename == corev1.ResourceMemory {
+				metrics.ProposedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
+			}
+		}
+		newRequests = append(newRequests, v1beta3.ContainerResourceRequests{
+			ContainerName: r.ContainerName,
+			Resource:      r.RecommendedResource,
+		})
+	}
+	if tortoise.Spec.UpdateMode == v1beta3.UpdateModeOff {
+		// nothing to do.
+		tortoise.Status.Conditions.TortoiseConditions = replaceOrAppendCondition(tortoise.Status.Conditions.TortoiseConditions, v1beta3.TortoiseCondition{
+			Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+			Status:             corev1.ConditionFalse,
+			LastTransitionTime: metav1.NewTime(now),
+			Message:            "The recommendation is not provided because it's Off mode",
+		})
+		return tortoise, nil
+	}
+
+	if tortoise.Status.Conditions.ContainerResourceRequests != nil && reflect.DeepEqual(newRequests, tortoise.Status.Conditions.ContainerResourceRequests) {
+		// If the recommendation is not changed at all, we don't need to update VPA and Pods.
+		return tortoise, nil
+	}
+
+	// The recommendation will be applied to VPA and the deployment will be restarted with the new resources.
+	// Update the request recorded in the status, which will be used in the next reconcile loop.
+	tortoise.Status.Conditions.ContainerResourceRequests = newRequests
+
+	increased := recommendationIncreaseAnyResource(oldTortoise, tortoise)
+	for _, v := range tortoise.Status.Conditions.TortoiseConditions {
+		if v.Type == v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated {
+			if v.Status == corev1.ConditionTrue {
+				// TODO: move the 1h to a config.
+				if v.LastTransitionTime.Add(time.Hour).After(now) && !increased {
+					// if all the recommended resources is decreased and it's NOT yet been 1h after the last update,
+					// we don't want to update the Pod too frequently.
+					log.FromContext(ctx).Info("Skip applying vertical recommendation because it's been less than 1h since the last update", "tortoise", tortoise.Name, "namespace", tortoise.Namespace)
+					return oldTortoise, nil
+				}
+			}
+		}
+	}
+
+	tortoise.Status.Conditions.TortoiseConditions = replaceOrAppendCondition(tortoise.Status.Conditions.TortoiseConditions, v1beta3.TortoiseCondition{
+		Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+		Status:             corev1.ConditionTrue,
+		LastTransitionTime: metav1.NewTime(now),
+		Message:            "The recommendation is provided",
+	})
+
+	if tortoise.Spec.UpdateMode != v1beta3.UpdateModeOff {
+		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.VerticalRecommendationUpdated, "The vertical recommendation is updated and the Pods should also be updated with new resources soon")
+		for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
+			// only record metrics once in every reconcile loop.
+			for resourcename, value := range r.Resource {
+				if resourcename == corev1.ResourceCPU {
+					// We don't want to record applied* metric when UpdateMode is Off.
+					metrics.AppliedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
+				}
+				if resourcename == corev1.ResourceMemory {
+					metrics.AppliedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
+				}
+			}
+		}
+	}
+
+	return tortoise, nil
+}
+
+func replaceOrAppendCondition(conditions []v1beta3.TortoiseCondition, newCondition v1beta3.TortoiseCondition) []v1beta3.TortoiseCondition {
+	for i, v := range conditions {
+		if v.Type == newCondition.Type {
+			conditions[i] = newCondition
+			return conditions
+		}
+	}
+
+	return append(conditions, newCondition)
+}
+
+func recommendationIncreaseAnyResource(oldTortoise, newTortoise *v1beta3.Tortoise) bool {
+	if newTortoise.Status.Conditions.ContainerResourceRequests == nil {
+		// if newVPA doesn't have recommendation, it means we're going to remove the recommendation.
+		return true
+	}
+
+	for _, new := range newTortoise.Status.Conditions.ContainerResourceRequests {
+		found := false
+		for _, old := range oldTortoise.Status.Conditions.ContainerResourceRequests {
+			if old.ContainerName != new.ContainerName {
+				continue
+			}
+
+			found = true
+			if old.Resource.Cpu().Cmp(*new.Resource.Cpu()) < 0 || old.Resource.Memory().Cmp(*new.Resource.Memory()) < 0 {
+				return true
+			}
+		}
+		if !found {
+			// if the container is not found in oldTortoise, it means it's the first time to update Tortoise with that container's recommendation.
+			return true
+		}
+	}
+
+	return false
 }

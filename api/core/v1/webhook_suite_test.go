@@ -52,6 +52,7 @@ import (
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/config"
+	"github.com/mercari/tortoise/pkg/pod"
 	"github.com/mercari/tortoise/pkg/tortoise"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -161,11 +162,10 @@ var _ = BeforeSuite(func() {
 	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, config.RangeOfMinMaxReplicasRecommendationHours, config.TimeZone, config.TortoiseUpdateInterval, config.GatheringDataPeriodType)
 	Expect(err).NotTo(HaveOccurred())
 
-	podWebhook, err := New(tortoiseService, map[string]int64{
-		v1.ResourceCPU.String():    3,
-		v1.ResourceMemory.String(): 1,
-	}, "1")
+	podService, err := pod.New(map[string]int64{}, "0")
 	Expect(err).NotTo(HaveOccurred())
+
+	podWebhook := New(tortoiseService, podService)
 
 	err = ctrl.NewWebhookManagedBy(mgr).
 		WithDefaulter(podWebhook).

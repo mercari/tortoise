@@ -46,6 +46,8 @@ func (c *Service) RolloutRestart(ctx context.Context, dm *v1.Deployment, tortois
 		dm.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
 	}
 	dm.Spec.Template.ObjectMeta.Annotations[annotation.UpdatedAtAnnotation] = now.Format(time.RFC3339)
+	// Set the tortoise name to the deployment's annotation, which will be used in the pod mutating webhook to get the tortoise object.
+	dm.Spec.Template.ObjectMeta.Annotations[annotation.TortoiseNameAnnotation] = tortoise.Name
 
 	if err := c.c.Update(ctx, dm); err != nil {
 		return fmt.Errorf("failed to update deployment: %w", err)

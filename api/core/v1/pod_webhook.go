@@ -30,16 +30,15 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/annotation"
+	"github.com/mercari/tortoise/pkg/pod"
 	"github.com/mercari/tortoise/pkg/tortoise"
 )
 
@@ -52,31 +51,23 @@ import (
 
 func New(
 	tortoiseService *tortoise.Service,
-	resourceLimitMultiplier map[string]int64,
-	MinimumCPULimit string,
-) (*PodWebhook, error) {
-	minCPULim := resource.MustParse(MinimumCPULimit)
+	podService *pod.Service,
+) *PodWebhook {
 	return &PodWebhook{
-		tortoiseService:         tortoiseService,
-		resourceLimitMultiplier: resourceLimitMultiplier,
-		minimumCPULimit:         minCPULim,
-	}, nil
+		tortoiseService: tortoiseService,
+		podService:      podService,
+	}
 }
 
 type PodWebhook struct {
 	tortoiseService *tortoise.Service
-	// For example, if it's 3 and Pod's resource request is 100m, the limit will be changed to 300m.
-	resourceLimitMultiplier map[string]int64
-	minimumCPULimit         resource.Quantity
+	podService      *pod.Service
 }
 
 var _ admission.CustomDefaulter = &PodWebhook{}
 
 // Default implements admission.CustomDefaulter so a webhook will be registered for the type
 func (h *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
-	if len(h.resourceLimitMultiplier) == 0 {
-		return nil
-	}
 	pod := obj.(*v1.Pod)
 	tortoiseName, ok := pod.GetAnnotations()[annotation.TortoiseNameAnnotation]
 	if !ok {
@@ -103,24 +94,7 @@ func (h *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 		return nil
 	}
 
-	for i := range pod.Spec.Containers {
-		container := &pod.Spec.Containers[i]
-		if container.Resources.Limits == nil {
-			container.Resources.Limits = make(v1.ResourceList)
-		}
-		for k := range container.Resources.Requests {
-			if _, ok := h.resourceLimitMultiplier[string(k)]; !ok {
-				continue
-			}
-
-			req := container.Resources.Requests[k].DeepCopy()
-			newLimit := resource.NewMilliQuantity(int64(req.MilliValue())*h.resourceLimitMultiplier[string(k)], req.Format)
-			if k == v1.ResourceCPU && newLimit.Cmp(h.minimumCPULimit) < 0 {
-				newLimit = ptr.To(h.minimumCPULimit.DeepCopy())
-			}
-			container.Resources.Limits[k] = ptr.Deref(newLimit, container.Resources.Limits[k])
-		}
-	}
+	pod = h.podService.ModifyPodResource(pod, t)
 
 	return nil
 }

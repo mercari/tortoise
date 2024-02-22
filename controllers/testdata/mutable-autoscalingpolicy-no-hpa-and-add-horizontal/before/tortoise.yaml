@@ -80,8 +80,6 @@ status:
         containerName: istio-proxy
   targets:
     verticalPodAutoscalers:
-    - name: tortoise-updater-mercari
-      role: Updater
     - name: tortoise-monitor-mercari
       role: Monitor
   tortoisePhase: Working
