@@ -27,6 +27,7 @@ import (
 	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/event"
 	"github.com/mercari/tortoise/pkg/metrics"
+	"github.com/mercari/tortoise/pkg/utils"
 )
 
 type Service struct {
@@ -226,29 +227,7 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 		}
 		currenthpa.Spec.Metrics = append(currenthpa.Spec.Metrics, m)
 		hpaEdited = true
-		found := false
-		for i, p := range tortoise.Status.ContainerResourcePhases {
-			if p.ContainerName == d.containerName {
-				tortoise.Status.ContainerResourcePhases[i].ResourcePhases[d.rn] = autoscalingv1beta3.ResourcePhase{
-					Phase:              autoscalingv1beta3.ContainerResourcePhaseGatheringData,
-					LastTransitionTime: metav1.NewTime(now),
-				}
-
-				found = true
-				break
-			}
-		}
-		if !found {
-			tortoise.Status.ContainerResourcePhases = append(tortoise.Status.ContainerResourcePhases, autoscalingv1beta3.ContainerResourcePhases{
-				ContainerName: d.containerName,
-				ResourcePhases: map[corev1.ResourceName]autoscalingv1beta3.ResourcePhase{
-					d.rn: {
-						Phase:              autoscalingv1beta3.ContainerResourcePhaseGatheringData,
-						LastTransitionTime: metav1.NewTime(now),
-					},
-				},
-			})
-		}
+		tortoise = utils.ChangeTortoiseResourcePhase(tortoise, d.containerName, d.rn, now, v1beta3.ContainerResourcePhaseGatheringData)
 	}
 
 	// remove metrics

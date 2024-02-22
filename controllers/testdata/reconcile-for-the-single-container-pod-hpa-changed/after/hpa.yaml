@@ -30,9 +30,9 @@ spec:
     type: External
   - containerResource:
       container: app
-      name: memory # changed
+      name: memory 
       target:
-        averageUtilization: 75
+        averageUtilization: 50
         type: Utilization
     type: ContainerResource
   minReplicas: 5
