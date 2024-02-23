@@ -1567,6 +1567,7 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 }
 
 func TestService_UpdateVPARecommendation(t *testing.T) {
+	now := time.Now()
 	type fields struct {
 		preferredMaxReplicas       int32
 		minimumMinReplicas         int32
@@ -1650,7 +1651,14 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+			).AddTortoiseConditions(v1beta3.TortoiseCondition{
+				Type:               v1beta3.TortoiseConditionTypeScaledUpBasedOnPreferredMaxReplicas,
+				Status:             corev1.ConditionTrue,
+				Reason:             "ScaledUpBasedOnPreferredMaxReplicas",
+				Message:            "the current number of replicas is bigger than the preferred max replica number",
+				LastTransitionTime: metav1.NewTime(now),
+				LastUpdateTime:     metav1.NewTime(now),
+			}).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
 				ContainerName: "test-container",
 				Resource:      createResourceList("500m", "500Mi"),
 			}).SetRecommendations(v1beta3.Recommendations{
@@ -1658,7 +1666,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
 							ContainerName:       "test-container",
-							RecommendedResource: createResourceList("550m", "550Mi"), // current * 1.1
+							RecommendedResource: createResourceList("650m", "650Mi"), // current * 1.1
 						},
 					},
 				},
@@ -1926,7 +1934,14 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+			).AddTortoiseConditions(v1beta3.TortoiseCondition{
+				Type:               v1beta3.TortoiseConditionTypeScaledUpBasedOnPreferredMaxReplicas,
+				Status:             corev1.ConditionTrue,
+				Reason:             "ScaledUpBasedOnPreferredMaxReplicas",
+				Message:            "the current number of replicas is bigger than the preferred max replica number",
+				LastTransitionTime: metav1.NewTime(now),
+				LastUpdateTime:     metav1.NewTime(now),
+			}).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
 				ContainerName: "test-container",
 				Resource:      createResourceList("500m", "500Mi"),
 			}).SetRecommendations(v1beta3.Recommendations{
@@ -1934,7 +1949,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
 							ContainerName:       "test-container",
-							RecommendedResource: createResourceList("550m" /* current * 1.1*/, "800Mi" /* VPA recommendation*/),
+							RecommendedResource: createResourceList("650m" /* current * 1.1*/, "800Mi" /* VPA recommendation*/),
 						},
 					},
 				},
@@ -2024,7 +2039,14 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
-			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+			).AddTortoiseConditions(v1beta3.TortoiseCondition{
+				Type:               v1beta3.TortoiseConditionTypeScaledUpBasedOnPreferredMaxReplicas,
+				Status:             corev1.ConditionFalse,
+				Reason:             "ScaledUpBasedOnPreferredMaxReplicas",
+				Message:            "the current number of replicas is not bigger than the preferred max replica number",
+				LastTransitionTime: metav1.NewTime(now),
+				LastUpdateTime:     metav1.NewTime(now),
+			}).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
 				ContainerName: "test-container",
 				Resource:      createResourceList("1500m", "1.5Gi"),
 			}).SetRecommendations(v1beta3.Recommendations{
@@ -2125,6 +2147,13 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
 				ContainerName: "test-container",
 				Resource:      createResourceList("15m", "1.5Mi"), //smaller than MinAllocatedResources
+			}).AddTortoiseConditions(v1beta3.TortoiseCondition{
+				Type:               v1beta3.TortoiseConditionTypeScaledUpBasedOnPreferredMaxReplicas,
+				Status:             corev1.ConditionFalse,
+				Reason:             "ScaledUpBasedOnPreferredMaxReplicas",
+				Message:            "the current number of replicas is not bigger than the preferred max replica number",
+				LastTransitionTime: metav1.NewTime(now),
+				LastUpdateTime:     metav1.NewTime(now),
 			}).SetRecommendations(v1beta3.Recommendations{
 				Vertical: v1beta3.VerticalRecommendations{
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
@@ -2203,6 +2232,13 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
 				ContainerName: "test-container",
 				Resource:      createResourceList("130m", "130Mi"),
+			}).AddTortoiseConditions(v1beta3.TortoiseCondition{
+				Type:               v1beta3.TortoiseConditionTypeScaledUpBasedOnPreferredMaxReplicas,
+				Status:             corev1.ConditionFalse,
+				Reason:             "ScaledUpBasedOnPreferredMaxReplicas",
+				Message:            "the current number of replicas is not bigger than the preferred max replica number",
+				LastTransitionTime: metav1.NewTime(now),
+				LastUpdateTime:     metav1.NewTime(now),
 			}).SetRecommendations(v1beta3.Recommendations{
 				Vertical: v1beta3.VerticalRecommendations{
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
@@ -2763,6 +2799,13 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						},
 					},
 				},
+			}).AddTortoiseConditions(v1beta3.TortoiseCondition{
+				Type:               v1beta3.TortoiseConditionTypeScaledUpBasedOnPreferredMaxReplicas,
+				Status:             corev1.ConditionFalse,
+				Reason:             "ScaledUpBasedOnPreferredMaxReplicas",
+				Message:            "the current number of replicas is not bigger than the preferred max replica number",
+				LastTransitionTime: metav1.NewTime(now),
+				LastUpdateTime:     metav1.NewTime(now),
 			}).Build(),
 			wantErr: false,
 		},
@@ -2771,7 +2814,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			s := New(0, 0, 0, 0, int(tt.fields.minimumMinReplicas), int(tt.fields.preferredMaxReplicas), "5m", "5Mi", map[string]string{"istio-proxy": "7m"}, map[string]string{"istio-proxy": "7Mi"}, tt.fields.maxCPU, tt.fields.maxMemory, 10000, tt.fields.maxAllowedScalingDownRatio, tt.fields.features, record.NewFakeRecorder(10))
-			got, err := s.updateVPARecommendation(context.Background(), tt.args.tortoise, tt.args.hpa, tt.args.replicaNum)
+			got, err := s.updateVPARecommendation(context.Background(), tt.args.tortoise, tt.args.hpa, tt.args.replicaNum, now)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateVPARecommendation() error = %v, wantErr %v", err, tt.wantErr)
 				return

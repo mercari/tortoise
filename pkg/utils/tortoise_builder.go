@@ -63,6 +63,11 @@ func (b *TortoiseBuilder) AddContainerResourceRequests(actualContainerResource v
 	return b
 }
 
+func (b *TortoiseBuilder) AddTortoiseConditions(condition v1beta3.TortoiseCondition) *TortoiseBuilder {
+	b.tortoise.Status.Conditions.TortoiseConditions = append(b.tortoise.Status.Conditions.TortoiseConditions, condition)
+	return b
+}
+
 func (b *TortoiseBuilder) SetRecommendations(recommendations v1beta3.Recommendations) *TortoiseBuilder {
 	b.tortoise.Status.Recommendations = recommendations
 	return b
