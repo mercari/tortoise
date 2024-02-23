@@ -67,5 +67,7 @@ status:
       resourcePhases:
         cpu: 
           phase: GatheringData
+          lastTransitionTime: "2023-01-01T00:00:00Z"
         memory:
           phase: GatheringData 
+          lastTransitionTime: "2023-01-01T00:00:00Z"

@@ -12,7 +12,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
@@ -447,50 +446,10 @@ var _ = Describe("Test TortoiseController", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-working"))
 		})
 		It("TortoisePhaseWorking (PartlyWorking)", func() {
-			path := filepath.Join("testdata", "reconcile-for-the-single-container-pod-partly-working")
-			r := initializeResourcesFromFiles(ctx, k8sClient, filepath.Join(path, "before"))
-			// We need to dynamically modify the status of the Tortoise object from the file because we need to set time.
-			r.tortoise.Status.ContainerResourcePhases[0].ResourcePhases[corev1.ResourceCPU] = v1beta3.ResourcePhase{
-				Phase:              v1beta3.ContainerResourcePhaseGatheringData,
-				LastTransitionTime: metav1.Now(),
-			}
-
-			v := &v1beta3.Tortoise{}
-			err := k8sClient.Get(ctx, client.ObjectKey{Namespace: r.tortoise.Namespace, Name: r.tortoise.Name}, v)
-			Expect(err).NotTo(HaveOccurred())
-
-			v.Status = r.tortoise.Status
-			err = k8sClient.Status().Update(ctx, v)
-			Expect(err).NotTo(HaveOccurred())
-
-			stopFunc = startController(ctx)
-			checkWithWantedResources(path)
-			cleanUp()
+			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-partly-working"))
 		})
 		It("TortoisePhaseWorking (GatheringData)", func() {
-			path := filepath.Join("testdata", "reconcile-for-the-single-container-pod-gathering-data")
-			r := initializeResourcesFromFiles(ctx, k8sClient, filepath.Join(path, "before"))
-			// We need to dynamically modify the status of the Tortoise object from the file because we need to set time.
-			r.tortoise.Status.ContainerResourcePhases[0].ResourcePhases[corev1.ResourceCPU] = v1beta3.ResourcePhase{
-				Phase:              v1beta3.ContainerResourcePhaseGatheringData,
-				LastTransitionTime: metav1.Now(),
-			}
-			r.tortoise.Status.ContainerResourcePhases[0].ResourcePhases[corev1.ResourceMemory] = v1beta3.ResourcePhase{
-				Phase:              v1beta3.ContainerResourcePhaseGatheringData,
-				LastTransitionTime: metav1.Now(),
-			}
-
-			v := &v1beta3.Tortoise{}
-			err := k8sClient.Get(ctx, client.ObjectKey{Namespace: r.tortoise.Namespace, Name: r.tortoise.Name}, v)
-			Expect(err).NotTo(HaveOccurred())
-
-			v.Status = r.tortoise.Status
-			err = k8sClient.Status().Update(ctx, v)
-			Expect(err).NotTo(HaveOccurred())
-
-			stopFunc = startController(ctx)
-			checkWithWantedResources(path)
-			cleanUp()
+			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-gathering-data"))
 		})
 		It("TortoisePhaseInitializing", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-initializing"))
@@ -514,6 +473,9 @@ var _ = Describe("Test TortoiseController", func() {
 	Context("reconcile for the multiple containers Pod", func() {
 		It("TortoisePhaseWorking", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-multiple-containers-pod-working"))
+		})
+		It("TortoisePhaseWorking (istio)", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-istio-enabled-pod-working"))
 		})
 		It("TortoisePhaseWorking (include AutoscalingTypeOff)", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-multiple-containers-pod-one-off"))
@@ -606,22 +568,20 @@ type resources struct {
 }
 
 func (t *testCase) compare(got resources) error {
-	if d := cmp.Diff(t.want.tortoise, got.tortoise, cmpopts.IgnoreFields(v1beta3.Tortoise{}, "ObjectMeta"), cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
+	if d := cmp.Diff(t.want.tortoise, got.tortoise, cmpopts.IgnoreFields(v1beta3.Tortoise{}, "ObjectMeta")); d != "" {
 		return fmt.Errorf("unexpected tortoise: diff = %s", d)
 	}
-	if d := cmp.Diff(t.want.hpa, got.hpa, cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "ObjectMeta"), cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
+	if d := cmp.Diff(t.want.hpa, got.hpa, cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "ObjectMeta")); d != "" {
 		return fmt.Errorf("unexpected hpa: diff = %s", d)
 	}
 	// Only restartedAt annotation could be modified by the reconciliation
 	// We don't care about the value, but the existence of the annotation.
-	_, okActual := got.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"]
-	_, okWant := t.want.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"]
-	if okActual != okWant {
-		return fmt.Errorf("restartedAt annotation is not expected: whether each has restartedAt annotation: got = %v, want = %v", okActual, okWant)
+	if got.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] != t.want.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] {
+		return fmt.Errorf("restartedAt annotation is not expected: whether each has restartedAt annotation: got = %v, want = %v", got.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"], t.want.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"])
 	}
 
 	for k, vpa := range t.want.vpa {
-		if d := cmp.Diff(vpa, got.vpa[k], cmpopts.IgnoreFields(autoscalingv1.VerticalPodAutoscaler{}, "ObjectMeta"), cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
+		if d := cmp.Diff(vpa, got.vpa[k], cmpopts.IgnoreFields(autoscalingv1.VerticalPodAutoscaler{}, "ObjectMeta")); d != "" {
 			return fmt.Errorf("unexpected vpa[%s]: diff = %s", k, d)
 		}
 	}

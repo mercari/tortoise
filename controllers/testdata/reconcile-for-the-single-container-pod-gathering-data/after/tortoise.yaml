@@ -1,4 +1,6 @@
 metadata:
+  finalizers:
+  - tortoise.autoscaling.mercari.com/finalizer
   name: mercari
   namespace: default
 spec:
@@ -9,45 +11,55 @@ spec:
       name: mercari-app
 status:
   autoscalingPolicy:
-  - policy:
+  - containerName: app
+    policy:
       cpu: Horizontal
       memory: Vertical
-    containerName: app
   conditions:
-    containerResourceRequests:
-      - containerName: "app"
-        resource:
-          cpu: "4"
-          memory: 4Gi
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: null
+          updatedAt: "2023-01-01T00:00:00Z"
         memory:
           quantity: 3Gi
-          updatedAt: null
+          updatedAt: "2023-01-01T00:00:00Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: null
+          updatedAt: "2023-01-01T00:00:00Z"
         memory:
           quantity: 3Gi
-          updatedAt: null
+          updatedAt: "2023-01-01T00:00:00Z"
+    containerResourceRequests:
+    - containerName: app
+      resource:
+        cpu: "4"
+        memory: 4Gi
+    tortoiseConditions: null
+  containerResourcePhases:
+  - containerName: app
+    resourcePhases:
+      cpu:
+        lastTransitionTime: "2023-01-01T00:00:00Z"
+        phase: GatheringData
+      memory:
+        lastTransitionTime: "2023-01-01T00:00:00Z"
+        phase: Working
   recommendations:
     horizontal:
       maxReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:01:24Z"
+        updatedAt: "2023-01-01T00:00:00Z"
         value: 20
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:01:24Z"
+        updatedAt: "2023-01-01T00:00:00Z"
         value: 5
       targetUtilizations:
       - containerName: app
@@ -61,16 +73,12 @@ status:
         containerName: app
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari
+    scaleTargetRef:
+      kind: ""
+      name: ""
     verticalPodAutoscalers:
     - name: tortoise-updater-mercari
       role: Updater
     - name: tortoise-monitor-mercari
       role: Monitor
-  tortoisePhase: GatheringData # It's gathering data because VPA is ready but the max/min replicas recommendation is not ready yet.
-  containerResourcePhases:
-    - containerName: "app"
-      resourcePhases:
-        cpu: 
-          phase: GatheringData
-        memory:
-          phase: Working # VPA gets ready.
+  tortoisePhase: GatheringData
