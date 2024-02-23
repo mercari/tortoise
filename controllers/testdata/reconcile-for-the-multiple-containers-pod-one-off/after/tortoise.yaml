@@ -21,7 +21,7 @@ status:
     containerResourceRequests:
       - containerName: "app"
         resource:
-          cpu: "6"
+          cpu: "10"
           memory: 3Gi
       - containerName: "istio-proxy"
         resource:
@@ -86,7 +86,7 @@ status:
     vertical:
       containerResourceRecommendation:
       - RecommendedResource:
-          cpu: "6"
+          cpu: "10"
           memory: 3Gi
         containerName: app
       - RecommendedResource:

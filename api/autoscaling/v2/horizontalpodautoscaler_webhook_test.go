@@ -62,6 +62,7 @@ func mutateTest(before, after, tortoise string) {
 	tor.Status = status
 	err = k8sClient.Status().Update(ctx, tor)
 	Expect(err).NotTo(HaveOccurred())
+	time.Sleep(time.Second)
 
 	y, err = os.ReadFile(before)
 	Expect(err).NotTo(HaveOccurred())

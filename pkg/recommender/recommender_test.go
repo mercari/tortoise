@@ -1568,12 +1568,12 @@ func Test_updateHPAMinMaxReplicasRecommendations(t *testing.T) {
 
 func TestService_UpdateVPARecommendation(t *testing.T) {
 	type fields struct {
-		preferredReplicaNumUpperLimit int32
-		minimumMinReplicas            int32
-		maxCPU                        string
-		maxMemory                     string
-		maxAllowedScalingDownRatio    float64
-		features                      []features.FeatureFlag
+		preferredMaxReplicas       int32
+		minimumMinReplicas         int32
+		maxCPU                     string
+		maxMemory                  string
+		maxAllowedScalingDownRatio float64
+		features                   []features.FeatureFlag
 	}
 	type args struct {
 		tortoise   *v1beta3.Tortoise
@@ -1588,12 +1588,12 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "all horizontal: replica count above preferredReplicaNumUpperLimit: increase the resources a bit",
+			name: "all horizontal: replica count above preferredMaxReplicas: increase the resources a bit",
 			fields: fields{
-				preferredReplicaNumUpperLimit: 3,
-				maxCPU:                        "1000m",
-				maxMemory:                     "1Gi",
-				features:                      []features.FeatureFlag{features.VerticalScalingBasedOnPreferredMaxReplicas},
+				preferredMaxReplicas: 3,
+				maxCPU:               "1000m",
+				maxMemory:            "1Gi",
+				features:             []features.FeatureFlag{features.VerticalScalingBasedOnPreferredMaxReplicas},
 			},
 			args: args{
 				hpa: &v2.HorizontalPodAutoscaler{
@@ -1666,18 +1666,39 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "all horizontal: replica count above preferredReplicaNumUpperLimit but VerticalScalingBasedOnPreferredMaxReplicas is disabled: increase the resources a bit",
+			name: "all horizontal: replica count above preferredMaxReplicas but VerticalScalingBasedOnPreferredMaxReplicas is disabled: increase the resources a bit",
 			fields: fields{
-				preferredReplicaNumUpperLimit: 3,
-				maxCPU:                        "1000m",
-				maxMemory:                     "1Gi",
-				features:                      []features.FeatureFlag{},
+				preferredMaxReplicas: 3,
+				maxCPU:               "1000m",
+				maxMemory:            "1Gi",
+				features:             []features.FeatureFlag{},
 			},
 			args: args{
 				hpa: &v2.HorizontalPodAutoscaler{
 					Spec: v2.HorizontalPodAutoscalerSpec{
 						MinReplicas: ptr.To[int32](1),
-						Metrics:     []v2.MetricSpec{},
+						Metrics: []v2.MetricSpec{
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceCPU,
+									Target: v2.MetricTarget{
+										AverageUtilization: ptr.To[int32](80),
+									},
+									Container: "test-container",
+								},
+							},
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceMemory,
+									Target: v2.MetricTarget{
+										AverageUtilization: ptr.To[int32](80),
+									},
+									Container: "test-container",
+								},
+							},
+						},
 					},
 				},
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
@@ -1694,10 +1715,10 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
 							corev1.ResourceCPU: {
-								Quantity: resource.MustParse("500m"),
+								Quantity: resource.MustParse("400m"),
 							},
 							corev1.ResourceMemory: {
-								Quantity: resource.MustParse("500Mi"),
+								Quantity: resource.MustParse("400Mi"),
 							},
 						},
 					},
@@ -1721,10 +1742,10 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
 						corev1.ResourceCPU: {
-							Quantity: resource.MustParse("500m"),
+							Quantity: resource.MustParse("400m"),
 						},
 						corev1.ResourceMemory: {
-							Quantity: resource.MustParse("500Mi"),
+							Quantity: resource.MustParse("400Mi"),
 						},
 					},
 				},
@@ -1744,17 +1765,39 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "all horizontal: replica count above preferredReplicaNumUpperLimit: don't increase the resources when reaching minReplica",
+			name: "all horizontal: replica count above preferredMaxReplicas: don't increase the resources when reaching minReplica",
 			fields: fields{
-				preferredReplicaNumUpperLimit: 3,
-				maxCPU:                        "1000m",
-				maxMemory:                     "1Gi",
+				preferredMaxReplicas: 3,
+				maxCPU:               "1000m",
+				maxMemory:            "1Gi",
+				features:             []features.FeatureFlag{features.VerticalScalingBasedOnPreferredMaxReplicas},
 			},
 			args: args{
 				hpa: &v2.HorizontalPodAutoscaler{
 					Spec: v2.HorizontalPodAutoscalerSpec{
 						MinReplicas: ptr.To[int32](4),
-						Metrics:     []v2.MetricSpec{},
+						Metrics: []v2.MetricSpec{
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceCPU,
+									Target: v2.MetricTarget{
+										AverageUtilization: ptr.To[int32](80),
+									},
+									Container: "test-container",
+								},
+							},
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceMemory,
+									Target: v2.MetricTarget{
+										AverageUtilization: ptr.To[int32](80),
+									},
+									Container: "test-container",
+								},
+							},
+						},
 					},
 				},
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
@@ -1771,10 +1814,10 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 						ContainerName: "test-container",
 						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
 							corev1.ResourceCPU: {
-								Quantity: resource.MustParse("500m"),
+								Quantity: resource.MustParse("400m"),
 							},
 							corev1.ResourceMemory: {
-								Quantity: resource.MustParse("500Mi"),
+								Quantity: resource.MustParse("400Mi"),
 							},
 						},
 					},
@@ -1798,10 +1841,10 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 					ContainerName: "test-container",
 					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
 						corev1.ResourceCPU: {
-							Quantity: resource.MustParse("500m"),
+							Quantity: resource.MustParse("400m"),
 						},
 						corev1.ResourceMemory: {
-							Quantity: resource.MustParse("500Mi"),
+							Quantity: resource.MustParse("400Mi"),
 						},
 					},
 				},
@@ -1813,7 +1856,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
 						{
 							ContainerName:       "test-container",
-							RecommendedResource: createResourceList("500m", "500Mi"), // current * 1.1
+							RecommendedResource: createResourceList("500m", "500Mi"),
 						},
 					},
 				},
@@ -1821,12 +1864,12 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "horizontal/vertical: replica count above preferredReplicaNumUpperLimit: increase the resource a bit",
+			name: "horizontal/vertical: replica count above preferredMaxReplicas: increase the resource a bit",
 			fields: fields{
-				preferredReplicaNumUpperLimit: 3,
-				maxCPU:                        "1000m",
-				maxMemory:                     "1Gi",
-				features:                      []features.FeatureFlag{features.VerticalScalingBasedOnPreferredMaxReplicas},
+				preferredMaxReplicas: 3,
+				maxCPU:               "1000m",
+				maxMemory:            "1Gi",
+				features:             []features.FeatureFlag{features.VerticalScalingBasedOnPreferredMaxReplicas},
 			},
 			args: args{
 				hpa: &v2.HorizontalPodAutoscaler{
@@ -1901,9 +1944,9 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		{
 			name: "all horizontal: requested resources exceed maxResourceSize",
 			fields: fields{
-				preferredReplicaNumUpperLimit: 5,
-				maxCPU:                        "1000m",
-				maxMemory:                     "1Gi",
+				preferredMaxReplicas: 5,
+				maxCPU:               "1000m",
+				maxMemory:            "1Gi",
 			},
 			args: args{
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
@@ -1999,9 +2042,9 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		{
 			name: "all horizontal: requested resources is smaller than MinAllocatedResources",
 			fields: fields{
-				preferredReplicaNumUpperLimit: 5,
-				maxCPU:                        "1000m",
-				maxMemory:                     "1Gi",
+				preferredMaxReplicas: 5,
+				maxCPU:               "1000m",
+				maxMemory:            "1Gi",
 			},
 			args: args{
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
@@ -2097,10 +2140,10 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		{
 			name: "all horizontal: replica number is too small: reduce resources based on VPA recommendation",
 			fields: fields{
-				preferredReplicaNumUpperLimit: 6,
-				maxCPU:                        "1000m",
-				maxMemory:                     "1Gi",
-				minimumMinReplicas:            3,
+				preferredMaxReplicas: 6,
+				maxCPU:               "1000m",
+				maxMemory:            "1Gi",
+				minimumMinReplicas:   3,
 			},
 			args: args{
 				hpa: &v2.HorizontalPodAutoscaler{
@@ -2175,9 +2218,9 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		{
 			name: "all vertical: reduce resources based on VPA recommendation",
 			fields: fields{
-				preferredReplicaNumUpperLimit: 6,
-				maxCPU:                        "1000m",
-				maxMemory:                     "1Gi",
+				preferredMaxReplicas: 6,
+				maxCPU:               "1000m",
+				maxMemory:            "1Gi",
 			},
 			args: args{
 				hpa: &v2.HorizontalPodAutoscaler{
@@ -2252,9 +2295,9 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		{
 			name: "all vertical: use MinAllocatedResources when VPA recommendation is smaller than MinAllocatedResources",
 			fields: fields{
-				preferredReplicaNumUpperLimit: 6,
-				maxCPU:                        "1000m",
-				maxMemory:                     "1Gi",
+				preferredMaxReplicas: 6,
+				maxCPU:               "1000m",
+				maxMemory:            "1Gi",
 			},
 			args: args{
 				hpa: &v2.HorizontalPodAutoscaler{
@@ -2329,9 +2372,9 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		{
 			name: "all vertical: use minResourceSize when VPA recommendation is smaller than minResourceSize",
 			fields: fields{
-				preferredReplicaNumUpperLimit: 6,
-				maxCPU:                        "1000m",
-				maxMemory:                     "1Gi",
+				preferredMaxReplicas: 6,
+				maxCPU:               "1000m",
+				maxMemory:            "1Gi",
 			},
 			args: args{
 				hpa: &v2.HorizontalPodAutoscaler{
@@ -2406,9 +2449,9 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		{
 			name: "all vertical: use minResourceSize (per container) when VPA recommendation is smaller than minResourceSize",
 			fields: fields{
-				preferredReplicaNumUpperLimit: 6,
-				maxCPU:                        "1000m",
-				maxMemory:                     "1Gi",
+				preferredMaxReplicas: 6,
+				maxCPU:               "1000m",
+				maxMemory:            "1Gi",
 			},
 			args: args{
 				hpa: &v2.HorizontalPodAutoscaler{
@@ -2483,10 +2526,10 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		{
 			name: "all vertical: use oldSizeMilli * s.maxAllowedScalingDownRatio when VPA recommendation is smaller than oldSizeMilli * s.maxAllowedScalingDownRatio",
 			fields: fields{
-				preferredReplicaNumUpperLimit: 6,
-				maxCPU:                        "1000m",
-				maxMemory:                     "1Gi",
-				maxAllowedScalingDownRatio:    0.8, // At maximum, it can be reduced to 0.8*current req.
+				preferredMaxReplicas:       6,
+				maxCPU:                     "1000m",
+				maxMemory:                  "1Gi",
+				maxAllowedScalingDownRatio: 0.8, // At maximum, it can be reduced to 0.8*current req.
 			},
 			args: args{
 				hpa: &v2.HorizontalPodAutoscaler{
@@ -2556,9 +2599,9 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 		{
 			name: "all horizontal: reduced resources based on VPA recommendation when unbalanced container size in multiple containers Pod",
 			fields: fields{
-				preferredReplicaNumUpperLimit: 6,
-				maxCPU:                        "10000m",
-				maxMemory:                     "100Gi",
+				preferredMaxReplicas: 6,
+				maxCPU:               "10000m",
+				maxMemory:            "100Gi",
 			},
 			args: args{
 				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
@@ -2727,7 +2770,7 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			s := New(0, 0, 0, 0, int(tt.fields.minimumMinReplicas), int(tt.fields.preferredReplicaNumUpperLimit), "5m", "5Mi", map[string]string{"istio-proxy": "7m"}, map[string]string{"istio-proxy": "7Mi"}, tt.fields.maxCPU, tt.fields.maxMemory, 10000, tt.fields.maxAllowedScalingDownRatio, tt.fields.features, record.NewFakeRecorder(10))
+			s := New(0, 0, 0, 0, int(tt.fields.minimumMinReplicas), int(tt.fields.preferredMaxReplicas), "5m", "5Mi", map[string]string{"istio-proxy": "7m"}, map[string]string{"istio-proxy": "7Mi"}, tt.fields.maxCPU, tt.fields.maxMemory, 10000, tt.fields.maxAllowedScalingDownRatio, tt.fields.features, record.NewFakeRecorder(10))
 			got, err := s.updateVPARecommendation(context.Background(), tt.args.tortoise, tt.args.hpa, tt.args.replicaNum)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateVPARecommendation() error = %v, wantErr %v", err, tt.wantErr)

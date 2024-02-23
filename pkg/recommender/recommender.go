@@ -31,7 +31,7 @@ type Service struct {
 	minimumMinReplicas               int32
 	maximumTargetResourceUtilization int32
 	minimumTargetResourceUtilization int32
-	preferredReplicaNumUpperLimit    int32
+	preferredMaxReplicas             int32
 	maxResourceSize                  corev1.ResourceList
 	// the key is the container name, and "*" is the value for all containers.
 	minResourceSizePerContainer map[string]corev1.ResourceList
@@ -49,7 +49,7 @@ func New(
 	maximumTargetResourceUtilization int,
 	minimumTargetResourceUtilization int,
 	minimumMinReplicas int,
-	preferredReplicaNumUpperLimit int,
+	preferredMaxReplicas int,
 	minCPU string,
 	minMemory string,
 	minimumCPUPerContainer map[string]string,
@@ -84,7 +84,7 @@ func New(
 		maximumTargetResourceUtilization:    int32(maximumTargetResourceUtilization),
 		minimumTargetResourceUtilization:    int32(minimumTargetResourceUtilization),
 		minimumMinReplicas:                  int32(minimumMinReplicas),
-		preferredReplicaNumUpperLimit:       int32(preferredReplicaNumUpperLimit),
+		preferredMaxReplicas:                int32(preferredMaxReplicas),
 		minResourceSizePerContainer:         minResourceSizePerContainer,
 		maxResourceSize: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse(maxCPU),
@@ -151,7 +151,7 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 			if !ok {
 				return tortoise, fmt.Errorf("no %s recommendation from VPA for the container %s", k, r.ContainerName)
 			}
-			newSize, reason, err := s.calculateBestNewSize(ctx, p, r.ContainerName, recom, k, hpa, replicaNum, req, minAllocatedResourcesMap[r.ContainerName], len(requestMap) > 1)
+			newSize, reason, err := s.calculateBestNewSize(ctx, tortoise, p, r.ContainerName, recom, k, hpa, replicaNum, req, minAllocatedResourcesMap[r.ContainerName])
 			if err != nil {
 				return tortoise, err
 			}
@@ -176,7 +176,7 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 
 // calculateBestNewSize calculates the best new resource request based on the current replica number and the recommended resource request.
 // Even if the autoscaling policy is Horizontal, this function may suggest the vertical scaling, see comments in the function.
-func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.AutoscalingType, containerName string, recommendedResourceRequest resource.Quantity, k corev1.ResourceName, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, resourceRequest resource.Quantity, minAllocatedResources corev1.ResourceList, isMultipleContainersPod bool) (int64, string, error) {
+func (s *Service) calculateBestNewSize(ctx context.Context, tortoise *v1beta3.Tortoise, p v1beta3.AutoscalingType, containerName string, recommendedResourceRequest resource.Quantity, k corev1.ResourceName, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, resourceRequest resource.Quantity, minAllocatedResources corev1.ResourceList) (int64, string, error) {
 	if p == v1beta3.AutoscalingTypeOff {
 		// Just keep the current resource request.
 		return resourceRequest.MilliValue(), "", nil
@@ -193,18 +193,18 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 
 	// p == v1beta3.AutoscalingTypeHorizontal
 
-	// When the current replica num is more than or equal to the preferredReplicaNumUpperLimit,
+	// When the current replica num is more than or equal to the preferredMaxReplicas,
 	// make the container size bigger (just multiple by 1.1) so that the replica number will be descreased.
 	//
 	// Here also covers the scenario where the current replica num hits MaximumMaxReplicas.
-	if replicaNum >= s.preferredReplicaNumUpperLimit &&
-		// If the current replica number is equal to the maximumMaxReplica, increasing the resource request would not change the situation that the replica number is higher than preferredReplicaNumUpperLimit.
+	if replicaNum >= s.preferredMaxReplicas &&
+		// If the current replica number is equal to the maximumMaxReplica, increasing the resource request would not change the situation that the replica number is higher than preferredMaxReplicas.
 		*hpa.Spec.MinReplicas != replicaNum &&
 		features.Contains(s.featureFlags, features.VerticalScalingBasedOnPreferredMaxReplicas) {
 		// We keep increasing the size until we hit the maxResourceSize.
 		newSize := int64(float64(resourceRequest.MilliValue()) * 1.1)
 		jastifiedNewSize := s.justifyNewSize(resourceRequest.MilliValue(), newSize, k, minAllocatedResources, containerName)
-		return jastifiedNewSize, fmt.Sprintf("the current number of replicas is bigger than the preferred max replica number in this cluster (%v), so make %v request (%s) bigger (%v → %v)", s.preferredReplicaNumUpperLimit, k, containerName, resourceRequest.MilliValue(), jastifiedNewSize), nil
+		return jastifiedNewSize, fmt.Sprintf("the current number of replicas is bigger than the preferred max replica number in this cluster (%v), so make %v request (%s) bigger (%v → %v)", s.preferredMaxReplicas, k, containerName, resourceRequest.MilliValue(), jastifiedNewSize), nil
 	}
 
 	if replicaNum <= s.minimumMinReplicas {
@@ -224,11 +224,10 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 		return jastified, fmt.Sprintf("the current number of replicas is equal or smaller than the minimum min replica number in this cluster (%v), so make %v request (%v) smaller (%v → %v) based on VPA suggestion", s.minimumMinReplicas, k, containerName, resourceRequest.MilliValue(), jastified), nil
 	}
 
-	// The replica number is OK based on minimumMinReplicas and preferredReplicaNumUpperLimit.
+	// The replica number is OK based on minimumMinReplicas and preferredMaxReplicas.
 
-	if !isMultipleContainersPod {
-		// TODO: we should check if there are multiple targets in the HPA instead.
-		// nothing else to do for a single container Pod.
+	if !hasMultipleHorizontal(tortoise) {
+		// nothing else to do for a single-horizontal Tortoise.
 		return s.justifyNewSize(resourceRequest.MilliValue(), resourceRequest.MilliValue(), k, minAllocatedResources, containerName), "nothing to do", nil
 	}
 
@@ -254,6 +253,21 @@ func (s *Service) calculateBestNewSize(ctx context.Context, p v1beta3.Autoscalin
 	// Just keep the current resource request.
 	// Only do justification.
 	return s.justifyNewSize(resourceRequest.MilliValue(), resourceRequest.MilliValue(), k, minAllocatedResources, containerName), "nothing to do", nil
+}
+
+func hasMultipleHorizontal(t *v1beta3.Tortoise) bool {
+	count := 0
+	for _, r := range t.Status.AutoscalingPolicy {
+		for _, p := range r.Policy {
+			if p == v1beta3.AutoscalingTypeHorizontal {
+				count++
+			}
+			if count > 1 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (s *Service) getGlobalMinResourceSize(k corev1.ResourceName, containerName string) resource.Quantity {
