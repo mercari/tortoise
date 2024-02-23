@@ -1,4 +1,6 @@
 metadata:
+  finalizers:
+  - tortoise.autoscaling.mercari.com/finalizer
   name: mercari
   namespace: default
 spec:
@@ -9,68 +11,86 @@ spec:
       name: mercari-app
 status:
   autoscalingPolicy:
-  - policy:
+  - containerName: app
+    policy:
       cpu: "Off"
       memory: "Off"
-    containerName: app
-  - policy:
+  - containerName: istio-proxy
+    policy:
       cpu: "Off"
       memory: "Off"
-    containerName: istio-proxy
   conditions:
-    containerResourceRequests:
-      - containerName: "app"
-        resource:
-          cpu: "10"
-          memory: 10Gi
-      - containerName: "istio-proxy"
-        resource:
-          cpu: "4"
-          memory: 4Gi
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: null
+          updatedAt: "2024-02-23T06:16:03Z"
         memory:
           quantity: 3Gi
-          updatedAt: null
+          updatedAt: "2024-02-23T06:16:03Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: null
+          updatedAt: "2024-02-23T06:16:03Z"
         memory:
           quantity: 3Gi
-          updatedAt: null
+          updatedAt: "2024-02-23T06:16:03Z"
     - containerName: istio-proxy
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: null
+          updatedAt: "2024-02-23T06:16:03Z"
         memory:
           quantity: 3Gi
-          updatedAt: null
+          updatedAt: "2024-02-23T06:16:03Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: null
+          updatedAt: "2024-02-23T06:16:03Z"
         memory:
           quantity: 3Gi
-          updatedAt: null
+          updatedAt: "2024-02-23T06:16:03Z"
+    containerResourceRequests:
+    - containerName: app
+      resource:
+        cpu: "10"
+        memory: 10Gi
+    - containerName: istio-proxy
+      resource:
+        cpu: "4"
+        memory: 4Gi
+    tortoiseConditions: null
+  containerResourcePhases:
+  - containerName: app
+    resourcePhases:
+      cpu:
+        lastTransitionTime: null
+        phase: Working
+      memory:
+        lastTransitionTime: null
+        phase: Working
+  - containerName: istio-proxy
+    resourcePhases:
+      cpu:
+        lastTransitionTime: null
+        phase: Working
+      memory:
+        lastTransitionTime: null
+        phase: Working
   recommendations:
     horizontal:
       maxReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:15:47Z"
+        updatedAt: "2024-02-23T06:16:03Z"
         value: 20
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:15:47Z"
+        updatedAt: "2024-02-23T06:16:03Z"
         value: 5
       targetUtilizations:
       - containerName: app
@@ -88,22 +108,13 @@ status:
           memory: 4Gi
         containerName: istio-proxy
   targets:
+    horizontalPodAutoscaler: ""
+    scaleTargetRef:
+      kind: ""
+      name: ""
     verticalPodAutoscalers:
     - name: tortoise-updater-mercari
       role: Updater
     - name: tortoise-monitor-mercari
       role: Monitor
   tortoisePhase: Working
-  containerResourcePhases:
-    - containerName: "app"
-      resourcePhases:
-        cpu: 
-          phase: Working 
-        memory:
-          phase: Working 
-    - containerName: "istio-proxy"
-      resourcePhases:
-        cpu: 
-          phase: Working 
-        memory:
-          phase: Working 

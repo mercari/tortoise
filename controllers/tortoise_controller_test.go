@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -150,6 +151,107 @@ func initializeResourcesFromFiles(ctx context.Context, k8sClient client.Client, 
 	return resource
 }
 
+func writeToFile(path string, r any) error {
+	y, err := yaml.Marshal(r)
+	if err != nil {
+		return err
+	}
+	y, err = removeUnnecessaryFields(y)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(path, y, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func updateResourcesInTestCaseFile(path string, resource resources) error {
+	err := writeToFile(filepath.Join(path, "tortoise.yaml"), resource.tortoise)
+	if err != nil {
+		return err
+	}
+
+	err = writeToFile(filepath.Join(path, "deployment.yaml"), removeUnnecessaryFieldsFromDeployment(resource.deployment))
+	if err != nil {
+		return err
+	}
+
+	err = writeToFile(filepath.Join(path, "vpa-Updater.yaml"), resource.vpa[v1beta3.VerticalPodAutoscalerRoleUpdater])
+	if err != nil {
+		return err
+	}
+
+	err = writeToFile(filepath.Join(path, "vpa-Monitor.yaml"), resource.vpa[v1beta3.VerticalPodAutoscalerRoleMonitor])
+	if err != nil {
+		return err
+	}
+
+	if resource.hpa != nil {
+		err = writeToFile(filepath.Join(path, "hpa.yaml"), resource.hpa)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func removeUnnecessaryFieldsFromHPA(hpa *v2.HorizontalPodAutoscaler) *v2.HorizontalPodAutoscaler {
+	hpa.Status = v2.HorizontalPodAutoscalerStatus{}
+	return hpa
+}
+
+func removeUnnecessaryFieldsFromDeployment(deployment *v1.Deployment) *v1.Deployment {
+	// remove all default values
+
+	deployment.Spec.ProgressDeadlineSeconds = nil
+	deployment.Spec.Replicas = nil
+	deployment.Spec.RevisionHistoryLimit = nil
+	deployment.Spec.Strategy = v1.DeploymentStrategy{}
+	deployment.Spec.Template.ObjectMeta.CreationTimestamp = metav1.Time{}
+	deployment.Spec.Template.Spec.DNSPolicy = ""
+	deployment.Spec.Template.Spec.RestartPolicy = ""
+	deployment.Spec.Template.Spec.SchedulerName = ""
+	deployment.Spec.Template.Spec.SecurityContext = nil
+	deployment.Spec.Template.Spec.TerminationGracePeriodSeconds = nil
+	for i := range deployment.Spec.Template.Spec.Containers {
+		deployment.Spec.Template.Spec.Containers[i].ImagePullPolicy = ""
+		deployment.Spec.Template.Spec.Containers[i].TerminationMessagePath = ""
+		deployment.Spec.Template.Spec.Containers[i].TerminationMessagePolicy = ""
+	}
+
+	deployment.Status = v1.DeploymentStatus{}
+
+	return deployment
+}
+
+func removeUnnecessaryFields(rawdata []byte) ([]byte, error) {
+	data := make(map[string]interface{})
+	err := yaml.Unmarshal(rawdata, &data)
+	if err != nil {
+		return nil, err
+	}
+	meta, ok := data["metadata"]
+	if !ok {
+		return nil, errors.New("no metadata")
+	}
+	typed, ok := meta.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("metadata is unexpected type: %T", meta)
+	}
+
+	delete(typed, "creationTimestamp")
+	delete(typed, "managedFields")
+	delete(typed, "resourceVersion")
+	delete(typed, "uid")
+	delete(typed, "generation")
+
+	return yaml.Marshal(data)
+}
+
 func startController(ctx context.Context) func() {
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
@@ -215,6 +317,52 @@ var _ = Describe("Test TortoiseController", func() {
 		}
 	}
 
+	generateTestCases := func(path string) {
+		// wait for the reconciliation.
+		time.Sleep(1 * time.Second)
+		path = filepath.Join(path, "after")
+		tc := testCase{want: newResource(path)}
+		Eventually(func(g Gomega) {
+			gotTortoise := &v1beta3.Tortoise{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
+			g.Expect(err).ShouldNot(HaveOccurred())
+			var gotHPA *v2.HorizontalPodAutoscaler
+			if tc.want.hpa != nil {
+				gotHPA = &v2.HorizontalPodAutoscaler{}
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, gotHPA)
+				g.Expect(err).ShouldNot(HaveOccurred())
+			} else {
+				// HPA should not exist.
+				gotHPA = &v2.HorizontalPodAutoscaler{}
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, gotHPA)
+				Expect(apierrors.IsNotFound(err)).To(Equal(true))
+				gotHPA = nil
+			}
+			gotUpdaterVPA := &autoscalingv1.VerticalPodAutoscaler{}
+			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, gotUpdaterVPA)
+			g.Expect(err).ShouldNot(HaveOccurred())
+			gotMonitorVPA := &autoscalingv1.VerticalPodAutoscaler{}
+			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, gotMonitorVPA)
+			g.Expect(err).ShouldNot(HaveOccurred())
+
+			// get deployment
+			gotDeployment := &v1.Deployment{}
+			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari-app"}, gotDeployment)
+			g.Expect(err).ShouldNot(HaveOccurred())
+
+			err = updateResourcesInTestCaseFile(path, resources{
+				tortoise: gotTortoise,
+				hpa:      gotHPA,
+				vpa: map[v1beta3.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
+					v1beta3.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
+					v1beta3.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
+				},
+				deployment: gotDeployment,
+			})
+			g.Expect(err).ShouldNot(HaveOccurred())
+		}).Should(Succeed())
+	}
+
 	checkWithWantedResources := func(path string) {
 		// wait for the reconciliation.
 		time.Sleep(1 * time.Second)
@@ -263,7 +411,11 @@ var _ = Describe("Test TortoiseController", func() {
 	runTest := func(path string) {
 		initializeResourcesFromFiles(ctx, k8sClient, filepath.Join(path, "before"))
 		stopFunc = startController(ctx)
-		checkWithWantedResources(path)
+		if os.Getenv("UPDATE_TESTCASES") == "true" {
+			generateTestCases(path)
+		} else {
+			checkWithWantedResources(path)
+		}
 		cleanUp()
 	}
 

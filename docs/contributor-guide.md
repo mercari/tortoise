@@ -54,6 +54,18 @@ Specifically about the controller's e2e test, it only simulates one reconciliati
 For example, if you expect Tortoise is changed to state-a in one reconciliation and to state-b in next reconciliation,
 you have to write two tests, one per reconciliation.
 
+#### Auto-generate Integration Test Data(./controllers)
+
+We have `make test-update` command to regenerate existing integration test data (./controllers/testdata/*/after/).
+
+```shell
+make test-update
+```
+
+When you implement some changes and it changes some test results, you can update test cases with it, without spending a waste time manually updating them.
+
+But, make sure the generated test data is correct.
+
 #### Debuggable Integration Test
 
 We have `make test-debug` command to help you with debugging of the failing integration test.

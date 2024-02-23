@@ -1,4 +1,6 @@
 metadata:
+  finalizers:
+  - tortoise.autoscaling.mercari.com/finalizer
   name: mercari
   namespace: default
 spec:
@@ -9,73 +11,92 @@ spec:
       name: mercari-app
 status:
   autoscalingPolicy:
-  - policy:
+  - containerName: app
+    policy:
       cpu: Horizontal
       memory: Vertical
-    containerName: app
-  - policy:
+  - containerName: istio-proxy
+    policy:
       cpu: Horizontal
       memory: Vertical
-    containerName: istio-proxy
   conditions:
-    containerResourceRequests:
-      - containerName: "app"
-        resource:
-          cpu: "4"
-          memory: 10Mi
-      - containerName: "istio-proxy"
-        resource:
-          cpu: "100m"
-          memory: "11Mi"
-    tortoiseConditions:
-    - message: "HPA target utilization is updated"
-      reason: HPATargetUtilizationUpdated
-      status: "True"
-      type: HPATargetUtilizationUpdated
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: null
+          updatedAt: "2024-02-23T06:16:04Z"
         memory:
-          quantity: "1Mi"
-          updatedAt: null
+          quantity: 1Mi
+          updatedAt: "2024-02-23T06:16:04Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: null
+          updatedAt: "2024-02-23T06:16:04Z"
         memory:
-          quantity: "1Mi"
-          updatedAt: null
+          quantity: 1Mi
+          updatedAt: "2024-02-23T06:16:04Z"
     - containerName: istio-proxy
       maxRecommendation:
         cpu:
-          quantity: "75m"
-          updatedAt: null
+          quantity: 75m
+          updatedAt: "2024-02-23T06:16:04Z"
         memory:
-          quantity: "1Mi"
-          updatedAt: null
+          quantity: 1Mi
+          updatedAt: "2024-02-23T06:16:04Z"
       recommendation:
         cpu:
-          quantity: "75m"
-          updatedAt: null
+          quantity: 75m
+          updatedAt: "2024-02-23T06:16:04Z"
         memory:
-          quantity: "1Mi"
-          updatedAt: null
+          quantity: 1Mi
+          updatedAt: "2024-02-23T06:16:04Z"
+    containerResourceRequests:
+    - containerName: app
+      resource:
+        cpu: "4"
+        memory: 10Mi
+    - containerName: istio-proxy
+      resource:
+        cpu: 100m
+        memory: 11Mi
+    tortoiseConditions:
+    - lastTransitionTime: "2024-02-23T06:16:04Z"
+      lastUpdateTime: "2024-02-23T06:16:04Z"
+      message: HPA target utilization is updated
+      reason: HPATargetUtilizationUpdated
+      status: "True"
+      type: HPATargetUtilizationUpdated
+  containerResourcePhases:
+  - containerName: app
+    resourcePhases:
+      cpu:
+        lastTransitionTime: null
+        phase: Working
+      memory:
+        lastTransitionTime: "2024-02-23T06:16:04Z"
+        phase: Working
+  - containerName: istio-proxy
+    resourcePhases:
+      cpu:
+        lastTransitionTime: null
+        phase: Working
+      memory:
+        lastTransitionTime: "2024-02-23T06:16:04Z"
+        phase: Working
   recommendations:
     horizontal:
       maxReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:01:24Z"
+        updatedAt: "2024-02-23T06:16:04Z"
         value: 20
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:01:24Z"
+        updatedAt: "2024-02-23T06:16:04Z"
         value: 5
       targetUtilizations:
       - containerName: app
@@ -88,30 +109,20 @@ status:
       containerResourceRecommendation:
       - RecommendedResource:
           cpu: "4"
-          memory: "10Mi" # global min
+          memory: 10Mi
         containerName: app
       - RecommendedResource:
-          cpu: "100m"
-          memory: "11Mi" # istio-proxy min
+          cpu: 100m
+          memory: 11Mi
         containerName: istio-proxy
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari
+    scaleTargetRef:
+      kind: ""
+      name: ""
     verticalPodAutoscalers:
     - name: tortoise-updater-mercari
       role: Updater
     - name: tortoise-monitor-mercari
       role: Monitor
   tortoisePhase: Working
-  containerResourcePhases:
-    - containerName: "app"
-      resourcePhases:
-        cpu: 
-          phase: Working 
-        memory:
-          phase: Working 
-    - containerName: "istio-proxy"
-      resourcePhases:
-        cpu: 
-          phase: Working 
-        memory:
-          phase: Working 

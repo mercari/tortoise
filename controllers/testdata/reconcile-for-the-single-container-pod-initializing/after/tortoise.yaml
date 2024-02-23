@@ -1,4 +1,6 @@
 metadata:
+  annotations:
+    skip-status-update: "true"
   name: mercari
   namespace: default
 spec:
@@ -10,62 +12,67 @@ spec:
       name: mercari-app
 status:
   autoscalingPolicy:
-  - policy:
+  - containerName: app
+    policy:
       cpu: Horizontal
       memory: Vertical
-    containerName: app
   conditions:
-    containerResourceRequests:
-      - containerName: "app"
-        resource:
-          cpu: "4"
-          memory: 4Gi
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
         cpu:
-          quantity: 0
+          quantity: "0"
           updatedAt: null
         memory:
-          quantity: 0
+          quantity: "0"
           updatedAt: null
       recommendation:
         cpu:
-          quantity: 0
+          quantity: "0"
           updatedAt: null
         memory:
-          quantity: 0
+          quantity: "0"
           updatedAt: null
+    containerResourceRequests:
+    - containerName: app
+      resource:
+        cpu: "4"
+        memory: 4Gi
+    tortoiseConditions: null
+  containerResourcePhases:
+  - containerName: app
+    resourcePhases:
+      cpu:
+        lastTransitionTime: "2024-02-23T06:15:51Z"
+        phase: GatheringData
+      memory:
+        lastTransitionTime: "2024-02-23T06:15:51Z"
+        phase: GatheringData
   recommendations:
     horizontal:
       maxReplicas:
       - from: 0
-        timezone: "Asia/Tokyo"
+        timezone: Asia/Tokyo
         to: 24
-        updatedAt: "2023-10-06T01:01:24Z"
+        updatedAt: null
         value: 0
       minReplicas:
       - from: 0
-        timezone: "Asia/Tokyo"
+        timezone: Asia/Tokyo
         to: 24
-        updatedAt: "2023-10-06T01:01:24Z"
+        updatedAt: null
         value: 0
+    vertical:
+      containerResourceRecommendation: null
   targets:
+    horizontalPodAutoscaler: tortoise-hpa-mercari
     scaleTargetRef:
       apiVersion: apps/v1
       kind: Deployment
       name: mercari-app
-    horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
     - name: tortoise-monitor-mercari
       role: Monitor
     - name: tortoise-updater-mercari
       role: Updater
   tortoisePhase: Initializing
-  containerResourcePhases:
-    - containerName: "app"
-      resourcePhases:
-        cpu: 
-          phase: GatheringData
-        memory:
-          phase: GatheringData

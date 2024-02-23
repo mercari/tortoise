@@ -5,9 +5,6 @@ metadata:
   name: tortoise-monitor-mercari
   namespace: default
 spec:
-  autoscalingPolicy:
-    containerPolicies:
-    - containerName: app
   targetRef:
     apiVersion: apps/v1
     kind: Deployment

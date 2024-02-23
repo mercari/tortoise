@@ -7,10 +7,6 @@ metadata:
 spec:
   recommenders:
   - name: tortoise-controller
-  autoscalingPolicy:
-    containerPolicies:
-    - containerName: app
-    - containerName: istio-proxy
   targetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -19,9 +15,10 @@ spec:
     updateMode: Initial
 status:
   conditions:
-    - type: RecommendationProvided
-      status: "True"
-      Message: "The recommendation is provided from Tortoise(mercari)"
+  - lastTransitionTime: "2024-02-23T06:16:00Z"
+    message: The recommendation is provided from Tortoise(mercari)
+    status: "True"
+    type: RecommendationProvided
   recommendation:
     containerRecommendations:
     - containerName: app

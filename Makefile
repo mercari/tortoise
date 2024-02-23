@@ -64,6 +64,10 @@ test: manifests generate fmt vet envtest ginkgo ## Run tests.
 test-debug: envtest ginkgo
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" DEBUG=true $(GINKGO) -r --fail-fast -v --progress
 
+.PHONY: test-update
+test-update: envtest ginkgo
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" UPDATE_TESTCASES=true $(GINKGO) -r --fail-fast 
+
 GINKGO ?= $(LOCALBIN)/ginkgo
 GINKGO_VERSION ?= v2.1.4
 
