@@ -26,16 +26,16 @@ status:
     containerRecommendations:
     - containerName: app
       lowerBound:
-        cpu: "4285m"
+        cpu: "10"
         memory: 3Gi
       target:
-        cpu: "4285m"
+        cpu: "10"
         memory: 3Gi
       uncappedTarget:
-        cpu: "4285m"
+        cpu: "10"
         memory: 3Gi
       upperBound:
-        cpu: "4285m"
+        cpu: "10"
         memory: 3Gi
     - containerName: istio-proxy
       lowerBound:
