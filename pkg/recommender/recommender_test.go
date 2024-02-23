@@ -1674,6 +1674,121 @@ func TestService_UpdateVPARecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "all horizontal: replica count above preferredMaxReplicas, but we recently increase the resource: don't increase the resources",
+			fields: fields{
+				preferredMaxReplicas: 3,
+				maxCPU:               "1000m",
+				maxMemory:            "1Gi",
+				features:             []features.FeatureFlag{features.VerticalScalingBasedOnPreferredMaxReplicas},
+			},
+			args: args{
+				hpa: &v2.HorizontalPodAutoscaler{
+					Spec: v2.HorizontalPodAutoscalerSpec{
+						MinReplicas: ptr.To[int32](1),
+						Metrics: []v2.MetricSpec{
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceCPU,
+									Target: v2.MetricTarget{
+										AverageUtilization: ptr.To[int32](80),
+									},
+									Container: "test-container",
+								},
+							},
+							{
+								Type: v2.ContainerResourceMetricSourceType,
+								ContainerResource: &v2.ContainerResourceMetricSource{
+									Name: corev1.ResourceMemory,
+									Target: v2.MetricTarget{
+										AverageUtilization: ptr.To[int32](80),
+									},
+									Container: "test-container",
+								},
+							},
+						},
+					},
+				},
+				tortoise: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+					ContainerName: "test-container",
+					Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+						corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+						corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+					},
+				}).AddTortoiseConditions(v1beta3.TortoiseCondition{
+					Type:    v1beta3.TortoiseConditionTypeScaledUpBasedOnPreferredMaxReplicas,
+					Status:  corev1.ConditionTrue,
+					Reason:  "ScaledUpBasedOnPreferredMaxReplicas",
+					Message: "the current number of replicas is bigger than the preferred max replica number",
+					// recently updated.
+					LastTransitionTime: metav1.NewTime(now.Add(-time.Minute)),
+					LastUpdateTime:     metav1.NewTime(now.Add(-time.Minute)),
+				}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+					ContainerName:         "test-container",
+					MinAllocatedResources: createResourceList("100m", "100Mi"),
+				}).AddContainerRecommendationFromVPA(
+					v1beta3.ContainerRecommendationFromVPA{
+						ContainerName: "test-container",
+						Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+							corev1.ResourceCPU: {
+								Quantity: resource.MustParse("400m"),
+							},
+							corev1.ResourceMemory: {
+								Quantity: resource.MustParse("400Mi"),
+							},
+						},
+					},
+				).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+					ContainerName: "test-container",
+					Resource:      createResourceList("500m", "500Mi"),
+				}).Build(),
+				replicaNum: 4,
+			},
+			want: utils.NewTortoiseBuilder().AddAutoscalingPolicy(v1beta3.ContainerAutoscalingPolicy{
+				ContainerName: "test-container",
+				Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+					corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+					corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+				},
+			}).AddResourcePolicy(v1beta3.ContainerResourcePolicy{
+				ContainerName:         "test-container",
+				MinAllocatedResources: createResourceList("100m", "100Mi"),
+			}).AddContainerRecommendationFromVPA(
+				v1beta3.ContainerRecommendationFromVPA{
+					ContainerName: "test-container",
+					Recommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+						corev1.ResourceCPU: {
+							Quantity: resource.MustParse("400m"),
+						},
+						corev1.ResourceMemory: {
+							Quantity: resource.MustParse("400Mi"),
+						},
+					},
+				},
+			).AddTortoiseConditions(v1beta3.TortoiseCondition{
+				Type:    v1beta3.TortoiseConditionTypeScaledUpBasedOnPreferredMaxReplicas,
+				Status:  corev1.ConditionTrue,
+				Reason:  "ScaledUpBasedOnPreferredMaxReplicas",
+				Message: "the current number of replicas is bigger than the preferred max replica number",
+				// recently updated.
+				LastTransitionTime: metav1.NewTime(now.Add(-time.Minute)),
+				LastUpdateTime:     metav1.NewTime(now.Add(-time.Minute)),
+			}).AddContainerResourceRequests(v1beta3.ContainerResourceRequests{
+				ContainerName: "test-container",
+				Resource:      createResourceList("500m", "500Mi"),
+			}).SetRecommendations(v1beta3.Recommendations{
+				Vertical: v1beta3.VerticalRecommendations{
+					ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+						{
+							ContainerName:       "test-container",
+							RecommendedResource: createResourceList("500m", "500Mi"), // Unchange
+						},
+					},
+				},
+			}).Build(),
+			wantErr: false,
+		},
+		{
 			name: "all horizontal: replica count above preferredMaxReplicas but VerticalScalingBasedOnPreferredMaxReplicas is disabled: increase the resources a bit",
 			fields: fields{
 				preferredMaxReplicas: 3,
