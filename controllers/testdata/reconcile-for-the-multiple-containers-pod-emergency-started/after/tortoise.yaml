@@ -68,6 +68,10 @@ status:
       reason: HPATargetUtilizationUpdated
       status: "True"
       type: HPATargetUtilizationUpdated
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      status: "False"
+      type: FailedToReconcile
   containerResourcePhases:
   - containerName: app
     resourcePhases:

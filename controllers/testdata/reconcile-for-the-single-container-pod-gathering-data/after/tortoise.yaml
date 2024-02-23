@@ -37,7 +37,18 @@ status:
       resource:
         cpu: "4"
         memory: 4Gi
-    tortoiseConditions: null
+    tortoiseConditions:
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      message: the current number of replicas is not bigger than the preferred max
+        replica number
+      reason: ScaledUpBasedOnPreferredMaxReplicas
+      status: "False"
+      type: ScaledUpBasedOnPreferredMaxReplicas
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      status: "False"
+      type: FailedToReconcile
   containerResourcePhases:
   - containerName: app
     resourcePhases:

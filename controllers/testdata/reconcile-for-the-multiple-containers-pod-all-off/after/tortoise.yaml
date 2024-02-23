@@ -60,7 +60,11 @@ status:
       resource:
         cpu: "4"
         memory: 4Gi
-    tortoiseConditions: null
+    tortoiseConditions:
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      status: "False"
+      type: FailedToReconcile
   containerResourcePhases:
   - containerName: app
     resourcePhases:
