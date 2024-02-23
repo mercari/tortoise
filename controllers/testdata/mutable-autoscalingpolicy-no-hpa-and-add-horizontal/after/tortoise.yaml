@@ -25,32 +25,32 @@ status:
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:08Z"
+          updatedAt: "2024-02-23T06:29:44Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:08Z"
+          updatedAt: "2024-02-23T06:29:44Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:08Z"
+          updatedAt: "2024-02-23T06:29:44Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:08Z"
+          updatedAt: "2024-02-23T06:29:44Z"
     - containerName: istio-proxy
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:08Z"
+          updatedAt: "2024-02-23T06:29:44Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:08Z"
+          updatedAt: "2024-02-23T06:29:44Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:08Z"
+          updatedAt: "2024-02-23T06:29:44Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:08Z"
+          updatedAt: "2024-02-23T06:29:44Z"
     containerResourceRequests:
     - containerName: app
       resource:
@@ -61,8 +61,8 @@ status:
         cpu: "3"
         memory: 3Gi
     tortoiseConditions:
-    - lastTransitionTime: "2024-02-23T06:16:08Z"
-      lastUpdateTime: "2024-02-23T06:16:08Z"
+    - lastTransitionTime: "2024-02-23T06:29:43Z"
+      lastUpdateTime: "2024-02-23T06:29:43Z"
       message: HPA target utilization is updated
       reason: HPATargetUtilizationUpdated
       status: "True"
@@ -71,18 +71,18 @@ status:
   - containerName: app
     resourcePhases:
       cpu:
-        lastTransitionTime: "2024-02-23T06:16:08Z"
+        lastTransitionTime: "2024-02-23T06:29:43Z"
         phase: GatheringData
       memory:
-        lastTransitionTime: "2024-02-23T06:16:08Z"
+        lastTransitionTime: "2024-02-23T06:29:43Z"
         phase: Working
   - containerName: istio-proxy
     resourcePhases:
       cpu:
-        lastTransitionTime: "2024-02-23T06:16:08Z"
+        lastTransitionTime: "2024-02-23T06:29:43Z"
         phase: Working
       memory:
-        lastTransitionTime: "2024-02-23T06:16:08Z"
+        lastTransitionTime: "2024-02-23T06:29:43Z"
         phase: Working
   recommendations:
     horizontal:
@@ -90,13 +90,13 @@ status:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2024-02-23T06:16:08Z"
+        updatedAt: "2024-02-23T06:29:43Z"
         value: 20
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2024-02-23T06:16:08Z"
+        updatedAt: "2024-02-23T06:29:43Z"
         value: 5
       targetUtilizations:
       - containerName: app

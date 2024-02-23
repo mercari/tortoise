@@ -26,32 +26,32 @@ status:
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:06Z"
+          updatedAt: "2024-02-23T06:29:41Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:06Z"
+          updatedAt: "2024-02-23T06:29:41Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:06Z"
+          updatedAt: "2024-02-23T06:29:41Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:06Z"
+          updatedAt: "2024-02-23T06:29:41Z"
     - containerName: istio-proxy
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:06Z"
+          updatedAt: "2024-02-23T06:29:41Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:06Z"
+          updatedAt: "2024-02-23T06:29:41Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:06Z"
+          updatedAt: "2024-02-23T06:29:41Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:06Z"
+          updatedAt: "2024-02-23T06:29:41Z"
     containerResourceRequests:
     - containerName: app
       resource:
@@ -62,8 +62,8 @@ status:
         cpu: "4"
         memory: 3Gi
     tortoiseConditions:
-    - lastTransitionTime: "2024-02-23T06:16:05Z"
-      lastUpdateTime: "2024-02-23T06:16:05Z"
+    - lastTransitionTime: "2024-02-23T06:29:41Z"
+      lastUpdateTime: "2024-02-23T06:29:41Z"
       message: HPA target utilization is updated
       reason: HPATargetUtilizationUpdated
       status: "True"
@@ -75,7 +75,7 @@ status:
         lastTransitionTime: null
         phase: Working
       memory:
-        lastTransitionTime: "2024-02-23T06:16:05Z"
+        lastTransitionTime: "2024-02-23T06:29:41Z"
         phase: Working
   - containerName: istio-proxy
     resourcePhases:
@@ -83,7 +83,7 @@ status:
         lastTransitionTime: null
         phase: Working
       memory:
-        lastTransitionTime: "2024-02-23T06:16:05Z"
+        lastTransitionTime: "2024-02-23T06:29:41Z"
         phase: Working
   recommendations:
     horizontal:

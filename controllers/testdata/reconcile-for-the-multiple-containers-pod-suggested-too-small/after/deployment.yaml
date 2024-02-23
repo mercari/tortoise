@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        kubectl.kubernetes.io/restartedAt: "2024-02-23T15:16:04+09:00"
+        kubectl.kubernetes.io/restartedAt: "2024-02-23T15:29:40+09:00"
         sidecar.istio.io/inject: "true"
       creationTimestamp: null
       labels:

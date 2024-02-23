@@ -43,10 +43,10 @@ status:
   - containerName: app
     resourcePhases:
       cpu:
-        lastTransitionTime: "2024-02-23T06:15:51Z"
+        lastTransitionTime: "2024-02-23T06:29:27Z"
         phase: GatheringData
       memory:
-        lastTransitionTime: "2024-02-23T06:15:51Z"
+        lastTransitionTime: "2024-02-23T06:29:27Z"
         phase: GatheringData
   recommendations:
     horizontal:

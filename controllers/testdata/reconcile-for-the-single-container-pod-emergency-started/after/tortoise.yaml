@@ -22,25 +22,25 @@ status:
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:15:57Z"
+          updatedAt: "2024-02-23T06:29:32Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:15:57Z"
+          updatedAt: "2024-02-23T06:29:32Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:15:57Z"
+          updatedAt: "2024-02-23T06:29:32Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:15:57Z"
+          updatedAt: "2024-02-23T06:29:32Z"
     containerResourceRequests:
     - containerName: app
       resource:
         cpu: "4"
         memory: 3Gi
     tortoiseConditions:
-    - lastTransitionTime: "2024-02-23T06:15:56Z"
-      lastUpdateTime: "2024-02-23T06:15:56Z"
+    - lastTransitionTime: "2024-02-23T06:29:32Z"
+      lastUpdateTime: "2024-02-23T06:29:32Z"
       message: HPA target utilization is updated
       reason: HPATargetUtilizationUpdated
       status: "True"
@@ -52,7 +52,7 @@ status:
         lastTransitionTime: null
         phase: Working
       memory:
-        lastTransitionTime: "2024-02-23T06:15:56Z"
+        lastTransitionTime: "2024-02-23T06:29:32Z"
         phase: Working
   - containerName: istio-proxy
     resourcePhases:

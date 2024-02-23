@@ -15,7 +15,7 @@ spec:
     updateMode: Initial
 status:
   conditions:
-  - lastTransitionTime: "2024-02-23T06:16:09Z"
+  - lastTransitionTime: "2024-02-23T06:29:45Z"
     message: The recommendation is provided from Tortoise(mercari)
     status: "True"
     type: RecommendationProvided

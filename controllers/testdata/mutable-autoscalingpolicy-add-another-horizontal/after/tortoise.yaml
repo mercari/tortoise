@@ -25,32 +25,32 @@ status:
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:10Z"
+          updatedAt: "2024-02-23T06:29:45Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:10Z"
+          updatedAt: "2024-02-23T06:29:45Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:10Z"
+          updatedAt: "2024-02-23T06:29:45Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:10Z"
+          updatedAt: "2024-02-23T06:29:45Z"
     - containerName: istio-proxy
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:10Z"
+          updatedAt: "2024-02-23T06:29:45Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:10Z"
+          updatedAt: "2024-02-23T06:29:45Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:10Z"
+          updatedAt: "2024-02-23T06:29:45Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:10Z"
+          updatedAt: "2024-02-23T06:29:45Z"
     containerResourceRequests:
     - containerName: app
       resource:
@@ -61,8 +61,8 @@ status:
         cpu: "4"
         memory: 4Gi
     tortoiseConditions:
-    - lastTransitionTime: "2024-02-23T06:16:09Z"
-      lastUpdateTime: "2024-02-23T06:16:09Z"
+    - lastTransitionTime: "2024-02-23T06:29:45Z"
+      lastUpdateTime: "2024-02-23T06:29:45Z"
       message: HPA target utilization is updated
       reason: HPATargetUtilizationUpdated
       status: "True"
@@ -74,7 +74,7 @@ status:
         lastTransitionTime: null
         phase: Working
       memory:
-        lastTransitionTime: "2024-02-23T06:16:09Z"
+        lastTransitionTime: "2024-02-23T06:29:45Z"
         phase: Working
   - containerName: istio-proxy
     resourcePhases:
@@ -82,7 +82,7 @@ status:
         lastTransitionTime: null
         phase: Working
       memory:
-        lastTransitionTime: "2024-02-23T06:16:09Z"
+        lastTransitionTime: "2024-02-23T06:29:45Z"
         phase: GatheringData
   recommendations:
     horizontal:
@@ -90,13 +90,13 @@ status:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2024-02-23T06:16:09Z"
+        updatedAt: "2024-02-23T06:29:45Z"
         value: 20
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2024-02-23T06:16:09Z"
+        updatedAt: "2024-02-23T06:29:45Z"
         value: 5
       targetUtilizations:
       - containerName: app

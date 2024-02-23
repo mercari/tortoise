@@ -190,7 +190,7 @@ func updateResourcesInTestCaseFile(path string, resource resources) error {
 	}
 
 	if resource.hpa != nil {
-		err = writeToFile(filepath.Join(path, "hpa.yaml"), resource.hpa)
+		err = writeToFile(filepath.Join(path, "hpa.yaml"), removeUnnecessaryFieldsFromHPA(resource.hpa))
 		if err != nil {
 			return err
 		}

@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        kubectl.kubernetes.io/restartedAt: "2024-02-23T15:15:53+09:00"
+        kubectl.kubernetes.io/restartedAt: "2024-02-23T15:29:28+09:00"
       creationTimestamp: null
       labels:
         app: mercari

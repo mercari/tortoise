@@ -25,32 +25,32 @@ status:
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:03Z"
+          updatedAt: "2024-02-23T06:29:38Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:03Z"
+          updatedAt: "2024-02-23T06:29:38Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:03Z"
+          updatedAt: "2024-02-23T06:29:38Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:03Z"
+          updatedAt: "2024-02-23T06:29:38Z"
     - containerName: istio-proxy
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:03Z"
+          updatedAt: "2024-02-23T06:29:38Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:03Z"
+          updatedAt: "2024-02-23T06:29:38Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:03Z"
+          updatedAt: "2024-02-23T06:29:38Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:03Z"
+          updatedAt: "2024-02-23T06:29:38Z"
     containerResourceRequests:
     - containerName: app
       resource:
@@ -84,13 +84,13 @@ status:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2024-02-23T06:16:03Z"
+        updatedAt: "2024-02-23T06:29:38Z"
         value: 20
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2024-02-23T06:16:03Z"
+        updatedAt: "2024-02-23T06:29:38Z"
         value: 5
       targetUtilizations:
       - containerName: app

@@ -25,32 +25,32 @@ status:
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:02Z"
+          updatedAt: "2024-02-23T06:29:37Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:02Z"
+          updatedAt: "2024-02-23T06:29:37Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:02Z"
+          updatedAt: "2024-02-23T06:29:37Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:02Z"
+          updatedAt: "2024-02-23T06:29:37Z"
     - containerName: istio-proxy
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:02Z"
+          updatedAt: "2024-02-23T06:29:37Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:02Z"
+          updatedAt: "2024-02-23T06:29:37Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:16:02Z"
+          updatedAt: "2024-02-23T06:29:37Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:16:02Z"
+          updatedAt: "2024-02-23T06:29:37Z"
     containerResourceRequests:
     - containerName: app
       resource:
@@ -65,18 +65,18 @@ status:
   - containerName: app
     resourcePhases:
       cpu:
-        lastTransitionTime: "2024-02-23T06:16:02Z"
+        lastTransitionTime: "2024-02-23T06:29:37Z"
         phase: Working
       memory:
-        lastTransitionTime: "2024-02-23T06:16:02Z"
+        lastTransitionTime: "2024-02-23T06:29:37Z"
         phase: Working
   - containerName: istio-proxy
     resourcePhases:
       cpu:
-        lastTransitionTime: "2024-02-23T06:16:02Z"
+        lastTransitionTime: "2024-02-23T06:29:37Z"
         phase: Working
       memory:
-        lastTransitionTime: "2024-02-23T06:16:02Z"
+        lastTransitionTime: "2024-02-23T06:29:37Z"
         phase: Working
   recommendations:
     horizontal:
@@ -84,13 +84,13 @@ status:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2024-02-23T06:16:02Z"
+        updatedAt: "2024-02-23T06:29:37Z"
         value: 20
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2024-02-23T06:16:02Z"
+        updatedAt: "2024-02-23T06:29:37Z"
         value: 5
       targetUtilizations:
       - containerName: app
