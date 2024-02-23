@@ -1,7 +1,7 @@
 metadata:
   annotations:
     tortoise.autoscaling.mercari.com/managed-by-tortoise: "true"
-    tortoises.autoscaling.mercari.com/tortoise-name: mercari
+    tortoise.autoscaling.mercari.com/tortoise-name: mercari
   name: tortoise-hpa-mercari
   namespace: default
 spec:
@@ -47,4 +47,6 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: mercari-app
-
+status:
+  currentMetrics: null
+  desiredReplicas: 0

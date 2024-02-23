@@ -8,12 +8,12 @@ spec:
   strategy: {}
   template:
     metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2024-02-23T15:29:40+09:00"
+        sidecar.istio.io/inject: "true"
       creationTimestamp: null
       labels:
         app: mercari
-      annotations:
-        sidecar.istio.io/inject: "true"
-        kubectl.kubernetes.io/restartedAt: "exist"
     spec:
       containers:
       - image: awesome-mercari-app-image
@@ -22,5 +22,4 @@ spec:
           requests:
             cpu: "4"
             memory: 4Gi
-status:
-  replicas: 10
+status: {}

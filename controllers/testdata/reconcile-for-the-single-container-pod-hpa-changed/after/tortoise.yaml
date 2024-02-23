@@ -1,4 +1,6 @@
 metadata:
+  finalizers:
+  - tortoise.autoscaling.mercari.com/finalizer
   name: mercari
   namespace: default
 spec:
@@ -10,50 +12,61 @@ spec:
       name: mercari-app
 status:
   autoscalingPolicy:
-  - policy:
+  - containerName: app
+    policy:
       cpu: Vertical
       memory: Horizontal
-    containerName: app
   conditions:
-    containerResourceRequests:
-      - containerName: "app"
-        resource:
-          cpu: "3"
-          memory: 4Gi
-    tortoiseConditions:
-    - message: "HPA target utilization is updated"
-      reason: HPATargetUtilizationUpdated
-      status: "True"
-      type: HPATargetUtilizationUpdated
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: null
+          updatedAt: "2024-02-23T06:29:31Z"
         memory:
           quantity: 3Gi
-          updatedAt: null
+          updatedAt: "2024-02-23T06:29:31Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: null
+          updatedAt: "2024-02-23T06:29:31Z"
         memory:
           quantity: 3Gi
-          updatedAt: null
+          updatedAt: "2024-02-23T06:29:31Z"
+    containerResourceRequests:
+    - containerName: app
+      resource:
+        cpu: "3"
+        memory: 4Gi
+    tortoiseConditions:
+    - lastTransitionTime: "2024-02-23T06:29:31Z"
+      lastUpdateTime: "2024-02-23T06:29:31Z"
+      message: HPA target utilization is updated
+      reason: HPATargetUtilizationUpdated
+      status: "True"
+      type: HPATargetUtilizationUpdated
+  containerResourcePhases:
+  - containerName: app
+    resourcePhases:
+      cpu:
+        lastTransitionTime: "2024-02-23T06:29:31Z"
+        phase: Working
+      memory:
+        lastTransitionTime: "2024-02-23T06:29:31Z"
+        phase: GatheringData
   recommendations:
     horizontal:
       maxReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:01:24Z"
+        updatedAt: "2024-02-23T06:29:31Z"
         value: 20
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:01:24Z"
+        updatedAt: "2024-02-23T06:29:31Z"
         value: 5
       targetUtilizations:
       - containerName: app
@@ -67,16 +80,12 @@ status:
         containerName: app
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari
+    scaleTargetRef:
+      kind: ""
+      name: ""
     verticalPodAutoscalers:
     - name: tortoise-updater-mercari
       role: Updater
     - name: tortoise-monitor-mercari
       role: Monitor
   tortoisePhase: Working
-  containerResourcePhases:
-    - containerName: "app"
-      resourcePhases:
-        cpu: 
-          phase: Working 
-        memory:
-          phase: GatheringData 

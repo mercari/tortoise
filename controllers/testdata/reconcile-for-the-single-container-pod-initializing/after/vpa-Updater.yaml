@@ -1,18 +1,16 @@
 metadata:
   annotations:
     tortoise.autoscaling.mercari.com/managed-by-tortoise: "true"
-    tortoises.autoscaling.mercari.com/tortoise-name: mercari
+    tortoise.autoscaling.mercari.com/tortoise-name: mercari
   name: tortoise-updater-mercari
   namespace: default
 spec:
   recommenders:
   - name: tortoise-controller
-  autoscalingPolicy:
-    containerPolicies:
-    - containerName: app
   targetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: mercari-app
   updatePolicy:
     updateMode: Initial
+status: {}

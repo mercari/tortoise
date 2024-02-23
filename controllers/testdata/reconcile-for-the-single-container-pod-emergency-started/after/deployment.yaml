@@ -8,11 +8,11 @@ spec:
   strategy: {}
   template:
     metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2024-02-23T15:29:32+09:00"
       creationTimestamp: null
       labels:
         app: mercari
-      annotations:
-        kubectl.kubernetes.io/restartedAt: "exist"
     spec:
       containers:
       - image: awesome-mercari-app-image
@@ -21,5 +21,4 @@ spec:
           requests:
             cpu: "4"
             memory: 4Gi
-status:
-  replicas: 10
+status: {}

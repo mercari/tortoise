@@ -5,10 +5,6 @@ metadata:
   name: tortoise-monitor-mercari
   namespace: default
 spec:
-  autoscalingPolicy:
-    containerPolicies:
-    - containerName: app
-    - containerName: istio-proxy
   targetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -40,5 +36,5 @@ status:
         cpu: "3"
         memory: 3Gi
       upperBound:
-        cpu: "350m"
-        memory: 3.5Gi
+        cpu: 350m
+        memory: 3584Mi

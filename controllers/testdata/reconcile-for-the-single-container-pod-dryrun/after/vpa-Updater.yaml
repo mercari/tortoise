@@ -7,12 +7,10 @@ metadata:
 spec:
   recommenders:
   - name: tortoise-controller
-  autoscalingPolicy:
-    containerPolicies:
-    - containerName: app
   targetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: mercari-app
   updatePolicy:
     updateMode: Initial
+status: {}
