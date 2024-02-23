@@ -62,6 +62,7 @@ func mutateTest(before, after, tortoise string) {
 	tor.Status = status
 	err = k8sClient.Status().Update(ctx, tor)
 	Expect(err).NotTo(HaveOccurred())
+	time.Sleep(time.Second)
 
 	y, err = os.ReadFile(before)
 	Expect(err).NotTo(HaveOccurred())
@@ -77,7 +78,6 @@ func mutateTest(before, after, tortoise string) {
 		time.Sleep(time.Second)
 		err = k8sClient.Delete(ctx, beforehpa)
 		Expect(err).NotTo(HaveOccurred())
-		time.Sleep(time.Second)
 	}()
 
 	ret := &v2.HorizontalPodAutoscaler{}
