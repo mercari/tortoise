@@ -320,7 +320,7 @@ func (s *Service) syncContainerRecommendationFromVPA(tortoise *v1beta3.Tortoise)
 	return tortoise
 }
 
-func (s *Service) UpdateContainerRecommendationFromVPA(tortoise *v1beta3.Tortoise, vpa *v1.VerticalPodAutoscaler) *v1beta3.Tortoise {
+func (s *Service) UpdateContainerRecommendationFromVPA(tortoise *v1beta3.Tortoise, vpa *v1.VerticalPodAutoscaler, now time.Time) *v1beta3.Tortoise {
 	tortoise = s.syncContainerRecommendationFromVPA(tortoise)
 
 	upperMap := make(map[string]map[corev1.ResourceName]resource.Quantity, len(vpa.Status.Recommendation.ContainerRecommendations))
@@ -347,7 +347,7 @@ func (s *Service) UpdateContainerRecommendationFromVPA(tortoise *v1beta3.Tortois
 
 			rq := v1beta3.ResourceQuantity{
 				Quantity:  currentTargetFromVPA,
-				UpdatedAt: metav1.Now(),
+				UpdatedAt: metav1.NewTime(now),
 			}
 
 			// Always replace Recommendation with the current recommendation.

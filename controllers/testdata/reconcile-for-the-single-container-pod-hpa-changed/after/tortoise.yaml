@@ -22,25 +22,25 @@ status:
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:29:31Z"
+          updatedAt: "2023-01-01T00:00:00Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:29:31Z"
+          updatedAt: "2023-01-01T00:00:00Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:29:31Z"
+          updatedAt: "2023-01-01T00:00:00Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:29:31Z"
+          updatedAt: "2023-01-01T00:00:00Z"
     containerResourceRequests:
     - containerName: app
       resource:
         cpu: "3"
         memory: 4Gi
     tortoiseConditions:
-    - lastTransitionTime: "2024-02-23T06:29:31Z"
-      lastUpdateTime: "2024-02-23T06:29:31Z"
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
       message: HPA target utilization is updated
       reason: HPATargetUtilizationUpdated
       status: "True"
@@ -49,10 +49,10 @@ status:
   - containerName: app
     resourcePhases:
       cpu:
-        lastTransitionTime: "2024-02-23T06:29:31Z"
+        lastTransitionTime: "2023-01-01T00:00:00Z"
         phase: Working
       memory:
-        lastTransitionTime: "2024-02-23T06:29:31Z"
+        lastTransitionTime: "2023-01-01T00:00:00Z"
         phase: GatheringData
   recommendations:
     horizontal:
@@ -60,13 +60,13 @@ status:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2024-02-23T06:29:31Z"
+        updatedAt: "2023-01-01T00:00:00Z"
         value: 20
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2024-02-23T06:29:31Z"
+        updatedAt: "2023-01-01T00:00:00Z"
         value: 5
       targetUtilizations:
       - containerName: app

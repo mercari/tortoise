@@ -41,11 +41,11 @@ func (c *Service) GetDeploymentOnTortoise(ctx context.Context, tortoise *autosca
 	return d, nil
 }
 
-func (c *Service) RolloutRestart(ctx context.Context, dm *v1.Deployment, tortoise *autoscalingv1beta3.Tortoise) error {
+func (c *Service) RolloutRestart(ctx context.Context, dm *v1.Deployment, tortoise *autoscalingv1beta3.Tortoise, now time.Time) error {
 	if dm.Spec.Template.ObjectMeta.Annotations == nil {
 		dm.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
 	}
-	dm.Spec.Template.ObjectMeta.Annotations[annotation.UpdatedAtAnnotation] = time.Now().Format(time.RFC3339)
+	dm.Spec.Template.ObjectMeta.Annotations[annotation.UpdatedAtAnnotation] = now.Format(time.RFC3339)
 
 	if err := c.c.Update(ctx, dm); err != nil {
 		return fmt.Errorf("failed to update deployment: %w", err)

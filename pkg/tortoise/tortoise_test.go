@@ -514,7 +514,7 @@ func TestService_updateUpperRecommendation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Service{}
-			got := s.UpdateContainerRecommendationFromVPA(tt.tortoise, tt.vpa)
+			got := s.UpdateContainerRecommendationFromVPA(tt.tortoise, tt.vpa, time.Now())
 			if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreTypes(metav1.Time{})); diff != "" {
 				t.Fatalf("diff: %s", diff)
 			}
