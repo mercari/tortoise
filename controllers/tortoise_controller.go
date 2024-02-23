@@ -60,6 +60,11 @@ type TortoiseReconciler struct {
 	EventRecorder      record.EventRecorder
 }
 
+var (
+	// During the test, we want to use a fixed time.
+	onlyTestNow *time.Time
+)
+
 //+kubebuilder:rbac:groups=autoscaling.mercari.com,resources=tortoises,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=autoscaling.mercari.com,resources=tortoises/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=autoscaling.mercari.com,resources=tortoises/finalizers,verbs=update
@@ -73,6 +78,9 @@ type TortoiseReconciler struct {
 func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	logger := log.FromContext(ctx)
 	now := time.Now()
+	if onlyTestNow != nil {
+		now = *onlyTestNow
+	}
 	logger.Info("the reconciliation is started", "tortoise", req.NamespacedName)
 
 	tortoise, err := r.TortoiseService.GetTortoise(ctx, req.NamespacedName)
@@ -212,7 +220,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	tortoise = r.TortoiseService.UpdateContainerRecommendationFromVPA(tortoise, monitorvpa)
+	tortoise = r.TortoiseService.UpdateContainerRecommendationFromVPA(tortoise, monitorvpa, now)
 
 	tortoise, err = r.RecommenderService.UpdateRecommendations(ctx, tortoise, hpa, currentReplicaNum, now)
 	if err != nil {
@@ -250,7 +258,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 
 	if updated && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
-		err := r.DeploymentService.RolloutRestart(ctx, dm, tortoise)
+		err := r.DeploymentService.RolloutRestart(ctx, dm, tortoise, now)
 		if err != nil {
 			logger.Error(err, "failed to rollout restart", "tortoise", req.NamespacedName)
 			return ctrl.Result{}, err

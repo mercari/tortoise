@@ -22,17 +22,17 @@ status:
       maxRecommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:29:30Z"
+          updatedAt: "2023-01-01T00:00:00Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:29:30Z"
+          updatedAt: "2023-01-01T00:00:00Z"
       recommendation:
         cpu:
           quantity: "3"
-          updatedAt: "2024-02-23T06:29:30Z"
+          updatedAt: "2023-01-01T00:00:00Z"
         memory:
           quantity: 3Gi
-          updatedAt: "2024-02-23T06:29:30Z"
+          updatedAt: "2023-01-01T00:00:00Z"
     containerResourceRequests:
     - containerName: app
       resource:
@@ -46,7 +46,7 @@ status:
         lastTransitionTime: null
         phase: Working
       memory:
-        lastTransitionTime: "2024-02-23T06:29:29Z"
+        lastTransitionTime: "2023-01-01T00:00:00Z"
         phase: Working
   - containerName: istio-proxy
     resourcePhases:
@@ -62,13 +62,13 @@ status:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2024-02-23T06:29:29Z"
+        updatedAt: "2023-01-01T00:00:00Z"
         value: 20
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2024-02-23T06:29:29Z"
+        updatedAt: "2023-01-01T00:00:00Z"
         value: 5
       targetUtilizations:
       - containerName: app
