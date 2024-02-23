@@ -66,6 +66,8 @@ When you implement some changes and it changes some test results, you can update
 
 But, make sure the generated test data is correct.
 
+Also, note that a few test cases don't support this regeneration.
+
 #### Debuggable Integration Test
 
 We have `make test-debug` command to help you with debugging of the failing integration test.
