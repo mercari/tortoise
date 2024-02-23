@@ -77,6 +77,7 @@ func mutateTest(before, after, tortoise string) {
 		time.Sleep(time.Second)
 		err = k8sClient.Delete(ctx, beforehpa)
 		Expect(err).NotTo(HaveOccurred())
+		time.Sleep(time.Second)
 	}()
 
 	ret := &v2.HorizontalPodAutoscaler{}
