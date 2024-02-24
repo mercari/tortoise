@@ -610,11 +610,11 @@ func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, hpa *v2
 }
 
 // UpdateResourceRequest updates pods' resource requests based on the calculated recommendation.
-// In the second return value, it returns whether the Pods should be updated with new resources now.
-// It updates ContainerResourceRequests in the status of the Tortoise, when all the following conditions are met:
+// Updated ContainerResourceRequests will be used in the next mutating webhook of Pods.
+// It updates ContainerResourceRequests in the status of the Tortoise, when ALL the following conditions are met:
 //   - UpdateMode is Auto
-//   - Any of the recommended resources is increased,
-//     OR, all the recommended resources is decreased, but it's been a while (1h) after the last update.
+//   - Any of the recommended resource request is increased,
+//     OR, all the recommended resource request is decreased, but it's been a while (1h) after the last update.
 func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.Tortoise, replica int32, now time.Time) (
 	*v1beta3.Tortoise,
 	error,
@@ -623,7 +623,8 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 
 	newRequests := make([]v1beta3.ContainerResourceRequests, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
 	for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
-		// We only records proposed* metrics and don't record applied* metrics here.
+		// We only records proposed* metrics here (record applied* metrics later)
+		// because we don't want to record applied* metrics when UpdateMode is Off.
 		for resourcename, value := range r.RecommendedResource {
 			if resourcename == corev1.ResourceCPU {
 				metrics.ProposedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
@@ -639,12 +640,13 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 	}
 	if tortoise.Spec.UpdateMode == v1beta3.UpdateModeOff {
 		// nothing to do.
-		tortoise.Status.Conditions.TortoiseConditions = replaceOrAppendCondition(tortoise.Status.Conditions.TortoiseConditions, v1beta3.TortoiseCondition{
-			Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
-			Status:             corev1.ConditionFalse,
-			LastTransitionTime: metav1.NewTime(now),
-			Message:            "The recommendation is not provided because it's Off mode",
-		})
+		tortoise = utils.ChangeTortoiseCondition(tortoise,
+			v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+			corev1.ConditionFalse,
+			"",
+			"The recommendation is not provided because it's Off mode",
+			now,
+		)
 		return tortoise, nil
 	}
 
@@ -672,25 +674,25 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 		}
 	}
 
-	tortoise.Status.Conditions.TortoiseConditions = replaceOrAppendCondition(tortoise.Status.Conditions.TortoiseConditions, v1beta3.TortoiseCondition{
-		Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
-		Status:             corev1.ConditionTrue,
-		LastTransitionTime: metav1.NewTime(now),
-		Message:            "The recommendation is provided",
-	})
+	tortoise = utils.ChangeTortoiseCondition(tortoise,
+		v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+		corev1.ConditionTrue,
+		"",
+		"The recommendation is provided",
+		now,
+	)
 
-	if tortoise.Spec.UpdateMode != v1beta3.UpdateModeOff {
-		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.VerticalRecommendationUpdated, "The vertical recommendation is updated and the Pods should also be updated with new resources soon")
-		for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
-			// only record metrics once in every reconcile loop.
-			for resourcename, value := range r.Resource {
-				if resourcename == corev1.ResourceCPU {
-					// We don't want to record applied* metric when UpdateMode is Off.
-					metrics.AppliedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
-				}
-				if resourcename == corev1.ResourceMemory {
-					metrics.AppliedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
-				}
+	c.recorder.Event(tortoise, corev1.EventTypeNormal, event.VerticalRecommendationUpdated, "The vertical recommendation is updated and the Pods should also be updated with new resources soon")
+
+	for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
+		// only record metrics once in every reconcile loop.
+		for resourcename, value := range r.Resource {
+			if resourcename == corev1.ResourceCPU {
+				// We don't want to record applied* metric when UpdateMode is Off.
+				metrics.AppliedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
+			}
+			if resourcename == corev1.ResourceMemory {
+				metrics.AppliedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
 			}
 		}
 	}

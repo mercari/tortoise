@@ -11,6 +11,7 @@ spec:
       annotations:
         kubectl.kubernetes.io/restartedAt: "2023-01-01T00:00:00Z"
         sidecar.istio.io/inject: "true"
+        tortoise.autoscaling.mercari.com/tortoise-name: mercari
       creationTimestamp: null
       labels:
         app: mercari
