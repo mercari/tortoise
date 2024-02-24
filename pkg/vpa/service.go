@@ -71,29 +71,52 @@ func (c *Service) DeleteTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 	return nil
 }
 
-func (c *Service) DeleteTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) error {
-	if tortoise.Spec.DeletionPolicy == autoscalingv1beta3.DeletionPolicyNoDelete {
-		return nil
-	}
-
+func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, error) {
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Get(ctx, TortoiseUpdaterVPAName(tortoise.Name), metav1.GetOptions{})
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			// already deleted
-			return nil
-		}
-		return fmt.Errorf("failed to get vpa: %w", err)
+		return nil, fmt.Errorf("failed to get updater vpa on tortoise: %w", err)
 	}
+	return vpa, nil
+}
 
-	// make sure it's created by tortoise
-	if v, ok := vpa.Annotations[annotation.ManagedByTortoiseAnnotation]; !ok || v != "true" {
-		// shouldn't reach here unless user manually remove the annotation.
+// DisableTortoiseUpdaterVPA is to disable the updater VPA by removing the recommendation from the VPA.
+func (c *Service) DisableTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) error {
+	// we only want to record metric once in every reconcile loop.
+	updateFn := func() error {
+		oldVPA, err := c.GetTortoiseUpdaterVPA(ctx, tortoise)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return fmt.Errorf("get tortoise VPA: %w", err)
+		}
+		// Remove the recommendation from the VPA.
+		oldVPA.Status.Recommendation.ContainerRecommendations = nil
+
+		// If VPA CRD in the cluster hasn't got the status subresource yet, this will update the status as well.
+		newVPA2, err := c.c.AutoscalingV1().VerticalPodAutoscalers(oldVPA.Namespace).Update(ctx, oldVPA, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("update VPA MinReplicas (%s/%s): %w", oldVPA.Namespace, oldVPA.Name, err)
+		}
+		newVPA2.Status = oldVPA.Status
+
+		// Then, we update VPA status (Recommendation).
+		_, err = c.c.AutoscalingV1().VerticalPodAutoscalers(oldVPA.Namespace).UpdateStatus(ctx, newVPA2, metav1.UpdateOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				// Ignore it. Probably it's because VPA CRD hasn't got the status subresource yet.
+				return nil
+			}
+			return fmt.Errorf("update VPA (%s/%s) status: %w", newVPA2.Namespace, newVPA2.Name, err)
+		}
+
 		return nil
 	}
 
-	if err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Delete(ctx, vpa.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete vpa: %w", err)
+	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
+		return fmt.Errorf("update VPA status: %w", err)
 	}
+
 	return nil
 }
 

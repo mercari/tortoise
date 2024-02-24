@@ -139,7 +139,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	// Previously, we had VPA called "updator vpa". We don't need it anymore so we delete it here if Tortoise still has.
 	// This logic can be removed later.
-	err = r.VpaService.DeleteTortoiseUpdaterVPA(ctx, tortoise)
+	err = r.VpaService.DisableTortoiseUpdaterVPA(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "delete updater VPA created by tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -298,7 +298,7 @@ func (r *TortoiseReconciler) deleteVPAAndHPA(ctx context.Context, tortoise *auto
 	if err != nil {
 		return fmt.Errorf("delete monitor VPA created by tortoise: %w", err)
 	}
-	err = r.VpaService.DeleteTortoiseUpdaterVPA(ctx, tortoise)
+	err = r.VpaService.DisableTortoiseUpdaterVPA(ctx, tortoise)
 	if err != nil {
 		return fmt.Errorf("delete updater VPA created by tortoise: %w", err)
 	}
