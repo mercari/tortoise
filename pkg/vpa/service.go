@@ -79,6 +79,32 @@ func (c *Service) GetTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscali
 	return vpa, nil
 }
 
+func (c *Service) DeleteTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) error {
+	if tortoise.Spec.DeletionPolicy == autoscalingv1beta3.DeletionPolicyNoDelete {
+		return nil
+	}
+
+	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Get(ctx, TortoiseUpdaterVPAName(tortoise.Name), metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// already deleted
+			return nil
+		}
+		return fmt.Errorf("failed to get vpa: %w", err)
+	}
+
+	// make sure it's created by tortoise
+	if v, ok := vpa.Annotations[annotation.ManagedByTortoiseAnnotation]; !ok || v != "true" {
+		// shouldn't reach here unless user manually remove the annotation.
+		return nil
+	}
+
+	if err := c.c.AutoscalingV1().VerticalPodAutoscalers(tortoise.Namespace).Delete(ctx, vpa.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete vpa: %w", err)
+	}
+	return nil
+}
+
 // DisableTortoiseUpdaterVPA is to disable the updater VPA by removing the recommendation from the VPA.
 func (c *Service) DisableTortoiseUpdaterVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) error {
 	// we only want to record metric once in every reconcile loop.

@@ -623,8 +623,6 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 
 	newRequests := make([]v1beta3.ContainerResourceRequests, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
 	for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
-		// only record metrics once in every reconcile loop.
-		//
 		// We only records proposed* metrics and don't record applied* metrics here.
 		for resourcename, value := range r.RecommendedResource {
 			if resourcename == corev1.ResourceCPU {
