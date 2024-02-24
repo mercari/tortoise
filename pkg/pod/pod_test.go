@@ -4,9 +4,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/mercari/tortoise/api/v1beta3"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/mercari/tortoise/api/v1beta3"
 )
 
 func TestService_ModifyPodResource(t *testing.T) {
@@ -456,7 +457,8 @@ func TestService_ModifyPodResource(t *testing.T) {
 				resourceLimitMultiplier: tt.fields.resourceLimitMultiplier,
 				minimumCPULimit:         tt.fields.minimumCPULimit,
 			}
-			got := s.ModifyPodResource(tt.args.pod, tt.args.tortoise)
+			got := tt.args.pod.DeepCopy()
+			s.ModifyPodResource(got, tt.args.tortoise)
 			if d := cmp.Diff(got, tt.want); d != "" {
 				t.Errorf("ModifyPodResource() mismatch (-want +got):\n%s", d)
 			}

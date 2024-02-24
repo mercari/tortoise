@@ -1,10 +1,11 @@
 package pod
 
 import (
-	"github.com/mercari/tortoise/api/v1beta3"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
+
+	"github.com/mercari/tortoise/api/v1beta3"
 )
 
 type Service struct {
@@ -24,10 +25,10 @@ func New(
 	}, nil
 }
 
-func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) *v1.Pod {
+func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 	if t.Spec.UpdateMode == v1beta3.UpdateModeOff {
 		// DryRun, don't update Pod
-		return pod
+		return
 	}
 
 	oldRequestsMap := map[containerNameAndResource]resource.Quantity{}
@@ -80,8 +81,6 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) *v1.Pod {
 			pod.Spec.Containers[i].Resources.Limits[k] = *newLim
 		}
 	}
-
-	return pod
 }
 
 type containerNameAndResource struct {

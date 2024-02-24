@@ -94,7 +94,7 @@ func (h *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 		return nil
 	}
 
-	pod = h.podService.ModifyPodResource(pod, t)
+	h.podService.ModifyPodResource(pod, t)
 
 	return nil
 }
