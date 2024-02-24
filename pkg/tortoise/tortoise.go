@@ -700,17 +700,6 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 	return tortoise, nil
 }
 
-func replaceOrAppendCondition(conditions []v1beta3.TortoiseCondition, newCondition v1beta3.TortoiseCondition) []v1beta3.TortoiseCondition {
-	for i, v := range conditions {
-		if v.Type == newCondition.Type {
-			conditions[i] = newCondition
-			return conditions
-		}
-	}
-
-	return append(conditions, newCondition)
-}
-
 func recommendationIncreaseAnyResource(oldTortoise, newTortoise *v1beta3.Tortoise) bool {
 	if newTortoise.Status.Conditions.ContainerResourceRequests == nil {
 		// if newVPA doesn't have recommendation, it means we're going to remove the recommendation.
