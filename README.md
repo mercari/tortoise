@@ -1,5 +1,7 @@
 # Tortoise
 
+**Tortoise is under the active development and not production ready yet.**
+
 <img alt="Tortoise" src="docs/images/tortoise_big.jpg" width="400px"/> 
 
 Get cute Tortoises into your Kubernetes garden and say goodbye to the days optimizing your rigid autoscalers. 
