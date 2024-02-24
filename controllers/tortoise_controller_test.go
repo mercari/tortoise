@@ -36,7 +36,6 @@ func newResource(path string) resources {
 	tortoisePath := fmt.Sprintf("%s/tortoise.yaml", path)
 	hpaPath := fmt.Sprintf("%s/hpa.yaml", path)
 	deploymentPath := fmt.Sprintf("%s/deployment.yaml", path)
-	updaterVPAPath := fmt.Sprintf("%s/vpa-Updater.yaml", path)
 	monitorVPAPath := fmt.Sprintf("%s/vpa-Monitor.yaml", path)
 
 	var tortoise *v1beta3.Tortoise
@@ -48,18 +47,10 @@ func newResource(path string) resources {
 	}
 
 	var vpa *autoscalingv1.VerticalPodAutoscaler
-	y, err = os.ReadFile(updaterVPAPath)
+	y, err = os.ReadFile(monitorVPAPath)
 	if err == nil {
 		vpa = &autoscalingv1.VerticalPodAutoscaler{}
 		err = yaml.Unmarshal(y, vpa)
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	var vpa2 *autoscalingv1.VerticalPodAutoscaler
-	y, err = os.ReadFile(monitorVPAPath)
-	if err == nil {
-		vpa2 = &autoscalingv1.VerticalPodAutoscaler{}
-		err = yaml.Unmarshal(y, vpa2)
 		Expect(err).NotTo(HaveOccurred())
 	}
 
@@ -83,10 +74,7 @@ func newResource(path string) resources {
 		tortoise:   tortoise,
 		hpa:        hpa,
 		deployment: deploy,
-		vpa: map[v1beta3.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
-			v1beta3.VerticalPodAutoscalerRoleUpdater: vpa,
-			v1beta3.VerticalPodAutoscalerRoleMonitor: vpa2,
-		},
+		vpa:        vpa,
 	}
 }
 func createDeploymentWithStatus(ctx context.Context, k8sClient client.Client, deploy *v1.Deployment) {
@@ -139,11 +127,8 @@ func initializeResourcesFromFiles(ctx context.Context, k8sClient client.Client, 
 	}
 
 	createDeploymentWithStatus(ctx, k8sClient, resource.deployment)
-	if resource.vpa[v1beta3.VerticalPodAutoscalerRoleUpdater] != nil {
-		createVPAWithStatus(ctx, k8sClient, resource.vpa[v1beta3.VerticalPodAutoscalerRoleUpdater])
-	}
-	if resource.vpa[v1beta3.VerticalPodAutoscalerRoleMonitor] != nil {
-		createVPAWithStatus(ctx, k8sClient, resource.vpa[v1beta3.VerticalPodAutoscalerRoleMonitor])
+	if resource.vpa != nil {
+		createVPAWithStatus(ctx, k8sClient, resource.vpa)
 	}
 	createTortoiseWithStatus(ctx, k8sClient, resource.tortoise)
 
@@ -178,12 +163,7 @@ func updateResourcesInTestCaseFile(path string, resource resources) error {
 		return err
 	}
 
-	err = writeToFile(filepath.Join(path, "vpa-Updater.yaml"), resource.vpa[v1beta3.VerticalPodAutoscalerRoleUpdater])
-	if err != nil {
-		return err
-	}
-
-	err = writeToFile(filepath.Join(path, "vpa-Monitor.yaml"), resource.vpa[v1beta3.VerticalPodAutoscalerRoleMonitor])
+	err = writeToFile(filepath.Join(path, "vpa-Monitor.yaml"), resource.vpa)
 	if err != nil {
 		return err
 	}
@@ -302,10 +282,6 @@ var _ = Describe("Test TortoiseController", func() {
 		if err != nil {
 			Expect(apierrors.IsNotFound(err)).To(Equal(true))
 		}
-		err = deleteObj(ctx, &autoscalingv1.VerticalPodAutoscaler{}, "tortoise-updater-mercari")
-		if err != nil {
-			Expect(apierrors.IsNotFound(err)).To(Equal(true))
-		}
 		err = deleteObj(ctx, &autoscalingv1.VerticalPodAutoscaler{}, "tortoise-monitor-mercari")
 		if err != nil {
 			Expect(apierrors.IsNotFound(err)).To(Equal(true))
@@ -320,26 +296,18 @@ var _ = Describe("Test TortoiseController", func() {
 		// wait for the reconciliation.
 		time.Sleep(1 * time.Second)
 		path = filepath.Join(path, "after")
-		tc := testCase{want: newResource(path)}
 		Eventually(func(g Gomega) {
 			gotTortoise := &v1beta3.Tortoise{}
 			err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari"}, gotTortoise)
 			g.Expect(err).ShouldNot(HaveOccurred())
 			var gotHPA *v2.HorizontalPodAutoscaler
-			if tc.want.hpa != nil {
+			_, err = os.Stat(path + "/hpa.yaml")
+			if err == nil {
+				// HPA should also be regenerated
 				gotHPA = &v2.HorizontalPodAutoscaler{}
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, gotHPA)
 				g.Expect(err).ShouldNot(HaveOccurred())
-			} else {
-				// HPA should not exist.
-				gotHPA = &v2.HorizontalPodAutoscaler{}
-				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, gotHPA)
-				Expect(apierrors.IsNotFound(err)).To(Equal(true))
-				gotHPA = nil
 			}
-			gotUpdaterVPA := &autoscalingv1.VerticalPodAutoscaler{}
-			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, gotUpdaterVPA)
-			g.Expect(err).ShouldNot(HaveOccurred())
 			gotMonitorVPA := &autoscalingv1.VerticalPodAutoscaler{}
 			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, gotMonitorVPA)
 			g.Expect(err).ShouldNot(HaveOccurred())
@@ -350,12 +318,9 @@ var _ = Describe("Test TortoiseController", func() {
 			g.Expect(err).ShouldNot(HaveOccurred())
 
 			err = updateResourcesInTestCaseFile(path, resources{
-				tortoise: gotTortoise,
-				hpa:      gotHPA,
-				vpa: map[v1beta3.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
-					v1beta3.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
-					v1beta3.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
-				},
+				tortoise:   gotTortoise,
+				hpa:        gotHPA,
+				vpa:        gotMonitorVPA,
 				deployment: gotDeployment,
 			})
 			g.Expect(err).ShouldNot(HaveOccurred())
@@ -382,9 +347,6 @@ var _ = Describe("Test TortoiseController", func() {
 				Expect(apierrors.IsNotFound(err)).To(Equal(true))
 				gotHPA = nil
 			}
-			gotUpdaterVPA := &autoscalingv1.VerticalPodAutoscaler{}
-			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, gotUpdaterVPA)
-			g.Expect(err).ShouldNot(HaveOccurred())
 			gotMonitorVPA := &autoscalingv1.VerticalPodAutoscaler{}
 			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, gotMonitorVPA)
 			g.Expect(err).ShouldNot(HaveOccurred())
@@ -395,12 +357,9 @@ var _ = Describe("Test TortoiseController", func() {
 			g.Expect(err).ShouldNot(HaveOccurred())
 
 			err = tc.compare(resources{
-				tortoise: gotTortoise,
-				hpa:      gotHPA,
-				vpa: map[v1beta3.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler{
-					v1beta3.VerticalPodAutoscalerRoleUpdater: gotUpdaterVPA,
-					v1beta3.VerticalPodAutoscalerRoleMonitor: gotMonitorVPA,
-				},
+				tortoise:   gotTortoise,
+				hpa:        gotHPA,
+				vpa:        gotMonitorVPA,
 				deployment: gotDeployment,
 			})
 			g.Expect(err).ShouldNot(HaveOccurred())
@@ -528,8 +487,6 @@ var _ = Describe("Test TortoiseController", func() {
 				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, &v2.HorizontalPodAutoscaler{})
 				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
-				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, &autoscalingv1.VerticalPodAutoscaler{})
-				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, &autoscalingv1.VerticalPodAutoscaler{})
 				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
 			}).Should(Succeed())
@@ -544,8 +501,6 @@ var _ = Describe("Test TortoiseController", func() {
 
 			Eventually(func(g Gomega) {
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-hpa-mercari"}, &v2.HorizontalPodAutoscaler{})
-				Expect(err).ShouldNot(HaveOccurred())
-				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-updater-mercari"}, &autoscalingv1.VerticalPodAutoscaler{})
 				Expect(err).ShouldNot(HaveOccurred())
 				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, &autoscalingv1.VerticalPodAutoscaler{})
 				Expect(err).ShouldNot(HaveOccurred())
@@ -564,7 +519,7 @@ type resources struct {
 	tortoise   *v1beta3.Tortoise
 	deployment *v1.Deployment
 	hpa        *v2.HorizontalPodAutoscaler
-	vpa        map[v1beta3.VerticalPodAutoscalerRole]*autoscalingv1.VerticalPodAutoscaler
+	vpa        *autoscalingv1.VerticalPodAutoscaler
 }
 
 func (t *testCase) compare(got resources) error {
@@ -580,10 +535,8 @@ func (t *testCase) compare(got resources) error {
 		return fmt.Errorf("restartedAt annotation is not expected: whether each has restartedAt annotation: got = %v, want = %v", got.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"], t.want.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"])
 	}
 
-	for k, vpa := range t.want.vpa {
-		if d := cmp.Diff(vpa, got.vpa[k], cmpopts.IgnoreFields(autoscalingv1.VerticalPodAutoscaler{}, "ObjectMeta")); d != "" {
-			return fmt.Errorf("unexpected vpa[%s]: diff = %s", k, d)
-		}
+	if d := cmp.Diff(t.want.vpa, got.vpa, cmpopts.IgnoreFields(autoscalingv1.VerticalPodAutoscaler{}, "ObjectMeta")); d != "" {
+		return fmt.Errorf("unexpected vpa: diff = %s", d)
 	}
 
 	return nil

@@ -28,6 +28,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,6 +38,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/mercari/tortoise/api/v1beta3"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/hpa"
@@ -135,6 +137,14 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
+	// Previously, we had VPA called "updator vpa". We don't need it anymore so we disable it here if Tortoise still has.
+	// This logic can be removed later.
+	err = r.VpaService.DisableTortoiseUpdaterVPA(ctx, tortoise)
+	if err != nil {
+		logger.Error(err, "delete updater VPA created by tortoise", "tortoise", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+
 	// TODO: stop depending on deployment.
 	// https://github.com/mercari/tortoise/issues/129
 	//
@@ -149,7 +159,8 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	currentReplicaNum := dm.Status.Replicas
 
 	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff || tortoise.Status.Conditions.ContainerResourceRequests == nil {
-		// If the update mode is off, we have to update ContainerResourceRequests from the deployment directly.
+		// If the update mode is off, we have to update ContainerResourceRequests from the deployment directly
+		// so that pods will get an original resource request.
 		// If it's not off, ContainerResourceRequests should be updated in UpdateVPAFromTortoiseRecommendation in the last reconciliation.
 		acr, err := r.DeploymentService.GetResourceRequests(dm)
 		if err != nil {
@@ -245,7 +256,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	_, tortoise, updated, err := r.VpaService.UpdateVPAFromTortoiseRecommendation(ctx, tortoise, currentReplicaNum, now)
+	tortoise, err = r.TortoiseService.UpdateResourceRequest(ctx, tortoise, currentReplicaNum, now)
 	if err != nil {
 		logger.Error(err, "update VPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -257,8 +268,9 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	if updated && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
-		err := r.DeploymentService.RolloutRestart(ctx, dm, tortoise, now)
+	if tortoise.Spec.UpdateMode != v1beta3.UpdateModeOff && !reflect.DeepEqual(oldTortoise.Status.Conditions.ContainerResourceRequests, tortoise.Status.Conditions.ContainerResourceRequests) {
+		// The container resource requests are updated, so we need to update the Pods.
+		err = r.DeploymentService.RolloutRestart(ctx, dm, tortoise, now)
 		if err != nil {
 			logger.Error(err, "failed to rollout restart", "tortoise", req.NamespacedName)
 			return ctrl.Result{}, err
@@ -304,10 +316,6 @@ func (r *TortoiseReconciler) initializeVPAAndHPA(ctx context.Context, tortoise *
 	_, tortoise, err = r.VpaService.CreateTortoiseMonitorVPA(ctx, tortoise)
 	if err != nil {
 		return fmt.Errorf("create tortoise monitor VPA: %w", err)
-	}
-	_, tortoise, err = r.VpaService.CreateTortoiseUpdaterVPA(ctx, tortoise)
-	if err != nil {
-		return fmt.Errorf("create tortoise updater VPA: %w", err)
 	}
 	_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, true)
 	if err != nil {

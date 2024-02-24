@@ -43,3 +43,7 @@ Also, to prevent a big scaling down, Tortoise has [`MaxAllowedScalingDownRatio`]
 
 On the other hand, Tortoise always scales **up** the resource request as soon as possible
 regardless of whether Tortoise recently has scaled the resources or not.
+
+### Known Limitation
+
+- It doesn't care [Limit Ranges](https://kubernetes.io/docs/concepts/policy/limit-range/) at all.

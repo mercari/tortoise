@@ -8,8 +8,6 @@ spec:
   strategy: {}
   template:
     metadata:
-      annotations:
-        kubectl.kubernetes.io/restartedAt: "2023-01-01T00:00:00Z"
       creationTimestamp: null
       labels:
         app: mercari

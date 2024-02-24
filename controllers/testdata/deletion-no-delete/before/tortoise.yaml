@@ -77,8 +77,6 @@ status:
     deployment: ""
     horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
-    - name: tortoise-updater-mercari
-      role: Updater
     - name: tortoise-monitor-mercari
       role: Monitor
   tortoisePhase: Working

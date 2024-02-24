@@ -54,6 +54,11 @@ status:
       type: HPATargetUtilizationUpdated
     - lastTransitionTime: "2023-01-01T00:00:00Z"
       lastUpdateTime: "2023-01-01T00:00:00Z"
+      message: The recommendation is provided
+      status: "True"
+      type: VerticalRecommendationUpdated
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
       status: "False"
       type: FailedToReconcile
   containerResourcePhases:
@@ -95,8 +100,6 @@ status:
       kind: ""
       name: ""
     verticalPodAutoscalers:
-    - name: tortoise-updater-mercari
-      role: Updater
     - name: tortoise-monitor-mercari
       role: Monitor
   tortoisePhase: Working

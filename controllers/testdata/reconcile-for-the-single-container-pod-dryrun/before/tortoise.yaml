@@ -15,6 +15,11 @@ status:
       memory: Vertical
     containerName: app
   conditions:
+    containerResourceRequests:
+      - containerName: "app"
+        resource:
+          cpu: "4"
+          memory: 4Gi
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
@@ -54,8 +59,6 @@ status:
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:
-    - name: tortoise-updater-mercari
-      role: Updater
     - name: tortoise-monitor-mercari
       role: Monitor
   tortoisePhase: Working

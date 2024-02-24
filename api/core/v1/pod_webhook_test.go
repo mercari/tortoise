@@ -93,13 +93,10 @@ func mutateTest(before, after, tortoise string) {
 
 var _ = Describe("v1.Pod Webhook", func() {
 	Context("mutating", func() {
-		It("Pod is mutated based on resourceLimitMultiplier", func() {
+		It("Pod with Auto Tortoise is mutated", func() {
 			mutateTest(filepath.Join("testdata", "mutating", "auto-tortoise", "before.yaml"), filepath.Join("testdata", "mutating", "auto-tortoise", "after.yaml"), filepath.Join("testdata", "mutating", "auto-tortoise", "tortoise.yaml"))
 		})
-		It("Pod is mutated based on MinimumCPULimit", func() {
-			mutateTest(filepath.Join("testdata", "mutating", "hit-minimum-limit", "before.yaml"), filepath.Join("testdata", "mutating", "hit-minimum-limit", "after.yaml"), filepath.Join("testdata", "mutating", "hit-minimum-limit", "tortoise.yaml"))
-		})
-		It("Pod is NOT mutated based on resourceLimitMultiplier, if Tortoise is Off", func() {
+		It("Pod with Off Tortoise is not mutated", func() {
 			mutateTest(filepath.Join("testdata", "mutating", "off-tortoise", "before.yaml"), filepath.Join("testdata", "mutating", "off-tortoise", "after.yaml"), filepath.Join("testdata", "mutating", "off-tortoise", "tortoise.yaml"))
 		})
 	})

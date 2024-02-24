@@ -11,11 +11,11 @@ spec:
     image: nginx
     resources:
       requests:
-        cpu: 1
-        memory: 100Mi
+        cpu: 5
+        memory: 300Mi
       limits:
-        cpu: 3
-        memory: 100Mi
+        cpu: 10
+        memory: 600Mi
     terminationMessagePath: "/dev/termination-log"
     terminationMessagePolicy: "File"
     imagePullPolicy: "Always"
@@ -23,11 +23,11 @@ spec:
     image: istio
     resources:
       requests:
-        cpu: 1
-        memory: 100Mi
-      limits:
         cpu: 3
-        memory: 100Mi
+        memory: 300Mi
+      limits:
+        cpu: 4.5
+        memory: 600Mi
     terminationMessagePath: "/dev/termination-log"
     terminationMessagePolicy: "File"
     imagePullPolicy: "Always"

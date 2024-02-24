@@ -250,7 +250,6 @@ type TargetStatusVerticalPodAutoscaler struct {
 type VerticalPodAutoscalerRole string
 
 const (
-	VerticalPodAutoscalerRoleUpdater = "Updater"
 	VerticalPodAutoscalerRoleMonitor = "Monitor"
 )
 
@@ -328,7 +327,10 @@ type Conditions struct {
 	// ContainerRecommendationFromVPA is the condition of container recommendation from VPA, which is observed last time.
 	// +optional
 	ContainerRecommendationFromVPA []ContainerRecommendationFromVPA `json:"containerRecommendationFromVPA,omitempty" protobuf:"bytes,2,opt,name=containerRecommendationFromVPA"`
-	// ContainerResourceRequests has the last observed resource request of each container.
+	// ContainerResourceRequests has the ideal resource request for each container.
+	// If the mode is Off, it should be the same value as the current resource request.
+	// If the mode is Auto, it would basically be the same value as the recommendation.
+	// (Tortoise sometimes doesn't immediately apply the recommendation value to the resource request for the sake of safety.)
 	// +optional
 	ContainerResourceRequests []ContainerResourceRequests `json:"containerResourceRequests,omitempty" protobuf:"bytes,3,opt,name=containerResourceRequests"`
 }
@@ -346,6 +348,7 @@ const (
 	// TortoiseConditionTypeFailedToReconcile means tortoise failed to reconcile due to some reasons.
 	TortoiseConditionTypeFailedToReconcile                   TortoiseConditionType = "FailedToReconcile"
 	TortoiseConditionTypeHPATargetUtilizationUpdated         TortoiseConditionType = "HPATargetUtilizationUpdated"
+	TortoiseConditionTypeVerticalRecommendationUpdated       TortoiseConditionType = "VerticalRecommendationUpdated"
 	TortoiseConditionTypeScaledUpBasedOnPreferredMaxReplicas TortoiseConditionType = "ScaledUpBasedOnPreferredMaxReplicas"
 )
 
