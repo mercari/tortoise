@@ -206,7 +206,6 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 	if !ready {
 		logger.Info("VPA created by tortoise isn't ready yet", "tortoise", req.NamespacedName)
-		tortoise.Status.TortoisePhase = autoscalingv1beta3.TortoisePhaseInitializing
 		_, err = r.TortoiseService.UpdateTortoiseStatus(ctx, tortoise, now, true)
 		if err != nil {
 			logger.Error(err, "update Tortoise status", "tortoise", req.NamespacedName)
