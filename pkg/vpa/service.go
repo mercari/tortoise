@@ -146,7 +146,7 @@ func (c *Service) DisableTortoiseUpdaterVPA(ctx context.Context, tortoise *autos
 	return nil
 }
 
-// UpdateVPAContainerResourcePolicy is update VPAs to have appropriate container policies based on tortoises' resource policy.
+// UpdateVPAContainerResourcePolicy is update VPA to have appropriate container policies based on tortoises' resource policy.
 func (c *Service) UpdateVPAContainerResourcePolicy(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, vpa *v1.VerticalPodAutoscaler) (*v1.VerticalPodAutoscaler, error) {
 	retVPA := &v1.VerticalPodAutoscaler{}
 	var err error

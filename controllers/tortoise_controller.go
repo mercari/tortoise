@@ -101,7 +101,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		// Tortoise is deleted by user and waiting for finalizer.
 		logger.Info("tortoise is deleted", "tortoise", req.NamespacedName)
 		if err := r.deleteVPAAndHPA(ctx, tortoise, now); err != nil {
-			return ctrl.Result{}, fmt.Errorf("delete VPAs and HPA: %w", err)
+			return ctrl.Result{}, fmt.Errorf("delete VPA and HPA: %w", err)
 		}
 		if err := r.TortoiseService.RemoveFinalizer(ctx, tortoise); err != nil {
 			return ctrl.Result{}, fmt.Errorf("remove finalizer: %w", err)
@@ -181,7 +181,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		logger.Info("initializing tortoise", "tortoise", req.NamespacedName)
 		// need to initialize HPA and VPA.
 		if err := r.initializeVPAAndHPA(ctx, tortoise, currentReplicaNum, now); err != nil {
-			return ctrl.Result{}, fmt.Errorf("initialize VPAs and HPA: %w", err)
+			return ctrl.Result{}, fmt.Errorf("initialize VPA and HPA: %w", err)
 		}
 
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
@@ -245,7 +245,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 
 	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseGatheringData {
-		logger.Info("tortoise is GatheringData phase; skip applying the recommendation to HPA or VPAs")
+		logger.Info("tortoise is GatheringData phase; skip applying the recommendation to HPA or VPA")
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
