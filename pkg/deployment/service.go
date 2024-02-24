@@ -62,7 +62,9 @@ func (c *Service) RolloutRestart(ctx context.Context, dm *v1.Deployment, tortois
 // GetResourceRequests returns the resource requests of the containers in the deployment.
 func (c *Service) GetResourceRequests(dm *v1.Deployment) ([]autoscalingv1beta3.ContainerResourceRequests, error) {
 	actualContainerResource := []autoscalingv1beta3.ContainerResourceRequests{}
-	for _, c := range dm.Spec.Template.Spec.Containers {
+
+	istioProxyIndex := -1
+	for i, c := range dm.Spec.Template.Spec.Containers {
 		rcr := autoscalingv1beta3.ContainerResourceRequests{
 			ContainerName: c.Name,
 			Resource:      corev1.ResourceList{},
@@ -71,6 +73,9 @@ func (c *Service) GetResourceRequests(dm *v1.Deployment) ([]autoscalingv1beta3.C
 			rcr.Resource[name] = r
 		}
 		actualContainerResource = append(actualContainerResource, rcr)
+		if c.Name == "istio-proxy" {
+			istioProxyIndex = i
+		}
 	}
 
 	if dm.Spec.Template.Annotations != nil {
@@ -95,15 +100,24 @@ func (c *Service) GetResourceRequests(dm *v1.Deployment) ([]autoscalingv1beta3.C
 			if err != nil {
 				return nil, fmt.Errorf("parse Memory request of istio sidecar: %w", err)
 			}
-			// If the deployment has the sidecar injection annotation, the Pods will have the sidecar container in addition.
-			actualContainerResource = append(actualContainerResource, v1beta3.ContainerResourceRequests{
-				ContainerName: "istio-proxy",
-				Resource: corev1.ResourceList{
-					corev1.ResourceCPU:    cpu,
-					corev1.ResourceMemory: memory,
-				},
-			})
+
+			if istioProxyIndex == -1 {
+				// If the deployment has the sidecar injection annotation, the Pods will have the sidecar container in addition.
+				actualContainerResource = append(actualContainerResource, v1beta3.ContainerResourceRequests{
+					ContainerName: "istio-proxy",
+					Resource: corev1.ResourceList{
+						corev1.ResourceCPU:    cpu,
+						corev1.ResourceMemory: memory,
+					},
+				})
+			} else {
+				// the deployment has the sidecar injection annotation and it's using the custom injection:
+				// https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#customizing-injection
+				actualContainerResource[istioProxyIndex].Resource[corev1.ResourceCPU] = cpu
+				actualContainerResource[istioProxyIndex].Resource[corev1.ResourceMemory] = memory
+			}
 		}
 	}
+
 	return actualContainerResource, nil
 }

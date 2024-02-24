@@ -131,12 +131,12 @@ spec:
   deletionPolicy: "DeleteAll"
 ```
 
-DeletionPolicy is the policy how the controller deletes associated HPA and VPAs when tortoise is removed.
+DeletionPolicy is the policy how the controller deletes associated HPA and VPA when tortoise is removed.
 
-- `DeleteAll`: tortoise deletes all associated HPA and VPAs, created by tortoise. 
+- `DeleteAll`: tortoise deletes all associated HPA and VPA, created by tortoise. 
 But, if the associated HPA is not created by tortoise, that is associated by `spec.targetRefs.horizontalPodAutoscalerName`, 
 tortoise doesn't delete the HPA even with `DeleteAll`.
-- `NoDelete`(default): tortoise doesn't delete any associated HPA and VPAs.
+- `NoDelete`(default): tortoise doesn't delete any associated HPA and VPA.
 
 ### `.spec.ResourcePolicy`
 
