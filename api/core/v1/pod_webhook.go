@@ -27,6 +27,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -91,10 +92,12 @@ func (h *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 
 	if t.Spec.UpdateMode == v1beta3.UpdateModeOff {
 		// DryRun, don't update Pod
+		pod.Annotations[annotation.PodMutationAnnotation] = fmt.Sprintf("this pod is not mutated by tortoise (%s) because the tortoise's update mode is off", tortoiseName)
 		return nil
 	}
 
 	h.podService.ModifyPodResource(pod, t)
+	pod.Annotations[annotation.PodMutationAnnotation] = fmt.Sprintf("this pod is mutated by tortoise (%s)", tortoiseName)
 
 	return nil
 }

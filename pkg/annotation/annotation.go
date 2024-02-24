@@ -1,6 +1,6 @@
 package annotation
 
-// annotation on HPA and VPA resource.
+// annotation on Pod, HPA and VPA resource.
 const (
 	// Deprecated: TortoiseNameAnnotation - VPA and HPA managed by tortoise have this label.
 	// If an existing HPA has this label, it's automatically replaced with TortoiseNameAnnotation by the controller.
@@ -11,6 +11,8 @@ const (
 	// If this annotation is set to "true", it means that tortoise manages that resource,
 	// and will be removed when the tortoise is deleted.
 	ManagedByTortoiseAnnotation = "tortoise.autoscaling.mercari.com/managed-by-tortoise"
+
+	PodMutationAnnotation = "tortoise.autoscaling.mercari.com/pod-mutation"
 )
 
 // annotation on Tortoise resource.
