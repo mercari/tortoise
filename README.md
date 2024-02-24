@@ -62,7 +62,7 @@ spec:
       name: sample
 ```
 
-Then, Tortoise creates fully managed autoscalers (HPA and VPAs). 
+Then, Tortoise creates fully managed autoscalers (HPA and VPA). 
 
 Despite its simple appearance, it contains a rich collection of historical data on resource utilization beneath its shell, 
 and cleverly utilizes them to manage parameters in autoscalers. 
