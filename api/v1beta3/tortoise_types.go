@@ -54,10 +54,10 @@ type TortoiseSpec struct {
 	// ResourcePolicy contains the policy how each resource is updated.
 	// +optional
 	ResourcePolicy []ContainerResourcePolicy `json:"resourcePolicy,omitempty" protobuf:"bytes,3,opt,name=resourcePolicy"`
-	// DeletionPolicy is the policy how the controller deletes associated HPA and VPAs when tortoise is removed.
-	// If "DeleteAll", tortoise deletes all associated HPA and VPAs, created by tortoise. If the associated HPA is not created by tortoise,
+	// DeletionPolicy is the policy how the controller deletes associated HPA and VPA when tortoise is removed.
+	// If "DeleteAll", tortoise deletes all associated HPA and VPA, created by tortoise. If the associated HPA is not created by tortoise,
 	// which is associated by spec.targetRefs.horizontalPodAutoscalerName, tortoise never delete the HPA.
-	// If "NoDelete", tortoise doesn't delete any associated HPA and VPAs.
+	// If "NoDelete", tortoise doesn't delete any associated HPA and VPA.
 	//
 	// "NoDelete" is the default value.
 	// +optional
@@ -215,7 +215,7 @@ const (
 type TortoisePhase string
 
 const (
-	// TortoisePhaseInitializing means tortoise is just created and initializing some components (HPA and VPAs),
+	// TortoisePhaseInitializing means tortoise is just created and initializing some components (HPA and VPA),
 	// and wait for those components to be ready.
 	TortoisePhaseInitializing TortoisePhase = "Initializing"
 	// TortoisePhaseGatheringData means tortoise is now gathering data and cannot make the accurate recommendations.

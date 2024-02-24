@@ -93,12 +93,12 @@ spec:
                 type: array
               deletionPolicy:
                 description: "DeletionPolicy is the policy how the controller deletes
-                  associated HPA and VPAs when tortoise is removed. If \"DeleteAll\",
-                  tortoise deletes all associated HPA and VPAs, created by tortoise.
+                  associated HPA and VPA when tortoise is removed. If \"DeleteAll\",
+                  tortoise deletes all associated HPA and VPA, created by tortoise.
                   If the associated HPA is not created by tortoise, which is associated
                   by spec.targetRefs.horizontalPodAutoscalerName, tortoise never delete
                   the HPA. If \"NoDelete\", tortoise doesn't delete any associated
-                  HPA and VPAs. \n \"NoDelete\" is the default value."
+                  HPA and VPA. \n \"NoDelete\" is the default value."
                 enum:
                 - DeleteAll
                 - NoDelete

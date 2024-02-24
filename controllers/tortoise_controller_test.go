@@ -470,7 +470,7 @@ var _ = Describe("Test TortoiseController", func() {
 		})
 	})
 	Context("DeletionPolicy is handled correctly", func() {
-		It("[DeletionPolicy = DeleteAll] delete HPA and VPAs when Tortoise is deleted", func() {
+		It("[DeletionPolicy = DeleteAll] delete HPA and VPA when Tortoise is deleted", func() {
 			resource := initializeResourcesFromFiles(ctx, k8sClient, "testdata/deletion-policy-all/before")
 			stopFunc = startController(ctx)
 
@@ -491,7 +491,7 @@ var _ = Describe("Test TortoiseController", func() {
 				g.Expect(apierrors.IsNotFound(err)).To(Equal(true))
 			}).Should(Succeed())
 		})
-		It("[DeletionPolicy = NoDelete] do not delete HPA and VPAs when Tortoise is deleted", func() {
+		It("[DeletionPolicy = NoDelete] do not delete HPA and VPA when Tortoise is deleted", func() {
 			resource := initializeResourcesFromFiles(ctx, k8sClient, "testdata/deletion-no-delete/before")
 			stopFunc = startController(ctx)
 

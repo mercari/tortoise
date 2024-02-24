@@ -19,6 +19,8 @@ spec:
         app: mercari
     spec:
       containers:
+      - name: istio-proxy 
+        image: auto
       - image: awesome-mercari-app-image
         name: app
         resources:
