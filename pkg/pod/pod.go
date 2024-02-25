@@ -1,8 +1,12 @@
 package pod
 
 import (
+	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	controllerfetcher "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/target/controller_fetcher"
 	"k8s.io/utils/ptr"
 
 	"github.com/mercari/tortoise/api/v1beta3"
@@ -12,16 +16,19 @@ type Service struct {
 	// For example, if it's 3 and Pod's resource request is 100m, the limit will be changed to 300m.
 	resourceLimitMultiplier map[string]int64
 	minimumCPULimit         resource.Quantity
+	controllerFetcher       controllerfetcher.ControllerFetcher
 }
 
 func New(
 	resourceLimitMultiplier map[string]int64,
 	MinimumCPULimit string,
+	cf controllerfetcher.ControllerFetcher,
 ) (*Service, error) {
 	minCPULim := resource.MustParse(MinimumCPULimit)
 	return &Service{
 		resourceLimitMultiplier: resourceLimitMultiplier,
 		minimumCPULimit:         minCPULim,
+		controllerFetcher:       cf,
 	}, nil
 }
 
@@ -81,6 +88,41 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 			pod.Spec.Containers[i].Resources.Limits[k] = *newLim
 		}
 	}
+}
+
+func (s *Service) GetDeploymentForPod(pod *v1.Pod) (string, error) {
+	var ownerRefrence *metav1.OwnerReference
+	for i := range pod.OwnerReferences {
+		r := pod.OwnerReferences[i]
+		if r.Controller != nil && *r.Controller {
+			ownerRefrence = &r
+		}
+	}
+	if ownerRefrence == nil {
+		// If the pod has no ownerReference, it cannot be under Tortoise.
+		return "", nil
+	}
+
+	k := &controllerfetcher.ControllerKeyWithAPIVersion{
+		ControllerKey: controllerfetcher.ControllerKey{
+			Namespace: pod.Namespace,
+			Kind:      ownerRefrence.Kind,
+			Name:      ownerRefrence.Name,
+		},
+		ApiVersion: ownerRefrence.APIVersion,
+	}
+
+	topController, err := s.controllerFetcher.FindTopMostWellKnownOrScalable(k)
+	if err != nil {
+		return "", fmt.Errorf("failed to find top most well known or scalable controller: %v", err)
+	}
+
+	if topController.Kind != "Deployment" {
+		// Tortoise only supports Deployment for now.
+		return "", nil
+	}
+
+	return topController.Name, nil
 }
 
 type containerNameAndResource struct {

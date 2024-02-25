@@ -39,7 +39,7 @@ status:
     scaleTargetRef:
       kind: Deployment
       name: sample
-    horizontalPodAutoscaler: sample2
+    horizontalPodAutoscaler: sample
     verticalPodAutoscalers: 
     - name: tortoise-monitor-sample
       role: Monitor

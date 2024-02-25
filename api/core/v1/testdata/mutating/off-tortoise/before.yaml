@@ -3,8 +3,16 @@ kind: Pod
 metadata:
   name: sample
   namespace: default
+  labels:
+    app: nginx
   annotations:
     tortoise.autoscaling.mercari.com/tortoise-name: tortoise-sample
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: sample
 spec:
   containers:
   - name: nginx

@@ -32,7 +32,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -70,34 +69,54 @@ var _ admission.CustomDefaulter = &PodWebhook{}
 // Default implements admission.CustomDefaulter so a webhook will be registered for the type
 func (h *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	pod := obj.(*v1.Pod)
-	tortoiseName, ok := pod.GetAnnotations()[annotation.TortoiseNameAnnotation]
-	if !ok {
-		// not managed by tortoise
+
+	deploymentName, err := h.podService.GetDeploymentForPod(pod)
+	if err != nil {
+		// Block updating HPA may be critical. Just ignore it with error logs.
+		log.FromContext(ctx).Error(err, "failed to get deployment for pod in the Pod mutating webhook", "pod", klog.KObj(pod))
+		return nil
+	}
+	if deploymentName == "" {
+		// This Pod isn't managed by any deployment.
+		pod.Annotations[annotation.PodMutationAnnotation] = "this pod is not managed by deployment"
 		return nil
 	}
 
-	t, err := h.tortoiseService.GetTortoise(ctx, types.NamespacedName{
-		Namespace: pod.Namespace,
-		Name:      tortoiseName,
-	})
+	tl, err := h.tortoiseService.ListTortoise(ctx, pod.Namespace)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.FromContext(ctx).Info("tortoise not found for mutating webhook of Pod", "pod", klog.KObj(pod), "tortoise", tortoiseName)
 			return nil
 		}
-		// Unknown error, but blocking updating Pod may be critical. Just ignore it with error logs.
-		log.FromContext(ctx).Error(err, "failed to get tortoise for mutating webhook of Pod", "pod", klog.KObj(pod), "tortoise", tortoiseName)
+		// Block updating HPA may be critical. Just ignore it with error logs.
+		log.FromContext(ctx).Error(err, "failed to get tortoise for mutating webhook of Pod", "pod", klog.KObj(pod))
+		return nil
+	}
+	if len(tl.Items) == 0 {
+		// This namespace don't have any tortoise and thus this HPA isn't managed by tortoise.
 		return nil
 	}
 
-	if t.Spec.UpdateMode == v1beta3.UpdateModeOff {
+	var tortoise *v1beta3.Tortoise
+	for _, t := range tl.Items {
+		if t.Status.Targets.ScaleTargetRef.Name == deploymentName {
+			tortoise = t.DeepCopy()
+			break
+		}
+	}
+	if tortoise == nil {
+		// This Pod isn't managed by any tortoise.
+		pod.Annotations[annotation.PodMutationAnnotation] = "this pod is not managed by tortoise"
+		return nil
+	}
+
+	if tortoise.Spec.UpdateMode == v1beta3.UpdateModeOff {
 		// DryRun, don't update Pod
-		pod.Annotations[annotation.PodMutationAnnotation] = fmt.Sprintf("this pod is not mutated by tortoise (%s) because the tortoise's update mode is off", tortoiseName)
+		pod.Annotations[annotation.PodMutationAnnotation] = fmt.Sprintf("this pod is not mutated by tortoise (%s) because the tortoise's update mode is off", tortoise.Name)
 		return nil
 	}
 
-	h.podService.ModifyPodResource(pod, t)
-	pod.Annotations[annotation.PodMutationAnnotation] = fmt.Sprintf("this pod is mutated by tortoise (%s)", tortoiseName)
+	h.podService.ModifyPodResource(pod, tortoise)
+	pod.Annotations[annotation.PodMutationAnnotation] = fmt.Sprintf("this pod is mutated by tortoise (%s)", tortoise.Name)
 
 	return nil
 }

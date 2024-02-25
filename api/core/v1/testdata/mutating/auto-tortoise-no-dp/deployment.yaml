@@ -1,0 +1,45 @@
+# This is a completely unrelated deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample
+  namespace: default
+  labels:
+    app: fake
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: fake
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: fake
+    spec:
+      containers:
+      - name: fake
+        image: fake
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 200m
+            memory: 200Mi
+        terminationMessagePath: "/dev/termination-log"
+        terminationMessagePolicy: "File"
+        imagePullPolicy: "Always"
+      - name: istio-proxy
+        image: istio
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 900m
+            memory: 200Mi
+        terminationMessagePath: "/dev/termination-log"
+        terminationMessagePolicy: "File"
+        imagePullPolicy: "Always"
