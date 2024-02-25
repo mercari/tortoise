@@ -89,6 +89,8 @@ func mutateTest(before, after, tortoise string) {
 
 	diff := cmp.Diff(ret.Spec.Containers, afterpod.Spec.Containers)
 	Expect(diff).To(Equal(""), "diff: %s", diff)
+	diff = cmp.Diff(ret.Annotations, afterpod.Annotations)
+	Expect(diff).To(Equal(""), "diff: %s", diff)
 }
 
 var _ = Describe("v1.Pod Webhook", func() {
