@@ -5,6 +5,7 @@ metadata:
   namespace: default
   annotations:
     tortoise.autoscaling.mercari.com/tortoise-name: tortoise-sample
+    tortoise.autoscaling.mercari.com/pod-mutation: "this pod is mutated by tortoise (tortoise-sample)"
 spec:
   containers:
   - name: nginx
