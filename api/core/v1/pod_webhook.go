@@ -76,6 +76,9 @@ func (h *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 		log.FromContext(ctx).Error(err, "failed to get deployment for pod in the Pod mutating webhook", "pod", klog.KObj(pod))
 		return nil
 	}
+	if pod.Annotations == nil {
+		pod.Annotations = map[string]string{}
+	}
 	if deploymentName == "" {
 		// This Pod isn't managed by any deployment.
 		pod.Annotations[annotation.PodMutationAnnotation] = "this pod is not managed by deployment"
