@@ -26,8 +26,10 @@ SOFTWARE.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
+	"time"
 
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
@@ -36,6 +38,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	controllerfetcher "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/target/controller_fetcher"
+	"k8s.io/client-go/informers"
+	kube_client "k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -193,7 +198,25 @@ func main() {
 	//+kubebuilder:scaffold:builder
 
 	hpaWebhook := autoscalingv2.New(tortoiseService, hpaService)
-	podService, err := pod.New(config.ResourceLimitMultiplier, config.MinimumCPULimit)
+
+	const (
+		defaultResyncPeriod                        = 10 * time.Minute
+		statusUpdateInterval                       = 10 * time.Second
+		scaleCacheEntryLifetime      time.Duration = time.Hour
+		scaleCacheEntryFreshnessTime time.Duration = 10 * time.Minute
+		scaleCacheEntryJitterFactor  float64       = 1.
+	)
+
+	kubeClient := kube_client.NewForConfigOrDie(mgr.GetConfig())
+	factory := informers.NewSharedInformerFactory(kubeClient, defaultResyncPeriod)
+
+	controllerFetcher := controllerfetcher.NewControllerFetcher(mgr.GetConfig(), kubeClient, factory, scaleCacheEntryFreshnessTime, scaleCacheEntryLifetime, scaleCacheEntryJitterFactor)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	controllerFetcher.Start(ctx, 1*time.Second)
+	defer cancel()
+
+	podService, err := pod.New(config.ResourceLimitMultiplier, config.MinimumCPULimit, controllerFetcher)
 	if err != nil {
 		setupLog.Error(err, "unable to create pod service")
 		os.Exit(1)

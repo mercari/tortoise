@@ -1,0 +1,45 @@
+# Naked Replicaset; the webhook won't be able to find the parent deployment. 
+apiVersion: apps/v1
+kind: Replicaset
+metadata:
+  name: sample
+  namespace: default
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 200m
+            memory: 200Mi
+        terminationMessagePath: "/dev/termination-log"
+        terminationMessagePolicy: "File"
+        imagePullPolicy: "Always"
+      - name: istio-proxy
+        image: istio
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 900m
+            memory: 200Mi
+        terminationMessagePath: "/dev/termination-log"
+        terminationMessagePolicy: "File"
+        imagePullPolicy: "Always"

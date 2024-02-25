@@ -45,7 +45,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func mutateTest(before, after, tortoise string) {
+func mutateTest(dirPath string) {
+	before := filepath.Join(dirPath, "before.yaml")
+	after := filepath.Join(dirPath, "after.yaml")
+	tortoise := filepath.Join(dirPath, "tortoise.yaml")
 	ctx := context.Background()
 
 	y, err := os.ReadFile(tortoise)
@@ -93,13 +96,14 @@ func mutateTest(before, after, tortoise string) {
 	Expect(ret.Spec).Should(Equal(afterhpa.Spec))
 }
 
-func validateDeletionTest(hpa, tortoise string, valid bool) {
+func validateDeletionTest(dirPath string, valid bool) {
+	hpa := filepath.Join(dirPath, "hpa.yaml")
+	tortoise := filepath.Join(dirPath, "tortoise.yaml")
 	ctx := context.Background()
 
 	var tor *v1beta3.Tortoise
-	if tortoise != "" {
-		y, err := os.ReadFile(tortoise)
-		Expect(err).NotTo(HaveOccurred())
+	y, err := os.ReadFile(tortoise)
+	if err == nil {
 		tor = &v1beta3.Tortoise{}
 		err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(tor)
 		status := tor.Status
@@ -112,9 +116,11 @@ func validateDeletionTest(hpa, tortoise string, valid bool) {
 		tor.Status = status
 		err = k8sClient.Status().Update(ctx, tor)
 		Expect(err).NotTo(HaveOccurred())
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		Expect(err).NotTo(HaveOccurred())
 	}
 
-	y, err := os.ReadFile(hpa)
+	y, err = os.ReadFile(hpa)
 	Expect(err).NotTo(HaveOccurred())
 	beforehpa := &v2.HorizontalPodAutoscaler{}
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(beforehpa)
@@ -124,10 +130,11 @@ func validateDeletionTest(hpa, tortoise string, valid bool) {
 
 	defer func() {
 		// cleanup
-		if tortoise != "" {
+		if tor != nil {
 			err = k8sClient.Delete(ctx, tor)
 			Expect(err).NotTo(HaveOccurred())
 		}
+
 		if !valid { // if valid, HPA is already deleted
 			err = k8sClient.Delete(ctx, beforehpa)
 			Expect(err).NotTo(HaveOccurred())
@@ -153,31 +160,30 @@ func validateDeletionTest(hpa, tortoise string, valid bool) {
 var _ = Describe("v2.HPA Webhook", func() {
 	Context("mutating", func() {
 		It("HPA is mutated based on the recommendation from auto tortoise", func() {
-			mutateTest(filepath.Join("testdata", "mutating", "mutate-by-recommendations", "before.yaml"), filepath.Join("testdata", "mutating", "mutate-by-recommendations", "after.yaml"), filepath.Join("testdata", "mutating", "mutate-by-recommendations", "tortoise.yaml"))
+			mutateTest(filepath.Join("testdata", "mutating", "mutate-by-recommendations"))
 		})
 		It("HPA is mutated based on the recommendation from emergency Tortoise", func() {
-			mutateTest(filepath.Join("testdata", "mutating", "mutate-by-recommendations-back-to-normal", "before.yaml"), filepath.Join("testdata", "mutating", "mutate-by-recommendations-back-to-normal", "after.yaml"), filepath.Join("testdata", "mutating", "mutate-by-recommendations-back-to-normal", "tortoise.yaml"))
+			mutateTest(filepath.Join("testdata", "mutating", "mutate-by-recommendations-back-to-normal"))
 		})
 		It("HPA is partly mutated based on the recommendation from auto tortoise", func() {
-			mutateTest(filepath.Join("testdata", "mutating", "mutate-by-one-recommendation", "before.yaml"), filepath.Join("testdata", "mutating", "mutate-by-one-recommendation", "after.yaml"), filepath.Join("testdata", "mutating", "mutate-by-one-recommendation", "tortoise.yaml"))
+			mutateTest(filepath.Join("testdata", "mutating", "mutate-by-one-recommendation"))
 		})
 		It("HPA is not mutated (dryrun)", func() {
-			mutateTest(filepath.Join("testdata", "mutating", "no-mutate-by-recommendations-when-dryrun", "before.yaml"), filepath.Join("testdata", "mutating", "no-mutate-by-recommendations-when-dryrun", "after.yaml"), filepath.Join("testdata", "mutating", "no-mutate-by-recommendations-when-dryrun", "tortoise.yaml"))
+			mutateTest(filepath.Join("testdata", "mutating", "no-mutate-by-recommendations-when-dryrun"))
 		})
 		It("HPA is not mutated because of invalid annotation", func() {
-			mutateTest(filepath.Join("testdata", "mutating", "has-annotation-but-invalid1", "before.yaml"), filepath.Join("testdata", "mutating", "has-annotation-but-invalid1", "after.yaml"), filepath.Join("testdata", "mutating", "has-annotation-but-invalid1", "tortoise.yaml"))
-			mutateTest(filepath.Join("testdata", "mutating", "has-annotation-but-invalid2", "before.yaml"), filepath.Join("testdata", "mutating", "has-annotation-but-invalid2", "after.yaml"), filepath.Join("testdata", "mutating", "has-annotation-but-invalid2", "tortoise.yaml"))
+			mutateTest(filepath.Join("testdata", "mutating", "no-tortoise-for-this-hpa"))
 		})
 	})
 	Context("validating", func() {
 		It("invalid: HPA cannot be deleted when Tortoise (Auto) exists", func() {
-			validateDeletionTest(filepath.Join("testdata", "validating", "hpa-with-auto-existing", "hpa.yaml"), filepath.Join("testdata", "validating", "hpa-with-auto-existing", "tortoise.yaml"), false)
+			validateDeletionTest(filepath.Join("testdata", "validating", "hpa-with-auto-existing"), false)
 		})
 		It("invalid: HPA can not be deleted when Tortoise (Off) exists", func() {
-			validateDeletionTest(filepath.Join("testdata", "validating", "hpa-with-off", "hpa.yaml"), filepath.Join("testdata", "validating", "hpa-with-off", "tortoise.yaml"), false)
+			validateDeletionTest(filepath.Join("testdata", "validating", "hpa-with-off"), false)
 		})
-		It("valid: HPA can be deleted when Tortoise (Auto) is deleted", func() {
-			validateDeletionTest(filepath.Join("testdata", "validating", "hpa-with-auto-deleted", "hpa.yaml"), "", true)
+		It("valid: HPA can be deleted when Tortoise (Auto) is deleted (no tortoise refers to this HPA)", func() {
+			validateDeletionTest(filepath.Join("testdata", "validating", "hpa-with-auto-deleted"), true)
 		})
 		It("valid: HPA can be deleted when Tortoise (Auto) is being deleted", func() {
 			// create tortoise

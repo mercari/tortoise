@@ -13,14 +13,14 @@ spec:
         sidecar.istio.io/inject: "true"
         sidecar.istio.io/proxyCPU: "4"
         sidecar.istio.io/proxyMemory: 4Gi
-        tortoise.autoscaling.mercari.com/tortoise-name: mercari
       creationTimestamp: null
       labels:
         app: mercari
     spec:
       containers:
-      - name: istio-proxy 
-        image: auto
+      - image: auto
+        name: istio-proxy
+        resources: {}
       - image: awesome-mercari-app-image
         name: app
         resources:

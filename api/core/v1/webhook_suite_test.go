@@ -42,6 +42,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	controllerfetcher "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/target/controller_fetcher"
+	"k8s.io/client-go/informers"
+	kube_client "k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -162,11 +165,22 @@ var _ = BeforeSuite(func() {
 	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, config.RangeOfMinMaxReplicasRecommendationHours, config.TimeZone, config.TortoiseUpdateInterval, config.GatheringDataPeriodType)
 	Expect(err).NotTo(HaveOccurred())
 
-	podService, err := pod.New(map[string]int64{}, "0")
+	const (
+		defaultResyncPeriod                        = 10 * time.Minute
+		statusUpdateInterval                       = 10 * time.Second
+		scaleCacheEntryLifetime      time.Duration = time.Hour
+		scaleCacheEntryFreshnessTime time.Duration = 10 * time.Minute
+		scaleCacheEntryJitterFactor  float64       = 1.
+	)
+
+	kubeClient := kube_client.NewForConfigOrDie(mgr.GetConfig())
+	factory := informers.NewSharedInformerFactory(kubeClient, defaultResyncPeriod)
+
+	controllerFetcher := controllerfetcher.NewControllerFetcher(mgr.GetConfig(), kubeClient, factory, scaleCacheEntryFreshnessTime, scaleCacheEntryLifetime, scaleCacheEntryJitterFactor)
+	podService, err := pod.New(map[string]int64{}, "0", controllerFetcher)
 	Expect(err).NotTo(HaveOccurred())
 
 	podWebhook := New(tortoiseService, podService)
-
 	err = ctrl.NewWebhookManagedBy(mgr).
 		WithDefaulter(podWebhook).
 		For(&v1.Pod{}).
@@ -199,5 +213,10 @@ var _ = AfterSuite(func() {
 	cancel()
 	By("tearing down the test environment")
 	err := testEnv.Stop()
+	if err != nil {
+		// This is a workaround for the issue that the webhook server is not stopped properly.
+		time.Sleep(4 * time.Second)
+	}
+	err = testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })

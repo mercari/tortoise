@@ -1,0 +1,36 @@
+# This Pod belongs to the replicaset which doesn't have any deployment
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sample
+  namespace: default
+  labels:
+    app: nginx
+  annotations:
+    tortoise.autoscaling.mercari.com/tortoise-name: tortoise-sample
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    resources:
+      requests:
+        cpu: 100m
+        memory: 100Mi
+      limits:
+        cpu: 200m
+        memory: 200Mi
+    terminationMessagePath: "/dev/termination-log"
+    terminationMessagePolicy: "File"
+    imagePullPolicy: "Always"
+  - name: istio-proxy
+    image: istio
+    resources:
+      requests:
+        cpu: 100m
+        memory: 100Mi
+      limits:
+        cpu: 900m
+        memory: 200Mi
+    terminationMessagePath: "/dev/termination-log"
+    terminationMessagePolicy: "File"
+    imagePullPolicy: "Always"

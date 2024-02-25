@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -43,7 +44,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func mutateTest(before, after, tortoise string) {
+func mutateTest(dirPath string) {
+	tortoise := filepath.Join(dirPath, "tortoise.yaml")
+	before := filepath.Join(dirPath, "before.yaml")
+	after := filepath.Join(dirPath, "after.yaml")
+	rs := filepath.Join(dirPath, "replicaset.yaml")
+	dp := filepath.Join(dirPath, "deployment.yaml")
 	ctx := context.Background()
 
 	y, err := os.ReadFile(tortoise)
@@ -61,11 +67,33 @@ func mutateTest(before, after, tortoise string) {
 	err = k8sClient.Status().Update(ctx, tor)
 	Expect(err).NotTo(HaveOccurred())
 
+	y, err = os.ReadFile(dp)
+	Expect(err).NotTo(HaveOccurred())
+	deployment := &appv1.Deployment{}
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(deployment)
+	Expect(err).NotTo(HaveOccurred())
+	err = k8sClient.Create(ctx, deployment)
+	Expect(err).NotTo(HaveOccurred())
+
+	y, err = os.ReadFile(rs)
+	Expect(err).NotTo(HaveOccurred())
+	replicaset := &appv1.ReplicaSet{}
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(replicaset)
+	Expect(err).NotTo(HaveOccurred())
+	if len(replicaset.OwnerReferences) != 0 {
+		replicaset.OwnerReferences[0].UID = deployment.UID
+	}
+	err = k8sClient.Create(ctx, replicaset)
+	Expect(err).NotTo(HaveOccurred())
+
 	y, err = os.ReadFile(before)
 	Expect(err).NotTo(HaveOccurred())
 	beforepod := &v1.Pod{}
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(beforepod)
 	Expect(err).NotTo(HaveOccurred())
+	if len(beforepod.OwnerReferences) != 0 {
+		beforepod.OwnerReferences[0].UID = replicaset.UID
+	}
 	err = k8sClient.Create(ctx, beforepod)
 	Expect(err).NotTo(HaveOccurred())
 	defer func() {
@@ -73,7 +101,14 @@ func mutateTest(before, after, tortoise string) {
 		err = k8sClient.Delete(ctx, tor)
 		Expect(err).NotTo(HaveOccurred())
 		time.Sleep(time.Second)
+
 		err = k8sClient.Delete(ctx, beforepod)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = k8sClient.Delete(ctx, replicaset)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = k8sClient.Delete(ctx, deployment)
 		Expect(err).NotTo(HaveOccurred())
 	}()
 
@@ -96,10 +131,19 @@ func mutateTest(before, after, tortoise string) {
 var _ = Describe("v1.Pod Webhook", func() {
 	Context("mutating", func() {
 		It("Pod with Auto Tortoise is mutated", func() {
-			mutateTest(filepath.Join("testdata", "mutating", "auto-tortoise", "before.yaml"), filepath.Join("testdata", "mutating", "auto-tortoise", "after.yaml"), filepath.Join("testdata", "mutating", "auto-tortoise", "tortoise.yaml"))
+			mutateTest(filepath.Join("testdata", "mutating", "auto-tortoise"))
+		})
+		It("Pod that isn't managed by Tortoise is ignored", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "auto-tortoise-no-tortoise"))
+		})
+		It("Pod that managed by Replicaset is ignored", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "auto-tortoise-no-dp"))
+		})
+		It("Pod that isn't managed by any controller is ignored", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "auto-tortoise-no-dp"))
 		})
 		It("Pod with Off Tortoise is not mutated", func() {
-			mutateTest(filepath.Join("testdata", "mutating", "off-tortoise", "before.yaml"), filepath.Join("testdata", "mutating", "off-tortoise", "after.yaml"), filepath.Join("testdata", "mutating", "off-tortoise", "tortoise.yaml"))
+			mutateTest(filepath.Join("testdata", "mutating", "off-tortoise"))
 		})
 	})
 })

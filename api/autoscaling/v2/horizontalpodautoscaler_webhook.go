@@ -33,13 +33,11 @@ import (
 	v2 "k8s.io/api/autoscaling/v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/mercari/tortoise/api/v1beta3"
-	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/hpa"
 	"github.com/mercari/tortoise/pkg/tortoise"
 )
@@ -63,43 +61,44 @@ var _ admission.CustomDefaulter = &HPAWebhook{}
 // Default implements admission.CustomDefaulter so a webhook will be registered for the type
 func (h *HPAWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	hpa := obj.(*v2.HorizontalPodAutoscaler)
-	tortoiseName, ok := hpa.GetAnnotations()[annotation.TortoiseNameAnnotation]
-	if !ok {
-		//nolint // We use the deprecated annotation deliberately so that we don't break existing users.
-		tortoiseName, ok = hpa.GetAnnotations()[annotation.DeprecatedTortoiseNameAnnotation]
-	}
-	if !ok {
-		// not managed by tortoise
-		return nil
-	}
-
-	t, err := h.tortoiseService.GetTortoise(ctx, types.NamespacedName{
-		Namespace: hpa.Namespace,
-		Name:      tortoiseName,
-	})
+	tl, err := h.tortoiseService.ListTortoise(ctx, hpa.Namespace)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
 		// Block updating HPA may be critical. Just ignore it with error logs.
-		log.FromContext(ctx).Error(err, "failed to get tortoise for mutating webhook of HPA", "hpa", klog.KObj(hpa), "tortoise", tortoiseName)
+		log.FromContext(ctx).Error(err, "failed to get tortoise for mutating webhook of HPA", "hpa", klog.KObj(hpa))
+		return nil
+	}
+	if len(tl.Items) == 0 {
+		// This namespace don't have any tortoise and thus this HPA isn't managed by tortoise.
 		return nil
 	}
 
-	if t.Status.Targets.HorizontalPodAutoscaler != hpa.Name {
-		// should not reach here
+	var tortoise *v1beta3.Tortoise
+	for _, t := range tl.Items {
+		if t.Status.Targets.HorizontalPodAutoscaler == hpa.Name {
+			tortoise = t.DeepCopy()
+			break
+		}
+	}
+	if tortoise == nil {
+		// This HPA isn't managed by any tortoise.
 		return nil
 	}
 
-	if t.Spec.UpdateMode == v1beta3.UpdateModeOff {
+	if tortoise.Spec.UpdateMode == v1beta3.UpdateModeOff {
 		// DryRun, don't update HPA
 		return nil
 	}
 
 	// tortoisePhase may be changed in ChangeHPAFromTortoiseRecommendation, so we need to get it before calling it.
-	tortoisePhase := t.Status.TortoisePhase
+	tortoisePhase := tortoise.Status.TortoisePhase
 
-	modifiedhpa, _, err := h.hpaService.ChangeHPAFromTortoiseRecommendation(t, hpa.DeepCopy(), time.Now(), false) // we don't need to record metrics.
+	modifiedhpa, _, err := h.hpaService.ChangeHPAFromTortoiseRecommendation(tortoise, hpa.DeepCopy(), time.Now(), false) // we don't need to record metrics.
 	if err != nil {
 		// Block updating HPA may be critical. Just ignore it with error logs.
-		log.FromContext(ctx).Error(err, "failed to get tortoise for mutating webhook of HPA", "hpa", klog.KObj(hpa), "tortoise", tortoiseName)
+		log.FromContext(ctx).Error(err, "failed to get tortoise for mutating webhook of HPA", "hpa", klog.KObj(hpa), "tortoise", tortoise.Name)
 		return nil
 	}
 
