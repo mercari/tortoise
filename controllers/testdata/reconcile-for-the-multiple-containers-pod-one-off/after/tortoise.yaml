@@ -55,7 +55,7 @@ status:
     - containerName: app
       resource:
         cpu: "10"
-        memory: 3543348019200m
+        memory: 3Gi
     - containerName: istio-proxy
       resource:
         cpu: "4"
@@ -124,7 +124,7 @@ status:
       containerResourceRecommendation:
       - RecommendedResource:
           cpu: "10"
-          memory: 3543348019200m
+          memory: 3Gi
         containerName: app
       - RecommendedResource:
           cpu: "4"

@@ -64,12 +64,12 @@ status:
     containerResourceRequests:
     - containerName: app
       resource:
-        cpu: 3300m
-        memory: 3543348019200m
+        cpu: "3"
+        memory: 3Gi
     - containerName: istio-proxy
       resource:
-        cpu: 3300m
-        memory: 3543348019200m
+        cpu: "3"
+        memory: 3Gi
     tortoiseConditions:
     - lastTransitionTime: "2023-01-01T00:00:00Z"
       lastUpdateTime: "2023-01-01T00:00:00Z"
@@ -119,12 +119,12 @@ status:
     vertical:
       containerResourceRecommendation:
       - RecommendedResource:
-          cpu: 3300m
-          memory: 3543348019200m
+          cpu: "3"
+          memory: 3Gi
         containerName: app
       - RecommendedResource:
-          cpu: 3300m
-          memory: 3543348019200m
+          cpu: "3"
+          memory: 3Gi
         containerName: istio-proxy
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari
