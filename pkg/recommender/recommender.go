@@ -42,6 +42,8 @@ type Service struct {
 	// For example, if the current resource request is 100m, the max allowed scaling down ratio is 0.8,
 	// the minimum resource request that Tortoise can apply is 80m.
 	maxAllowedScalingDownRatio float64
+
+	bufferRatioOnVerticalResource float64
 }
 
 func New(
@@ -59,6 +61,7 @@ func New(
 	maxMemory string,
 	maximumMaxReplica int32,
 	maxAllowedScalingDownRatio float64,
+	bufferRatioOnVerticalResourceRecommendation float64,
 	featureFlags []features.FeatureFlag,
 	eventRecorder record.EventRecorder,
 ) *Service {
@@ -91,9 +94,10 @@ func New(
 			corev1.ResourceCPU:    resource.MustParse(maxCPU),
 			corev1.ResourceMemory: resource.MustParse(maxMemory),
 		},
-		maximumMaxReplica:          maximumMaxReplica,
-		featureFlags:               featureFlags,
-		maxAllowedScalingDownRatio: maxAllowedScalingDownRatio,
+		maximumMaxReplica:             maximumMaxReplica,
+		featureFlags:                  featureFlags,
+		maxAllowedScalingDownRatio:    maxAllowedScalingDownRatio,
+		bufferRatioOnVerticalResource: bufferRatioOnVerticalResourceRecommendation,
 	}
 }
 
@@ -216,8 +220,8 @@ func (s *Service) calculateBestNewSize(
 		// It's the simplest case.
 		// The user configures Vertical on this container's resource. This is just vertical scaling.
 		// We always follow the recommendation from VPA.
-		newSize := recommendedResourceRequest.MilliValue()
-		jastified := s.justifyNewSize(resourceRequest.MilliValue(), newSize, k, minAllocatedResources, containerName)
+		newSize := float64(recommendedResourceRequest.MilliValue()) * (1 + s.bufferRatioOnVerticalResource)
+		jastified := s.justifyNewSize(resourceRequest.MilliValue(), int64(newSize), k, minAllocatedResources, containerName)
 		return jastified, fmt.Sprintf("change %v request (%v) (%v → %v) based on VPA suggestion", k, containerName, resourceRequest.MilliValue(), jastified), tortoise, nil
 	}
 

@@ -190,6 +190,10 @@ type Config struct {
 	MinimumCPURequestPerContainer map[string]string `yaml:"MinimumCPURequestPerContainer"`
 	// MinimumMemoryRequest is the minimum memory bytes that the tortoise can give to the container resource request (default: 50Mi)
 	MinimumMemoryRequest string `yaml:"MinimumMemoryRequest"`
+	// BufferRatioOnVerticalResource is the buffer ratio on vertical resource (default: 0.1)
+	// For example, if the recommendation from VPA is 100m, and BufferOnVerticalResource is 0.1,
+	// the tortoise will set the resource request to 110m.
+	BufferRatioOnVerticalResource float64 `yaml:"BufferRatioOnVerticalResource"`
 	// MinimumMemoryRequestPerContainer is the minimum memory bytes per container that the tortoise can give to the container (default: nil)
 	// If you specify both, the tortoise uses MinimumMemoryRequestPerContainer basically, but if the container name is not found in this map, the tortoise uses MinimumMemoryRequest.
 	//
@@ -290,6 +294,7 @@ func defaultConfig() *Config {
 		IstioSidecarProxyDefaultMemory:           "200Mi",
 		MinimumCPULimit:                          "0",
 		ResourceLimitMultiplier:                  map[string]int64{},
+		BufferRatioOnVerticalResource:            0.1,
 	}
 }
 
