@@ -216,7 +216,7 @@ func main() {
 	controllerFetcher.Start(ctx, 1*time.Second)
 	defer cancel()
 
-	podService, err := pod.New(config.ResourceLimitMultiplier, config.MinimumCPULimit, controllerFetcher)
+	podService, err := pod.New(config.ResourceLimitMultiplier, config.MinimumCPULimit, controllerFetcher, config.FeatureFlags)
 	if err != nil {
 		setupLog.Error(err, "unable to create pod service")
 		os.Exit(1)

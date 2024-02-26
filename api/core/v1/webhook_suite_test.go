@@ -177,7 +177,7 @@ var _ = BeforeSuite(func() {
 	factory := informers.NewSharedInformerFactory(kubeClient, defaultResyncPeriod)
 
 	controllerFetcher := controllerfetcher.NewControllerFetcher(mgr.GetConfig(), kubeClient, factory, scaleCacheEntryFreshnessTime, scaleCacheEntryLifetime, scaleCacheEntryJitterFactor)
-	podService, err := pod.New(map[string]int64{}, "0", controllerFetcher)
+	podService, err := pod.New(map[string]int64{}, "0", controllerFetcher, nil)
 	Expect(err).NotTo(HaveOccurred())
 
 	podWebhook := New(tortoiseService, podService)

@@ -2,6 +2,8 @@ package pod
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -10,26 +12,33 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/mercari/tortoise/api/v1beta3"
+	"github.com/mercari/tortoise/pkg/features"
 	"github.com/mercari/tortoise/pkg/utils"
 )
 
 type Service struct {
 	// For example, if it's 3 and Pod's resource request is 100m, the limit will be changed to 300m.
-	resourceLimitMultiplier map[string]int64
-	minimumCPULimit         resource.Quantity
-	controllerFetcher       controllerfetcher.ControllerFetcher
+	resourceLimitMultiplier      map[string]int64
+	minimumCPULimit              resource.Quantity
+	controllerFetcher            controllerfetcher.ControllerFetcher
+	golangEnvModificationEnabled bool
 }
 
 func New(
 	resourceLimitMultiplier map[string]int64,
-	MinimumCPULimit string,
+	minimumCPULimit string,
 	cf controllerfetcher.ControllerFetcher,
+	featureFlags []features.FeatureFlag,
 ) (*Service, error) {
-	minCPULim := resource.MustParse(MinimumCPULimit)
+	if minimumCPULimit == "" {
+		minimumCPULimit = "0"
+	}
+	minCPULim := resource.MustParse(minimumCPULimit)
 	return &Service{
-		resourceLimitMultiplier: resourceLimitMultiplier,
-		minimumCPULimit:         minCPULim,
-		controllerFetcher:       cf,
+		resourceLimitMultiplier:      resourceLimitMultiplier,
+		minimumCPULimit:              minCPULim,
+		controllerFetcher:            cf,
+		golangEnvModificationEnabled: features.Contains(featureFlags, features.GolangEnvModification),
 	}, nil
 }
 
@@ -40,21 +49,22 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 	}
 
 	oldRequestsMap := map[containerNameAndResource]resource.Quantity{}
+	// For example, if the resource request is changed 100m → 200m, 2 will be stored.
+	requestChangeRatio := map[containerNameAndResource]float64{}
 	newRequestsMap := map[containerNameAndResource]resource.Quantity{}
 
 	// Update resource requests based on the tortoise.Status.Conditions.ContainerResourceRequests
 	for i, container := range pod.Spec.Containers {
 		for k, oldReq := range container.Resources.Requests {
-			oldRequestsMap[containerNameAndResource{containerName: container.Name, resourceName: k}] = oldReq
-
 			newReq, ok := utils.GetRequestFromTortoise(t, container.Name, k)
 			if !ok {
 				// Unchange, just store the old value as a new value
-				newRequestsMap[containerNameAndResource{containerName: container.Name, resourceName: k}] = oldReq
-				continue
+				newReq = oldReq
 			}
-			pod.Spec.Containers[i].Resources.Requests[k] = newReq
+			oldRequestsMap[containerNameAndResource{containerName: container.Name, resourceName: k}] = oldReq
 			newRequestsMap[containerNameAndResource{containerName: container.Name, resourceName: k}] = newReq
+			pod.Spec.Containers[i].Resources.Requests[k] = newReq
+			requestChangeRatio[containerNameAndResource{containerName: container.Name, resourceName: k}] = float64(newReq.MilliValue()) / float64(oldReq.MilliValue())
 		}
 	}
 
@@ -87,6 +97,53 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 				newLim = ptr.To(s.minimumCPULimit.DeepCopy())
 			}
 			pod.Spec.Containers[i].Resources.Limits[k] = *newLim
+		}
+	}
+
+	if !s.golangEnvModificationEnabled {
+		return
+	}
+
+	// Update GOMEMLIMIT and GOMAXPROCS
+	for i, container := range pod.Spec.Containers {
+		for j, env := range container.Env {
+			if env.Name == "GOMAXPROCS" {
+				// e.g., If CPU is increased twice, GOMAXPROCS should be doubled.
+				changeRatio, ok := requestChangeRatio[containerNameAndResource{
+					containerName: container.Name,
+					resourceName:  v1.ResourceCPU,
+				}]
+				if !ok {
+					continue
+				}
+				oldNum, err := strconv.Atoi(env.Value)
+				if err != nil {
+					// invalid GOMAXPROCS, skip
+					continue
+				}
+				newUncapedNum := float64(oldNum) * changeRatio
+				// GOMAXPROCS should be an integer.
+				newNum := int(math.Ceil(newUncapedNum))
+				pod.Spec.Containers[i].Env[j].Value = strconv.Itoa(newNum)
+
+			}
+
+			if env.Name == "GOMEMLIMIT" {
+				changeRatio, ok := requestChangeRatio[containerNameAndResource{
+					containerName: container.Name,
+					resourceName:  v1.ResourceMemory,
+				}]
+				if !ok {
+					continue
+				}
+				oldNum, err := resource.ParseQuantity(env.Value)
+				if err != nil {
+					// invalid GOMEMLIMIT, skip
+					continue
+				}
+				newNum := int64(float64(oldNum.MilliValue()) * changeRatio)
+				pod.Spec.Containers[i].Env[j].Value = resource.NewMilliQuantity(newNum, oldNum.Format).String()
+			}
 		}
 	}
 }
