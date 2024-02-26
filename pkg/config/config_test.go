@@ -57,6 +57,7 @@ func TestParseConfig(t *testing.T) {
 					"cpu":    3,
 					"memory": 1,
 				},
+				BufferRatioOnVerticalResource: 0.2,
 			},
 		},
 		{
@@ -91,6 +92,7 @@ func TestParseConfig(t *testing.T) {
 				MinimumCPURequestPerContainer:            map[string]string{},
 				MinimumMemoryRequestPerContainer:         map[string]string{},
 				ResourceLimitMultiplier:                  map[string]int64{},
+				BufferRatioOnVerticalResource:            0.1,
 			},
 		},
 		{
@@ -132,6 +134,7 @@ func TestParseConfig(t *testing.T) {
 				MinimumCPURequestPerContainer:            map[string]string{},
 				MinimumMemoryRequestPerContainer:         map[string]string{},
 				ResourceLimitMultiplier:                  map[string]int64{},
+				BufferRatioOnVerticalResource:            0.1,
 			},
 		},
 	}

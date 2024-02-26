@@ -181,6 +181,7 @@ func main() {
 			config.MaximumMemoryRequest,
 			config.MaximumMaxReplicas,
 			config.MaxAllowedScalingDownRatio,
+			config.BufferRatioOnVerticalResource,
 			config.FeatureFlags,
 			eventRecorder,
 		),

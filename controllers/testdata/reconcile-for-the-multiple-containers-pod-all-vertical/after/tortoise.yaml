@@ -54,12 +54,12 @@ status:
     containerResourceRequests:
     - containerName: app
       resource:
-        cpu: "3"
-        memory: 3Gi
+        cpu: 3300m
+        memory: 3543348019200m
     - containerName: istio-proxy
       resource:
-        cpu: "3"
-        memory: 3Gi
+        cpu: 3300m
+        memory: 3543348019200m
     tortoiseConditions:
     - lastTransitionTime: "2023-01-01T00:00:00Z"
       lastUpdateTime: "2023-01-01T00:00:00Z"
@@ -109,12 +109,12 @@ status:
     vertical:
       containerResourceRecommendation:
       - RecommendedResource:
-          cpu: "3"
-          memory: 3Gi
+          cpu: 3300m
+          memory: 3543348019200m
         containerName: app
       - RecommendedResource:
-          cpu: "3"
-          memory: 3Gi
+          cpu: 3300m
+          memory: 3543348019200m
         containerName: istio-proxy
   targets:
     horizontalPodAutoscaler: ""

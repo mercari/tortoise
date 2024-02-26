@@ -23,3 +23,4 @@ ResourceLimitMultiplier:
   cpu: 3
   memory: 1
 MinimumCPULimit: "1"
+BufferRatioOnVerticalResource: 0.2

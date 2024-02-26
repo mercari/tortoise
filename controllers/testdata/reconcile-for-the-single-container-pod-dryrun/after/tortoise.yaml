@@ -94,7 +94,7 @@ status:
       containerResourceRecommendation:
       - RecommendedResource:
           cpu: "4"
-          memory: 3Gi
+          memory: 3543348019200m
         containerName: app
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari
