@@ -13,6 +13,7 @@ import (
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/features"
+	"github.com/mercari/tortoise/pkg/utils"
 )
 
 type Service struct {
@@ -55,7 +56,7 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 	// Update resource requests based on the tortoise.Status.Conditions.ContainerResourceRequests
 	for i, container := range pod.Spec.Containers {
 		for k, oldReq := range container.Resources.Requests {
-			newReq, ok := getRequestFromTortoise(t, container.Name, k)
+			newReq, ok := utils.GetRequestFromTortoise(t, container.Name, k)
 			if !ok {
 				// Unchange, just store the old value as a new value
 				newReq = oldReq
@@ -185,16 +186,4 @@ func (s *Service) GetDeploymentForPod(pod *v1.Pod) (string, error) {
 type containerNameAndResource struct {
 	containerName string
 	resourceName  v1.ResourceName
-}
-
-// getRequestFromTortoise returns the resource request from the tortoise.Status.Conditions.ContainerResourceRequests.
-func getRequestFromTortoise(t *v1beta3.Tortoise, containerName string, resourceName v1.ResourceName) (resource.Quantity, bool) {
-	for _, req := range t.Status.Conditions.ContainerResourceRequests {
-		if req.ContainerName == containerName {
-			rec, ok := req.Resource[resourceName]
-			return rec, ok
-		}
-	}
-
-	return resource.Quantity{}, false
 }

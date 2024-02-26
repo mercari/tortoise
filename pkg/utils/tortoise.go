@@ -4,6 +4,8 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/mercari/tortoise/api/v1beta3"
@@ -70,4 +72,16 @@ func RemoveTortoiseResourcePhase(tortoise *v1beta3.Tortoise, containerName strin
 	}
 
 	return tortoise
+}
+
+// getRequestFromTortoise returns the resource request from the tortoise.Status.Conditions.ContainerResourceRequests.
+func GetRequestFromTortoise(t *v1beta3.Tortoise, containerName string, resourceName v1.ResourceName) (resource.Quantity, bool) {
+	for _, req := range t.Status.Conditions.ContainerResourceRequests {
+		if req.ContainerName == containerName {
+			rec, ok := req.Resource[resourceName]
+			return rec, ok
+		}
+	}
+
+	return resource.Quantity{}, false
 }

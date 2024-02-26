@@ -168,7 +168,8 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 	currentReplicaNum := dm.Status.Replicas
 
-	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff || tortoise.Status.Conditions.ContainerResourceRequests == nil {
+	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff /* When Off, ContainerResourceRequests should be reset */ ||
+		tortoise.Status.Conditions.ContainerResourceRequests == nil /* The first reconciliation */ {
 		// If the update mode is off, we have to update ContainerResourceRequests from the deployment directly
 		// so that pods will get an original resource request.
 		// If it's not off, ContainerResourceRequests should be updated in UpdateVPAFromTortoiseRecommendation in the last reconciliation.
