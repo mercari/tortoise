@@ -277,9 +277,10 @@ func (s *Service) calculateBestNewSize(
 		return 0, "", tortoise, fmt.Errorf("get the target value from HPA: %w", err)
 	}
 
-	upperUtilization := math.Ceil((float64(recommendedResourceRequest.MilliValue()) / float64(resourceRequest.MilliValue())) * 100)
-	if targetUtilizationValue > int32(upperUtilization) {
-		// upperUtilization is less than targetUtilizationValue, which seems weird in normal cases.
+	upperUtilization := (float64(recommendedResourceRequest.MilliValue()) / float64(resourceRequest.MilliValue())) * 100
+	// If upperUtilization is very close to targetUtilizationValue, we don't have to change the resource request.
+	if float64(targetUtilizationValue)*0.9 > upperUtilization {
+		// upperUtilization is much less than targetUtilizationValue, which seems weird in normal cases.
 		// In this case, most likely the container size is unbalanced. (= we need multi-container specific optimization)
 		// So, for example, when app:istio use the resource in the ratio of 1:5, but the resource request is 1:1,
 		// the resource given to istio is always wasted. (since HPA is always kicked by the resource utilization of app)
