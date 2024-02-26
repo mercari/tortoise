@@ -623,19 +623,38 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 
 	newRequests := make([]v1beta3.ContainerResourceRequests, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
 	for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
+		recommendation := r.RecommendedResource.DeepCopy()
 		// We only records proposed* metrics here (record applied* metrics later)
 		// because we don't want to record applied* metrics when UpdateMode is Off.
 		for resourcename, value := range r.RecommendedResource {
 			if resourcename == corev1.ResourceCPU {
 				metrics.ProposedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
+				if value.IsZero() {
+					// This recommendation seems to be invalid. We don't want to set the resource request to 0.
+					// Restore the old value.
+					oldvalue, ok := utils.GetRequestFromTortoise(tortoise, r.ContainerName, corev1.ResourceCPU)
+					if ok {
+						log.FromContext(ctx).Error(nil, "The recommended CPU request is 0, which seems to be invalid, restore the old value", "tortoise", tortoise.Name, "namespace", tortoise.Namespace, "container", r.ContainerName, "resource", corev1.ResourceCPU, "oldvalue", oldvalue, "newvalue", value)
+						recommendation[corev1.ResourceCPU] = oldvalue
+					}
+				}
 			}
 			if resourcename == corev1.ResourceMemory {
 				metrics.ProposedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
+				if value.IsZero() {
+					// This recommendation seems to be invalid. We don't want to set the resource request to 0.
+					// Restore the old value.
+					oldvalue, ok := utils.GetRequestFromTortoise(tortoise, r.ContainerName, corev1.ResourceMemory)
+					if ok {
+						log.FromContext(ctx).Error(nil, "The recommended Memory request is 0, which seems to be invalid, restore the old value", "tortoise", tortoise.Name, "namespace", tortoise.Namespace, "container", r.ContainerName, "resource", corev1.ResourceMemory, "oldvalue", oldvalue, "newvalue", value)
+						recommendation[corev1.ResourceMemory] = oldvalue
+					}
+				}
 			}
 		}
 		newRequests = append(newRequests, v1beta3.ContainerResourceRequests{
 			ContainerName: r.ContainerName,
-			Resource:      r.RecommendedResource,
+			Resource:      recommendation,
 		})
 	}
 	if tortoise.Spec.UpdateMode == v1beta3.UpdateModeOff {
