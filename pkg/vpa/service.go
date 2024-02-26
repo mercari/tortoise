@@ -116,6 +116,11 @@ func (c *Service) DisableTortoiseUpdaterVPA(ctx context.Context, tortoise *autos
 			}
 			return fmt.Errorf("get tortoise VPA: %w", err)
 		}
+		if oldVPA.Status.Recommendation == nil {
+			// Already no recommendation.
+			return nil
+		}
+
 		// Remove the recommendation from the VPA.
 		oldVPA.Status.Recommendation.ContainerRecommendations = nil
 
