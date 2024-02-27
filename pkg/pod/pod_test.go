@@ -1,11 +1,13 @@
 package pod
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/ptr"
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/features"
@@ -470,7 +472,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 									},
 									{
 										Name:  "GOMEMLIMIT",
-										Value: "100Mi",
+										Value: "100MiB",
 									},
 								},
 								Resources: v1.ResourceRequirements{
@@ -493,7 +495,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 									},
 									{
 										Name:  "GOMEMLIMIT",
-										Value: "100Mi",
+										Value: "100MiB",
 									},
 								},
 								Resources: v1.ResourceRequirements{
@@ -528,7 +530,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 									ContainerName: "istio-proxy",
 									Resource: v1.ResourceList{
 										v1.ResourceCPU:    resource.MustParse("50m"),
-										v1.ResourceMemory: resource.MustParse("200Mi"),
+										v1.ResourceMemory: resource.MustParse("2000Mi"),
 									},
 								},
 							},
@@ -548,7 +550,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 								},
 								{
 									Name:  "GOMEMLIMIT",
-									Value: "200Mi",
+									Value: strconv.Itoa(int(ptr.To(resource.MustParse("200Mi")).Value())),
 								},
 							},
 							Resources: v1.ResourceRequirements{
@@ -571,17 +573,17 @@ func TestService_ModifyPodResource(t *testing.T) {
 								},
 								{
 									Name:  "GOMEMLIMIT",
-									Value: "200Mi",
+									Value: strconv.Itoa(int(ptr.To(resource.MustParse("2000Mi")).Value())),
 								},
 							},
 							Resources: v1.ResourceRequirements{
 								Requests: v1.ResourceList{
 									v1.ResourceCPU:    resource.MustParse("50m"),
-									v1.ResourceMemory: resource.MustParse("200Mi"),
+									v1.ResourceMemory: resource.MustParse("2000Mi"),
 								},
 								Limits: v1.ResourceList{
 									v1.ResourceCPU:    resource.MustParse("200m"),
-									v1.ResourceMemory: resource.MustParse("400Mi"),
+									v1.ResourceMemory: resource.MustParse("4000Mi"),
 								},
 							},
 						},
