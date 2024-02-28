@@ -18,7 +18,6 @@ import (
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
-	"github.com/mercari/tortoise/pkg/annotation"
 )
 
 func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
@@ -2370,9 +2369,6 @@ func TestService_InitializeHPA(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "tortoise-hpa-tortoise",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(2),
@@ -2491,9 +2487,6 @@ func TestService_InitializeHPA(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "existing-hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -2630,9 +2623,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "existing-hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -2732,231 +2722,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "existing-hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
-				},
-				Spec: v2.HorizontalPodAutoscalerSpec{
-					MinReplicas: ptrInt32(1),
-					MaxReplicas: 2,
-					ScaleTargetRef: v2.CrossVersionObjectReference{
-						Kind:       "Deployment",
-						Name:       "deployment",
-						APIVersion: "apps/v1",
-					},
-					Metrics: []v2.MetricSpec{
-						{
-							Type: v2.ContainerResourceMetricSourceType,
-							ContainerResource: &v2.ContainerResourceMetricSource{
-								Name:      v1.ResourceCPU,
-								Container: "app",
-								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](70),
-									Type:               v2.UtilizationMetricType,
-								},
-							},
-						},
-						{
-							Type: v2.ContainerResourceMetricSourceType,
-							ContainerResource: &v2.ContainerResourceMetricSource{
-								Name:      v1.ResourceCPU,
-								Container: "istio-proxy",
-								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](70),
-									Type:               v2.UtilizationMetricType,
-								},
-							},
-						},
-					},
-					Behavior: &v2.HorizontalPodAutoscalerBehavior{
-						ScaleDown: &v2.HPAScalingRules{
-							Policies: []v2.HPAScalingPolicy{
-								{
-									Type:          v2.PercentScalingPolicy,
-									Value:         2,
-									PeriodSeconds: 90,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "add annotation to existing hpa",
-			args: args{
-				tortoise: &autoscalingv1beta3.Tortoise{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "tortoise",
-						Namespace: "default",
-					},
-					Spec: autoscalingv1beta3.TortoiseSpec{
-						TargetRefs: autoscalingv1beta3.TargetRefs{
-							HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
-							ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
-								Kind: "Deployment",
-								Name: "deployment",
-							},
-						},
-					},
-					Status: autoscalingv1beta3.TortoiseStatus{
-						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
-							{
-								ContainerName: "app",
-								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
-									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
-									v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
-								},
-							},
-							{
-								ContainerName: "istio-proxy",
-								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
-									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
-									v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
-								},
-							},
-						},
-						ContainerResourcePhases: []autoscalingv1beta3.ContainerResourcePhases{
-							{
-								ContainerName: "app",
-								ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
-									v1.ResourceCPU: {
-										Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
-									},
-									v1.ResourceMemory: {
-										Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
-									},
-								},
-							},
-							{
-								ContainerName: "istio-proxy",
-								ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
-									v1.ResourceCPU: {
-										Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
-									},
-									v1.ResourceMemory: {
-										Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
-									},
-								},
-							},
-						},
-						Targets: autoscalingv1beta3.TargetsStatus{
-							HorizontalPodAutoscaler: "existing-hpa",
-						},
-					},
-				},
-				replicaNum: 4,
-			},
-			initialHPA: &v2.HorizontalPodAutoscaler{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "existing-hpa",
-					Namespace:   "default",
-					Annotations: map[string]string{
-						// doesn't have the annotation
-					},
-				},
-				Spec: v2.HorizontalPodAutoscalerSpec{
-					MinReplicas: ptrInt32(1),
-					MaxReplicas: 2,
-					ScaleTargetRef: v2.CrossVersionObjectReference{
-						Kind:       "Deployment",
-						Name:       "deployment",
-						APIVersion: "apps/v1",
-					},
-					Metrics: []v2.MetricSpec{
-						{
-							Type: v2.ContainerResourceMetricSourceType,
-							ContainerResource: &v2.ContainerResourceMetricSource{
-								Name:      v1.ResourceCPU,
-								Container: "app",
-								Target: v2.MetricTarget{
-									AverageUtilization: ptr.To[int32](70),
-									Type:               v2.UtilizationMetricType,
-								},
-							},
-						},
-					},
-					Behavior: &v2.HorizontalPodAutoscalerBehavior{
-						ScaleDown: &v2.HPAScalingRules{
-							Policies: []v2.HPAScalingPolicy{
-								{
-									Type:          v2.PercentScalingPolicy,
-									Value:         2,
-									PeriodSeconds: 90,
-								},
-							},
-						},
-					},
-				},
-			},
-			wantTortoise: &autoscalingv1beta3.Tortoise{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "tortoise",
-					Namespace: "default",
-				},
-				Spec: autoscalingv1beta3.TortoiseSpec{
-					TargetRefs: autoscalingv1beta3.TargetRefs{
-						HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
-						ScaleTargetRef: autoscalingv1beta3.CrossVersionObjectReference{
-							Kind: "Deployment",
-							Name: "deployment",
-						},
-					},
-				},
-				Status: autoscalingv1beta3.TortoiseStatus{
-					AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
-						{
-							ContainerName: "app",
-							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
-								v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
-								v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
-							},
-						},
-						{
-							ContainerName: "istio-proxy",
-							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
-								v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
-								v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
-							},
-						},
-					},
-					ContainerResourcePhases: []autoscalingv1beta3.ContainerResourcePhases{
-						{
-							ContainerName: "app",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
-								v1.ResourceCPU: {
-									Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
-								},
-								v1.ResourceMemory: {
-									Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
-								},
-							},
-						},
-						{
-							ContainerName: "istio-proxy",
-							ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
-								v1.ResourceCPU: {
-									Phase: autoscalingv1beta3.ContainerResourcePhaseGatheringData,
-								},
-								v1.ResourceMemory: {
-									Phase: autoscalingv1beta3.ContainerResourcePhaseWorking,
-								},
-							},
-						},
-					},
-					Targets: autoscalingv1beta3.TargetsStatus{
-						HorizontalPodAutoscaler: "existing-hpa",
-					},
-				},
-			},
-			afterHPA: &v2.HorizontalPodAutoscaler{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "existing-hpa",
-					Namespace: "default",
-					Annotations: map[string]string{
-						// got the annotation
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -3073,9 +2838,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -3186,9 +2948,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -3294,9 +3053,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -3475,9 +3231,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "existing-hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -3589,9 +3342,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "existing-hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(4), // disabled
@@ -3684,9 +3434,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -3805,9 +3552,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -3921,9 +3665,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -4031,9 +3772,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -4158,9 +3896,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),
@@ -4289,9 +4024,6 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hpa",
 					Namespace: "default",
-					Annotations: map[string]string{
-						annotation.ManagedByTortoiseAnnotation: "true",
-					},
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
 					MinReplicas: ptrInt32(1),

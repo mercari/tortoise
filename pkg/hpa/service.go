@@ -24,7 +24,6 @@ import (
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
-	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/event"
 	"github.com/mercari/tortoise/pkg/metrics"
 	"github.com/mercari/tortoise/pkg/utils"
@@ -87,16 +86,11 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta
 	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
 		logger.Info("user specified the existing HPA, no need to create HPA")
 
-		// update the existing HPA that the user set on tortoise.
-		tortoise, err := c.giveAnnotationsOnExistingHPA(ctx, tortoise)
-		if err != nil {
-			return tortoise, fmt.Errorf("give annotations on a hpa specified in targetrefs: %w", err)
-		}
-
-		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPAUpdated, fmt.Sprintf("Updated HPA %s/%s", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
+		tortoise.Status.Targets.HorizontalPodAutoscaler = *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName
 
 		return tortoise, nil
 	}
+
 	logger.Info("no existing HPA specified, creating HPA")
 
 	// create default HPA.
@@ -110,39 +104,11 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta
 	return tortoise, nil
 }
 
-func (c *Service) giveAnnotationsOnExistingHPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*autoscalingv1beta3.Tortoise, error) {
-	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
-		// shouldn't reach here since the caller should check this.
-		return tortoise, fmt.Errorf("tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName is nil")
-	}
-
-	tortoise.Status.Targets.HorizontalPodAutoscaler = *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName
-	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
-		// When UpdateMode is Off, we don't want to update HPA at all.
-		// The annotation is just for the mutating webhook to know by which tortoise the HPA is managed.
-		// So, Off mode doesn't need to give the annotation.
-		return tortoise, nil
-	}
-
-	updateFn := func() error {
-		hpa := &v2.HorizontalPodAutoscaler{}
-		if err := c.c.Get(ctx, client.ObjectKey{
-			Namespace: tortoise.Namespace,
-			Name:      *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName,
-		}, hpa); err != nil {
-			return fmt.Errorf("get hpa: %w", err)
-		}
-		if hpa.Annotations == nil {
-			hpa.Annotations = map[string]string{}
-		}
-		hpa.Annotations[annotation.ManagedByTortoiseAnnotation] = "true"
-		return c.c.Update(ctx, hpa)
-	}
-
-	return tortoise, retry.RetryOnConflict(retry.DefaultRetry, updateFn)
-}
-
 func (c *Service) DeleteHPACreatedByTortoise(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) error {
+	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
+		// The user specified the existing HPA, so we shouldn't delete it.
+		return nil
+	}
 	if tortoise.Spec.DeletionPolicy == autoscalingv1beta3.DeletionPolicyNoDelete {
 		// A user specified the existing HPA and tortoise didn't create HPA by itself.
 		return nil
@@ -158,12 +124,6 @@ func (c *Service) DeleteHPACreatedByTortoise(ctx context.Context, tortoise *auto
 			return nil
 		}
 		return fmt.Errorf("failed to get hpa: %w", err)
-	}
-
-	// make sure it's created by tortoise
-	if v, ok := hpa.Annotations[annotation.ManagedByTortoiseAnnotation]; !ok || v != "true" {
-		// shouldn't reach here unless user manually remove the annotation.
-		return nil
 	}
 
 	if err := c.c.Delete(ctx, hpa); err != nil && !apierrors.IsNotFound(err) {
@@ -289,9 +249,6 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      autoscalingv1beta3.TortoiseDefaultHPAName(tortoise.Name),
 			Namespace: tortoise.Namespace,
-			Annotations: map[string]string{
-				annotation.ManagedByTortoiseAnnotation: "true",
-			},
 		},
 		Spec: v2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: v2.CrossVersionObjectReference{
@@ -519,17 +476,6 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 		return tortoise, nil
 	}
 
-	if givenHPA != nil {
-		// when the user specified the HPA, we need to make sure the HPA has the annotation so that the mutating webhook works correctly.
-		// (It may not have because we don't add the annotation for Off mode Tortoise.)
-		if _, ok := givenHPA.Annotations[annotation.ManagedByTortoiseAnnotation]; !ok {
-			tortoise, err := c.giveAnnotationsOnExistingHPA(ctx, tortoise)
-			if err != nil {
-				return tortoise, fmt.Errorf("give annotations on a hpa specified in targetrefs: %w", err)
-			}
-		}
-	}
-
 	if !HasHorizontal(tortoise) {
 		if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
 			// HPA should be created by Tortoise, which can be deleted.
@@ -568,11 +514,6 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 			return tortoise, nil
 		}
 		return tortoise, fmt.Errorf("failed to get hpa on tortoise: %w", err)
-	}
-
-	// make sure it's managed by tortoise
-	if v, ok := hpa.Annotations[annotation.ManagedByTortoiseAnnotation]; !ok || v != "true" {
-		return tortoise, fmt.Errorf("the HPA %s/%s is specified in tortoise, but not managed by tortoise", hpa.Namespace, hpa.Name)
 	}
 
 	var newhpa *v2.HorizontalPodAutoscaler
