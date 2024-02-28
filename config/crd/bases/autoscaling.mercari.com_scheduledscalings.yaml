@@ -1,0 +1,141 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.13.0
+  name: scheduledscalings.autoscaling.mercari.com
+spec:
+  group: autoscaling.mercari.com
+  names:
+    kind: ScheduledScaling
+    listKind: ScheduledScalingList
+    plural: scheduledscalings
+    singular: scheduledscaling
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ScheduledScaling is the Schema for the scheduledscalings API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ScheduledScalingSpec defines the desired state of ScheduledScaling
+            properties:
+              schedule:
+                description: / The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
+                properties:
+                  finishAt:
+                    description: end of schedule
+                    type: string
+                  startAt:
+                    description: / The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
+                      start of schedule
+                    type: string
+                required:
+                - finishAt
+                - startAt
+                type: object
+              strategy:
+                description: Currently only static, might implement others(?)
+                properties:
+                  static:
+                    description: Resource scaling requirements
+                    properties:
+                      minAllocatedResources:
+                        description: Resources requested per container
+                        items:
+                          description: Not sure if I need this here, duplicated code
+                            from tortoise types
+                          properties:
+                            containerName:
+                              description: ContainerName is the name of target container.
+                              type: string
+                            resource:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              description: ResourceList is a set of (resource name,
+                                quantity) pairs.
+                              type: object
+                          required:
+                          - containerName
+                          - resource
+                          type: object
+                        type: array
+                      minReplica:
+                        description: Min replicas to be deployed on schedule
+                        type: integer
+                    required:
+                    - minAllocatedResources
+                    - minReplica
+                    type: object
+                required:
+                - static
+                type: object
+              targetRefs:
+                description: TargetRef is the targets that need to be scheduled
+                properties:
+                  scaleTargetRef:
+                    description: ScaleTargetRef is the target of scaling. It should
+                      be the same as the target of HPA.
+                    properties:
+                      apiVersion:
+                        description: apiVersion is the API version of the referent
+                        type: string
+                      kind:
+                        description: 'kind is the kind of the referent; More info:
+                          https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                        type: string
+                      name:
+                        description: 'name is the name of the referent; More info:
+                          https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    type: object
+                  tortoiseName:
+                    description: Tortoise to be targeted for scheduled scaling
+                    type: string
+                required:
+                - scaleTargetRef
+                type: object
+            required:
+            - schedule
+            - strategy
+            - targetRefs
+            type: object
+          status:
+            description: ScheduledScalingStatus defines the observed state of ScheduledScaling
+            properties:
+              scheduledScalingPhase:
+                description: unsure if needed
+                type: string
+              tortoisePhase:
+                description: Target tortoise phase
+                type: string
+            required:
+            - scheduledScalingPhase
+            - tortoisePhase
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

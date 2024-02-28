@@ -79,6 +79,32 @@ rules:
 - apiGroups:
   - autoscaling.mercari.com
   resources:
+  - scheduledscalings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - autoscaling.mercari.com
+  resources:
+  - scheduledscalings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - autoscaling.mercari.com
+  resources:
+  - scheduledscalings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - autoscaling.mercari.com
+  resources:
   - tortoises
   verbs:
   - create
