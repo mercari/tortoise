@@ -116,6 +116,10 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 				if !ok {
 					continue
 				}
+				if len(env.Value) == 0 {
+					// Probably it's defined through the configmap.
+					continue
+				}
 				oldNum, err := strconv.Atoi(env.Value)
 				if err != nil {
 					// invalid GOMAXPROCS, skip
@@ -137,6 +141,10 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 					continue
 				}
 				val := env.Value
+				if len(val) == 0 {
+					// Probably it's defined through the configmap.
+					continue
+				}
 				last := val[len(val)-1]
 				if last >= '0' && last <= '9' {
 					// OK
