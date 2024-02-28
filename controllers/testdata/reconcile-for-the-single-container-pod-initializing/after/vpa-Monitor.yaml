@@ -1,6 +1,4 @@
 metadata:
-  annotations:
-    tortoise.autoscaling.mercari.com/managed-by-tortoise: "true"
   name: tortoise-monitor-mercari
   namespace: default
 spec:
