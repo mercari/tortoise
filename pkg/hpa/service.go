@@ -144,6 +144,7 @@ type resourceNameAndContainerName struct {
 // syncHPAMetricsWithTortoiseAutoscalingPolicy adds metrics to the HPA based on the autoscaling policy in the tortoise.
 // Note that it doesn't update the HPA in kube-apiserver, you have to do that after this function.
 func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, currenthpa *v2.HorizontalPodAutoscaler, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, bool) {
+	currenthpa = currenthpa.DeepCopy()
 	hpaEdited := false
 
 	policies := sets.New[string]()
@@ -528,12 +529,15 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 		return tortoise, nil
 	}
 
+	retryNumber := -1
 	updateFn := func() error {
+		retryNumber++
 		hpa := &v2.HorizontalPodAutoscaler{}
 		if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Status.Targets.HorizontalPodAutoscaler}, hpa); err != nil {
 			return fmt.Errorf("failed to get hpa on tortoise: %w", err)
 		}
 
+		hpa = hpa.DeepCopy()
 		// update only metrics
 		hpa.Spec.Metrics = newhpa.Spec.Metrics
 
@@ -541,7 +545,7 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 	}
 
 	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
-		return tortoise, err
+		return tortoise, fmt.Errorf("update hpa: %w (%v times retried)", err, replicaNum)
 	}
 
 	c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPAUpdated, fmt.Sprintf("Updated a HPA %s/%s because the autoscaling policy is changed in the tortoise", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
