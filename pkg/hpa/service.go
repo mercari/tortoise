@@ -37,6 +37,7 @@ type Service struct {
 	tortoiseHPATargetUtilizationMaxIncrease    int
 	recorder                                   record.EventRecorder
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration
+	minimumMinReplicas                         int32
 	maximumMinReplica                          int32
 	maximumMaxReplica                          int32
 	externalMetricExclusionRegex               *regexp.Regexp
@@ -50,6 +51,7 @@ func New(
 	tortoiseHPATargetUtilizationMaxIncrease int,
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration,
 	maximumMinReplica, maximumMaxReplica int32,
+	minimumMinReplicas int32,
 	externalMetricExclusionRegex string,
 ) (*Service, error) {
 	var regex *regexp.Regexp
@@ -70,6 +72,7 @@ func New(
 		recorder:                                recorder,
 		tortoiseHPATargetUtilizationUpdateInterval: tortoiseHPATargetUtilizationUpdateInterval,
 		maximumMinReplica:                          maximumMinReplica,
+		minimumMinReplicas:                         minimumMinReplicas,
 		maximumMaxReplica:                          maximumMaxReplica,
 		externalMetricExclusionRegex:               regex,
 	}, nil
@@ -256,8 +259,8 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 				Name:       tortoise.Spec.TargetRefs.ScaleTargetRef.Name,
 				APIVersion: tortoise.Spec.TargetRefs.ScaleTargetRef.APIVersion,
 			},
-			MinReplicas: ptr.To[int32](int32(math.Ceil(float64(replicaNum) / 2.0))),
-			MaxReplicas: replicaNum * 2,
+			MinReplicas: ptr.To[int32](c.minimumMinReplicas),
+			MaxReplicas: c.maximumMaxReplica,
 			Behavior:    globalRecommendedHPABehavior,
 		},
 	}
@@ -513,6 +516,7 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 			c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPACreated, fmt.Sprintf("Initialized a HPA %s/%s because tortoise has resource to scale horizontally", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
 			return tortoise, nil
 		}
+
 		return tortoise, fmt.Errorf("failed to get hpa on tortoise: %w", err)
 	}
 
@@ -530,9 +534,10 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 			return fmt.Errorf("failed to get hpa on tortoise: %w", err)
 		}
 
+		// update only metrics
 		hpa.Spec.Metrics = newhpa.Spec.Metrics
 
-		return c.c.Update(ctx, newhpa)
+		return c.c.Update(ctx, hpa)
 	}
 
 	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
