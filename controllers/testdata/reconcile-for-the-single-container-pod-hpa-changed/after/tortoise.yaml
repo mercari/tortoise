@@ -102,4 +102,4 @@ status:
     verticalPodAutoscalers:
     - name: tortoise-monitor-mercari
       role: Monitor
-  tortoisePhase: Working
+  tortoisePhase: PartlyWorking

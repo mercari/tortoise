@@ -189,7 +189,7 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 		}
 		currenthpa.Spec.Metrics = append(currenthpa.Spec.Metrics, m)
 		hpaEdited = true
-		tortoise = utils.ChangeTortoiseResourcePhase(tortoise, d.containerName, d.rn, now, v1beta3.ContainerResourcePhaseGatheringData)
+		tortoise = utils.ChangeTortoiseContainerResourcePhase(tortoise, d.containerName, d.rn, now, v1beta3.ContainerResourcePhaseGatheringData)
 	}
 
 	// remove metrics
@@ -591,8 +591,6 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 
 		hpa = c.excludeExternalMetric(ctx, hpa)
-		// If HPA has a deprecated annotation, we replace it with a new one.
-		// It allows us to remove a deprecated annotation completely later
 		retHPA = hpa
 		return c.c.Update(ctx, hpa)
 	}

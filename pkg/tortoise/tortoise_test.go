@@ -1346,7 +1346,51 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 			name: "minReplicas/maxReplicas recommendation is not yet gathered",
 			tortoise: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
-					TortoisePhase: v1beta3.TortoisePhaseGatheringData,
+					TortoisePhase: v1beta3.TortoisePhasePartlyWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "app2",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceMemory: {
+									Phase:              v1beta3.ContainerResourcePhaseWorking,
+									LastTransitionTime: metav1.NewTime(now),
+								},
+								corev1.ResourceCPU: {
+									Phase:              v1beta3.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now),
+								},
+							},
+						},
+						{
+							ContainerName: "app2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceMemory: {
+									Phase:              v1beta3.ContainerResourcePhaseWorking,
+									LastTransitionTime: metav1.NewTime(now),
+								},
+								corev1.ResourceCPU: {
+									Phase:              v1beta3.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now),
+								},
+							},
+						},
+					},
 					Recommendations: v1beta3.Recommendations{
 						Horizontal: v1beta3.HorizontalRecommendations{
 							MinReplicas: []v1beta3.ReplicasRecommendation{
@@ -1395,7 +1439,51 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 			},
 			want: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
-					TortoisePhase: v1beta3.TortoisePhaseGatheringData,
+					TortoisePhase: v1beta3.TortoisePhasePartlyWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "app2",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceMemory: {
+									Phase:              v1beta3.ContainerResourcePhaseWorking, // unchanged because it's vertical.
+									LastTransitionTime: metav1.NewTime(now),
+								},
+								corev1.ResourceCPU: {
+									Phase:              v1beta3.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now),
+								},
+							},
+						},
+						{
+							ContainerName: "app2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceMemory: {
+									Phase:              v1beta3.ContainerResourcePhaseWorking, // unchanged
+									LastTransitionTime: metav1.NewTime(now),
+								},
+								corev1.ResourceCPU: {
+									Phase:              v1beta3.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now),
+								},
+							},
+						},
+					},
 					Recommendations: v1beta3.Recommendations{
 						Horizontal: v1beta3.HorizontalRecommendations{
 							MinReplicas: []v1beta3.ReplicasRecommendation{

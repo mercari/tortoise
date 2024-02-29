@@ -55,6 +55,162 @@ func TestService_ModifyPodResource(t *testing.T) {
 					Spec: v1beta3.TortoiseSpec{
 						UpdateMode: v1beta3.UpdateModeOff,
 					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+					},
+				},
+			},
+			want: &v1.Pod{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "container",
+							Resources: v1.ResourceRequirements{
+								Requests: v1.ResourceList{
+									v1.ResourceCPU:    resource.MustParse("100m"),
+									v1.ResourceMemory: resource.MustParse("100Mi"),
+								},
+								Limits: v1.ResourceList{
+									v1.ResourceCPU:    resource.MustParse("200m"),
+									v1.ResourceMemory: resource.MustParse("200Mi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Tortoise is just created",
+			args: args{
+				pod: &v1.Pod{
+					Spec: v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Name: "container",
+								Resources: v1.ResourceRequirements{
+									Requests: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("100m"),
+										v1.ResourceMemory: resource.MustParse("100Mi"),
+									},
+									Limits: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("200m"),
+										v1.ResourceMemory: resource.MustParse("200Mi"),
+									},
+								},
+							},
+						},
+					},
+				},
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						// TortoisePhase is empty
+					},
+				},
+			},
+			want: &v1.Pod{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "container",
+							Resources: v1.ResourceRequirements{
+								Requests: v1.ResourceList{
+									v1.ResourceCPU:    resource.MustParse("100m"),
+									v1.ResourceMemory: resource.MustParse("100Mi"),
+								},
+								Limits: v1.ResourceList{
+									v1.ResourceCPU:    resource.MustParse("200m"),
+									v1.ResourceMemory: resource.MustParse("200Mi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Tortoise is Initializing",
+			args: args{
+				pod: &v1.Pod{
+					Spec: v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Name: "container",
+								Resources: v1.ResourceRequirements{
+									Requests: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("100m"),
+										v1.ResourceMemory: resource.MustParse("100Mi"),
+									},
+									Limits: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("200m"),
+										v1.ResourceMemory: resource.MustParse("200Mi"),
+									},
+								},
+							},
+						},
+					},
+				},
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseInitializing,
+					},
+				},
+			},
+			want: &v1.Pod{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "container",
+							Resources: v1.ResourceRequirements{
+								Requests: v1.ResourceList{
+									v1.ResourceCPU:    resource.MustParse("100m"),
+									v1.ResourceMemory: resource.MustParse("100Mi"),
+								},
+								Limits: v1.ResourceList{
+									v1.ResourceCPU:    resource.MustParse("200m"),
+									v1.ResourceMemory: resource.MustParse("200Mi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Tortoise is Gatheringdata",
+			args: args{
+				pod: &v1.Pod{
+					Spec: v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Name: "container",
+								Resources: v1.ResourceRequirements{
+									Requests: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("100m"),
+										v1.ResourceMemory: resource.MustParse("100Mi"),
+									},
+									Limits: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("200m"),
+										v1.ResourceMemory: resource.MustParse("200Mi"),
+									},
+								},
+							},
+						},
+					},
+				},
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseGatheringData,
+					},
 				},
 			},
 			want: &v1.Pod{
@@ -117,6 +273,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 						UpdateMode: v1beta3.UpdateModeAuto,
 					},
 					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
 						Conditions: v1beta3.Conditions{
 							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
 								{
@@ -211,6 +368,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 						UpdateMode: v1beta3.UpdateModeAuto,
 					},
 					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
 						Conditions: v1beta3.Conditions{
 							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
 								{
@@ -303,6 +461,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 						UpdateMode: v1beta3.UpdateModeAuto,
 					},
 					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
 						Conditions: v1beta3.Conditions{
 							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
 								{
@@ -400,6 +559,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 						UpdateMode: v1beta3.UpdateModeAuto,
 					},
 					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
 						Conditions: v1beta3.Conditions{
 							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
 								{
@@ -517,6 +677,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 						UpdateMode: v1beta3.UpdateModeAuto,
 					},
 					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
 						Conditions: v1beta3.Conditions{
 							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
 								{
@@ -654,6 +815,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 						UpdateMode: v1beta3.UpdateModeAuto,
 					},
 					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
 						Conditions: v1beta3.Conditions{
 							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
 								{

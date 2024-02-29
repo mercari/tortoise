@@ -85,6 +85,17 @@ func (s *Service) ShouldReconcileTortoiseNow(tortoise *v1beta3.Tortoise, now tim
 	return false, lastTime.Add(s.tortoiseUpdateInterval).Sub(now)
 }
 
+func initializeContainerResourcePhase(tortoise *v1beta3.Tortoise, now time.Time) *v1beta3.Tortoise {
+	for _, c := range tortoise.Status.AutoscalingPolicy {
+		for rn := range c.Policy {
+			// set all to gathering data
+			utils.ChangeTortoiseContainerResourcePhase(tortoise, c.ContainerName, rn, now, v1beta3.ContainerResourcePhaseGatheringData)
+		}
+	}
+
+	return tortoise
+}
+
 func (s *Service) UpdateTortoisePhase(tortoise *v1beta3.Tortoise, now time.Time) *v1beta3.Tortoise {
 	switch tortoise.Status.TortoisePhase {
 	case "":
@@ -98,6 +109,7 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1beta3.Tortoise, now time.Time)
 	case v1beta3.TortoisePhaseInitializing:
 		// change it to GatheringData anyway. Later the controller may change it back to initialize if VPA isn't ready.
 		tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseGatheringData
+		tortoise = initializeContainerResourcePhase(tortoise, now)
 	case v1beta3.TortoisePhaseGatheringData:
 		tortoise = s.changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise, now)
 		if tortoise.Status.TortoisePhase == v1beta3.TortoisePhaseWorking {
@@ -105,6 +117,12 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1beta3.Tortoise, now time.Time)
 		}
 		if tortoise.Status.TortoisePhase == v1beta3.TortoisePhasePartlyWorking {
 			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.PartlyWorking, "Tortoise finishes gathering data in some metrics and it starts to work on autoscaling for those metrics. But some metrics are still gathering data")
+		}
+	case v1beta3.TortoisePhaseWorking:
+		// Some resource may be changed to gathering data, if autoscaling policy is changed.
+		tortoise = s.changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise, now)
+		if tortoise.Status.TortoisePhase == v1beta3.TortoisePhasePartlyWorking {
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.PartlyWorking, "Tortoise was fully working, but needs to collect some date for some resources")
 		}
 	case v1beta3.TortoisePhasePartlyWorking:
 		tortoise = s.changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise, now)
@@ -147,19 +165,28 @@ func hasHorizontal(tortoise *v1beta3.Tortoise) bool {
 }
 
 func (s *Service) changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tortoise *v1beta3.Tortoise, now time.Time) *v1beta3.Tortoise {
+	// If recommendation of maxReplicas or minReplicas is 0, it means horizontal autoscaling is not ready yet.
+	horizontalUnready := false
 	for _, r := range tortoise.Status.Recommendations.Horizontal.MinReplicas {
 		if r.Value == 0 {
-			return tortoise
+			horizontalUnready = true
 		}
 	}
 	for _, r := range tortoise.Status.Recommendations.Horizontal.MaxReplicas {
 		if r.Value == 0 {
-			return tortoise
+			horizontalUnready = true
 		}
 	}
 
-	// Until MaxReplicas/MinReplicas recommendation are ready,
-	// we never set TortoisePhase to Working or PartlyWorking.
+	if horizontalUnready {
+		for _, c := range tortoise.Status.AutoscalingPolicy {
+			for rn, p := range c.Policy {
+				if p == v1beta3.AutoscalingTypeHorizontal {
+					utils.ChangeTortoiseContainerResourcePhase(tortoise, c.ContainerName, rn, now, v1beta3.ContainerResourcePhaseGatheringData)
+				}
+			}
+		}
+	}
 
 	someAreGathering := false
 	someAreWorking := false
@@ -197,6 +224,9 @@ func (s *Service) changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(tort
 	} else if !someAreGathering && someAreWorking {
 		// All are working.
 		tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseWorking
+	} else if someAreGathering && !someAreWorking {
+		// All are gathering data.
+		tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseGatheringData
 	}
 
 	return tortoise
@@ -265,11 +295,11 @@ func (s *Service) initializeTortoise(tortoise *v1beta3.Tortoise, now time.Time) 
 	for _, p := range tortoise.Status.AutoscalingPolicy {
 		for rn, policy := range p.Policy {
 			if policy == v1beta3.AutoscalingTypeOff {
-				utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, rn, now, v1beta3.ContainerResourcePhaseOff)
+				utils.ChangeTortoiseContainerResourcePhase(tortoise, p.ContainerName, rn, now, v1beta3.ContainerResourcePhaseOff)
 				continue
 			}
 
-			utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, rn, now, v1beta3.ContainerResourcePhaseGatheringData)
+			utils.ChangeTortoiseContainerResourcePhase(tortoise, p.ContainerName, rn, now, v1beta3.ContainerResourcePhaseGatheringData)
 		}
 	}
 
@@ -541,8 +571,8 @@ func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, hpa *v2
 				corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
 			},
 		})
-		tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p, corev1.ResourceCPU, now, v1beta3.ContainerResourcePhaseGatheringData)
-		tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p, corev1.ResourceMemory, now, v1beta3.ContainerResourcePhaseGatheringData)
+		tortoise = utils.ChangeTortoiseContainerResourcePhase(tortoise, p, corev1.ResourceCPU, now, v1beta3.ContainerResourcePhaseGatheringData)
+		tortoise = utils.ChangeTortoiseContainerResourcePhase(tortoise, p, corev1.ResourceMemory, now, v1beta3.ContainerResourcePhaseGatheringData)
 	}
 
 	// And, if the existing HPA is attached, we modify the policy for resources managed by the HPA to Horizontal.
@@ -561,26 +591,26 @@ func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, hpa *v2
 				if tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] != v1beta3.AutoscalingTypeHorizontal {
 					// If HPA has the metrics for this container's CPU, we should set Horizontal.
 					tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] = v1beta3.AutoscalingTypeHorizontal
-					tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, corev1.ResourceCPU, now, v1beta3.ContainerResourcePhaseGatheringData)
+					tortoise = utils.ChangeTortoiseContainerResourcePhase(tortoise, p.ContainerName, corev1.ResourceCPU, now, v1beta3.ContainerResourcePhaseGatheringData)
 				}
 			} else {
 				if tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] != v1beta3.AutoscalingTypeVertical {
 					// Otherwise, set Vertical.
 					tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] = v1beta3.AutoscalingTypeVertical
-					tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, corev1.ResourceCPU, now, v1beta3.ContainerResourcePhaseGatheringData)
+					tortoise = utils.ChangeTortoiseContainerResourcePhase(tortoise, p.ContainerName, corev1.ResourceCPU, now, v1beta3.ContainerResourcePhaseGatheringData)
 				}
 			}
 			if hpaManagedResourceAndContainer.Has(resourceNameAndContainerName{corev1.ResourceMemory, tortoise.Status.AutoscalingPolicy[i].ContainerName}) {
 				if tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] != v1beta3.AutoscalingTypeHorizontal {
 					// If HPA has the metrics for this container's memory, we should set Horizontal.
 					tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] = v1beta3.AutoscalingTypeHorizontal
-					tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, corev1.ResourceMemory, now, v1beta3.ContainerResourcePhaseGatheringData)
+					tortoise = utils.ChangeTortoiseContainerResourcePhase(tortoise, p.ContainerName, corev1.ResourceMemory, now, v1beta3.ContainerResourcePhaseGatheringData)
 				}
 			} else {
 				if tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] != v1beta3.AutoscalingTypeVertical {
 					// Otherwise, set Vertical.
 					tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] = v1beta3.AutoscalingTypeVertical
-					tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, corev1.ResourceMemory, now, v1beta3.ContainerResourcePhaseGatheringData)
+					tortoise = utils.ChangeTortoiseContainerResourcePhase(tortoise, p.ContainerName, corev1.ResourceMemory, now, v1beta3.ContainerResourcePhaseGatheringData)
 				}
 			}
 		}
@@ -590,11 +620,11 @@ func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, hpa *v2
 	for i, p := range tortoise.Status.AutoscalingPolicy {
 		if containerWOResourceRequest.Has(resourceNameAndContainerName{corev1.ResourceCPU, tortoise.Status.AutoscalingPolicy[i].ContainerName}) {
 			tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceCPU] = v1beta3.AutoscalingTypeOff
-			tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, corev1.ResourceCPU, now, v1beta3.ContainerResourcePhaseOff)
+			tortoise = utils.ChangeTortoiseContainerResourcePhase(tortoise, p.ContainerName, corev1.ResourceCPU, now, v1beta3.ContainerResourcePhaseOff)
 		}
 		if containerWOResourceRequest.Has(resourceNameAndContainerName{corev1.ResourceMemory, tortoise.Status.AutoscalingPolicy[i].ContainerName}) {
 			tortoise.Status.AutoscalingPolicy[i].Policy[corev1.ResourceMemory] = v1beta3.AutoscalingTypeOff
-			tortoise = utils.ChangeTortoiseResourcePhase(tortoise, p.ContainerName, corev1.ResourceMemory, now, v1beta3.ContainerResourcePhaseOff)
+			tortoise = utils.ChangeTortoiseContainerResourcePhase(tortoise, p.ContainerName, corev1.ResourceMemory, now, v1beta3.ContainerResourcePhaseOff)
 		}
 	}
 
