@@ -2290,7 +2290,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 50, time.Hour, 1000, 10001, tt.excludeMetricRegex)
+			c, err := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 50, time.Hour, 1000, 10001, 3, tt.excludeMetricRegex)
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
@@ -2371,8 +2371,8 @@ func TestService_InitializeHPA(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
-					MinReplicas: ptrInt32(2),
-					MaxReplicas: 8,
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 1000,
 					Metrics: []v2.MetricSpec{
 						{
 							Type: v2.ContainerResourceMetricSourceType,
@@ -2513,12 +2513,12 @@ func TestService_InitializeHPA(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 100, 1000, "")
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 100, 1000, 3, "")
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
 			if tt.initialHPA != nil {
-				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 100, 1000, "")
+				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 100, 1000, 3, "")
 				if err != nil {
 					t.Fatalf("New() error = %v", err)
 				}
@@ -4071,12 +4071,12 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 1000, 10000, "")
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 1000, 10000, 3, "")
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
 			if tt.initialHPA != nil {
-				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 1000, 10000, "")
+				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 1000, 10000, 3, "")
 				if err != nil {
 					t.Fatalf("New() error = %v", err)
 				}
