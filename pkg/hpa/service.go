@@ -335,6 +335,11 @@ func (s *Service) RecordHPATargetUtilizationUpdate(tortoise *autoscalingv1beta3.
 }
 
 func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time, recordMetrics bool) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
+	if tortoise.Status.TortoisePhase == v1beta3.TortoisePhaseInitializing || tortoise.Status.TortoisePhase == "" || tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+		// Tortoise is not ready, don't update HPA
+		return hpa, tortoise, nil
+	}
+
 	readyHorizontalResourceAndContainer := sets.New[resourceNameAndContainerName]()
 	for _, p := range tortoise.Status.AutoscalingPolicy {
 		for rn, ap := range p.Policy {
@@ -349,6 +354,10 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 				readyHorizontalResourceAndContainer.Delete(resourceNameAndContainerName{rn, p.ContainerName})
 			}
 		}
+	}
+	if readyHorizontalResourceAndContainer.Len() == 0 {
+		// all horizontal are not ready, don't update HPA
+		return hpa, tortoise, nil
 	}
 
 	var allowed bool

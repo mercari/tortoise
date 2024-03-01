@@ -42,7 +42,11 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1beta3.Tortoise{
+					Spec: autoscalingv1beta3.TortoiseSpec{
+						UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+					},
 					Status: autoscalingv1beta3.TortoiseStatus{
+						TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 							{
 								ContainerName: "app",
@@ -212,7 +216,11 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 				},
 			},
 			wantTortoise: &autoscalingv1beta3.Tortoise{
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+				},
 				Status: autoscalingv1beta3.TortoiseStatus{
+					TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 					AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 						{
 							ContainerName: "app",
@@ -305,7 +313,11 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1beta3.Tortoise{
+					Spec: autoscalingv1beta3.TortoiseSpec{
+						UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+					},
 					Status: autoscalingv1beta3.TortoiseStatus{
+						TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 							{
 								ContainerName: "app",
@@ -485,7 +497,11 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 				},
 			},
 			wantTortoise: &autoscalingv1beta3.Tortoise{
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+				},
 				Status: autoscalingv1beta3.TortoiseStatus{
+					TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 					AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 						{
 							ContainerName: "app",
@@ -578,7 +594,11 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1beta3.Tortoise{
+					Spec: autoscalingv1beta3.TortoiseSpec{
+						UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+					},
 					Status: autoscalingv1beta3.TortoiseStatus{
+						TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 							{
 								ContainerName: "app",
@@ -738,7 +758,11 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 				},
 			},
 			wantTortoise: &autoscalingv1beta3.Tortoise{
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+				},
 				Status: autoscalingv1beta3.TortoiseStatus{
+					TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 					AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 						{
 							ContainerName: "app",
@@ -831,7 +855,11 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1beta3.Tortoise{
+					Spec: autoscalingv1beta3.TortoiseSpec{
+						UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+					},
 					Status: autoscalingv1beta3.TortoiseStatus{
+						TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 							{
 								ContainerName: "app",
@@ -991,7 +1019,11 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 				},
 			},
 			wantTortoise: &autoscalingv1beta3.Tortoise{
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+				},
 				Status: autoscalingv1beta3.TortoiseStatus{
+					TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 					AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 						{
 							ContainerName: "app",
@@ -1084,7 +1116,11 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				tortoise: &autoscalingv1beta3.Tortoise{
+					Spec: autoscalingv1beta3.TortoiseSpec{
+						UpdateMode: autoscalingv1beta3.UpdateModeAuto,
+					},
 					Status: autoscalingv1beta3.TortoiseStatus{
+						TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 							{
 								ContainerName: "app",
@@ -1242,6 +1278,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 						UpdateMode: autoscalingv1beta3.UpdateModeAuto,
 					},
 					Status: autoscalingv1beta3.TortoiseStatus{
+						TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 							{
 								ContainerName: "app",
@@ -1405,6 +1442,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					UpdateMode: autoscalingv1beta3.UpdateModeAuto,
 				},
 				Status: autoscalingv1beta3.TortoiseStatus{
+					TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 					AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 						{
 							ContainerName: "app",
@@ -1501,6 +1539,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 						UpdateMode: autoscalingv1beta3.UpdateModeOff,
 					},
 					Status: autoscalingv1beta3.TortoiseStatus{
+						TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 							{
 								ContainerName: "app",
@@ -1649,6 +1688,163 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "no update preformed when all horizontal is unready",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &autoscalingv1beta3.Tortoise{
+					Spec: autoscalingv1beta3.TortoiseSpec{
+						UpdateMode: autoscalingv1beta3.UpdateModeOff,
+					},
+					Status: autoscalingv1beta3.TortoiseStatus{
+						TortoisePhase: autoscalingv1beta3.TortoisePhaseGatheringData,
+						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						ContainerResourcePhases: []autoscalingv1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
+									v1.ResourceMemory: {
+										Phase: autoscalingv1beta3.ContainerResourcePhaseGatheringData,
+									},
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								ResourcePhases: map[v1.ResourceName]autoscalingv1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: autoscalingv1beta3.ContainerResourcePhaseGatheringData,
+									},
+								},
+							},
+						},
+						Targets: autoscalingv1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: autoscalingv1beta3.Recommendations{
+							Horizontal: autoscalingv1beta3.HorizontalRecommendations{
+								TargetUtilizations: []autoscalingv1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceMemory: 90,
+										},
+									},
+									{
+										ContainerName: "istio-proxy",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []autoscalingv1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     6,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []autoscalingv1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ObjectMetricSourceType,
+							// should be ignored
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](50),
+								},
+								Container: "istio-proxy",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ObjectMetricSourceType,
+							// should be ignored
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](50),
+								},
+								Container: "istio-proxy",
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "no update preformed when ContainerResourcePhases isn't working",
 			args: args{
 				ctx: context.Background(),
@@ -1657,6 +1853,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 						UpdateMode: autoscalingv1beta3.UpdateModeAuto,
 					},
 					Status: autoscalingv1beta3.TortoiseStatus{
+						TortoisePhase: autoscalingv1beta3.TortoisePhasePartlyWorking,
 						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 							{
 								ContainerName: "app",
@@ -1811,6 +2008,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 				ctx: context.Background(),
 				tortoise: &autoscalingv1beta3.Tortoise{
 					Status: autoscalingv1beta3.TortoiseStatus{
+						TortoisePhase: autoscalingv1beta3.TortoisePhaseEmergency,
 						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 							{
 								ContainerName: "app",
@@ -1828,7 +2026,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 						Targets: autoscalingv1beta3.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
 						},
-						TortoisePhase: autoscalingv1beta3.TortoisePhaseEmergency,
 						Recommendations: autoscalingv1beta3.Recommendations{
 							Horizontal: autoscalingv1beta3.HorizontalRecommendations{
 								TargetUtilizations: []autoscalingv1beta3.HPATargetUtilizationRecommendationPerContainer{
@@ -1948,6 +2145,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 				ctx: context.Background(),
 				tortoise: &autoscalingv1beta3.Tortoise{
 					Status: autoscalingv1beta3.TortoiseStatus{
+						TortoisePhase: autoscalingv1beta3.TortoisePhaseBackToNormal,
 						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 							{
 								ContainerName: "app",
@@ -1965,7 +2163,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 						Targets: autoscalingv1beta3.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
 						},
-						TortoisePhase: autoscalingv1beta3.TortoisePhaseBackToNormal,
 						Recommendations: autoscalingv1beta3.Recommendations{
 							Horizontal: autoscalingv1beta3.HorizontalRecommendations{
 								TargetUtilizations: []autoscalingv1beta3.HPATargetUtilizationRecommendationPerContainer{
@@ -2085,6 +2282,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 				ctx: context.Background(),
 				tortoise: &autoscalingv1beta3.Tortoise{
 					Status: autoscalingv1beta3.TortoiseStatus{
+						TortoisePhase: autoscalingv1beta3.TortoisePhaseBackToNormal,
 						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 							{
 								ContainerName: "app",
@@ -2102,7 +2300,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 						Targets: autoscalingv1beta3.TargetsStatus{
 							HorizontalPodAutoscaler: "hpa",
 						},
-						TortoisePhase: autoscalingv1beta3.TortoisePhaseBackToNormal,
 						Recommendations: autoscalingv1beta3.Recommendations{
 							Horizontal: autoscalingv1beta3.HorizontalRecommendations{
 								TargetUtilizations: []autoscalingv1beta3.HPATargetUtilizationRecommendationPerContainer{
@@ -2216,6 +2413,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			},
 			wantTortoise: &autoscalingv1beta3.Tortoise{
 				Status: autoscalingv1beta3.TortoiseStatus{
+					TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 					AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
 						{
 							ContainerName: "app",
@@ -2245,7 +2443,6 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					Targets: autoscalingv1beta3.TargetsStatus{
 						HorizontalPodAutoscaler: "hpa",
 					},
-					TortoisePhase: autoscalingv1beta3.TortoisePhaseWorking,
 					Recommendations: autoscalingv1beta3.Recommendations{
 						Horizontal: autoscalingv1beta3.HorizontalRecommendations{
 							TargetUtilizations: []autoscalingv1beta3.HPATargetUtilizationRecommendationPerContainer{

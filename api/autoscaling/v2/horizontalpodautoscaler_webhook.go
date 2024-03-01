@@ -102,7 +102,7 @@ func (h *HPAWebhook) Default(ctx context.Context, obj runtime.Object) error {
 		return nil
 	}
 
-	if tortoisePhase == v1beta3.TortoisePhaseBackToNormal || tortoisePhase == v1beta3.TortoisePhaseGatheringData {
+	if tortoisePhase == v1beta3.TortoisePhaseBackToNormal {
 		// If we want to overwrite minReplicas and maxReplicas, it'd be complicated.
 		hpa.Spec.Metrics = modifiedhpa.Spec.Metrics
 	} else {
