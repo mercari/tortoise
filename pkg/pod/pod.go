@@ -184,6 +184,11 @@ func (s *Service) GetDeploymentForPod(pod *v1.Pod) (string, error) {
 		return "", nil
 	}
 
+	if ownerRefrence.Kind != "ReplicaSet" {
+		// Tortoise only supports Deployment for now, and ReplicaSet is the only controller that can own a pod in this case.
+		return "", nil
+	}
+
 	k := &controllerfetcher.ControllerKeyWithAPIVersion{
 		ControllerKey: controllerfetcher.ControllerKey{
 			Namespace: pod.Namespace,
