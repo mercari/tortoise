@@ -639,6 +639,11 @@ func UpdateTortoiseAutoscalingPolicyInStatus(tortoise *v1beta3.Tortoise, hpa *v2
 	return tortoise
 }
 
+type containerNameAndResource struct {
+	containerName string
+	resourceName  corev1.ResourceName
+}
+
 // UpdateResourceRequest updates pods' resource requests based on the calculated recommendation.
 // Updated ContainerResourceRequests will be used in the next mutating webhook of Pods.
 // It updates ContainerResourceRequests in the status of the Tortoise, when ALL the following conditions are met:
@@ -649,6 +654,15 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 	*v1beta3.Tortoise,
 	error,
 ) {
+	offResources := map[containerNameAndResource]bool{}
+	for _, policy := range tortoise.Status.AutoscalingPolicy {
+		for rn, p := range policy.Policy {
+			if p == v1beta3.AutoscalingTypeOff {
+				offResources[containerNameAndResource{containerName: policy.ContainerName, resourceName: rn}] = true
+			}
+		}
+	}
+
 	oldTortoise := tortoise.DeepCopy()
 
 	newRequests := make([]v1beta3.ContainerResourceRequests, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
@@ -657,6 +671,15 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 		// We only records proposed* metrics here (record applied* metrics later)
 		// because we don't want to record applied* metrics when UpdateMode is Off.
 		for resourcename, value := range r.RecommendedResource {
+			if offResources[containerNameAndResource{containerName: r.ContainerName, resourceName: resourcename}] {
+				// ignore
+				oldvalue, ok := utils.GetRequestFromTortoise(tortoise, r.ContainerName, resourcename)
+				if ok {
+					recommendation[resourcename] = oldvalue
+				}
+				continue
+			}
+
 			if resourcename == corev1.ResourceCPU {
 				metrics.ProposedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
 				if value.IsZero() {
