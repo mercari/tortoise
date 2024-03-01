@@ -18,6 +18,7 @@ import (
 
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/event"
+	"github.com/mercari/tortoise/pkg/utils"
 )
 
 type Service struct {
@@ -248,44 +249,25 @@ func isMonitorVPAReady(vpa *v1.VerticalPodAutoscaler, tortoise *autoscalingv1bet
 }
 
 func SetAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta3.Tortoise, now time.Time) *autoscalingv1beta3.Tortoise {
-	verticalResourceAndContainer := sets.New[resourceNameAndContainerName]()
+	someChanged := false
 	for _, p := range tortoise.Status.AutoscalingPolicy {
 		for rn, ap := range p.Policy {
 			if ap == autoscalingv1beta3.AutoscalingTypeVertical {
-				verticalResourceAndContainer.Insert(resourceNameAndContainerName{rn, p.ContainerName})
+				someChanged = true
+				utils.ChangeTortoiseContainerResourcePhase(
+					tortoise,
+					p.ContainerName,
+					rn,
+					now,
+					autoscalingv1beta3.ContainerResourcePhaseWorking,
+				)
 			}
 		}
 	}
 
-	found := false
-	for _, d := range verticalResourceAndContainer.UnsortedList() {
-		for i, p := range tortoise.Status.ContainerResourcePhases {
-			if p.ContainerName == d.containerName {
-				tortoise.Status.ContainerResourcePhases[i].ResourcePhases[d.rn] = autoscalingv1beta3.ResourcePhase{
-					Phase:              autoscalingv1beta3.ContainerResourcePhaseWorking,
-					LastTransitionTime: metav1.NewTime(now),
-				}
-				found = true
-				break
-			}
-		}
-		if !found {
-			tortoise.Status.ContainerResourcePhases = append(tortoise.Status.ContainerResourcePhases, autoscalingv1beta3.ContainerResourcePhases{
-				ContainerName: d.containerName,
-				ResourcePhases: map[corev1.ResourceName]autoscalingv1beta3.ResourcePhase{
-					d.rn: {
-						Phase:              autoscalingv1beta3.ContainerResourcePhaseWorking,
-						LastTransitionTime: metav1.NewTime(now),
-					},
-				},
-			})
-		}
+	if someChanged && tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseGatheringData {
+		tortoise.Status.TortoisePhase = autoscalingv1beta3.TortoisePhasePartlyWorking
 	}
 
 	return tortoise
-}
-
-type resourceNameAndContainerName struct {
-	rn            corev1.ResourceName
-	containerName string
 }
