@@ -26,7 +26,7 @@ SOFTWARE.
 package v1alpha1
 
 import (
-	v1 "k8s.io/api/core/v1"
+	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -38,13 +38,14 @@ type ScheduledScalingSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	/// The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
+	/// Schedule RFC3339 format e.g., "2006-01-02T15:04:05Z09:00"
 	Schedule Schedule `json:"schedule" protobuf:"bytes,1,name=schedule"`
 
 	// TargetRef is the targets that need to be scheduled
 	TargetRefs TargetRefs `json:"targetRefs" protobuf:"bytes,2,name=targetRefs"`
 
-	// Currently only static, might implement others(?)
+	// Strategy describes how this ScheduledScaling scales the target workload.
+	// Currently, it only supports the static strategy.
 	Strategy Strategy `json:"strategy" protobuf:"bytes,3,name=strategy"`
 }
 
@@ -80,28 +81,12 @@ type ScheduledScalingList struct {
 }
 
 type TargetRefs struct {
-	// ScaleTargetRef is the target of scaling.
-	// It should be the same as the target of HPA.
-	ScaleTargetRef CrossVersionObjectReference `json:"scaleTargetRef" protobuf:"bytes,1,name=scaleTargetRef"`
 	//Tortoise to be targeted for scheduled scaling
 	TortoiseName *string `json:"tortoiseName,omitempty" protobuf:"bytes,2,name=tortoiseName"`
 }
 
-// CrossVersionObjectReference contains enough information toet identify the referred resource.
-type CrossVersionObjectReference struct {
-	// kind is the kind of the referent; More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind *string `json:"kind,omitempty" protobuf:"bytes,1,opt,name=kind"`
-
-	// name is the name of the referent; More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-	Name *string `json:"name,omitempty" protobuf:"bytes,2,opt,name=name"`
-
-	// apiVersion is the API version of the referent
-	// +optional
-	APIVersion *string `json:"apiVersion,omitempty" protobuf:"bytes,3,opt,name=apiVersion"`
-}
-
 type Schedule struct {
-	/// The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
+	/// RFC3339 format e.g., "2006-01-02T15:04:05Z09:00"
 	// start of schedule
 	StartAt *string `json:"startAt,omitempty" protobuf:"bytes,1,opt,name=startAt"`
 	// end of schedule
@@ -110,21 +95,20 @@ type Schedule struct {
 
 type Strategy struct {
 	// Resource scaling requirements
+	// Static strategy receives the static value of the replica number and resource requests
+	// that users want to give to Pods during this ScheduledScaling is valid.
+	// This field is optional for the future when we add another strategy here though,
+	// until then this strategy is the only supported strategy
+	// you must set this.
+	// +optional
 	Static *Static `json:"static,omitempty" protobuf:"bytes,1,opt,name=static"`
 }
 
 type Static struct {
-	// Min replicas to be deployed on schedule
+	// MinimumMinReplicas means the minimum MinReplicas that Tortoise gives to HPA during this ScheduledScaling is valid.
 	MinimumMinReplicas *int `json:"minimumMinReplica,omitempty" protobuf:"bytes,1,opt,name=minimumMinReplica"`
-	// Resources requested per container
-	MinAllocatedResources []ContainerResourceRequests `json:"minAllocatedResourcesomitempty,omitempty" protobuf:"bytes,2,opt,name=minAllocatedResources"`
-}
-
-// Not sure if I need this here, duplicated code from tortoise types
-type ContainerResourceRequests struct {
-	// ContainerName is the name of target container.
-	ContainerName string          `json:"containerName" protobuf:"bytes,1,name=containerName"`
-	Resource      v1.ResourceList `json:"resource" protobuf:"bytes,2,name=resource"`
+	// MinAllowedResources means the minimum resource requests that Tortoise gives to each container.
+	MinAllocatedResources []autoscalingv1beta3.ContainerResourceRequests `json:"minAllocatedResourcesomitempty,omitempty" protobuf:"bytes,2,opt,name=minAllocatedResources"`
 }
 
 func init() {
