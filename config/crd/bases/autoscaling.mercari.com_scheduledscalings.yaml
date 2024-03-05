@@ -44,9 +44,6 @@ spec:
                     description: / The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
                       start of schedule
                     type: string
-                required:
-                - finishAt
-                - startAt
                 type: object
               strategy:
                 description: Currently only static, might implement others(?)
@@ -54,7 +51,7 @@ spec:
                   static:
                     description: Resource scaling requirements
                     properties:
-                      minAllocatedResources:
+                      minAllocatedResourcesomitempty:
                         description: Resources requested per container
                         items:
                           description: Not sure if I need this here, duplicated code
@@ -78,15 +75,10 @@ spec:
                           - resource
                           type: object
                         type: array
-                      minReplica:
+                      minimumMinReplica:
                         description: Min replicas to be deployed on schedule
                         type: integer
-                    required:
-                    - minAllocatedResources
-                    - minReplica
                     type: object
-                required:
-                - static
                 type: object
               targetRefs:
                 description: TargetRef is the targets that need to be scheduled
@@ -106,9 +98,6 @@ spec:
                         description: 'name is the name of the referent; More info:
                           https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                         type: string
-                    required:
-                    - kind
-                    - name
                     type: object
                   tortoiseName:
                     description: Tortoise to be targeted for scheduled scaling
@@ -125,14 +114,9 @@ spec:
             description: ScheduledScalingStatus defines the observed state of ScheduledScaling
             properties:
               scheduledScalingPhase:
-                description: unsure if needed
-                type: string
-              tortoisePhase:
-                description: Target tortoise phase
                 type: string
             required:
             - scheduledScalingPhase
-            - tortoisePhase
             type: object
         type: object
     served: true
