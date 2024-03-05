@@ -217,20 +217,34 @@ type TortoisePhase string
 const (
 	// TortoisePhaseInitializing means tortoise is just created and initializing some components (HPA and VPA),
 	// and wait for those components to be ready.
+	// Possible flow: (none) → Initializing
 	TortoisePhaseInitializing TortoisePhase = "Initializing"
-	// TortoisePhaseGatheringData means tortoise is now gathering data and cannot make the accurate recommendations.
+	// TortoisePhaseGatheringData means tortoise is now gathering data for MinReplicas/MaxReplicas
+	// and cannot make the accurate recommendations.
+	// Possible flow: Initializing → GatheringData
 	TortoisePhaseGatheringData TortoisePhase = "GatheringData"
 	// TortoisePhaseWorking means tortoise is making the recommendations,
 	// and applying the recommendation values.
+	// Possible flow:
+	//  - GatheringData → Working (when all the data is ready)
+	//  - PartlyWorking → Working (when all the data is ready)
+	//  - BackToNormal → Working (minReplica goes back to the normal number)
 	TortoisePhaseWorking TortoisePhase = "Working"
 	// TortoisePhasePartlyWorking means tortoise has maxReplicas and minReplicas recommendations ready,
 	// and applying the recommendation values.
 	// But, some of the resources are not scaled due to some reasons. (probably still gathering data)
+	// Possible flow:
+	//  - GatheringData → PartlyWorking (only some of resources are ready)
+	//  - Working → PartlyWorking (autoscaling policy is changed)
 	TortoisePhasePartlyWorking TortoisePhase = "PartlyWorking"
 	// TortoisePhaseEmergency means tortoise is in the emergency mode.
+	//
+	// Possible flow:
+	//  - Working → Emergency
 	TortoisePhaseEmergency TortoisePhase = "Emergency"
 	// TortoisePhaseBackToNormal means tortoise was in the emergency mode, and now it's coming back to the normal operation.
 	// During TortoisePhaseBackToNormal, the number of replicas of workloads are gradually reduced to the usual value.
+	//  - Emergency → BackToNormal
 	TortoisePhaseBackToNormal TortoisePhase = "BackToNormal"
 )
 

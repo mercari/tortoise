@@ -25,5 +25,4 @@ spec:
           requests:
             cpu: "4"
             memory: 4Gi
-status:
   replicas: 10

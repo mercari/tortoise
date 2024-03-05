@@ -2,10 +2,6 @@ package annotation
 
 // annotation on Pod, HPA and VPA resource.
 const (
-	// If this annotation is set to "true", it means that tortoise manages that resource,
-	// and will be removed when the tortoise is deleted.
-	ManagedByTortoiseAnnotation = "tortoise.autoscaling.mercari.com/managed-by-tortoise"
-
 	PodMutationAnnotation = "tortoise.autoscaling.mercari.com/pod-mutation"
 )
 

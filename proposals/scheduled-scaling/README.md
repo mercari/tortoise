@@ -45,6 +45,7 @@ know that this has succeeded?
 -->
 
 - Implement a feature to scale up services via Tortoise based on the schedule users define in `ScheduledScaling` CRD.
+- Remove `.spec.resourcePolicy` from Tortoise.
 
 ### Non-Goals
 
@@ -96,7 +97,7 @@ spec:
     static:
       # The replicas number of your service is usually 30 at peak time.
       # You expect the campaign makes the traffic 3 times bigger and want to scale out to 100 just in case.
-      minReplicas: 100
+      minimumMinReplicas: 100
       # Your memory is vertically scaled up by Tortoise and usually it's around 3GB.
       # You want to scale up it to 5GB, just in case.
       minAllocatedResources:
@@ -131,7 +132,7 @@ spec:
     static:
       # The replicas number of your service is usually 30 at peak time.
       # You expect the new microservice makes the traffic 1.5 times bigger and want to scale out to 50.
-      minReplicas: 50
+      minimumMinReplicas: 50
       # Your memory is vertically scaled up by Tortoise and usually it's around 3GB.
       # You want to scale up it to 5GB, just in case.
       minAllocatedResources:
@@ -167,6 +168,10 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
 
+### API changes
+
+#### New `ScheduledScaling` CRD
+
 Propose creating a new CRD named `ScheduledScaling` as follows:
 
 ```yaml
@@ -182,8 +187,8 @@ spec:
     tortoiseName: cute-tortoise 
   strategy:
     static:
-      # minReplicas is the minimum replica number that Tortoise gives to HPA during this ScheduledScaling is valid.
-      minReplicas: 100
+      # minimumMinReplicas is the minimum replica number that Tortoise gives to HPA during this ScheduledScaling is valid.
+      minimumMinReplicas: 100
       # minAllocatedResources is the minimum resource request that Tortoise gives to the Pods during this ScheduledScaling is valid.
       minAllocatedResources:
         - containerName: "app"
@@ -196,14 +201,105 @@ spec:
     finishAt:  "2024-01-05T00:00:00Z" 
 ```
 
-In the future, we may want to create another strategy in `.spec.strategy` though,
-this proposal only aims to create a simple `static` strategy.
+In the future, we may want to create another strategy in `.spec.strategy`,
+but this proposal only aims to create a simple `static` strategy.
+
+#### New fields in `Tortoise` CRD
+
+Tortoise will get new fields named `Constraints` in `.status.Recommendation`.
+It shows the constraint that this Tortoise has to take into account when generating the recommendation.
+
+```go
+type Recommendations struct {
+  ...
+  // Constraints shows the constraints that this Tortoise has to take into account when generating the recommendation.
+  // When this field is empty, a global constraints that are configured through the admin configuration are used.
+  // +optional
+  Constraints Constraints `json:constraints,omitempty`
+}
+
+type Constraints struct {
+  // MinimumMinReplicas is the minimum replica number that Tortoise gives to HPA.
+  // Note that if it has a value lower than a global MinimumMinReplicas, it's just ignored; a global constraint is priority.
+  // +optional
+  MinimumMinReplicas *int `json:minimumMinReplicas,omitempty`
+  // MinAllocatedResources is the minimum resource request that Tortoise gives to the Pods.
+  // Note that if it has a value lower than a global MinAllocatedResources, it's just ignored; a global constraint is priority.
+  // +optional
+  MinAllocatedResources []ContainerResourcePolicy `json:minAllocatedResources,omitempty`
+}
+```
+
+Also, we create a new spec field named `Recommenders`.
+
+```go
+type TortoiseSpec struct {
+...
+  // Recommenders are responsible for generating recommendation for this Tortoise.
+  // When you specify your custom recommenders here, Tortoise controller doesn't update the recommendations that yours are responsible for.
+	// +optional
+	Recommenders []*Recommender `json:recommenders,omitempty`
+}
+
+type Recommender struct {
+  // Name is the name of recommender that this selector selects.
+  Name string
+  // ResponsibleFor represents which kind of recommendation this recommender generates.
+  ResponsibleFor []ResponsibleFor
+}
+
+type ResponsibleFor string
+
+const (
+  // This recommender is responsible for generating `.status.Recommendation.Horizontal`.
+  Horizontal ResponsibleFor = "Horizontal"
+  // This recommender is responsible for generating `.status.Recommendation.Vertical`.
+  Vertical ResponsibleFor = "Vertical"
+  // This recommender is responsible for generating `.status.Recommendation.Constraints`.
+  Constraints ResponsibleFor = "Constraints"
+)
+```
+
+### The implementation of `ScheduledScaling` controller
+
+#### When the time `startAt` comes
+
+The flow would be:
+1. The time `startAt` comes.
+2. The `ScheduledScaling` controller sets `ScheduledScaling` recommender at `Tortoise.spec.recommenders`.
+```yaml
+...
+spec:
+  recommenders:
+    - name: "ScheduledScaling"
+      responsibleFor:
+      - "Constraints"
+``` 
+3. The `ScheduledScaling` controller sets `ScheduledScaling.spec.strategy.static.minimumMinReplicas` at `.status.Recommendation.Constraints.MinimumMinReplicas`.
+4. The `ScheduledScaling` controller sets `ScheduledScaling.spec.strategy.static.minAllocatedResources` at `.status.Recommendation.Constraints.MinAllocatedResources.`.
+5. The `Tortoise` controller generates the recommendation based on `.status.Recommendation.Constraints`.
+
+#### When the time `finishAt` comes
+
+1. The time `finishAt` comes.
+2. The `ScheduledScaling` controller removes `ScheduledScaling` recommender from `Tortoise.spec.recommenders`.
+3. The `Tortoise` controller remove the values in the field `.status.Recommendation.Constraints`.
 
 ### Future change in Tortoise
 
 This `ScheduledScaling` allows us to decouple the pre-scaling feature from Tortoise.
+
 Specifically, `.spec.resourcePolicy` can be completely removed from Tortoise in the future,
 once this feature is fully available.
+
+`.spec.resourcePolicy` is the biggest mistake in `Tortoise` design; it allows people to configure the conservative value
+and Platform has to go to talk to each of them to achieve FinOps.
+
+If users have to use it for pre-scaling, they can just move to this `ScheduledScaling`.
+And, if users had a problem with a tortoise in the past and it let them use `.spec.resourcePolicy`,
+it's a problem of Tortoise recommendation; 
+we should try to improve Tortoise recommendation to fit their workloads,
+and try to make their Tortoise work fine without `.spec.resourcePolicy`.
 
 ### Test Plan
 

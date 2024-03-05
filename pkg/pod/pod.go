@@ -43,8 +43,10 @@ func New(
 }
 
 func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
-	if t.Spec.UpdateMode == v1beta3.UpdateModeOff {
-		// DryRun, don't update Pod
+	if t.Spec.UpdateMode == v1beta3.UpdateModeOff ||
+		t.Status.TortoisePhase == "" ||
+		t.Status.TortoisePhase == v1beta3.TortoisePhaseInitializing ||
+		t.Status.TortoisePhase == v1beta3.TortoisePhaseGatheringData {
 		return
 	}
 
@@ -116,6 +118,10 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 				if !ok {
 					continue
 				}
+				if len(env.Value) == 0 {
+					// Probably it's defined through the configmap.
+					continue
+				}
 				oldNum, err := strconv.Atoi(env.Value)
 				if err != nil {
 					// invalid GOMAXPROCS, skip
@@ -136,13 +142,30 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 				if !ok {
 					continue
 				}
-				oldNum, err := resource.ParseQuantity(env.Value)
+				val := env.Value
+				if len(val) == 0 {
+					// Probably it's defined through the configmap.
+					continue
+				}
+				last := val[len(val)-1]
+				if last >= '0' && last <= '9' {
+					// OK
+				} else if last == 'B' {
+					// It should end with B.
+					val = val[:len(val)-1]
+				} else {
+					// invalid GOMEMLIMIT, skip
+					continue
+				}
+
+				oldNum, err := resource.ParseQuantity(val)
 				if err != nil {
 					// invalid GOMEMLIMIT, skip
 					continue
 				}
-				newNum := int64(float64(oldNum.MilliValue()) * changeRatio)
-				pod.Spec.Containers[i].Env[j].Value = resource.NewMilliQuantity(newNum, oldNum.Format).String()
+				// See GOMEMLIMIT's format: https://pkg.go.dev/runtime#hdr-Environment_Variables
+				newNum := int(float64(oldNum.Value()) * changeRatio)
+				pod.Spec.Containers[i].Env[j].Value = strconv.Itoa(newNum)
 			}
 		}
 	}
@@ -158,6 +181,11 @@ func (s *Service) GetDeploymentForPod(pod *v1.Pod) (string, error) {
 	}
 	if ownerRefrence == nil {
 		// If the pod has no ownerReference, it cannot be under Tortoise.
+		return "", nil
+	}
+
+	if ownerRefrence.Kind != "ReplicaSet" {
+		// Tortoise only supports Deployment for now, and ReplicaSet is the only controller that can own a pod in this case.
 		return "", nil
 	}
 

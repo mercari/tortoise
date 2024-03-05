@@ -47,8 +47,8 @@ type Service struct {
 }
 
 func New(
-	MaxReplicasRecommendationMultiplier float64,
-	MinReplicasRecommendationMultiplier float64,
+	maxReplicasRecommendationMultiplier float64,
+	minReplicasRecommendationMultiplier float64,
 	maximumTargetResourceUtilization int,
 	minimumTargetResourceUtilization int,
 	minimumMinReplicas int,
@@ -83,8 +83,8 @@ func New(
 
 	return &Service{
 		eventRecorder:                       eventRecorder,
-		MaxReplicasRecommendationMultiplier: MaxReplicasRecommendationMultiplier,
-		MinReplicasRecommendationMultiplier: MinReplicasRecommendationMultiplier,
+		MaxReplicasRecommendationMultiplier: maxReplicasRecommendationMultiplier,
+		MinReplicasRecommendationMultiplier: minReplicasRecommendationMultiplier,
 		maximumTargetResourceUtilization:    int32(maximumTargetResourceUtilization),
 		minimumTargetResourceUtilization:    int32(minimumTargetResourceUtilization),
 		minimumMinReplicas:                  int32(minimumMinReplicas),
