@@ -93,7 +93,7 @@ var _ = BeforeSuite(func() {
 	err = v2.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = autoscalingv1alpha1.AddToScheme(scheme.Scheme)
+	err = autoscalingv1alpha1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
