@@ -166,7 +166,13 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		logger.Error(err, "failed to get deployment", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
-	currentReplicaNum := dm.Status.Replicas
+	if dm.Spec.Replicas == nil {
+		logger.Error(nil, "the deployment doesn't have the number of replicas and tortoise cannot calculate the recommendation", "tortoise", req.NamespacedName, "deployment", klog.KObj(dm))
+		return ctrl.Result{}, nil
+
+	}
+
+	currentDesiredReplicaNum := *dm.Spec.Replicas // Use the desired replica number.
 
 	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff /* When Off, ContainerResourceRequests should be reset */ ||
 		tortoise.Status.Conditions.ContainerResourceRequests == nil /* The first reconciliation */ {
@@ -191,7 +197,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseInitializing {
 		logger.Info("initializing tortoise", "tortoise", req.NamespacedName)
 		// need to initialize HPA and VPA.
-		if err := r.initializeVPAAndHPA(ctx, tortoise, currentReplicaNum, now); err != nil {
+		if err := r.initializeVPAAndHPA(ctx, tortoise, currentDesiredReplicaNum, now); err != nil {
 			return ctrl.Result{}, fmt.Errorf("initialize VPA and HPA: %w", err)
 		}
 
@@ -204,7 +210,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, fmt.Errorf("add finalizer: %w", err)
 	}
 
-	tortoise, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa, currentReplicaNum, now)
+	tortoise, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa, currentDesiredReplicaNum, now)
 	if err != nil {
 		logger.Error(err, "update HPA spec from Tortoise autoscaling policy", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -243,7 +249,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	tortoise = r.TortoiseService.UpdateContainerRecommendationFromVPA(tortoise, monitorvpa, now)
 
-	tortoise, err = r.RecommenderService.UpdateRecommendations(ctx, tortoise, hpa, currentReplicaNum, now)
+	tortoise, err = r.RecommenderService.UpdateRecommendations(ctx, tortoise, hpa, currentDesiredReplicaNum, now)
 	if err != nil {
 		logger.Error(err, "update recommendation in tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -266,7 +272,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	tortoise, err = r.TortoiseService.UpdateResourceRequest(ctx, tortoise, currentReplicaNum, now)
+	tortoise, err = r.TortoiseService.UpdateResourceRequest(ctx, tortoise, currentDesiredReplicaNum, now)
 	if err != nil {
 		logger.Error(err, "update VPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
