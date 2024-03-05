@@ -43,8 +43,10 @@ func New(
 }
 
 func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
-	if t.Spec.UpdateMode == v1beta3.UpdateModeOff {
-		// DryRun, don't update Pod
+	if t.Spec.UpdateMode == v1beta3.UpdateModeOff ||
+		t.Status.TortoisePhase == "" ||
+		t.Status.TortoisePhase == v1beta3.TortoisePhaseInitializing ||
+		t.Status.TortoisePhase == v1beta3.TortoisePhaseGatheringData {
 		return
 	}
 
@@ -179,6 +181,11 @@ func (s *Service) GetDeploymentForPod(pod *v1.Pod) (string, error) {
 	}
 	if ownerRefrence == nil {
 		// If the pod has no ownerReference, it cannot be under Tortoise.
+		return "", nil
+	}
+
+	if ownerRefrence.Kind != "ReplicaSet" {
+		// Tortoise only supports Deployment for now, and ReplicaSet is the only controller that can own a pod in this case.
 		return "", nil
 	}
 

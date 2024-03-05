@@ -1346,7 +1346,51 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 			name: "minReplicas/maxReplicas recommendation is not yet gathered",
 			tortoise: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
-					TortoisePhase: v1beta3.TortoisePhaseGatheringData,
+					TortoisePhase: v1beta3.TortoisePhasePartlyWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "app2",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceMemory: {
+									Phase:              v1beta3.ContainerResourcePhaseWorking,
+									LastTransitionTime: metav1.NewTime(now),
+								},
+								corev1.ResourceCPU: {
+									Phase:              v1beta3.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now),
+								},
+							},
+						},
+						{
+							ContainerName: "app2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceMemory: {
+									Phase:              v1beta3.ContainerResourcePhaseWorking,
+									LastTransitionTime: metav1.NewTime(now),
+								},
+								corev1.ResourceCPU: {
+									Phase:              v1beta3.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now),
+								},
+							},
+						},
+					},
 					Recommendations: v1beta3.Recommendations{
 						Horizontal: v1beta3.HorizontalRecommendations{
 							MinReplicas: []v1beta3.ReplicasRecommendation{
@@ -1395,7 +1439,51 @@ func TestService_changeTortoisePhaseWorkingIfTortoiseFinishedGatheringData(t *te
 			},
 			want: &v1beta3.Tortoise{
 				Status: v1beta3.TortoiseStatus{
-					TortoisePhase: v1beta3.TortoisePhaseGatheringData,
+					TortoisePhase: v1beta3.TortoisePhasePartlyWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "app2",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceMemory: {
+									Phase:              v1beta3.ContainerResourcePhaseWorking, // unchanged because it's vertical.
+									LastTransitionTime: metav1.NewTime(now),
+								},
+								corev1.ResourceCPU: {
+									Phase:              v1beta3.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now),
+								},
+							},
+						},
+						{
+							ContainerName: "app2",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceMemory: {
+									Phase:              v1beta3.ContainerResourcePhaseWorking, // unchanged
+									LastTransitionTime: metav1.NewTime(now),
+								},
+								corev1.ResourceCPU: {
+									Phase:              v1beta3.ContainerResourcePhaseGatheringData,
+									LastTransitionTime: metav1.NewTime(now),
+								},
+							},
+						},
+					},
 					Recommendations: v1beta3.Recommendations{
 						Horizontal: v1beta3.HorizontalRecommendations{
 							MinReplicas: []v1beta3.ReplicasRecommendation{
@@ -3240,6 +3328,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeAuto,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					// No ContainerResourceRequests is set.
 					Recommendations: v1beta3.Recommendations{
 						Vertical: v1beta3.VerticalRecommendations{
@@ -3272,6 +3376,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeAuto,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						TortoiseConditions: []v1beta3.TortoiseCondition{
 							{
@@ -3323,7 +3443,7 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 			},
 		},
 		{
-			name: "ContainerResourceRequests won't be set if the recommendation is zero",
+			name: "ContainerResourceRequests won't be set if the autoscaling policy is Off",
 			tortoise: &v1beta3.Tortoise{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "tortoise",
@@ -3333,6 +3453,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeAuto,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeOff,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeOff,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						TortoiseConditions: []v1beta3.TortoiseCondition{
 							{
@@ -3391,6 +3527,173 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeAuto,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeOff,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeOff,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+								Status:             corev1.ConditionTrue,
+								LastTransitionTime: metav1.NewTime(now),
+								LastUpdateTime:     metav1.NewTime(now),
+								Message:            "The recommendation is provided",
+							},
+						},
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("2Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"), // off is ignored.
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"), // off is ignored.
+									corev1.ResourceCPU:    resource.MustParse("2"),
+								},
+							},
+						},
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("0"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("0Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "ContainerResourceRequests won't be set if the recommendation is zero",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+								Status:             corev1.ConditionTrue,
+								LastTransitionTime: metav1.NewTime(now),
+								LastUpdateTime:     metav1.NewTime(now),
+								Message:            "The recommendation is provided",
+							},
+						},
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resource: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse("1"),
+								},
+							},
+						},
+					},
+					Recommendations: v1beta3.Recommendations{
+						Vertical: v1beta3.VerticalRecommendations{
+							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+										corev1.ResourceCPU:    resource.MustParse("0"),
+									},
+								},
+								{
+									ContainerName: "sidecar",
+									RecommendedResource: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("0Gi"),
+										corev1.ResourceCPU:    resource.MustParse("2"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						TortoiseConditions: []v1beta3.TortoiseCondition{
 							{
@@ -3452,6 +3755,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeAuto,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						TortoiseConditions: []v1beta3.TortoiseCondition{
 							{
@@ -3511,6 +3830,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeAuto,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						TortoiseConditions: []v1beta3.TortoiseCondition{
 							{
@@ -3573,6 +3908,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeAuto,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						TortoiseConditions: []v1beta3.TortoiseCondition{
 							{
@@ -3632,6 +3983,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeAuto,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						TortoiseConditions: []v1beta3.TortoiseCondition{
 							{
@@ -3694,6 +4061,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeAuto,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
 							// updated
@@ -3744,6 +4127,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeAuto,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
 							{
@@ -3796,6 +4195,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeOff,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						// empty
 						ContainerResourceRequests: nil,
@@ -3831,6 +4246,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeOff,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						TortoiseConditions: []v1beta3.TortoiseCondition{
 							{
@@ -3878,6 +4309,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeOff,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						TortoiseConditions: []v1beta3.TortoiseCondition{
 							{
@@ -3936,6 +4383,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeOff,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						TortoiseConditions: []v1beta3.TortoiseCondition{
 							{
@@ -3998,6 +4461,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeAuto,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Conditions: v1beta3.Conditions{
 						TortoiseConditions: []v1beta3.TortoiseCondition{
 							{
@@ -4041,6 +4520,22 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 					UpdateMode: v1beta3.UpdateModeAuto,
 				},
 				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
 					Recommendations: v1beta3.Recommendations{
 						Vertical: v1beta3.VerticalRecommendations{
 							ContainerResourceRecommendation: []v1beta3.RecommendedContainerResources{
