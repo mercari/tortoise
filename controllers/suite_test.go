@@ -44,6 +44,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 
 	. "github.com/onsi/ginkgo/v2"

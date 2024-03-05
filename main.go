@@ -47,6 +47,7 @@ import (
 
 	autoscalingv2 "github.com/mercari/tortoise/api/autoscaling/v2"
 	v1 "github.com/mercari/tortoise/api/core/v1"
+	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/controllers"
 	"github.com/mercari/tortoise/pkg/config"
