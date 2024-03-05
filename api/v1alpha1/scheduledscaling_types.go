@@ -41,10 +41,10 @@ type ScheduledScalingSpec struct {
 	/// The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
 	Schedule Schedule `json:"schedule" protobuf:"bytes,1,name=schedule"`
 
-	//TargetRef is the targets that need to be scheduled
+	// TargetRef is the targets that need to be scheduled
 	TargetRefs TargetRefs `json:"targetRefs" protobuf:"bytes,2,name=targetRefs"`
 
-	//Currently only static, might implement others(?)
+	// Currently only static, might implement others(?)
 	Strategy Strategy `json:"strategy" protobuf:"bytes,3,name=strategy"`
 }
 
@@ -53,44 +53,10 @@ type ScheduledScalingStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	//Target tortoise phase
-	TortoisePhase TortoisePhase `json:"tortoisePhase" protobuf:"bytes,1,name=tortoisePhase"`
-
-	//unsure if needed
 	ScheduledScalingPhase ScheduledScalingPhase `json:"scheduledScalingPhase" protobuf:"bytes,1,name=scheduledScalingPhase"`
-
-	// AutoscalingPolicy contains the policy how this tortoise actually scales each resource.
-	// It should basically be the same as .spec.autoscalingPolicy.
-	// But, if .spec.autoscalingPolicy is empty, tortoise manages/generates
-	// the policies generated based on HPA and the target deployment.
-	//Commenting this just in case there is a need for separate autoscaling policy in schedule
-	//AutoscalingPolicy []ContainerAutoscalingPolicy `json:"autoscalingPolicy,omitempty" protobuf:"bytes,6,opt,name=autoscalingPolicy"`
 }
 
-// Unsure if needed
 type ScheduledScalingPhase string
-
-type TortoisePhase string
-
-const (
-	// TortoisePhaseInitializing means tortoise is just created and initializing some components (HPA and VPA),
-	// and wait for those components to be ready.
-	TortoisePhaseInitializing TortoisePhase = "Initializing"
-	// TortoisePhaseGatheringData means tortoise is now gathering data and cannot make the accurate recommendations.
-	TortoisePhaseGatheringData TortoisePhase = "GatheringData"
-	// TortoisePhaseWorking means tortoise is making the recommendations,
-	// and applying the recommendation values.
-	TortoisePhaseWorking TortoisePhase = "Working"
-	// TortoisePhasePartlyWorking means tortoise has maxReplicas and minReplicas recommendations ready,
-	// and applying the recommendation values.
-	// But, some of the resources are not scaled due to some reasons. (probably still gathering data)
-	TortoisePhasePartlyWorking TortoisePhase = "PartlyWorking"
-	// TortoisePhaseEmergency means tortoise is in the emergency mode.
-	TortoisePhaseEmergency TortoisePhase = "Emergency"
-	// TortoisePhaseBackToNormal means tortoise was in the emergency mode, and now it's coming back to the normal operation.
-	// During TortoisePhaseBackToNormal, the number of replicas of workloads are gradually reduced to the usual value.
-	TortoisePhaseBackToNormal TortoisePhase = "BackToNormal"
-)
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
@@ -124,34 +90,34 @@ type TargetRefs struct {
 // CrossVersionObjectReference contains enough information toet identify the referred resource.
 type CrossVersionObjectReference struct {
 	// kind is the kind of the referent; More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind string `json:"kind" protobuf:"bytes,1,opt,name=kind"`
+	Kind *string `json:"kind,omitempty" protobuf:"bytes,1,opt,name=kind"`
 
 	// name is the name of the referent; More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-	Name string `json:"name" protobuf:"bytes,2,opt,name=name"`
+	Name *string `json:"name,omitempty" protobuf:"bytes,2,opt,name=name"`
 
 	// apiVersion is the API version of the referent
 	// +optional
-	APIVersion string `json:"apiVersion,omitempty" protobuf:"bytes,3,opt,name=apiVersion"`
+	APIVersion *string `json:"apiVersion,omitempty" protobuf:"bytes,3,opt,name=apiVersion"`
 }
 
 type Schedule struct {
 	/// The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
-	//start of schedule
-	StartAt string `json:"startAt" protobuf:"bytes,1,name=startAt"`
-	//end of schedule
-	FinishAt string `json:"finishAt" protobuf:"bytes,2,name=finishAt"`
+	// start of schedule
+	StartAt *string `json:"startAt,omitempty" protobuf:"bytes,1,opt,name=startAt"`
+	// end of schedule
+	FinishAt *string `json:"finishAt,omitempty" protobuf:"bytes,2,name=finishAt"`
 }
 
 type Strategy struct {
-	//Resource scaling requirements
-	Static Static `json:"static" protobuf: "bytes,1,name=static"`
+	// Resource scaling requirements
+	Static *Static `json:"static,omitempty" protobuf:"bytes,1,opt,name=static"`
 }
 
 type Static struct {
-	//Min replicas to be deployed on schedule
-	MinReplicas int `json:"minReplica" protobuf:"bytes,1,name=minReplica"`
-	//Resources requested per container
-	MinAllocatedResources []ContainerResourceRequests `json:"minAllocatedResources" protobuf:"bytes,2,name=minAllocatedResources"`
+	// Min replicas to be deployed on schedule
+	MinimumMinReplicas *int `json:"minimumMinReplica,omitempty" protobuf:"bytes,1,opt,name=minimumMinReplica"`
+	// Resources requested per container
+	MinAllocatedResources []ContainerResourceRequests `json:"minAllocatedResourcesomitempty,omitempty" protobuf:"bytes,2,opt,name=minAllocatedResources"`
 }
 
 // Not sure if I need this here, duplicated code from tortoise types
