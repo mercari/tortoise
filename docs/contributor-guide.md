@@ -92,6 +92,12 @@ licensed under [MIT License](https://github.com/zoetrope/test-controller/blob/39
 
 ### Linters
 
+First, make sure you have a necessary tool in your local machine.
+
+```shell
+make dependencies
+```
+
 The following command runs all enabled linters.
 
 ```shell
