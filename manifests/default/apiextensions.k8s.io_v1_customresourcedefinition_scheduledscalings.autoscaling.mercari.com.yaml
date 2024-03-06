@@ -30,25 +30,24 @@ spec:
             description: ScheduledScalingSpec defines the desired state of ScheduledScaling
             properties:
               schedule:
-                description: / The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
+                description: / Schedule RFC3339 format e.g., "2006-01-02T15:04:05Z09:00"
                 properties:
                   finishAt:
                     description: end of schedule
                     type: string
                   startAt:
-                    description: / The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron. start of schedule
+                    description: / RFC3339 format e.g., "2006-01-02T15:04:05Z09:00" start of schedule
                     type: string
                 type: object
               strategy:
-                description: Currently only static, might implement others(?)
+                description: Strategy describes how this ScheduledScaling scales the target workload. Currently, it only supports the static strategy.
                 properties:
                   static:
-                    description: Resource scaling requirements
+                    description: Resource scaling requirements Static strategy receives the static value of the replica number and resource requests that users want to give to Pods during this ScheduledScaling is valid. This field is optional for the future when we add another strategy here though, until then this strategy is the only supported strategy you must set this.
                     properties:
                       minAllocatedResourcesomitempty:
-                        description: Resources requested per container
+                        description: MinAllowedResources means the minimum resource requests that Tortoise gives to each container.
                         items:
-                          description: Not sure if I need this here, duplicated code from tortoise types
                           properties:
                             containerName:
                               description: ContainerName is the name of target container.
@@ -68,31 +67,16 @@ spec:
                           type: object
                         type: array
                       minimumMinReplica:
-                        description: Min replicas to be deployed on schedule
+                        description: MinimumMinReplicas means the minimum MinReplicas that Tortoise gives to HPA during this ScheduledScaling is valid.
                         type: integer
                     type: object
                 type: object
               targetRefs:
                 description: TargetRef is the targets that need to be scheduled
                 properties:
-                  scaleTargetRef:
-                    description: ScaleTargetRef is the target of scaling. It should be the same as the target of HPA.
-                    properties:
-                      apiVersion:
-                        description: apiVersion is the API version of the referent
-                        type: string
-                      kind:
-                        description: 'kind is the kind of the referent; More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                        type: string
-                      name:
-                        description: 'name is the name of the referent; More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                        type: string
-                    type: object
                   tortoiseName:
                     description: Tortoise to be targeted for scheduled scaling
                     type: string
-                required:
-                - scaleTargetRef
                 type: object
             required:
             - schedule
