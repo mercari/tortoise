@@ -26,8 +26,9 @@ SOFTWARE.
 package v1alpha1
 
 import (
-	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
