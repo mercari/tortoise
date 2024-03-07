@@ -233,7 +233,7 @@ func (s *Service) calculateBestNewSize(
 	// Here also covers the scenario where the current replica num hits MaximumMaxReplicas.
 	if replicaNum >= s.preferredMaxReplicas &&
 		// If the current replica number is equal to the maximumMaxReplica, increasing the resource request would not change the situation that the replica number is higher than preferredMaxReplicas.
-		*hpa.Spec.MinReplicas != replicaNum &&
+		*hpa.Spec.MinReplicas < replicaNum &&
 		features.Contains(s.featureFlags, features.VerticalScalingBasedOnPreferredMaxReplicas) &&
 		allowVerticalScalingBasedOnPreferredMaxReplicas(tortoise, now) {
 		// We keep increasing the size until we hit the maxResourceSize.
