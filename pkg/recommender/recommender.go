@@ -272,7 +272,9 @@ func (s *Service) calculateBestNewSize(
 			return jastified, fmt.Sprintf("change %v request (%v) (%v → %v) based on VPA suggestion", k, containerName, resourceRequest.MilliValue(), jastified), nil
 		}
 
-		return resourceRequest.MilliValue(), "The autoscaling policy for this resource is Off", nil
+		return resourceRequest.MilliValue(),
+			fmt.Sprintf("Tortoise recommends %v as a new %v request (%v), but it's very small scale down change, so tortoise just ignores it", idealSize, k, containerName),
+			nil
 	}
 
 	// p == v1beta3.AutoscalingTypeHorizontal
