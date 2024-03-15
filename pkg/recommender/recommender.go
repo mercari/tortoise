@@ -143,7 +143,7 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 	recommendationMap := map[string]map[corev1.ResourceName]resource.Quantity{}
 	for _, perContainer := range tortoise.Status.Conditions.ContainerRecommendationFromVPA {
 		recommendationMap[perContainer.ContainerName] = map[corev1.ResourceName]resource.Quantity{}
-		for k, perResource := range perContainer.Recommendation {
+		for k, perResource := range perContainer.MaxRecommendation {
 			recommendationMap[perContainer.ContainerName][k] = perResource.Quantity
 		}
 	}
@@ -247,12 +247,32 @@ func (s *Service) calculateBestNewSize(
 	}
 
 	if p == v1beta3.AutoscalingTypeVertical {
-		// It's the simplest case.
 		// The user configures Vertical on this container's resource. This is just vertical scaling.
-		// We always follow the recommendation from VPA.
-		newSize := float64(recommendedResourceRequest.MilliValue()) * (1 + s.bufferRatioOnVerticalResource)
-		jastified := s.justifyNewSize(resourceRequest.MilliValue(), int64(newSize), k, minAllocatedResources, containerName)
-		return jastified, fmt.Sprintf("change %v request (%v) (%v → %v) based on VPA suggestion", k, containerName, resourceRequest.MilliValue(), jastified), nil
+		// Basically we want to reduce the frequency of scaling up/down because vertical scaling has to restart deployment.
+
+		// The ideal size is {VPA recommendation} * (1+buffer).
+		idealSize := float64(recommendedResourceRequest.MilliValue()) * (1 + s.bufferRatioOnVerticalResource)
+		if idealSize > float64(resourceRequest.MilliValue()) {
+			// Scale up always happens when idealSize goes higher than the current resource request.
+			// In this case, we don't just apply idealSize, but apply idealSize * (1+buffer)
+			// so that we increase the resource request more than actually needed,
+			// which reduces the need of scaling up in the future.
+			idealSize = idealSize * (1 + s.bufferRatioOnVerticalResource)
+			jastified := s.justifyNewSize(resourceRequest.MilliValue(), int64(idealSize), k, minAllocatedResources, containerName)
+			return jastified, fmt.Sprintf("change %v request (%v) (%v → %v) based on VPA suggestion", k, containerName, resourceRequest.MilliValue(), jastified), nil
+		}
+
+		// Scale down - we ignore too small scale down to reduce the frequency of restarts.
+
+		// previousIdealSize was the ideal size which was calculated when this resource request was applied.
+		previousIdealSize := float64(resourceRequest.MilliValue()) / (1 + s.bufferRatioOnVerticalResource)
+		if previousIdealSize*(1-s.bufferRatioOnVerticalResource) > idealSize {
+			// The current ideal size is too small campared to the previous ideal size.
+			jastified := s.justifyNewSize(resourceRequest.MilliValue(), int64(idealSize), k, minAllocatedResources, containerName)
+			return jastified, fmt.Sprintf("change %v request (%v) (%v → %v) based on VPA suggestion", k, containerName, resourceRequest.MilliValue(), jastified), nil
+		}
+
+		return resourceRequest.MilliValue(), "The autoscaling policy for this resource is Off", nil
 	}
 
 	// p == v1beta3.AutoscalingTypeHorizontal
