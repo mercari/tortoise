@@ -1,8 +1,11 @@
 # Tortoise
 
+
 <img alt="Tortoise" src="docs/images/tortoise_big.jpg" width="400px"/> 
 
 Get cute Tortoises into your Kubernetes garden and say goodbye to the days optimizing your rigid autoscalers. 
+
+_Tortoise is still in the early stage and we recommend evaluating its behaviour with your services in your development environment carefully._
 
 ## Motivation
 
@@ -95,6 +98,13 @@ and how they can configure Tortoise so that they can let tortoises autoscale the
 ## API definition
 
 - [Tortoise](./api/v1beta3/tortoise_types.go)
+
+## Notes
+
+Here's some notes that you may want to pay attention to before starting to use Tortoise.
+
+- Tortoise only supports Deployment at the moment. In the future, [we'll support all resources supporting scale subresources](https://github.com/mercari/tortoise/issues/129).
+- In Mercari, we've evaluated Tortoise with many Golang microservices, while there're a few services implemented in other languages using Tortoise. Any contributions would be welcome for enhance the recommendation for your language's services!
 
 ## Contribution
 
