@@ -10,11 +10,8 @@ const (
 	VerticalScalingBasedOnPreferredMaxReplicas FeatureFlag = "VerticalScalingBasedOnPreferredMaxReplicas"
 
 	// Stage: alpha (default: disabled)
-	// Description: Enable the feature to modify GOMAXPROCS/GOMEMLIMIT based on the resource requests in the Pod mutating webhook.
-	// Tracked at:
-	// - https://github.com/mercari/tortoise/issues/319
-	// - https://github.com/mercari/tortoise/issues/320
-	GolangEnvModification FeatureFlag = "GolangEnvModification"
+	// Description: Enable the feature to modify GOMEMLIMIT based on the memory request in the Pod mutating webhook.
+	GoMemLimitModificationEnabled FeatureFlag = "GoMemLimitModificationEnabled"
 )
 
 func Contains(flags []FeatureFlag, flag FeatureFlag) bool {
