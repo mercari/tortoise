@@ -18,10 +18,10 @@ import (
 
 type Service struct {
 	// For example, if it's 3 and Pod's resource request is 100m, the limit will be changed to 300m.
-	resourceLimitMultiplier      map[string]int64
-	minimumCPULimit              resource.Quantity
-	controllerFetcher            controllerfetcher.ControllerFetcher
-	golangEnvModificationEnabled bool
+	resourceLimitMultiplier       map[string]int64
+	minimumCPULimit               resource.Quantity
+	controllerFetcher             controllerfetcher.ControllerFetcher
+	goMemLimitModificationEnabled bool
 }
 
 func New(
@@ -35,10 +35,10 @@ func New(
 	}
 	minCPULim := resource.MustParse(minimumCPULimit)
 	return &Service{
-		resourceLimitMultiplier:      resourceLimitMultiplier,
-		minimumCPULimit:              minCPULim,
-		controllerFetcher:            cf,
-		golangEnvModificationEnabled: features.Contains(featureFlags, features.GolangEnvModification),
+		resourceLimitMultiplier:       resourceLimitMultiplier,
+		minimumCPULimit:               minCPULim,
+		controllerFetcher:             cf,
+		goMemLimitModificationEnabled: features.Contains(featureFlags, features.GoMemLimitModificationEnabled),
 	}, nil
 }
 
@@ -102,10 +102,6 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 		}
 	}
 
-	if !s.golangEnvModificationEnabled {
-		return
-	}
-
 	// Update GOMEMLIMIT and GOMAXPROCS
 	for i, container := range pod.Spec.Containers {
 		for j, env := range container.Env {
@@ -132,6 +128,11 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 				newNum := int(math.Ceil(newUncapedNum))
 				pod.Spec.Containers[i].Env[j].Value = strconv.Itoa(newNum)
 
+			}
+
+			if !s.goMemLimitModificationEnabled {
+				// don't modify GOMEMLIMIT
+				continue
 			}
 
 			if env.Name == "GOMEMLIMIT" {
