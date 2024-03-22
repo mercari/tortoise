@@ -5,12 +5,17 @@
 You can configure resource(s) to be scaled by vertical scaling
 by setting `Vertical` in `Spec.ResourcePolicy[*].AutoscalingPolicy`
 
-When `Vertical` is specified on the resource,
-that resource is basically updated based on the recommendation value from the VPA.
+Tortoise basically utilizes [Vertical Pod Autoscaler (VPA)](https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler) under the hood.
 
-### How it's different from ordinary VPA?
+And, VPA basically generates the recommendation of the resource request by checking p90~max of historical resource usage 
+during a certain period of time (around 1 week).
 
-Tortoise's Vertical scaling is similar but more conservative/safer than how VPA does.
+Specifically, they are calculated using a decaying histogram of weighted samples from the metrics server, 
+_where the newer samples are assigned higher weights_.
+
+### How it's different from VPA?
+
+The vertical scaling in Tortoise is actually similar to VPA, but more conservative/safer.
 
 #### Rolling upgrade instead of the eviction
 
@@ -34,8 +39,8 @@ But, it also made a downside in Tortoise which it cannot support resources other
 
 #### Conservative scaling down
 
-Even though Tortoise is using a rolling upgrade to minimize the bad impact to service,
-we don't want to do such replacement very frequently.
+Even though Tortoise is using a rolling upgrade to minimize the bad impact on service,
+we don't want to do such replacements very frequently.
 
 Thus, Tortoise is allowed to scale down only once an hour, even if the resource request recommendation keeps decreasing in an hour.
 
@@ -43,6 +48,15 @@ Also, to prevent a big scaling down, Tortoise has [`MaxAllowedScalingDownRatio`]
 
 On the other hand, Tortoise always scales **up** the resource request as soon as possible
 regardless of whether Tortoise recently has scaled the resources or not.
+
+#### Golang environment variables support
+
+In Golang, there are some environment variables to tune how your service consumes resources, such as `GoMAXPROCS`, `GOMEMLIMIT`, and `GOGC`.
+Tortoise keeps `GOMAXPROCS` and `GOMEMLIMIT` proportional to request, that is, if CPU is doubled and Memory is tripled,
+`GOMAXPROCS` is also doubled, and `GOMEMLIMIT` is also tripled.
+
+Note that, this modification only happens when if you set those environment variables through `pod.Spec.Containers[x].Env.Value`.
+If you manage your environment variables through configmap or something else, Tortoise cannot modify the values.
 
 ### Known Limitation
 
