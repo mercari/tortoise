@@ -396,6 +396,10 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		return nil, tortoise, fmt.Errorf("get maxReplicas recommendation: %w", err)
 	}
 
+	if tortoise.Spec.MaxReplicas != nil && recommendMax > *tortoise.Spec.MaxReplicas {
+		recommendMax = *tortoise.Spec.MaxReplicas
+	}
+
 	if recommendMax > c.maximumMaxReplica {
 		c.recorder.Event(tortoise, corev1.EventTypeWarning, event.WarningHittingHardMaxReplicaLimit, fmt.Sprintf("MaxReplica (%v) suggested from Tortoise (%s/%s) hits a cluster-wide maximum replica number (%v). It wouldn't be a problem until the replica number actually grows to %v though, you may want to reach out to your cluster admin.", recommendMax, tortoise.Namespace, tortoise.Name, c.maximumMaxReplica, c.maximumMaxReplica))
 		recommendMax = c.maximumMaxReplica

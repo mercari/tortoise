@@ -158,6 +158,12 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 		minAllocatedResourcesMap[r.ContainerName] = r.MinAllocatedResources
 	}
 
+	// containerName → MaxAllocatedResources
+	maxAllocatedResourcesMap := map[string]v1.ResourceList{}
+	for _, r := range tortoise.Spec.ResourcePolicy {
+		maxAllocatedResourcesMap[r.ContainerName] = r.MaxAllocatedResources
+	}
+
 	newRecommendations := []v1beta3.RecommendedContainerResources{}
 	for _, r := range tortoise.Status.AutoscalingPolicy {
 		recommendation := v1beta3.RecommendedContainerResources{
@@ -192,7 +198,7 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 			var newSize int64
 			var reason string
 			var err error
-			newSize, reason, err = s.calculateBestNewSize(ctx, tortoise, p, r.ContainerName, recom, k, hpa, replicaNum, req, minAllocatedResourcesMap[r.ContainerName], scaledUpBasedOnPreferredMaxReplicas, closeToPreferredMaxReplicas)
+			newSize, reason, err = s.calculateBestNewSize(ctx, tortoise, p, r.ContainerName, recom, k, hpa, replicaNum, req, minAllocatedResourcesMap[r.ContainerName], maxAllocatedResourcesMap[r.ContainerName], scaledUpBasedOnPreferredMaxReplicas, closeToPreferredMaxReplicas)
 			if err != nil {
 				return tortoise, err
 			}
@@ -241,7 +247,7 @@ func (s *Service) calculateBestNewSize(
 	hpa *v2.HorizontalPodAutoscaler,
 	replicaNum int32,
 	resourceRequest resource.Quantity,
-	minAllocatedResources corev1.ResourceList,
+	minAllocatedResources, maxAllocatedResources corev1.ResourceList,
 	scaledUpBasedOnPreferredMaxReplicas, closeToPreferredMaxReplicas bool,
 ) (int64, string, error) {
 	if p == v1beta3.AutoscalingTypeOff {
@@ -261,7 +267,7 @@ func (s *Service) calculateBestNewSize(
 			// so that we increase the resource request more than actually needed,
 			// which reduces the need of scaling up in the future.
 			idealSize = idealSize * (1 + s.bufferRatioOnVerticalResource)
-			jastified := s.justifyNewSize(resourceRequest.MilliValue(), int64(idealSize), k, minAllocatedResources, containerName)
+			jastified := s.justifyNewSize(resourceRequest.MilliValue(), int64(idealSize), k, minAllocatedResources, maxAllocatedResources, containerName)
 			return jastified, fmt.Sprintf("change %v request (%v) (%v → %v) based on VPA suggestion", k, containerName, resourceRequest.MilliValue(), jastified), nil
 		}
 
@@ -271,7 +277,7 @@ func (s *Service) calculateBestNewSize(
 		previousIdealSize := float64(resourceRequest.MilliValue()) / (1 + s.bufferRatioOnVerticalResource)
 		if previousIdealSize*(1-s.bufferRatioOnVerticalResource) > idealSize {
 			// The current ideal size is too small campared to the previous ideal size.
-			jastified := s.justifyNewSize(resourceRequest.MilliValue(), int64(idealSize), k, minAllocatedResources, containerName)
+			jastified := s.justifyNewSize(resourceRequest.MilliValue(), int64(idealSize), k, minAllocatedResources, maxAllocatedResources, containerName)
 			return jastified, fmt.Sprintf("change %v request (%v) (%v → %v) based on VPA suggestion", k, containerName, resourceRequest.MilliValue(), jastified), nil
 		}
 
@@ -289,7 +295,7 @@ func (s *Service) calculateBestNewSize(
 	if scaledUpBasedOnPreferredMaxReplicas {
 		// We keep increasing the size until we hit the maxResourceSize.
 		newSize := int64(float64(resourceRequest.MilliValue()) * 1.3)
-		jastifiedNewSize := s.justifyNewSize(resourceRequest.MilliValue(), newSize, k, minAllocatedResources, containerName)
+		jastifiedNewSize := s.justifyNewSize(resourceRequest.MilliValue(), newSize, k, minAllocatedResources, maxAllocatedResources, containerName)
 		msg := fmt.Sprintf("the current number of replicas (%v) is bigger than the preferred max replica number in this cluster (%v), so make %v request (%s) bigger (%v → %v)", replicaNum, s.preferredMaxReplicas, k, containerName, resourceRequest.MilliValue(), jastifiedNewSize)
 		return jastifiedNewSize, msg, nil
 	}
@@ -314,7 +320,7 @@ func (s *Service) calculateBestNewSize(
 			// We use the recommended resource request if it's smaller than the current resource request.
 			newSize = recommendedResourceRequest.MilliValue()
 		}
-		jastified := s.justifyNewSize(resourceRequest.MilliValue(), newSize, k, minAllocatedResources, containerName)
+		jastified := s.justifyNewSize(resourceRequest.MilliValue(), newSize, k, minAllocatedResources, maxAllocatedResources, containerName)
 
 		return jastified, fmt.Sprintf("the current number of replicas is equal or smaller than the minimum min replica number in this cluster (%v), so make %v request (%v) smaller (%v → %v) based on VPA suggestion", s.minimumMinReplicas, k, containerName, resourceRequest.MilliValue(), jastified), nil
 	}
@@ -326,7 +332,7 @@ func (s *Service) calculateBestNewSize(
 		// Also, if the current replica number is equal to the minReplicas,
 		// we don't change the resource request based on the current resource utilization
 		// because even if the resource utilization is low, it's due to the minReplicas.
-		return s.justifyNewSize(resourceRequest.MilliValue(), resourceRequest.MilliValue(), k, minAllocatedResources, containerName), "nothing to do", nil
+		return s.justifyNewSize(resourceRequest.MilliValue(), resourceRequest.MilliValue(), k, minAllocatedResources, maxAllocatedResources, containerName), "nothing to do", nil
 	}
 
 	targetUtilizationValue, err := hpaservice.GetHPATargetValue(ctx, hpa, containerName, k)
@@ -345,13 +351,13 @@ func (s *Service) calculateBestNewSize(
 		// And this case, reducing the resource request of container in this kind of weird situation
 		// so that the upper usage will be the target usage.
 		newSize := int64(float64(recommendedResourceRequest.MilliValue()) * 100.0 / float64(targetUtilizationValue))
-		jastified := s.justifyNewSize(resourceRequest.MilliValue(), newSize, k, minAllocatedResources, containerName)
+		jastified := s.justifyNewSize(resourceRequest.MilliValue(), newSize, k, minAllocatedResources, maxAllocatedResources, containerName)
 		return jastified, fmt.Sprintf("the current resource usage (%v, %v%%) is too small and it's due to unbalanced container size, so make %v request (%v) smaller (%v → %v) based on VPA's recommendation and HPA target utilization %v%%", recommendedResourceRequest.MilliValue(), int(upperUtilization), k, containerName, resourceRequest.MilliValue(), jastified, targetUtilizationValue), nil
 	}
 
 	// Just keep the current resource request.
 	// Only do justification.
-	return s.justifyNewSize(resourceRequest.MilliValue(), resourceRequest.MilliValue(), k, minAllocatedResources, containerName), "nothing to do", nil
+	return s.justifyNewSize(resourceRequest.MilliValue(), resourceRequest.MilliValue(), k, minAllocatedResources, maxAllocatedResources, containerName), "nothing to do", nil
 }
 
 func hasHorizontal(tortoise *v1beta3.Tortoise) bool {
@@ -388,14 +394,21 @@ func (s *Service) getGlobalMinResourceSize(k corev1.ResourceName, containerName 
 	return s.minResourceSizePerContainer["*"][k]
 }
 
-func (s *Service) justifyNewSize(oldSizeMilli, newSizeMilli int64, k corev1.ResourceName, minAllocatedResources corev1.ResourceList, containerName string) int64 {
-	max := s.maxResourceSize[k]
+func (s *Service) justifyNewSize(oldSizeMilli, newSizeMilli int64, k corev1.ResourceName, minAllocatedResources, maxAllocatedResources corev1.ResourceList, containerName string) int64 {
+	max := maxAllocatedResources[k]
 	min := minAllocatedResources[k]
 
 	// Bigger min requirement is used.
 	if min.Cmp(s.getGlobalMinResourceSize(k, containerName)) < 0 {
 		// s.minResourceSize[k] is bigger than minAllocatedResources[k]
 		min = s.getGlobalMinResourceSize(k, containerName)
+	}
+
+	// Smaller max requirement is used.
+	if max.Cmp(s.maxResourceSize[k]) > 0 || max.IsZero() {
+		// s.maxResourceSize[k] is smaller than maxAllocatedResources[k]
+		// OR maxAllocatedResources[k] is unset.
+		max = s.maxResourceSize[k]
 	}
 
 	// If the new size is too small, which isn't acceptable based on the maxAllowedScalingDownRatio.

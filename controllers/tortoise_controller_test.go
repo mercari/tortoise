@@ -404,6 +404,9 @@ var _ = Describe("Test TortoiseController", func() {
 		It("TortoisePhaseWorking", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-working"))
 		})
+		It("TortoisePhaseWorking (too big rescommendation)", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-too-big"))
+		})
 		It("TortoisePhaseWorking (PartlyWorking)", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-partly-working"))
 		})

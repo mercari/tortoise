@@ -86,6 +86,10 @@ type TortoiseSpec struct {
 	// The AutoscalingPolicy field is mutable; you can modify it at any time, whether from an empty state to populated or vice versa.
 	// +optional
 	AutoscalingPolicy []ContainerAutoscalingPolicy `json:"autoscalingPolicy,omitempty" protobuf:"bytes,5,opt,name=autoscalingPolicy"`
+	// MaxReplicas is the maximum number of MaxReplicas that Tortoise will give to HPA.
+	// If nil, Tortoise uses the cluster wide default value, which can be configured via the admin config.
+	// +optional
+	MaxReplicas *int32 `json:"maxReplicas,omitempty" protobuf:"bytes,6,opt,name=maxReplicas"`
 }
 
 type ContainerAutoscalingPolicy struct {
@@ -100,7 +104,8 @@ type ContainerResourcePolicy struct {
 	// ContainerName is the name of target container.
 	ContainerName string `json:"containerName" protobuf:"bytes,1,name=containerName"`
 	// MinAllocatedResources is the minimum amount of resources which is given to the container.
-	// Tortoise never set the resources request on the container than MinAllocatedResources.
+	// Tortoise never set the resources request on the container less than MinAllocatedResources.
+	// If nil, Tortoise uses the cluster wide default value, which can be configured via the admin config.
 	//
 	// If empty, tortoise may reduce the resource request to the value which is suggested from VPA.
 	// Given the VPA suggests values based on the historical resource usage,
@@ -108,6 +113,12 @@ type ContainerResourcePolicy struct {
 	// for example, when maybe your application change will result in consuming resources more than the past.
 	// +optional
 	MinAllocatedResources v1.ResourceList `json:"minAllocatedResources,omitempty" protobuf:"bytes,2,opt,name=minAllocatedResources"`
+
+	// MaxAllocatedResources is the maximum amount of resources which is given to the container.
+	// Tortoise never set the resources request on the container more than MaxAllocatedResources.
+	// If nil, Tortoise uses the cluster wide default value, which can be configured via the admin config.
+	// +optional
+	MaxAllocatedResources v1.ResourceList `json:"maxAllocatedResources,omitempty" protobuf:"bytes,3,opt,name=maxAllocatedResources"`
 }
 
 // +kubebuilder:validation:Enum=DeleteAll;NoDelete
