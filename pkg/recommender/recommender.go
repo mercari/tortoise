@@ -299,7 +299,7 @@ func (s *Service) calculateBestNewSize(
 		// So, we just keep the current resource request
 		// until the replica number goes lower
 		// because scaling down the resource request might increase the replica number further more.
-		return resourceRequest.MilliValue(), "the current number of replicas is more than the preferred max replica number in this cluster, so nothing to do", nil
+		return resourceRequest.MilliValue(), fmt.Sprintf("the current number of replicas is close to the preferred max replica number in this cluster, so keep the current resource request in %s in %s", k, containerName), nil
 	}
 
 	if replicaNum <= s.minimumMinReplicas {
