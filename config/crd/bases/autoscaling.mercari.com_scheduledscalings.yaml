@@ -1,0 +1,114 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.13.0
+  name: scheduledscalings.autoscaling.mercari.com
+spec:
+  group: autoscaling.mercari.com
+  names:
+    kind: ScheduledScaling
+    listKind: ScheduledScalingList
+    plural: scheduledscalings
+    singular: scheduledscaling
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ScheduledScaling is the Schema for the scheduledscalings API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ScheduledScalingSpec defines the desired state of ScheduledScaling
+            properties:
+              schedule:
+                description: / Schedule RFC3339 format e.g., "2006-01-02T15:04:05Z09:00"
+                properties:
+                  finishAt:
+                    description: end of schedule
+                    type: string
+                  startAt:
+                    description: / RFC3339 format e.g., "2006-01-02T15:04:05Z09:00"
+                      start of schedule
+                    type: string
+                type: object
+              strategy:
+                description: Strategy describes how this ScheduledScaling scales the
+                  target workload. Currently, it only supports the static strategy.
+                properties:
+                  static:
+                    description: Resource scaling requirements Static strategy receives
+                      the static value of the replica number and resource requests
+                      that users want to give to Pods during this ScheduledScaling
+                      is valid. This field is optional for the future when we add
+                      another strategy here though, until then this strategy is the
+                      only supported strategy you must set this.
+                    properties:
+                      minAllocatedResourcesomitempty:
+                        description: MinAllowedResources means the minimum resource
+                          requests that Tortoise gives to each container.
+                        items:
+                          properties:
+                            containerName:
+                              description: ContainerName is the name of target container.
+                              type: string
+                            resource:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              description: ResourceList is a set of (resource name,
+                                quantity) pairs.
+                              type: object
+                          required:
+                          - containerName
+                          - resource
+                          type: object
+                        type: array
+                      minimumMinReplica:
+                        description: MinimumMinReplicas means the minimum MinReplicas
+                          that Tortoise gives to HPA during this ScheduledScaling
+                          is valid.
+                        type: integer
+                    type: object
+                type: object
+              targetRefs:
+                description: TargetRef is the targets that need to be scheduled
+                properties:
+                  tortoiseName:
+                    description: Tortoise to be targeted for scheduled scaling
+                    type: string
+                type: object
+            required:
+            - schedule
+            - strategy
+            - targetRefs
+            type: object
+          status:
+            description: ScheduledScalingStatus defines the observed state of ScheduledScaling
+            properties:
+              scheduledScalingPhase:
+                type: string
+            required:
+            - scheduledScalingPhase
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
