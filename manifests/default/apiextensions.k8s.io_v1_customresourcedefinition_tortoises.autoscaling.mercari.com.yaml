@@ -73,6 +73,10 @@ spec:
                 - DeleteAll
                 - NoDelete
                 type: string
+              maxReplicas:
+                description: MaxReplicas is the maximum number of MaxReplicas that Tortoise will give to HPA. If nil, Tortoise uses the cluster wide default value, which can be configured via the admin config.
+                format: int32
+                type: integer
               resourcePolicy:
                 description: ResourcePolicy contains the policy how each resource is updated.
                 items:
@@ -80,6 +84,15 @@ spec:
                     containerName:
                       description: ContainerName is the name of target container.
                       type: string
+                    maxAllocatedResources:
+                      additionalProperties:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      description: MaxAllocatedResources is the maximum amount of resources which is given to the container. Tortoise never set the resources request on the container more than MaxAllocatedResources. If nil, Tortoise uses the cluster wide default value, which can be configured via the admin config.
+                      type: object
                     minAllocatedResources:
                       additionalProperties:
                         anyOf:
@@ -87,7 +100,7 @@ spec:
                         - type: string
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
-                      description: "MinAllocatedResources is the minimum amount of resources which is given to the container. Tortoise never set the resources request on the container than MinAllocatedResources. \n If empty, tortoise may reduce the resource request to the value which is suggested from VPA. Given the VPA suggests values based on the historical resource usage, you have no choice but to use MinAllocatedResources to pre-scaling your Pods, for example, when maybe your application change will result in consuming resources more than the past."
+                      description: "MinAllocatedResources is the minimum amount of resources which is given to the container. Tortoise never set the resources request on the container less than MinAllocatedResources. If nil, Tortoise uses the cluster wide default value, which can be configured via the admin config. \n If empty, tortoise may reduce the resource request to the value which is suggested from VPA. Given the VPA suggests values based on the historical resource usage, you have no choice but to use MinAllocatedResources to pre-scaling your Pods, for example, when maybe your application change will result in consuming resources more than the past."
                       type: object
                   required:
                   - containerName
