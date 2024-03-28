@@ -103,6 +103,7 @@ func New(
 
 func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, replicaNum int32, now time.Time) (*v1beta3.Tortoise, error) {
 	scaledUpBasedOnPreferredMaxReplicas := false
+	closeToPreferredMaxReplicas := false
 	if hasHorizontal(tortoise) {
 		// Handle TortoiseConditionTypeScaledUpBasedOnPreferredMaxReplicas condition first.
 		if replicaNum >= s.preferredMaxReplicas &&
@@ -128,6 +129,9 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 		if replicaNum < s.preferredMaxReplicas {
 			// Change TortoiseConditionTypeScaledUpBasedOnPreferredMaxReplicas to False.
 			tortoise = utils.ChangeTortoiseCondition(tortoise, v1beta3.TortoiseConditionTypeScaledUpBasedOnPreferredMaxReplicas, v1.ConditionFalse, "ScaledUpBasedOnPreferredMaxReplicas", "the current number of replicas is not bigger than the preferred max replica number", now)
+		}
+		if int32(float64(s.preferredMaxReplicas)*0.8) < replicaNum {
+			closeToPreferredMaxReplicas = true
 		}
 	}
 
@@ -188,7 +192,7 @@ func (s *Service) updateVPARecommendation(ctx context.Context, tortoise *v1beta3
 			var newSize int64
 			var reason string
 			var err error
-			newSize, reason, err = s.calculateBestNewSize(ctx, tortoise, p, r.ContainerName, recom, k, hpa, replicaNum, req, minAllocatedResourcesMap[r.ContainerName], scaledUpBasedOnPreferredMaxReplicas, now)
+			newSize, reason, err = s.calculateBestNewSize(ctx, tortoise, p, r.ContainerName, recom, k, hpa, replicaNum, req, minAllocatedResourcesMap[r.ContainerName], scaledUpBasedOnPreferredMaxReplicas, closeToPreferredMaxReplicas)
 			if err != nil {
 				return tortoise, err
 			}
@@ -238,8 +242,7 @@ func (s *Service) calculateBestNewSize(
 	replicaNum int32,
 	resourceRequest resource.Quantity,
 	minAllocatedResources corev1.ResourceList,
-	scaledUpBasedOnPreferredMaxReplicas bool,
-	now time.Time,
+	scaledUpBasedOnPreferredMaxReplicas, closeToPreferredMaxReplicas bool,
 ) (int64, string, error) {
 	if p == v1beta3.AutoscalingTypeOff {
 		// Just keep the current resource request.
@@ -289,6 +292,14 @@ func (s *Service) calculateBestNewSize(
 		jastifiedNewSize := s.justifyNewSize(resourceRequest.MilliValue(), newSize, k, minAllocatedResources, containerName)
 		msg := fmt.Sprintf("the current number of replicas (%v) is bigger than the preferred max replica number in this cluster (%v), so make %v request (%s) bigger (%v → %v)", replicaNum, s.preferredMaxReplicas, k, containerName, resourceRequest.MilliValue(), jastifiedNewSize)
 		return jastifiedNewSize, msg, nil
+	}
+
+	if closeToPreferredMaxReplicas {
+		// The current replica number is close or more than preferredMaxReplicas.
+		// So, we just keep the current resource request
+		// until the replica number goes lower
+		// because scaling down the resource request might increase the replica number further more.
+		return resourceRequest.MilliValue(), "the current number of replicas is more than the preferred max replica number in this cluster, so nothing to do", nil
 	}
 
 	if replicaNum <= s.minimumMinReplicas {
