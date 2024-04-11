@@ -233,9 +233,14 @@ func (r *Tortoise) ValidateUpdate(old runtime.Object) (admission.Warnings, error
 	}
 	if r.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
 		if oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil || *oldTortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != *r.Spec.TargetRefs.HorizontalPodAutoscalerName {
-			// newly specified or updated.
-			return nil, fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
+			if *r.Spec.TargetRefs.HorizontalPodAutoscalerName != r.Status.Targets.HorizontalPodAutoscaler {
+				// newly specified or updated.
+				return nil, fmt.Errorf("%s: immutable field get changed", fieldPath.Child("targetRefs", "horizontalPodAutoscalerName"))
+			}
+			// updated but the same value as status, that is OK
 		}
+
+		// removed is OK
 	}
 
 	if hasHorizontal(oldTortoise) && !hasHorizontal(r) {
