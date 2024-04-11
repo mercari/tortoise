@@ -7,7 +7,7 @@ spec:
   updateMode: "Off"
   deletionPolicy: "DeleteAll"
   targetRefs:
-    horizontalPodAutoscalerName: sample
+    horizontalPodAutoscalerName: different
     scaleTargetRef:
       kind: Deployment
       name: sample

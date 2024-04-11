@@ -31,6 +31,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 
 	v1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -176,34 +177,42 @@ func validateUpdateTest(tortoise, existingTortoise, hpa, deployment string, vali
 
 	y, err = os.ReadFile(existingTortoise)
 	Expect(err).NotTo(HaveOccurred())
-	tortoiseObj := &Tortoise{}
-	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(tortoiseObj)
+	tor := &Tortoise{}
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(tor)
 	Expect(err).NotTo(HaveOccurred())
-	err = k8sClient.Create(ctx, tortoiseObj)
+	status := tor.Status
+	err = k8sClient.Create(ctx, tor)
+
+	err = k8sClient.Get(ctx, types.NamespacedName{Name: tor.GetName(), Namespace: tor.GetNamespace()}, tor)
+	Expect(err).NotTo(HaveOccurred())
+	tor.Status = status
+	err = k8sClient.Status().Update(ctx, tor)
+	Expect(err).NotTo(HaveOccurred())
+	time.Sleep(time.Second)
 
 	y, err = os.ReadFile(tortoise)
 	Expect(err).NotTo(HaveOccurred())
-	tortoiseObj = &Tortoise{}
-	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(tortoiseObj)
+	tor = &Tortoise{}
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(tor)
 	Expect(err).NotTo(HaveOccurred())
 
 	t := &Tortoise{}
-	err = k8sClient.Get(ctx, types.NamespacedName{Name: tortoiseObj.GetName(), Namespace: tortoiseObj.GetNamespace()}, t)
+	err = k8sClient.Get(ctx, types.NamespacedName{Name: tor.GetName(), Namespace: tor.GetNamespace()}, t)
 	Expect(err).NotTo(HaveOccurred())
-	t.Spec = tortoiseObj.Spec
+	t.Spec = tor.Spec
 	err = k8sClient.Update(ctx, t)
 
 	if valid {
-		Expect(err).NotTo(HaveOccurred(), "Tortoise: %v", tortoiseObj)
+		Expect(err).NotTo(HaveOccurred(), "Tortoise: %v", tor)
 
 		// cleanup
-		err = k8sClient.Delete(ctx, tortoiseObj)
+		err = k8sClient.Delete(ctx, tor)
 		Expect(err).NotTo(HaveOccurred())
 	} else {
-		Expect(err).To(HaveOccurred(), "Tortoise: %v", tortoiseObj)
+		Expect(err).To(HaveOccurred(), "Tortoise: %v", tor)
 		statusErr := &apierrors.StatusError{}
 		Expect(errors.As(err, &statusErr)).To(BeTrue())
-		expected := tortoiseObj.Annotations["message"]
+		expected := tor.Annotations["message"]
 		Expect(statusErr.ErrStatus.Message).To(ContainSubstring(expected))
 	}
 }
@@ -251,7 +260,16 @@ var _ = Describe("Tortoise Webhook", func() {
 			validateUpdateTest(filepath.Join("testdata", "validating", "no-horizontal-with-no-deletion", "updating-tortoise.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-no-deletion", "before-tortoise.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-no-deletion", "hpa.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-no-deletion", "deployment.yaml"), false)
 		})
 		It("no horizontal policy exists and HPA is specified", func() {
-			validateUpdateTest(filepath.Join("testdata", "validating", "no-horizontal-with-hpa", "updating-tortoise.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-hpa", "before-tortoise.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-no-deletion", "hpa.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-no-deletion", "deployment.yaml"), false)
+			validateUpdateTest(filepath.Join("testdata", "validating", "no-horizontal-with-hpa", "updating-tortoise.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-hpa", "before-tortoise.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-hpa", "hpa.yaml"), filepath.Join("testdata", "validating", "no-horizontal-with-hpa", "deployment.yaml"), false)
+		})
+		It("can remove HPA name in tortoise spec", func() {
+			validateUpdateTest(filepath.Join("testdata", "validating", "success-remove-hpa", "tortoise.yaml"), filepath.Join("testdata", "validating", "success-remove-hpa", "before-tortoise.yaml"), filepath.Join("testdata", "validating", "success-remove-hpa", "hpa.yaml"), filepath.Join("testdata", "validating", "success-remove-hpa", "deployment.yaml"), true)
+		})
+		It("can set HPA name in tortoise spec which is the same as status", func() {
+			validateUpdateTest(filepath.Join("testdata", "validating", "success-set-the-same", "tortoise.yaml"), filepath.Join("testdata", "validating", "success-set-the-same", "before-tortoise.yaml"), filepath.Join("testdata", "validating", "success-set-the-same", "hpa.yaml"), filepath.Join("testdata", "validating", "success-set-the-same", "deployment.yaml"), true)
+		})
+		It("cannot set HPA name in tortoise spec which is different from status", func() {
+			validateUpdateTest(filepath.Join("testdata", "validating", "success-set-different", "tortoise.yaml"), filepath.Join("testdata", "validating", "success-set-different", "before-tortoise.yaml"), filepath.Join("testdata", "validating", "success-set-different", "hpa.yaml"), filepath.Join("testdata", "validating", "success-set-different", "deployment.yaml"), false)
 		})
 	})
 })
