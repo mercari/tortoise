@@ -68,6 +68,14 @@ test-debug: envtest ginkgo
 test-update: envtest ginkgo
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" UPDATE_TESTCASES=true $(GINKGO) -r --fail-fast 
 
+.PHONY: test-tortoisectl-update
+test-tortoisectl-update: envtest
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)"	go test -timeout 30s -run Test_TortoiseCtlStop ./cmd/tortoisectl/test/... --update
+
+.PHONY: test-tortoisectl
+test-tortoisectl: envtest
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)"	go test -timeout 30s -v -run Test_TortoiseCtlStop ./cmd/tortoisectl/test/... 
+
 GINKGO ?= $(LOCALBIN)/ginkgo
 GINKGO_VERSION ?= v2.1.4
 
@@ -81,6 +89,10 @@ $(GINKGO): $(LOCALBIN)
 .PHONY: build
 build: generate fmt vet ## Build manager binary.
 	go build -o bin/manager main.go
+
+.PHONY: build-tortoisectl
+build-tortoisectl:
+	go build -o bin/tortoisectl cmd/tortoisectl/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
