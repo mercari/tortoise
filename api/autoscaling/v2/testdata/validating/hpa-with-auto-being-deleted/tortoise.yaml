@@ -44,8 +44,6 @@ status:
     verticalPodAutoscalers: 
     - name: tortoise-monitor-sample
       role: Monitor
-    - name: tortoise-updater-sample
-      role: Updater
   conditions:
     containerRecommendationFromVPA:
     - containerName: echo

@@ -5,13 +5,6 @@
 This page describes a minimum knowledge that the end-users have to know, 
 and how they can configure Tortoise so that they can let tortoises autoscale their workloads.
 
-### How tortoise works
-
-Actually, Tortoise itself doesn't directly change your Pod's resource request or the number of replicas.
-
-It has HorizontalPodAutoscaler and VerticalPodAutoscaler under the hood, 
-and your tortoise just keeps updating them to be well-optimized based on your workload's historical resource usage.
-
 ### Configuration overview
 
 Tortoise is designed to be a very simple configuration:

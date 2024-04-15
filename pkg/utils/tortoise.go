@@ -35,6 +35,16 @@ func ChangeTortoiseCondition(t *v1beta3.Tortoise, conditionType v1beta3.Tortoise
 	return t
 }
 
+func GetTortoiseCondition(t *v1beta3.Tortoise, conditionType v1beta3.TortoiseConditionType) *v1beta3.TortoiseCondition {
+	for i := range t.Status.Conditions.TortoiseConditions {
+		if t.Status.Conditions.TortoiseConditions[i].Type == conditionType {
+			return &t.Status.Conditions.TortoiseConditions[i]
+		}
+	}
+
+	return nil
+}
+
 func ChangeTortoiseContainerResourcePhase(tortoise *v1beta3.Tortoise, containerName string, rn corev1.ResourceName, now time.Time, phase v1beta3.ContainerResourcePhase) *v1beta3.Tortoise {
 	found := false
 	for i, p := range tortoise.Status.ContainerResourcePhases {

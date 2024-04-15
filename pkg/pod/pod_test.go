@@ -617,7 +617,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 		{
 			name: "Tortoise is Auto; GOMEMLIMIT and GOMAXPROCS are updated based on the recommendation",
 			fields: fields{
-				featureFlags: []features.FeatureFlag{features.GolangEnvModification},
+				featureFlags: []features.FeatureFlag{features.GoMemLimitModificationEnabled},
 			},
 			args: args{
 				pod: &v1.Pod{
@@ -753,10 +753,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 			},
 		},
 		{
-			name: "Tortoise is Auto; GOMEMLIMIT and GOMAXPROCS are ignored when no feature flag is enabled",
-			fields: fields{
-				featureFlags: []features.FeatureFlag{},
-			},
+			name: "Tortoise is Auto; GOMEMLIMIT is ignored if no feature flag",
 			args: args{
 				pod: &v1.Pod{
 					Spec: v1.PodSpec{
@@ -770,7 +767,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 									},
 									{
 										Name:  "GOMEMLIMIT",
-										Value: "100Mi",
+										Value: "100MiB",
 									},
 								},
 								Resources: v1.ResourceRequirements{
@@ -793,7 +790,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 									},
 									{
 										Name:  "GOMEMLIMIT",
-										Value: "100Mi",
+										Value: "100MiB",
 									},
 								},
 								Resources: v1.ResourceRequirements{
@@ -829,7 +826,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 									ContainerName: "istio-proxy",
 									Resource: v1.ResourceList{
 										v1.ResourceCPU:    resource.MustParse("50m"),
-										v1.ResourceMemory: resource.MustParse("200Mi"),
+										v1.ResourceMemory: resource.MustParse("2000Mi"),
 									},
 								},
 							},
@@ -845,11 +842,11 @@ func TestService_ModifyPodResource(t *testing.T) {
 							Env: []v1.EnvVar{
 								{
 									Name:  "GOMAXPROCS",
-									Value: "1",
+									Value: "2",
 								},
 								{
 									Name:  "GOMEMLIMIT",
-									Value: "100Mi",
+									Value: "100MiB",
 								},
 							},
 							Resources: v1.ResourceRequirements{
@@ -868,21 +865,21 @@ func TestService_ModifyPodResource(t *testing.T) {
 							Env: []v1.EnvVar{
 								{
 									Name:  "GOMAXPROCS",
-									Value: "1",
+									Value: "1", // It wants to be 0.5, but GOMAXPROCS should be an integer. So, we ceil it to 1.
 								},
 								{
 									Name:  "GOMEMLIMIT",
-									Value: "100Mi",
+									Value: "100MiB",
 								},
 							},
 							Resources: v1.ResourceRequirements{
 								Requests: v1.ResourceList{
 									v1.ResourceCPU:    resource.MustParse("50m"),
-									v1.ResourceMemory: resource.MustParse("200Mi"),
+									v1.ResourceMemory: resource.MustParse("2000Mi"),
 								},
 								Limits: v1.ResourceList{
 									v1.ResourceCPU:    resource.MustParse("200m"),
-									v1.ResourceMemory: resource.MustParse("400Mi"),
+									v1.ResourceMemory: resource.MustParse("4000Mi"),
 								},
 							},
 						},

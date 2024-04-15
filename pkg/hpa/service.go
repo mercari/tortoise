@@ -336,7 +336,7 @@ func (s *Service) RecordHPATargetUtilizationUpdate(tortoise *autoscalingv1beta3.
 }
 
 func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time, recordMetrics bool) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
-	if tortoise.Status.TortoisePhase == v1beta3.TortoisePhaseInitializing || tortoise.Status.TortoisePhase == "" || tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+	if tortoise.Status.TortoisePhase == v1beta3.TortoisePhaseInitializing || tortoise.Status.TortoisePhase == "" {
 		// Tortoise is not ready, don't update HPA
 		return hpa, tortoise, nil
 	}
@@ -394,6 +394,10 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	recommendMax, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MaxReplicas, now)
 	if err != nil {
 		return nil, tortoise, fmt.Errorf("get maxReplicas recommendation: %w", err)
+	}
+
+	if tortoise.Spec.MaxReplicas != nil && recommendMax > *tortoise.Spec.MaxReplicas {
+		recommendMax = *tortoise.Spec.MaxReplicas
 	}
 
 	if recommendMax > c.maximumMaxReplica {
