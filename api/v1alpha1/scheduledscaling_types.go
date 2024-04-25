@@ -89,9 +89,9 @@ type TargetRefs struct {
 type Schedule struct {
 	/// RFC3339 format e.g., "2006-01-02T15:04:05Z09:00"
 	// start of schedule
-	StartAt *string `json:"startAt,omitempty" protobuf:"bytes,1,name=startAt"`
+	StartAt *string `json:"startAt" protobuf:"bytes,1,name=startAt"`
 	// end of schedule
-	FinishAt *string `json:"finishAt,omitempty" protobuf:"bytes,2,name=finishAt"`
+	FinishAt *string `json:"finishAt" protobuf:"bytes,2,name=finishAt"`
 }
 
 type Strategy struct {
