@@ -2970,7 +2970,7 @@ func TestService_InitializeHPA(t *testing.T) {
 			},
 		},
 		{
-			name: "should not create new hpa, set tortoise hpa to existing",
+			name: "set tortoise hpa to existing even if all autoscaling policy is vertical",
 			args: args{
 				tortoise: &v1beta3.Tortoise{
 					ObjectMeta: metav1.ObjectMeta{
