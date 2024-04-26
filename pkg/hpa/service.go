@@ -81,7 +81,7 @@ func New(
 func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replicaNum int32, now time.Time) (*autoscalingv1beta3.Tortoise, error) {
 	logger := log.FromContext(ctx)
 	// if all policy is off or Vertical, we don't need HPA.
-	if !HasHorizontal(tortoise) {
+	if !HasHorizontal(tortoise) && tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
 		logger.Info("no horizontal policy, no need to create HPA")
 		return tortoise, nil
 	}

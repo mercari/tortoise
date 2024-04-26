@@ -2969,6 +2969,96 @@ func TestService_InitializeHPA(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "set tortoise hpa to existing even if all autoscaling policy is vertical",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+					},
+					Spec: v1beta3.TortoiseSpec{
+						TargetRefs: v1beta3.TargetRefs{
+							ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "deployment",
+								APIVersion: "apps/v1",
+							},
+						},
+					},
+					Status: v1beta3.TortoiseStatus{
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								},
+							},
+						},
+					},
+				},
+				replicaNum: 4,
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "existing-hpa",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					ScaleTargetRef: v2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleDown: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         2,
+									PeriodSeconds: 90,
+								},
+							},
+						},
+					},
+				},
+			},
+			afterHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "existing-hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					ScaleTargetRef: v2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleDown: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         2,
+									PeriodSeconds: 90,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
