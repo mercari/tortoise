@@ -1,0 +1,30 @@
+metadata:
+  name: mercari-app
+  namespace: success-no-lowering-resources
+spec:
+  selector:
+    matchLabels:
+      app: mercari
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2023-01-01T00:00:00Z"
+      creationTimestamp: null
+      labels:
+        app: mercari
+    spec:
+      containers:
+      - image: awesome-mercari-app-image
+        name: app
+        resources:
+          requests:
+            cpu: "1"
+            memory: 10Gi
+      - image: awesome-istio-proxy-image
+        name: istio-proxy
+        resources:
+          requests:
+            cpu: "4"
+            memory: 2Gi
+status: {}

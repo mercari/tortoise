@@ -1,0 +1,29 @@
+metadata:
+  name: mercari-app
+  namespace: success-no-lowering-resources
+spec:
+  selector:
+    matchLabels:
+      app: mercari
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+        sidecar.istio.io/proxyCPU: 100m
+        sidecar.istio.io/proxyCPULimit: 300m
+        sidecar.istio.io/proxyMemory: 500Mi
+        sidecar.istio.io/proxyMemoryLimit: 500Mi
+        kubectl.kubernetes.io/restartedAt: "2023-01-01T00:00:00Z"
+      creationTimestamp: null
+      labels:
+        app: mercari
+    spec:
+      containers:
+      - image: awesome-mercari-app-image
+        name: app
+        resources:
+          requests:
+            cpu: "1"
+            memory: 10Gi
+status: {}

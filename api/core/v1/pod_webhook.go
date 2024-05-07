@@ -118,7 +118,7 @@ func (h *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 		return nil
 	}
 
-	h.podService.ModifyPodResource(pod, tortoise)
+	h.podService.ModifyPodSpecResource(&pod.Spec, tortoise)
 	pod.Annotations[annotation.PodMutationAnnotation] = fmt.Sprintf("this pod is mutated by tortoise (%s)", tortoise.Name)
 
 	return nil

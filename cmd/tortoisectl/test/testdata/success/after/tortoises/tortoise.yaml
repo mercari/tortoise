@@ -1,0 +1,141 @@
+metadata:
+  name: mercaritortoise
+  namespace: success
+spec:
+  targetRefs:
+    scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: mercari-app
+  updateMode: "Off"
+status:
+  autoscalingPolicy:
+  - containerName: app
+    policy:
+      cpu: Horizontal
+      memory: Vertical
+  - containerName: istio-proxy
+    policy:
+      cpu: Horizontal
+      memory: Vertical
+  conditions:
+    containerRecommendationFromVPA:
+    - containerName: app
+      maxRecommendation:
+        cpu:
+          quantity: "3"
+          updatedAt: "2023-01-01T00:00:00Z"
+        memory:
+          quantity: 3Gi
+          updatedAt: "2023-01-01T00:00:00Z"
+      recommendation:
+        cpu:
+          quantity: "3"
+          updatedAt: "2023-01-01T00:00:00Z"
+        memory:
+          quantity: 3Gi
+          updatedAt: "2023-01-01T00:00:00Z"
+    - containerName: istio-proxy
+      maxRecommendation:
+        cpu:
+          quantity: "3"
+          updatedAt: "2023-01-01T00:00:00Z"
+        memory:
+          quantity: 3Gi
+          updatedAt: "2023-01-01T00:00:00Z"
+      recommendation:
+        cpu:
+          quantity: "3"
+          updatedAt: "2023-01-01T00:00:00Z"
+        memory:
+          quantity: 3Gi
+          updatedAt: "2023-01-01T00:00:00Z"
+    containerResourceRequests:
+    - containerName: app
+      resource:
+        cpu: "6"
+        memory: 3Gi
+    - containerName: istio-proxy
+      resource:
+        cpu: "4"
+        memory: 3Gi
+    tortoiseConditions:
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      message: the current number of replicas is not bigger than the preferred max
+        replica number
+      reason: ScaledUpBasedOnPreferredMaxReplicas
+      status: "False"
+      type: ScaledUpBasedOnPreferredMaxReplicas
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      message: HPA target utilization is updated
+      reason: HPATargetUtilizationUpdated
+      status: "True"
+      type: HPATargetUtilizationUpdated
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      message: The recommendation is provided
+      status: "True"
+      type: VerticalRecommendationUpdated
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      status: "False"
+      type: FailedToReconcile
+  containerResourcePhases:
+  - containerName: app
+    resourcePhases:
+      cpu:
+        lastTransitionTime: null
+        phase: Working
+      memory:
+        lastTransitionTime: "2023-01-01T00:00:00Z"
+        phase: Working
+  - containerName: istio-proxy
+    resourcePhases:
+      cpu:
+        lastTransitionTime: null
+        phase: Working
+      memory:
+        lastTransitionTime: "2023-01-01T00:00:00Z"
+        phase: Working
+  recommendations:
+    horizontal:
+      maxReplicas:
+      - from: 0
+        timezone: Local
+        to: 24
+        updatedAt: "2023-01-01T00:00:00Z"
+        value: 20
+      minReplicas:
+      - from: 0
+        timezone: Local
+        to: 24
+        updatedAt: "2023-01-01T00:00:00Z"
+        value: 5
+      targetUtilizations:
+      - containerName: app
+        targetUtilization:
+          cpu: 50
+      - containerName: istio-proxy
+        targetUtilization:
+          cpu: 75
+    vertical:
+      containerResourceRecommendation:
+      - RecommendedResource:
+          cpu: "6"
+          memory: 3Gi
+        containerName: app
+      - RecommendedResource:
+          cpu: "4"
+          memory: 3Gi
+        containerName: istio-proxy
+  targets:
+    horizontalPodAutoscaler: tortoise-hpa-mercari
+    scaleTargetRef:
+      kind: ""
+      name: ""
+    verticalPodAutoscalers:
+    - name: tortoise-monitor-mercari
+      role: Monitor
+  tortoisePhase: Working

@@ -71,7 +71,6 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(autoscalingv1beta3.AddToScheme(scheme))
-	utilruntime.Must(autoscalingv1beta3.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

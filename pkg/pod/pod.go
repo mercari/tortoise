@@ -12,6 +12,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/mercari/tortoise/api/v1beta3"
+	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/features"
 	"github.com/mercari/tortoise/pkg/utils"
 )
@@ -42,7 +43,84 @@ func New(
 	}, nil
 }
 
-func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
+func (s *Service) ModifyPodTemplateResource(podTemplate *v1.PodTemplateSpec, t *v1beta3.Tortoise, opts ...ModifyPodSpecResourceOption) {
+	s.ModifyPodSpecResource(&podTemplate.Spec, t, opts...)
+
+	// Update istio sidecar resource requests based on the tortoise.Status.Conditions.ContainerResourceRequests
+	// since ModifyPodSpecResource doesn't update the istio annotations.
+	if podTemplate.Annotations == nil {
+		return
+	}
+	if podTemplate.Annotations[annotation.IstioSidecarInjectionAnnotation] != "true" {
+		return
+	}
+
+	// Update resource requests based on the tortoise.Status.Conditions.ContainerResourceRequests
+	for _, k := range []v1.ResourceName{v1.ResourceCPU, v1.ResourceMemory} {
+		newReq, ok := utils.GetRequestFromTortoise(t, "istio-proxy", k)
+		if !ok {
+			continue
+		}
+
+		if k == v1.ResourceCPU {
+			oldCPUReq, ok := podTemplate.Annotations[annotation.IstioSidecarProxyCPUAnnotation]
+			oldCPULim, ok2 := podTemplate.Annotations[annotation.IstioSidecarProxyCPULimitAnnotation]
+			if ok && ok2 {
+				oldCPUReqQuantity, err := resource.ParseQuantity(oldCPUReq)
+				if err != nil {
+					continue
+				}
+
+				oldCPULimQuantity, err := resource.ParseQuantity(oldCPULim)
+				if err != nil {
+					continue
+				}
+
+				if containsOption(opts, NoScaleDown) && newReq.Cmp(oldCPUReqQuantity) < 0 {
+					// If NoScaleDown option is specified, don't scale down the resource request.
+					continue
+				}
+
+				ratio := float64(newReq.MilliValue()) / float64(oldCPUReqQuantity.MilliValue())
+				podTemplate.Annotations[annotation.IstioSidecarProxyCPUAnnotation] = newReq.String()
+				podTemplate.Annotations[annotation.IstioSidecarProxyCPULimitAnnotation] = resource.NewMilliQuantity(int64(float64(oldCPULimQuantity.MilliValue())*ratio), oldCPULimQuantity.Format).String()
+			}
+		}
+
+		if k == v1.ResourceMemory {
+			oldMemReq, ok := podTemplate.Annotations[annotation.IstioSidecarProxyMemoryAnnotation]
+			oldMemLim, ok2 := podTemplate.Annotations[annotation.IstioSidecarProxyMemoryLimitAnnotation]
+			if ok && ok2 {
+				oldMemReqQuantity, err := resource.ParseQuantity(oldMemReq)
+				if err != nil {
+					continue
+				}
+
+				oldMemLimQuantity, err := resource.ParseQuantity(oldMemLim)
+				if err != nil {
+					continue
+				}
+
+				if containsOption(opts, NoScaleDown) && newReq.Cmp(oldMemReqQuantity) < 0 {
+					// If NoScaleDown option is specified, don't scale down the resource request.
+					continue
+				}
+
+				ratio := float64(newReq.MilliValue()) / float64(oldMemReqQuantity.MilliValue())
+				podTemplate.Annotations[annotation.IstioSidecarProxyMemoryAnnotation] = newReq.String()
+				podTemplate.Annotations[annotation.IstioSidecarProxyMemoryLimitAnnotation] = resource.NewMilliQuantity(int64(float64(oldMemLimQuantity.MilliValue())*ratio), oldMemLimQuantity.Format).String()
+			}
+		}
+	}
+}
+
+type ModifyPodSpecResourceOption string
+
+var (
+	NoScaleDown ModifyPodSpecResourceOption = "NoScaleDown"
+)
+
+func (s *Service) ModifyPodSpecResource(podSpec *v1.PodSpec, t *v1beta3.Tortoise, opts ...ModifyPodSpecResourceOption) {
 	if t.Spec.UpdateMode == v1beta3.UpdateModeOff ||
 		t.Status.TortoisePhase == "" ||
 		t.Status.TortoisePhase == v1beta3.TortoisePhaseInitializing ||
@@ -56,22 +134,26 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 	newRequestsMap := map[containerNameAndResource]resource.Quantity{}
 
 	// Update resource requests based on the tortoise.Status.Conditions.ContainerResourceRequests
-	for i, container := range pod.Spec.Containers {
+	for i, container := range podSpec.Containers {
 		for k, oldReq := range container.Resources.Requests {
 			newReq, ok := utils.GetRequestFromTortoise(t, container.Name, k)
 			if !ok {
 				// Unchange, just store the old value as a new value
 				newReq = oldReq
 			}
+			if containsOption(opts, NoScaleDown) && newReq.Cmp(oldReq) < 0 {
+				// If NoScaleDown option is specified, don't scale down the resource request.
+				newReq = oldReq
+			}
 			oldRequestsMap[containerNameAndResource{containerName: container.Name, resourceName: k}] = oldReq
 			newRequestsMap[containerNameAndResource{containerName: container.Name, resourceName: k}] = newReq
-			pod.Spec.Containers[i].Resources.Requests[k] = newReq
+			podSpec.Containers[i].Resources.Requests[k] = newReq
 			requestChangeRatio[containerNameAndResource{containerName: container.Name, resourceName: k}] = float64(newReq.MilliValue()) / float64(oldReq.MilliValue())
 		}
 	}
 
 	// Update resource limits
-	for i, container := range pod.Spec.Containers {
+	for i, container := range podSpec.Containers {
 		if container.Resources.Limits == nil {
 			container.Resources.Limits = make(v1.ResourceList)
 		}
@@ -98,12 +180,12 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 			if k == v1.ResourceCPU && newLim.Cmp(s.minimumCPULimit) < 0 {
 				newLim = ptr.To(s.minimumCPULimit.DeepCopy())
 			}
-			pod.Spec.Containers[i].Resources.Limits[k] = *newLim
+			podSpec.Containers[i].Resources.Limits[k] = *newLim
 		}
 	}
 
 	// Update GOMEMLIMIT and GOMAXPROCS
-	for i, container := range pod.Spec.Containers {
+	for i, container := range podSpec.Containers {
 		for j, env := range container.Env {
 			if env.Name == "GOMAXPROCS" {
 				// e.g., If CPU is increased twice, GOMAXPROCS should be doubled.
@@ -126,7 +208,7 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 				newUncapedNum := float64(oldNum) * changeRatio
 				// GOMAXPROCS should be an integer.
 				newNum := int(math.Ceil(newUncapedNum))
-				pod.Spec.Containers[i].Env[j].Value = strconv.Itoa(newNum)
+				podSpec.Containers[i].Env[j].Value = strconv.Itoa(newNum)
 
 			}
 
@@ -166,7 +248,7 @@ func (s *Service) ModifyPodResource(pod *v1.Pod, t *v1beta3.Tortoise) {
 				}
 				// See GOMEMLIMIT's format: https://pkg.go.dev/runtime#hdr-Environment_Variables
 				newNum := int(float64(oldNum.Value()) * changeRatio)
-				pod.Spec.Containers[i].Env[j].Value = strconv.Itoa(newNum)
+				podSpec.Containers[i].Env[j].Value = strconv.Itoa(newNum)
 			}
 		}
 	}
@@ -215,4 +297,13 @@ func (s *Service) GetDeploymentForPod(pod *v1.Pod) (string, error) {
 type containerNameAndResource struct {
 	containerName string
 	resourceName  v1.ResourceName
+}
+
+func containsOption(opts []ModifyPodSpecResourceOption, opt ModifyPodSpecResourceOption) bool {
+	for _, o := range opts {
+		if o == opt {
+			return true
+		}
+	}
+	return false
 }

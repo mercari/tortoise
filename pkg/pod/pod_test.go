@@ -7,13 +7,219 @@ import (
 	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
 	"github.com/mercari/tortoise/api/v1beta3"
+	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/features"
 )
 
-func TestService_ModifyPodResource(t *testing.T) {
+func TestService_ModifyPodTemplateResource(t *testing.T) {
+	type args struct {
+		podTemplate *v1.PodTemplateSpec
+		tortoise    *v1beta3.Tortoise
+		opts        []ModifyPodSpecResourceOption
+	}
+	tests := []struct {
+		name string
+		args args
+		want *v1.PodTemplateSpec
+	}{
+		{
+			name: "Tortoise is Auto; NoScaleDown option; istio CPU is changed",
+			args: args{
+				opts: []ModifyPodSpecResourceOption{NoScaleDown},
+				podTemplate: &v1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							annotation.IstioSidecarInjectionAnnotation:        "true",
+							annotation.IstioSidecarProxyCPUAnnotation:         "100m",
+							annotation.IstioSidecarProxyCPULimitAnnotation:    "300m",
+							annotation.IstioSidecarProxyMemoryAnnotation:      "100Mi",
+							annotation.IstioSidecarProxyMemoryLimitAnnotation: "100Mi",
+						},
+					},
+					Spec: v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Name: "container",
+								Resources: v1.ResourceRequirements{
+									Requests: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("100m"),
+										v1.ResourceMemory: resource.MustParse("100Mi"),
+									},
+									Limits: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("300m"),
+										v1.ResourceMemory: resource.MustParse("100Mi"),
+									},
+								},
+							},
+						},
+					},
+				},
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						Conditions: v1beta3.Conditions{
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "container",
+									Resource: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("200m"), // scale up
+										v1.ResourceMemory: resource.MustParse("1Mi"),  // scale down
+									},
+								},
+								{
+									ContainerName: "istio-proxy",
+									Resource: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("300m"), // scale up
+										v1.ResourceMemory: resource.MustParse("1Mi"),  // scale down
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.IstioSidecarInjectionAnnotation:        "true",
+						annotation.IstioSidecarProxyCPUAnnotation:         "300m",
+						annotation.IstioSidecarProxyCPULimitAnnotation:    "900m",
+						annotation.IstioSidecarProxyMemoryAnnotation:      "100Mi",
+						annotation.IstioSidecarProxyMemoryLimitAnnotation: "100Mi",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "container",
+							Resources: v1.ResourceRequirements{
+								Requests: v1.ResourceList{
+									v1.ResourceCPU:    resource.MustParse("200m"),
+									v1.ResourceMemory: resource.MustParse("100Mi"),
+								},
+								Limits: v1.ResourceList{
+									v1.ResourceCPU:    resource.MustParse("600m"),
+									v1.ResourceMemory: resource.MustParse("100Mi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Tortoise is Auto; NoScaleDown option; istio Memory is changed",
+			args: args{
+				opts: []ModifyPodSpecResourceOption{NoScaleDown},
+				podTemplate: &v1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							annotation.IstioSidecarInjectionAnnotation:        "true",
+							annotation.IstioSidecarProxyCPUAnnotation:         "100m",
+							annotation.IstioSidecarProxyCPULimitAnnotation:    "300m",
+							annotation.IstioSidecarProxyMemoryAnnotation:      "100Mi",
+							annotation.IstioSidecarProxyMemoryLimitAnnotation: "100Mi",
+						},
+					},
+					Spec: v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Name: "container",
+								Resources: v1.ResourceRequirements{
+									Requests: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("100m"),
+										v1.ResourceMemory: resource.MustParse("100Mi"),
+									},
+									Limits: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("300m"),
+										v1.ResourceMemory: resource.MustParse("100Mi"),
+									},
+								},
+							},
+						},
+					},
+				},
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						Conditions: v1beta3.Conditions{
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "container",
+									Resource: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("200m"), // scale up
+										v1.ResourceMemory: resource.MustParse("1Mi"),  // scale down
+									},
+								},
+								{
+									ContainerName: "istio-proxy",
+									Resource: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("20m"),   // scale down
+										v1.ResourceMemory: resource.MustParse("300Mi"), // scale up
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.IstioSidecarInjectionAnnotation:        "true",
+						annotation.IstioSidecarProxyCPUAnnotation:         "100m",
+						annotation.IstioSidecarProxyCPULimitAnnotation:    "300m",
+						annotation.IstioSidecarProxyMemoryAnnotation:      "300Mi",
+						annotation.IstioSidecarProxyMemoryLimitAnnotation: "300Mi",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "container",
+							Resources: v1.ResourceRequirements{
+								Requests: v1.ResourceList{
+									v1.ResourceCPU:    resource.MustParse("200m"),
+									v1.ResourceMemory: resource.MustParse("100Mi"),
+								},
+								Limits: v1.ResourceList{
+									v1.ResourceCPU:    resource.MustParse("600m"),
+									v1.ResourceMemory: resource.MustParse("100Mi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, err := New(nil, "", nil, nil)
+			if err != nil {
+				t.Fatalf("New() error = %v", err)
+			}
+
+			got := tt.args.podTemplate.DeepCopy()
+			s.ModifyPodTemplateResource(got, tt.args.tortoise, tt.args.opts...)
+			if d := cmp.Diff(got, tt.want); d != "" {
+				t.Errorf("ModifyPodResource() mismatch (-want +got):\n%s", d)
+			}
+		})
+	}
+}
+
+func TestService_ModifyPodSpecResource(t *testing.T) {
 	type fields struct {
 		resourceLimitMultiplier map[string]int64
 		minimumCPULimit         string
@@ -22,6 +228,7 @@ func TestService_ModifyPodResource(t *testing.T) {
 	type args struct {
 		pod      *v1.Pod
 		tortoise *v1beta3.Tortoise
+		opts     []ModifyPodSpecResourceOption
 	}
 	tests := []struct {
 		name   string
@@ -408,6 +615,69 @@ func TestService_ModifyPodResource(t *testing.T) {
 								Limits: v1.ResourceList{
 									v1.ResourceCPU:    resource.MustParse("800m"),
 									v1.ResourceMemory: resource.MustParse("200Mi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Tortoise is Auto; NoScaleDown option",
+			args: args{
+				opts: []ModifyPodSpecResourceOption{NoScaleDown},
+				pod: &v1.Pod{
+					Spec: v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Name: "container",
+								Resources: v1.ResourceRequirements{
+									Requests: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("100m"),
+										v1.ResourceMemory: resource.MustParse("100Mi"),
+									},
+									Limits: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("300m"),
+										v1.ResourceMemory: resource.MustParse("100Mi"),
+									},
+								},
+							},
+						},
+					},
+				},
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						Conditions: v1beta3.Conditions{
+							ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+								{
+									ContainerName: "container",
+									Resource: v1.ResourceList{
+										v1.ResourceCPU:    resource.MustParse("200m"), // scale up
+										v1.ResourceMemory: resource.MustParse("1Mi"),  // scale down
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &v1.Pod{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "container",
+							Resources: v1.ResourceRequirements{
+								Requests: v1.ResourceList{
+									v1.ResourceCPU:    resource.MustParse("200m"),  // scale up
+									v1.ResourceMemory: resource.MustParse("100Mi"), // scale down is ignored
+								},
+								Limits: v1.ResourceList{
+									v1.ResourceCPU:    resource.MustParse("600m"),
+									v1.ResourceMemory: resource.MustParse("100Mi"),
 								},
 							},
 						},
@@ -895,8 +1165,8 @@ func TestService_ModifyPodResource(t *testing.T) {
 				t.Fatalf("New() error = %v", err)
 			}
 			got := tt.args.pod.DeepCopy()
-			s.ModifyPodResource(got, tt.args.tortoise)
-			if d := cmp.Diff(got, tt.want); d != "" {
+			s.ModifyPodSpecResource(&got.Spec, tt.args.tortoise, tt.args.opts...)
+			if d := cmp.Diff(got.Spec, tt.want.Spec); d != "" {
 				t.Errorf("ModifyPodResource() mismatch (-want +got):\n%s", d)
 			}
 		})
