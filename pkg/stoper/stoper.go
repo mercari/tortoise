@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/kyokomi/emoji/v2"
-	"github.com/mercari/tortoise/api/v1beta3"
-	"github.com/mercari/tortoise/pkg/deployment"
-	"github.com/mercari/tortoise/pkg/pod"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/mercari/tortoise/api/v1beta3"
+	"github.com/mercari/tortoise/pkg/deployment"
+	"github.com/mercari/tortoise/pkg/pod"
 )
 
 // Stopr is the struct for stopping tortoise safely.
@@ -66,40 +67,40 @@ func (s *Stopr) Stop(ctx context.Context, tortoiseNames []string, namespace stri
 
 	var finalerr error
 	for _, target := range targets {
-		writer.Write([]byte(fmt.Sprintf("\n%s stopping your tortoise %s ... ", emoji.Sprint(":turtle:"), &target)))
+		write(writer, fmt.Sprintf("\n%s stopping your tortoise %s ... ", emoji.Sprint(":turtle:"), &target))
 
 		// 1. Stop Tortoise.
 		tortoise, err := s.stopOne(ctx, target)
 		if err != nil {
 			if errors.Is(err, errTortoiseAlreadyStopped) {
-				writer.Write([]byte(fmt.Sprintf("this tortoise is already stopped %s\n", emoji.Sprint(":sleeping:"))))
+				write(writer, fmt.Sprintf("this tortoise is already stopped %s\n", emoji.Sprint(":sleeping:")))
 				continue
 			}
 			finalerr = errors.Join(finalerr, err)
-			writer.Write([]byte(fmt.Sprintf("failed to stop your tortoise %s.\nError: %v\n", emoji.Sprint(":face_with_spiral_eyes:"), err)))
+			write(writer, fmt.Sprintf("failed to stop your tortoise %s.\nError: %v\n", emoji.Sprint(":face_with_spiral_eyes:"), err))
 			continue
 		}
-		writer.Write([]byte(fmt.Sprintf("Done %s\n", emoji.Sprint(":sleeping:"))))
+		write(writer, fmt.Sprintf("Done %s\n", emoji.Sprint(":sleeping:")))
 
 		// 2. Get the target deployment.
 		dp, err := s.deploymentService.GetDeploymentOnTortoise(ctx, tortoise)
 		if err != nil {
 			finalerr = errors.Join(finalerr, err)
-			writer.Write([]byte(fmt.Sprintf("%s failed to get deployment on your tortoise %s.\nError: %v\n", emoji.Sprint(":face_with_spiral_eyes:"), &target, err)))
+			write(writer, fmt.Sprintf("%s failed to get deployment on your tortoise %s.\nError: %v\n", emoji.Sprint(":face_with_spiral_eyes:"), &target, err))
 			continue
 		}
 
 		// 3. [when NoLoweringResource is true] Patch the deployment to keep the resource requests high.
 		if containsOption(opts, NoLoweringResource) {
-			writer.Write([]byte(fmt.Sprintf("%s patching your deployment to keep the resource requests high ... ", emoji.Sprint(":hammer_and_wrench:"))))
+			write(writer, fmt.Sprintf("%s patching your deployment to keep the resource requests high ... ", emoji.Sprint(":hammer_and_wrench:")))
 			updated, err := s.patchDeploymentToKeepResources(ctx, dp, tortoise)
 			if err != nil {
 				finalerr = errors.Join(finalerr, err)
-				writer.Write([]byte(fmt.Sprintf("%s failed to patch your deployment %s.\nError: %v\n", emoji.Sprint(":face_with_spiral_eyes:"), &target, err)))
+				write(writer, fmt.Sprintf("%s failed to patch your deployment %s.\nError: %v\n", emoji.Sprint(":face_with_spiral_eyes:"), &target, err))
 				continue
 			}
 
-			writer.Write([]byte(fmt.Sprintf("Done %s\n", emoji.Sprint(":hammer_and_wrench:"))))
+			write(writer, fmt.Sprintf("Done %s\n", emoji.Sprint(":hammer_and_wrench:")))
 
 			if updated {
 				// If the deployment is updated, we don't need to restart the deployment.
@@ -108,16 +109,21 @@ func (s *Stopr) Stop(ctx context.Context, tortoiseNames []string, namespace stri
 		}
 
 		// 4. Restart the deployment to get back the original resource requests.
-		writer.Write([]byte(fmt.Sprintf("%s restarting your deployment to get back the original resource ... ", emoji.Sprint(":arrows_counterclockwise:"))))
+		write(writer, fmt.Sprintf("%s restarting your deployment to get back the original resource ... ", emoji.Sprint(":arrows_counterclockwise:")))
 		if err := s.deploymentService.RolloutRestart(ctx, dp, tortoise, time.Now()); err != nil {
 			finalerr = errors.Join(finalerr, err)
-			writer.Write([]byte(fmt.Sprintf("%s failed to restart your deployment %s.\nError: %v\n", emoji.Sprint(":face_with_spiral_eyes:"), &target, err)))
+			write(writer, fmt.Sprintf("%s failed to restart your deployment %s.\nError: %v\n", emoji.Sprint(":face_with_spiral_eyes:"), &target, err))
 			continue
 		}
-		writer.Write([]byte(fmt.Sprintf("Done, your Pods should get the original resources soon %s\n", emoji.Sprint(":muscle:"))))
+		write(writer, fmt.Sprintf("Done, your Pods should get the original resources soon %s\n", emoji.Sprint(":muscle:")))
 	}
 
 	return finalerr
+}
+
+func write(writer io.Writer, msg string) {
+	//nolint:errcheck // intentionally ignore the error because it's not critical
+	writer.Write([]byte(msg))
 }
 
 func containsOption(opts []StoprOption, opt StoprOption) bool {

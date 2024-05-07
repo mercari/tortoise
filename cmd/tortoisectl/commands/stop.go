@@ -5,10 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
-	"github.com/mercari/tortoise/pkg/deployment"
-	"github.com/mercari/tortoise/pkg/pod"
-	"github.com/mercari/tortoise/pkg/stoper"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,6 +14,11 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/homedir"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
+	"github.com/mercari/tortoise/pkg/deployment"
+	"github.com/mercari/tortoise/pkg/pod"
+	"github.com/mercari/tortoise/pkg/stoper"
 )
 
 var stopCmd = &cobra.Command{

@@ -15,8 +15,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/mercari/tortoise/api/v1beta3"
-	"github.com/mercari/tortoise/pkg/annotation"
 	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +25,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/yaml"
+
+	"github.com/mercari/tortoise/api/v1beta3"
+	"github.com/mercari/tortoise/pkg/annotation"
 )
 
 func buildTortoiseCtl(t *testing.T) {
@@ -86,7 +87,7 @@ func Test_TortoiseCtlStop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to add scheme: %v", err)
 	}
-	kubeconfig := strings.Split(testEnv.ControlPlane.KubeCtl().Opts[0], "=")[1]
+	kubeconfig := strings.Split(testEnv.ControlPlane.KubeCtl().Opts[0], "=")[1] //nolint:staticcheck
 
 	tortoiseclient, err := client.New(cfg, client.Options{
 		Scheme: scheme,
@@ -219,10 +220,13 @@ func Test_TortoiseCtlStop(t *testing.T) {
 				}
 
 				for namespace := range namespaces {
-					wait.PollUntilContextCancel(context.Background(), 500*time.Millisecond, true, func(ctx context.Context) (bool, error) {
+					err := wait.PollUntilContextCancel(context.Background(), 500*time.Millisecond, true, func(ctx context.Context) (bool, error) {
 						_, err := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 						return err != nil, nil
 					})
+					if err != nil {
+						t.Fatalf("Failed to wait for namespace deletion: %v", err)
+					}
 				}
 			})
 
