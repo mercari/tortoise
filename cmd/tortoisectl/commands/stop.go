@@ -24,8 +24,7 @@ import (
 var stopCmd = &cobra.Command{
 	Use:   "stop tortoise1 tortoise2...",
 	Short: "stop tortoise(s) safely",
-	Long: `
-stop is the command to temporarily turn off tortoise(s) easily and safely.
+	Long: `stop is the command to temporarily turn off tortoise(s) easily and safely.
 
 It's intended to be used when your application is facing issues that might be caused by tortoise.
 Specifically, it changes the tortoise updateMode to "Off" and restarts the deployment to bring the pods back to the original resource requests.
@@ -116,6 +115,6 @@ func init() {
 	stopCmd.Flags().StringVarP(&stopNamespace, "namespace", "n", "", "namespace to stop tortoise(s) in")
 	stopCmd.Flags().BoolVarP(&stopAll, "all", "A", false, "stop all tortoises in the specified namespace, or in all namespaces if no namespace is specified.")
 	stopCmd.Flags().BoolVar(&noLoweringResources, "no-lowering-resources", false, `Stop tortoise without lowering resource requests. 
-	If this flag is specified and the current Deployment's resource request(s) is lower than the current Pods' request mutated by Tortoise,
-	this CLI patches the deployment so that changing tortoise to Off won't result in lowering the resource request(s), damaging the service.`)
+ If this flag is specified and the current Deployment's resource request(s) is lower than the current Pods' request mutated by Tortoise,
+this CLI patches the deployment so that changing tortoise to Off won't result in lowering the resource request(s), damaging the service.`)
 }
