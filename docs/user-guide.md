@@ -25,6 +25,78 @@ spec:
 
 This is the example for a minimum required configuration. 
 
+### Configure how each container's each resource is scaled (`.spec.AutoscalingPolicy` / `.spec.TargetRefs.HorizontalPodAutoscalerName`)
+
+There are two options for configuring resource scaling:
+1. Allow Tortoise to automatically determine the appropriate autoscaling policy for each resource.
+2. Manually define the autoscaling policy for each resource.
+
+The AutoscalingPolicy field is mutable; you can modify it at any time, whether from an empty state to populated or vice versa.
+
+#### 1. Allow Tortoise to automatically determine the appropriate autoscaling policy for each resource
+
+To do this, you simply leave `.spec.AutoscalingPolicy` unset. 
+
+In this case, Tortoise will adjust the autoscaling policies using the following logic:
+- If `.spec.TargetRefs.HorizontalPodAutoscalerName` is not provided, the policies default to "Horizontal" for CPU and "Vertical" for memory across all containers.
+- If `.spec.TargetRefs.HorizontalPodAutoscalerName` is specified, resources governed by the referenced Horizontal Pod Autoscaler will use a "Horizontal" policy,
+while those not managed by the HPA will use a "Vertical" policy.
+Note that Tortoise supports only the `ContainerResource` metric type for HPAs; other metric types will be disregarded.
+Additionally, if a `ContainerResource` metric is later added to an HPA associated with Tortoise,
+Tortoise will automatically update relevant resources to utilize a `Horizontal` policy in AutoscalingPolicy.
+- if a container doesn't have the resource request, that container's autoscaling policy is always set to "Off" because tortoise cannot generate any recommendation without the resource request.
+
+You can see how actually your tortoise scales your Pods with `.status.autoscalingPolicy`:
+
+```yaml
+apiVersion: autoscaling.mercari.com/v1beta3
+kind: Tortoise
+metadata:
+  name: your-tortoise-name
+  namespace: your-namespace
+...
+status:
+  autoscalingPolicy:
+  - containerName: awesome-mercari-container
+    policy:
+      cpu: Horizontal
+      memory: Vertical
+  - containerName: istio-proxy
+    policy:
+      cpu: Horizontal
+      memory: Vertical
+```
+
+#### 2. Manually define the autoscaling policy for each resource.
+
+With the second option, you must manually specify the AutoscalingPolicy for the resources of each container within this field.
+
+```yaml
+apiVersion: autoscaling.mercari.com/v1beta3
+kind: Tortoise
+spec:
+...
+  autoscalingPolicy: 
+    - containerName: istio-proxy
+      policy:
+        cpu: Horizontal
+        memory: Vertical
+    - containerName: app
+      policy:
+        cpu: Horizontal
+        memory: Vertical
+```
+
+AutoscalingPolicy is an optional field for specifying the scaling approach for each resource within each container.
+- `Horizontal`: Tortoise increases the replica number when the resource utilization goes up.
+- `Vertical`: Tortoise scales up the resource given to the container when the resource utilization goes up.
+- `Off`(default): Tortoise doesn't look at the resource of the container at all. 
+
+If policies are defined for some but not all containers or resources, Tortoise will assign a default `Off` policy to unspecified resources.
+Be aware that when new containers are introduced to the workload, the AutoscalingPolicy configuration must be manually updated 
+if you want to configure autoscaling for a new container,
+as Tortoise will default to an `Off` policy for resources within the new container, preventing scaling.
+
 ### updateMode
 
 ```yaml
@@ -62,57 +134,6 @@ You can observe the recommendation values with these metrics:
 
 `Emergency` is a update mode to enable the emergency mode.
 Please refer to [Emergency mode](./emergency.md) for more details.
-
-### `.spec.AutoscalingPolicy`
-
-There are two primary options for configuring resource scaling within containers:
-1. Allow Tortoise to automatically determine the appropriate autoscaling policy for each resource.
-2. Manually define the autoscaling policy for each resource.
-
-The AutoscalingPolicy field is mutable; you can modify it at any time, whether from an empty state to populated or vice versa.
-
-#### 1. Allow Tortoise to automatically determine the appropriate autoscaling policy for each resource
-
-To do this, you simply leave `.spec.AutoscalingPolicy` unset. 
-
-In this case, Tortoise will adjust the autoscaling policies using the following logic:
-- If `.spec.TargetRefs.HorizontalPodAutoscalerName` is not provided, the policies default to "Horizontal" for CPU and "Vertical" for memory across all containers.
-- If `.spec.TargetRefs.HorizontalPodAutoscalerName` is specified, resources governed by the referenced Horizontal Pod Autoscaler will use a "Horizontal" policy,
-while those not managed by the HPA will use a "Vertical" policy.
-Note that Tortoise supports only the `ContainerResource` metric type for HPAs; other metric types will be disregarded.
-Additionally, if a `ContainerResource` metric is later added to an HPA associated with Tortoise,
-Tortoise will automatically update relevant resources to utilize a `Horizontal` policy in AutoscalingPolicy.
-- if a container doesn't have the resource request, that container's autoscaling policy is always set to "Off" because tortoise cannot generate any recommendation without the resource request.
-
-#### 2. Manually define the autoscaling policy for each resource.
-
-With the second option, you must manually specify the AutoscalingPolicy for the resources of each container within this field.
-
-```yaml
-apiVersion: autoscaling.mercari.com/v1beta3
-kind: Tortoise
-spec:
-...
-  autoscalingPolicy: 
-    - containerName: istio-proxy
-      policy:
-        cpu: Horizontal
-        memory: Vertical
-    - containerName: app
-      policy:
-        cpu: Horizontal
-        memory: Vertical
-```
-
-AutoscalingPolicy is an optional field for specifying the scaling approach for each resource within each container.
-- `Horizontal`: Tortoise increases the replica number when the resource utilization goes up.
-- `Vertical`: Tortoise scales up the resource given to the container when the resource utilization goes up.
-- `Off`(default): Tortoise doesn't look at the resource of the container at all. 
-
-If policies are defined for some but not all containers or resources, Tortoise will assign a default `Off` policy to unspecified resources.
-Be aware that when new containers are introduced to the workload, the AutoscalingPolicy configuration must be manually updated 
-if you want to configure autoscaling for a new container,
-as Tortoise will default to an `Off` policy for resources within the new container, preventing scaling.
 
 ### `.spec.DeletionPolicy`
 
