@@ -48,6 +48,14 @@ max{replica numbers at the same time} * MinReplicasRecommendationMultiplier
 
 (refer to [admin-guide.md](./admin-guide.md) about each parameter)
 
+#### Why does MinReplicas have to be changed like this?
+
+Supposing your web frontend is down, your backend app Pods would be scaled in because it receives no traffic.
+But, when your web frontend is back, the huge traffic that the backend app usually handles would come again,
+and if the backend had been scaled in too much, it could be overwhelmed easily.
+
+To prevent this kind of issue like domino, Tortoise sets MinReplicas like above so that it can keep the replica number to some extend, preventing too much scaling in.
+
 ### Target utilization
 
 Target utilization is calculated by:
