@@ -665,6 +665,14 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 
 	oldTortoise := tortoise.DeepCopy()
 
+	oldRequestMap := map[string]map[corev1.ResourceName]resource.Quantity{}
+	for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
+		oldRequestMap[r.ContainerName] = map[corev1.ResourceName]resource.Quantity{}
+		for resourcename, value := range r.Resource {
+			oldRequestMap[r.ContainerName][resourcename] = value
+		}
+	}
+
 	newRequests := make([]v1beta3.ContainerResourceRequests, 0, len(tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation))
 	for _, r := range tortoise.Status.Recommendations.Vertical.ContainerResourceRecommendation {
 		recommendation := r.RecommendedResource.DeepCopy()
@@ -759,12 +767,15 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 	for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
 		// only record metrics once in every reconcile loop.
 		for resourcename, value := range r.Resource {
+			oldRequest := oldRequestMap[r.ContainerName][resourcename]
 			if resourcename == corev1.ResourceCPU {
 				// We don't want to record applied* metric when UpdateMode is Off.
 				metrics.AppliedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
+				metrics.NetCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(oldRequest.MilliValue() - value.MilliValue()))
 			}
 			if resourcename == corev1.ResourceMemory {
 				metrics.AppliedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
+				metrics.NetMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(oldRequest.MilliValue() - value.MilliValue()))
 			}
 		}
 	}
