@@ -46,6 +46,16 @@ var (
 		Help: "memory request (byte) that tortoises actually applys",
 	}, []string{"tortoise_name", "namespace", "container_name", "controller_name", "controller_kind"})
 
+	DecreaseApplyCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "decrease_apply_counter",
+		Help: "counter for number of resource decreases applied by tortoise",
+	}, []string{"tortoise_name", "namespace"})
+
+	IncreaseApplyCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "increase_apply_counter",
+		Help: "counter for number of resource increases applied by tortoise",
+	}, []string{"tortoise_name", "namespace"})
+
 	NetHPAMinReplicas = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "net_hpa_minreplicas",
 		Help: "net hpa minReplicas that tortoises actually applys to hpa",
@@ -107,6 +117,12 @@ func init() {
 		AppliedHPAMinReplicas,
 		AppliedCPURequest,
 		AppliedMemoryRequest,
+		IncreaseApplyCounter,
+		DecreaseApplyCounter
+		NetHPAMaxReplicas,
+		NetHPAMinReplicas,
+		NetCPURequest,
+		NetMemoryRequest,
 		ProposedHPATargetUtilization,
 		ProposedHPAMinReplicas,
 		ProposedHPAMaxReplicas,

@@ -417,8 +417,6 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	}
 
 	if recordMetrics {
-		metrics.NetHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(*hpa.Spec.MinReplicas) - float64(recommendMin))
-		metrics.NetHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(hpa.Spec.MaxReplicas - recommendMax))
 		metrics.ProposedHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(recommendMin))
 		metrics.ProposedHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(recommendMax))
 	}
@@ -448,6 +446,16 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	hpa.Spec.MinReplicas = &minToActuallyApply
 	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && recordMetrics {
 		// We don't want to record applied* metric when UpdateMode is Off.
+		netChangeMaxReplicas := float64(hpa.Spec.MaxReplicas - recommendMax)
+		netChangeMinReplicas := float64(*hpa.Spec.MinReplicas) - float64(recommendMin)
+		if netChangeMaxReplicas > 0 || netChangeMinReplicas < 0 {
+			metrics.IncreaseApplyCounter.WithLabelValues(tortoise.Name, tortoise.Namespace).Add(1)
+		}
+		if netChangeMaxReplicas < 0 || netChangeMinReplicas > 0 {
+			metrics.DecreaseApplyCounter.WithLabelValues(tortoise.Name, tortoise.Namespace).Add(1)
+		}
+		metrics.NetHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(netChangeMinReplicas)
+		metrics.NetHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(netChangeMaxReplicas)
 		metrics.AppliedHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(*hpa.Spec.MinReplicas))
 		metrics.AppliedHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(hpa.Spec.MaxReplicas))
 	}
