@@ -118,7 +118,7 @@ func init() {
 		AppliedCPURequest,
 		AppliedMemoryRequest,
 		IncreaseApplyCounter,
-		DecreaseApplyCounter
+		DecreaseApplyCounter,
 		NetHPAMaxReplicas,
 		NetHPAMinReplicas,
 		NetCPURequest,
