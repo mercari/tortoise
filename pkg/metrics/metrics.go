@@ -46,6 +46,36 @@ var (
 		Help: "memory request (byte) that tortoises actually applys",
 	}, []string{"tortoise_name", "namespace", "container_name", "controller_name", "controller_kind"})
 
+	DecreaseApplyCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "decrease_apply_counter",
+		Help: "counter for number of resource decreases applied by tortoise",
+	}, []string{"tortoise_name", "namespace"})
+
+	IncreaseApplyCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "increase_apply_counter",
+		Help: "counter for number of resource increases applied by tortoise",
+	}, []string{"tortoise_name", "namespace"})
+
+	NetHPAMinReplicas = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "net_hpa_minreplicas",
+		Help: "net hpa minReplicas that tortoises actually applys to hpa",
+	}, []string{"tortoise_name", "namespace", "hpa_name"})
+
+	NetHPAMaxReplicas = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "net_hpa_maxreplicas",
+		Help: "net hpa maxReplicas that tortoises actually applys to hpa",
+	}, []string{"tortoise_name", "namespace", "hpa_name"})
+
+	NetCPURequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "net_cpu_request",
+		Help: "net cpu request (millicore) that tortoises actually applys",
+	}, []string{"tortoise_name", "namespace", "container_name", "controller_name", "controller_kind"})
+
+	NetMemoryRequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "net_memory_request",
+		Help: "net memory request (byte) that tortoises actually applys",
+	}, []string{"tortoise_name", "namespace", "container_name", "controller_name", "controller_kind"})
+
 	ProposedHPATargetUtilization = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "proposed_hpa_utilization_target",
 		Help: "recommended hpa utilization target values that tortoises propose",
@@ -87,6 +117,12 @@ func init() {
 		AppliedHPAMinReplicas,
 		AppliedCPURequest,
 		AppliedMemoryRequest,
+		IncreaseApplyCounter,
+		DecreaseApplyCounter,
+		NetHPAMaxReplicas,
+		NetHPAMinReplicas,
+		NetCPURequest,
+		NetMemoryRequest,
 		ProposedHPATargetUtilization,
 		ProposedHPAMinReplicas,
 		ProposedHPAMaxReplicas,
