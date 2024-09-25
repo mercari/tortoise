@@ -628,6 +628,48 @@ func Test_isMonitorVPAReady(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Tortoise defines less containers than VPA, VPA is Ready",
+			args: args{
+				vpa: &vpav1.VerticalPodAutoscaler{
+					Status: vpav1.VerticalPodAutoscalerStatus{
+						Conditions: []vpav1.VerticalPodAutoscalerCondition{
+							{
+								Type:   vpav1.RecommendationProvided,
+								Status: v1.ConditionFalse,
+							},
+						},
+						Recommendation: &vpav1.RecommendedPodResources{
+							ContainerRecommendations: []vpav1.RecommendedContainerResources{
+								{
+									ContainerName: "app",
+									Target: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"), // wrong
+									},
+								},
+								{
+									ContainerName: "istio",
+									Target: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+				tortoise: &autoscalingv1beta3.Tortoise{
+					Status: autoscalingv1beta3.TortoiseStatus{
+						AutoscalingPolicy: []autoscalingv1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
