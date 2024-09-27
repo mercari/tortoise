@@ -166,7 +166,7 @@ func isMonitorVPAReady(vpa *v1.VerticalPodAutoscaler, tortoise *autoscalingv1bet
 		}
 	}
 
-	return containerInTortoise.Equal(containerInVPA)
+	return containerInVPA.IsSuperset(containerInTortoise)
 }
 
 func SetAllVerticalContainerResourcePhaseWorking(tortoise *autoscalingv1beta3.Tortoise, now time.Time) *autoscalingv1beta3.Tortoise {
