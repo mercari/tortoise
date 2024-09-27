@@ -59,12 +59,12 @@ var (
 	NetHPAMinReplicas = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "net_hpa_minreplicas",
 		Help: "net hpa minReplicas that tortoises actually applys to hpa",
-	}, []string{"tortoise_name", "namespace", "hpa_name"})
+	}, []string{"tortoise_name", "namespace", "hpa_name", "kube_deployment"})
 
 	NetHPAMaxReplicas = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "net_hpa_maxreplicas",
 		Help: "net hpa maxReplicas that tortoises actually applys to hpa",
-	}, []string{"tortoise_name", "namespace", "hpa_name"})
+	}, []string{"tortoise_name", "namespace", "hpa_name", "kube_deployment"})
 
 	NetCPURequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "net_cpu_request",
