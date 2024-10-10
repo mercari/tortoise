@@ -23,7 +23,7 @@ SOFTWARE.
 
 */
 
-package controllers
+package controller
 
 import (
 	"context"

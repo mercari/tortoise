@@ -1,4 +1,4 @@
-package controllers
+package controller
 
 import (
 	"context"
@@ -233,9 +233,8 @@ func removeUnnecessaryFields(rawdata []byte) ([]byte, error) {
 
 func startController(ctx context.Context) func() {
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
+		Scheme:         scheme,
+		LeaderElection: false,
 	})
 	Expect(err).ShouldNot(HaveOccurred())
 

@@ -37,8 +37,8 @@ import (
 	"time"
 
 	//+kubebuilder:scaffold:imports
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	admissionv1 "k8s.io/api/admissionregistration/v1"
+	admissionv1 "k8s.io/api/admission/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -52,6 +52,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/config"
@@ -86,8 +88,8 @@ var _ = BeforeSuite(func() {
 
 	y, err := os.ReadFile(filepath.Join("..", "..", "..", "config", "webhook", "manifests.yaml"))
 	Expect(err).NotTo(HaveOccurred())
-	mutatingWebhookConfig := &admissionv1.MutatingWebhookConfiguration{}
-	validatingWebhookConfig := &admissionv1.ValidatingWebhookConfiguration{}
+	mutatingWebhookConfig := &admissionregistrationv1.MutatingWebhookConfiguration{}
+	validatingWebhookConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 	d := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096)
 	err = d.Decode(mutatingWebhookConfig)
 	Expect(err).NotTo(HaveOccurred())
@@ -121,8 +123,8 @@ var _ = BeforeSuite(func() {
 		ErrorIfCRDPathMissing: false,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
 			Paths:              []string{filepath.Join("..", "..", "..", "config", "webhook", "service.yaml")},
-			MutatingWebhooks:   []*admissionv1.MutatingWebhookConfiguration{mutatingWebhookConfig},
-			ValidatingWebhooks: []*admissionv1.ValidatingWebhookConfiguration{validatingWebhookConfig},
+			MutatingWebhooks:   []*admissionregistrationv1.MutatingWebhookConfiguration{mutatingWebhookConfig},
+			ValidatingWebhooks: []*admissionregistrationv1.ValidatingWebhookConfiguration{validatingWebhookConfig},
 		},
 	}
 
@@ -139,7 +141,7 @@ var _ = BeforeSuite(func() {
 	err = clientgoscheme.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = admissionv1beta1.AddToScheme(scheme)
+	err = admissionv1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
@@ -151,12 +153,14 @@ var _ = BeforeSuite(func() {
 	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
+		Scheme:         scheme,
+		LeaderElection: false,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Host:    webhookInstallOptions.LocalServingHost,
+			Port:    webhookInstallOptions.LocalServingPort,
+			CertDir: webhookInstallOptions.LocalServingCertDir,
+		}),
+		Metrics: metricsserver.Options{BindAddress: "0"},
 	})
 	Expect(err).NotTo(HaveOccurred())
 	config, err := config.ParseConfig("")

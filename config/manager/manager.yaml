@@ -3,6 +3,8 @@ kind: Namespace
 metadata:
   labels:
     control-plane: controller-manager
+    app.kubernetes.io/name: tortoise
+    app.kubernetes.io/managed-by: kustomize
   name: system
 ---
 apiVersion: apps/v1
@@ -12,6 +14,8 @@ metadata:
   namespace: system
   labels:
     control-plane: controller-manager
+    app.kubernetes.io/name: tortoise
+    app.kubernetes.io/managed-by: kustomize
 spec:
   selector:
     matchLabels:
@@ -38,6 +42,7 @@ spec:
         - /manager
         args:
         - --leader-elect
+        - --health-probe-bind-address=:8081
         image: controller:latest
         name: manager
         securityContext:

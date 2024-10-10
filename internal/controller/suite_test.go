@@ -23,7 +23,7 @@ SOFTWARE.
 
 */
 
-package controllers
+package controller
 
 import (
 	"fmt"
@@ -73,7 +73,7 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases"), filepath.Join("testdata", "crd")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases"), filepath.Join("testdata", "crd")},
 		ErrorIfCRDPathMissing: true,
 	}
 
