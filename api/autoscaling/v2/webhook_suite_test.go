@@ -37,8 +37,8 @@ import (
 	"time"
 
 	//+kubebuilder:scaffold:imports
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	admissionv1 "k8s.io/api/admissionregistration/v1"
+	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -84,8 +84,8 @@ var _ = BeforeSuite(func() {
 
 	y, err := os.ReadFile(filepath.Join("..", "..", "..", "config", "webhook", "manifests.yaml"))
 	Expect(err).NotTo(HaveOccurred())
-	mutatingWebhookConfig := &admissionv1.MutatingWebhookConfiguration{}
-	validatingWebhookConfig := &admissionv1.ValidatingWebhookConfiguration{}
+	mutatingWebhookConfig := &admissionregistrationv1.MutatingWebhookConfiguration{}
+	validatingWebhookConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 	d := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096)
 	err = d.Decode(mutatingWebhookConfig)
 	Expect(err).NotTo(HaveOccurred())
@@ -119,8 +119,8 @@ var _ = BeforeSuite(func() {
 		ErrorIfCRDPathMissing: false,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
 			Paths:              []string{filepath.Join("..", "..", "..", "config", "webhook", "service.yaml")},
-			MutatingWebhooks:   []*admissionv1.MutatingWebhookConfiguration{mutatingWebhookConfig},
-			ValidatingWebhooks: []*admissionv1.ValidatingWebhookConfiguration{validatingWebhookConfig},
+			MutatingWebhooks:   []*admissionregistrationv1.MutatingWebhookConfiguration{mutatingWebhookConfig},
+			ValidatingWebhooks: []*admissionregistrationv1.ValidatingWebhookConfiguration{validatingWebhookConfig},
 		},
 	}
 
@@ -139,7 +139,7 @@ var _ = BeforeSuite(func() {
 	err = autoscalingv2.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = admissionv1beta1.AddToScheme(scheme)
+	err = admissionv1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
@@ -151,12 +151,8 @@ var _ = BeforeSuite(func() {
 	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
+		Scheme:         scheme,
+		LeaderElection: false,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	config, err := config.ParseConfig("")

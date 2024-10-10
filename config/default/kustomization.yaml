@@ -18,6 +18,7 @@ bases:
 - ../manager
 - ../webhook
 - ../certmanager
+- metrics_service.yaml
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
 #- ../prometheus
 
@@ -25,14 +26,17 @@ patchesStrategicMerge:
 # Protect the /metrics endpoint by putting it behind auth.
 # If you want your controller-manager to expose the /metrics
 # endpoint w/o any authn/z, please comment the following line.
-- manager_auth_proxy_patch.yaml
+- path: manager_auth_proxy_patch.yaml
 
 # Mount the controller config file for loading manager configurations
 # through a ComponentConfig type
 #- manager_config_patch.yaml
 
-- manager_webhook_patch.yaml
-- webhookcainjection_patch.yaml
+- path: manager_webhook_patch.yaml
+- path: webhookcainjection_patch.yaml
+- path: manager_metrics_patch.yaml
+  target:
+    kind: Deployment
 
 # the following config is for teaching kustomize how to do var substitution
 vars:
