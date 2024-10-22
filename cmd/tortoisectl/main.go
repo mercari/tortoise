@@ -1,4 +1,4 @@
-package main
+package tortoisectl
 
 import "github.com/mercari/tortoise/cmd/tortoisectl/commands"
 

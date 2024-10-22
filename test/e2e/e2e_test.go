@@ -24,10 +24,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"mercari.com/tortoise/test/utils"
+	"github.com/mercari/tortoise/test/utils"
 )
 
-const namespace = "tortoise-migration-2-system"
+const namespace = "tortoise-system"
 
 var _ = Describe("controller", Ordered, func() {
 	BeforeAll(func() {
