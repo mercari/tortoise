@@ -15,10 +15,10 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.21
+      - name: Set up Go 1.22
         uses: actions/setup-go@v3.5.0
         with:
-          go-version: "1.21"
+          go-version: "1.22"
         id: go
       - name: Check out code into the Go module directory
         uses: actions/checkout@v3
@@ -31,8 +31,6 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: Get dependencies
-        run: make dependencies
       - name: Build
         run: make build
       - name: Test
