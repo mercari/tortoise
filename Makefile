@@ -87,7 +87,7 @@ lint:
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 	find . -name "*.go" | xargs gci write --section Standard --section Default --section "Prefix(github.com/mercari/tortoise)" --section blank --section dot
-	@make lint args='--fix -v' cons_args='-v'
+	@make lint args='--fix -v --timeout=10m' cons_args='-v'
 
 ##@ Build
 
