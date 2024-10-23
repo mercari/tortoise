@@ -48,7 +48,7 @@ import (
 	autoscalingv2 "github.com/mercari/tortoise/api/autoscaling/v2"
 	v1 "github.com/mercari/tortoise/api/core/v1"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
-	"github.com/mercari/tortoise/controllers"
+	"github.com/mercari/tortoise/internal/controller"
 	"github.com/mercari/tortoise/pkg/config"
 	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/hpa"
@@ -120,8 +120,6 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "76c4d78a.mercari.com",
@@ -160,7 +158,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.TortoiseReconciler{
+	if err = (&controller.TortoiseReconciler{
 		Scheme:            mgr.GetScheme(),
 		HpaService:        hpaService,
 		VpaService:        vpaClient,

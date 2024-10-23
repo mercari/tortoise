@@ -5,6 +5,8 @@ kind: ServiceMonitor
 metadata:
   labels:
     control-plane: controller-manager
+    app.kubernetes.io/name: tortoise
+    app.kubernetes.io/managed-by: kustomize
   name: controller-manager-metrics-monitor
   namespace: system
 spec:

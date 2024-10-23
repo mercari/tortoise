@@ -8,6 +8,8 @@ rules:
   - apps
   resources:
   - daemonsets
+  - replicasets
+  - statefulsets
   verbs:
   - get
   - list
@@ -25,22 +27,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - apps
-  resources:
-  - replicasets
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - apps
-  resources:
-  - statefulsets
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - autoscaling
   resources:
   - horizontalpodautoscalers
@@ -56,17 +42,6 @@ rules:
   - autoscaling.k8s.io
   resources:
   - verticalpodautoscalers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - autoscaling.k8s.io
-  resources:
   - verticalpodautoscalers/status
   verbs:
   - create
@@ -106,13 +81,6 @@ rules:
   - batch
   resources:
   - cronjobs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - batch
-  resources:
   - jobs
   verbs:
   - get
