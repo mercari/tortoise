@@ -1,7 +1,7 @@
-package tortoisectl
+package main
 
 import "github.com/mercari/tortoise/cmd/tortoisectl/commands"
 
-func tortoisectl() {
+func main() {
 	commands.Execute()
 }
