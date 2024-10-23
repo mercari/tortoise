@@ -21,10 +21,10 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/mercari/tortoise/test/utils"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/mercari/tortoise/test/utils"
 )
 
 const namespace = "tortoise-system"

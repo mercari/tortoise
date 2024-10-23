@@ -81,12 +81,11 @@ test-e2e: manifests generate fmt vet ## Run the e2e tests. Expected an isolated 
 	go test ./test/e2e/ -v -ginkgo.v
 
 .PHONY: lint
-lint:
-	golangci-lint run $(args) ./...
+lint: golangci-lint ## Run golangci-lint linter
+	$(GOLANGCI_LINT) run
 
 .PHONY: lint-fix
-lint-fix:
-	# Note: gci's autofix on golangci-lint was disabled. We can remove this if that is enabled again.
+lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 	find . -name "*.go" | xargs gci write --section Standard --section Default --section "Prefix(github.com/mercari/tortoise)" --section blank --section dot
 	@make lint args='--fix -v' cons_args='-v'
 
