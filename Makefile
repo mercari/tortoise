@@ -82,7 +82,7 @@ test-e2e: manifests generate fmt vet ## Run the e2e tests. Expected an isolated 
 
 .PHONY: lint
 lint:
-	golangci-lint run $(args) ./...
+	golangci-lint run --timeout=10m ./...
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes

@@ -2,7 +2,7 @@ module github.com/mercari/tortoise/tools
 
 go 1.22
 
-toolchain go1.23.1
+toolchain go1.22.6
 
 require (
 	github.com/daixiang0/gci v0.13.4
