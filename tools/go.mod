@@ -2,6 +2,8 @@ module github.com/mercari/tortoise/tools
 
 go 1.22
 
+toolchain go1.23.1
+
 require (
 	github.com/daixiang0/gci v0.13.4
 	github.com/golangci/golangci-lint v1.59.1
