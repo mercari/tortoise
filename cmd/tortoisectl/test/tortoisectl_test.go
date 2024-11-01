@@ -73,10 +73,6 @@ func Test_TortoiseCtlStop(t *testing.T) {
 
 	// Build the latest binary.
 	buildTortoiseCtl(t)
-	_, _, err := execCommand(t, "chmod", "+x", "./testdata/bin/tortoisectl")
-	if err != nil {
-		t.Fatalf("Failed to build tortoisectl: %v", err)
-	}
 	testEnv, cfg := prepareCluster(t)
 	defer destryCluster(t, testEnv)
 
