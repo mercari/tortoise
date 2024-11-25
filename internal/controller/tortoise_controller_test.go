@@ -1,4 +1,4 @@
-package controllers
+package controller
 
 import (
 	"context"
@@ -16,8 +16,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/yaml"
 
 	"github.com/mercari/tortoise/api/v1beta3"
@@ -233,9 +235,11 @@ func removeUnnecessaryFields(rawdata []byte) ([]byte, error) {
 
 func startController(ctx context.Context) func() {
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
+		Scheme:         scheme,
+		LeaderElection: false,
+		Controller: config.Controller{
+			SkipNameValidation: ptr.To(true),
+		},
 	})
 	Expect(err).ShouldNot(HaveOccurred())
 
@@ -290,6 +294,7 @@ var _ = Describe("Test TortoiseController", func() {
 		if err != nil {
 			Expect(apierrors.IsNotFound(err)).To(Equal(true))
 		}
+
 	}
 
 	generateTestCases := func(path string) {
