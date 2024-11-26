@@ -185,6 +185,17 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 	tortoise = tortoiseService.UpdateTortoiseAutoscalingPolicyInStatus(tortoise, hpa, now)
+	scalingActive := r.HpaService.checkHpaMetricStatus(ctx, hpa)
+	if scalingActive == false && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
+		//switch to emergency mode
+		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeAuto {
+			tortoise.Spec.UpdateMode = autoscalingv1beta3.UpdateModeEmergency
+		}
+	}
+	if scalingActive == true && tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeEmergency {
+		tortoise.Spec.UpdateMode = autoscalingv1beta3.UpdateModeAuto
+	}
+
 	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, now)
 	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseInitializing {
 		logger.Info("initializing tortoise", "tortoise", req.NamespacedName)
