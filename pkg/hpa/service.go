@@ -779,4 +779,5 @@ func (c *Service) checkHpaMetricStatus(ctx context.Context, currenthpa *v2.Horiz
 		//switch to Emergency mode since no metrics
 		return false
 	}
+	return true
 }
