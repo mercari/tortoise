@@ -770,11 +770,6 @@ func (c *Service) checkHpaMetricStatus(ctx context.Context, currenthpa *v2.Horiz
 	currenthpa = currenthpa.DeepCopy()
 	conditions := currenthpa.Status.Conditions
 
-	if conditions[1].Type == "ScalingActive" && conditions[1].Status == "True" {
-		//switch to Auto mode since metrics are back
-		return true
-	}
-
 	if conditions[1].Type == "ScalingActive" && conditions[1].Status == "False" && conditions[1].Reason == "FailedGetResourceMetric" {
 		//switch to Emergency mode since no metrics
 		return false
