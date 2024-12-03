@@ -181,7 +181,25 @@ func updateResourcesInTestCaseFile(path string, resource resources) error {
 }
 
 func removeUnnecessaryFieldsFromHPA(hpa *v2.HorizontalPodAutoscaler) *v2.HorizontalPodAutoscaler {
-	hpa.Status = v2.HorizontalPodAutoscalerStatus{}
+	hpa.Status = v2.HorizontalPodAutoscalerStatus{
+		Conditions: []v2.HorizontalPodAutoscalerCondition{
+			{
+				Status:  "True",
+				Type:    v2.AbleToScale,
+				Message: "recommended size matches current size",
+			},
+			{
+				Status:  "True",
+				Type:    v2.ScalingActive,
+				Message: "the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)",
+			},
+			{
+				Status:  "False",
+				Type:    v2.ScalingLimited,
+				Message: "the desired count is within the acceptable range",
+			},
+		},
+	}
 	return hpa
 }
 

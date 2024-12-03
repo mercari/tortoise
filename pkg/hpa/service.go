@@ -766,13 +766,36 @@ func (c *Service) excludeExternalMetric(ctx context.Context, hpa *v2.HorizontalP
 	return newHPA
 }
 
-func (c *Service) checkHpaMetricStatus(ctx context.Context, currenthpa *v2.HorizontalPodAutoscaler, now time.Time) bool {
+func (c *Service) CheckHpaMetricStatus(ctx context.Context, currenthpa *v2.HorizontalPodAutoscaler) bool {
 	currenthpa = currenthpa.DeepCopy()
-	conditions := currenthpa.Status.Conditions
-
-	if conditions[1].Type == "ScalingActive" && conditions[1].Status == "False" && conditions[1].Reason == "FailedGetResourceMetric" {
-		//switch to Emergency mode since no metrics
+	conditions := []v2.HorizontalPodAutoscalerCondition{}
+	if currenthpa.Status.Conditions == nil {
 		return false
 	}
+
+	if currenthpa.Status.CurrentMetrics == nil {
+		return false
+	}
+	conditions = currenthpa.Status.Conditions
+	currentMetrics := currenthpa.Status.CurrentMetrics
+
+	if len(conditions) > 0 {
+		// do what you want
+		for _, condition := range conditions {
+			if condition.Type == "ScalingActive" && condition.Status == "False" && condition.Reason == "FailedGetResourceMetric" {
+				//switch to Emergency mode since no metrics
+				return false
+			}
+		}
+	}
+
+	if len(currentMetrics) > 0 {
+		for _, currentMetric := range currentMetrics {
+			if currentMetric.ContainerResource.Current.Value.IsZero() {
+				return false
+			}
+		}
+	}
+
 	return true
 }
