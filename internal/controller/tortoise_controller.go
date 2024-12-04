@@ -185,16 +185,17 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 	tortoise = tortoiseService.UpdateTortoiseAutoscalingPolicyInStatus(tortoise, hpa, now)
-	scalingActive := r.HpaService.CheckHpaMetricStatus(ctx, hpa)
-	if scalingActive == false && tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeAuto && tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseWorking {
-		//switch to emergency mode only when auto tortoise and already working
-		tortoise.Spec.UpdateMode = autoscalingv1beta3.UpdateModeEmergency
-	}
-	if scalingActive == true && tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeEmergency {
-		tortoise.Spec.UpdateMode = autoscalingv1beta3.UpdateModeAuto
-	}
 
 	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, now)
+	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseInitializing {
+		logger.Info("initializing tortoise", "tortoise", req.NamespacedName)
+		// need to initialize HPA and VPA.
+		if err := r.initializeVPAAndHPA(ctx, tortoise, currentDesiredReplicaNum, now); err != nil {
+			return ctrl.Result{}, fmt.Errorf("initialize VPA and HPA: %w", err)
+		}
+
+		return ctrl.Result{RequeueAfter: r.Interval}, nil
+	}
 
 	// Make sure finalizer is added to tortoise.
 	tortoise, err = r.TortoiseService.AddFinalizer(ctx, tortoise)
@@ -237,6 +238,13 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	if err != nil {
 		logger.Error(err, "failed to get HPA", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
+	}
+	scalingActive := r.HpaService.CheckHpaMetricStatus(ctx, hpa)
+	if scalingActive == false && tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeAuto && tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseWorking {
+		//switch to emergency mode only when auto tortoise and already working
+		tortoise.Spec.UpdateMode = autoscalingv1beta3.UpdateModeEmergency
+		logger.Info("EMERGENCY MODE")
+		tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, now)
 	}
 
 	tortoise = r.TortoiseService.UpdateContainerRecommendationFromVPA(tortoise, monitorvpa, now)

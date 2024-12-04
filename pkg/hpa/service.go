@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"regexp"
 	"sort"
 	"time"
@@ -767,20 +768,31 @@ func (c *Service) excludeExternalMetric(ctx context.Context, hpa *v2.HorizontalP
 }
 
 func (c *Service) CheckHpaMetricStatus(ctx context.Context, currenthpa *v2.HorizontalPodAutoscaler) bool {
-	currenthpa = currenthpa.DeepCopy()
-	conditions := []v2.HorizontalPodAutoscalerCondition{}
+	//currenthpa = currenthpa.DeepCopy()
+	logger := log.FromContext(ctx)
+	if currenthpa == nil {
+		logger.Info("empty HPA passed into status check, ignore")
+		return true
+	}
+
+	if reflect.DeepEqual(currenthpa.Status, v2.HorizontalPodAutoscalerStatus{}) {
+		logger.Info("HPA empty status, switch to emergency mode")
+		return false
+	}
+
 	if currenthpa.Status.Conditions == nil {
+		logger.Info("HPA empty conditions, switch to emergency mode")
 		return false
 	}
 
 	if currenthpa.Status.CurrentMetrics == nil {
+		logger.Info("HPA no metrics, switch to emergency mode")
 		return false
 	}
-	conditions = currenthpa.Status.Conditions
+	conditions := currenthpa.Status.Conditions
 	currentMetrics := currenthpa.Status.CurrentMetrics
 
 	if len(conditions) > 0 {
-		// do what you want
 		for _, condition := range conditions {
 			if condition.Type == "ScalingActive" && condition.Status == "False" && condition.Reason == "FailedGetResourceMetric" {
 				//switch to Emergency mode since no metrics
@@ -796,6 +808,8 @@ func (c *Service) CheckHpaMetricStatus(ctx context.Context, currenthpa *v2.Horiz
 			}
 		}
 	}
+
+	logger.Info("HPA status check passed")
 
 	return true
 }

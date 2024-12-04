@@ -181,25 +181,7 @@ func updateResourcesInTestCaseFile(path string, resource resources) error {
 }
 
 func removeUnnecessaryFieldsFromHPA(hpa *v2.HorizontalPodAutoscaler) *v2.HorizontalPodAutoscaler {
-	hpa.Status = v2.HorizontalPodAutoscalerStatus{
-		Conditions: []v2.HorizontalPodAutoscalerCondition{
-			{
-				Status:  "True",
-				Type:    v2.AbleToScale,
-				Message: "recommended size matches current size",
-			},
-			{
-				Status:  "True",
-				Type:    v2.ScalingActive,
-				Message: "the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)",
-			},
-			{
-				Status:  "False",
-				Type:    v2.ScalingLimited,
-				Message: "the desired count is within the acceptable range",
-			},
-		},
-	}
+	//hpa.Status = v2.HorizontalPodAutoscalerStatus{}
 	return hpa
 }
 
@@ -493,6 +475,11 @@ var _ = Describe("Test TortoiseController", func() {
 		})
 		It("Horizontal is removed and modify the existing HPA", func() {
 			runTest(filepath.Join("testdata", "mutable-autoscalingpolicy-remove-horizontal-2"))
+		})
+	})
+	Context("automatic switch to emergency mode", func() {
+		It("HPA scalingactive condition false", func() {
+			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-hpa-condition"))
 		})
 	})
 	Context("DeletionPolicy is handled correctly", func() {
