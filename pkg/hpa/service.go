@@ -799,6 +799,7 @@ func (c *Service) CheckHpaMetricStatus(ctx context.Context, currenthpa *v2.Horiz
 		for _, condition := range conditions {
 			if condition.Type == "ScalingActive" && condition.Status == "False" && condition.Reason == "FailedGetResourceMetric" {
 				//switch to Emergency mode since no metrics
+				logger.Info("HPA failed to get resource metrics, switch to emergency mode")
 				return false
 			}
 		}
@@ -807,9 +808,11 @@ func (c *Service) CheckHpaMetricStatus(ctx context.Context, currenthpa *v2.Horiz
 	if len(currentMetrics) > 0 {
 		for _, currentMetric := range currentMetrics {
 			if !currentMetric.ContainerResource.Current.Value.IsZero() {
+				//Can still get metrics for some containers, scale based on those
 				return true
 			}
 		}
+		logger.Info("HPA all metrics return 0, switch to emergency mode")
 		return false
 	}
 

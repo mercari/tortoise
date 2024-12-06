@@ -186,18 +186,13 @@ func updateResourcesInTestCaseFile(path string, resource resources) error {
 	}
 
 	if resource.hpa != nil {
-		err = writeToFile(filepath.Join(path, "hpa.yaml"), removeUnnecessaryFieldsFromHPA(resource.hpa))
+		err = writeToFile(filepath.Join(path, "hpa.yaml"), resource.hpa)
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func removeUnnecessaryFieldsFromHPA(hpa *v2.HorizontalPodAutoscaler) *v2.HorizontalPodAutoscaler {
-	//hpa.Status = v2.HorizontalPodAutoscalerStatus{}
-	return hpa
 }
 
 func removeUnnecessaryFieldsFromDeployment(deployment *v1.Deployment) *v1.Deployment {
@@ -495,6 +490,9 @@ var _ = Describe("Test TortoiseController", func() {
 	Context("automatic switch to emergency mode", func() {
 		It("HPA scalingactive condition false", func() {
 			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-hpa-condition"))
+		})
+		It("HPA scalingactive no metrics", func() {
+			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-hpa-no-metrics"))
 		})
 	})
 	Context("DeletionPolicy is handled correctly", func() {
