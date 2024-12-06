@@ -44,9 +44,9 @@ status:
     - status: "True"
       type: AbleToScale
       message: "recommended size matches current size"
-    - status: "False"
+    - status: "True"
       type: ScalingActive
-      message: "the HPA was unable to compute the replica count: failed to get cpu utilization"
+      message: "the HPA was able to compute the replica count"
   currentMetrics:
     - containerResource:
         container: app

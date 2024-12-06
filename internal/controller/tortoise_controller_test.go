@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -121,11 +122,25 @@ func createTortoiseWithStatus(ctx context.Context, k8sClient client.Client, tort
 	Expect(err).NotTo(HaveOccurred())
 }
 
+func createHPAWithStatus(ctx context.Context, k8sClient client.Client, hpa *v2.HorizontalPodAutoscaler) {
+	err := k8sClient.Create(ctx, hpa.DeepCopy())
+	Expect(err).NotTo(HaveOccurred())
+
+	h := &v2.HorizontalPodAutoscaler{}
+	err = k8sClient.Get(ctx, client.ObjectKey{Namespace: hpa.Namespace, Name: hpa.Name}, h)
+	Expect(err).NotTo(HaveOccurred())
+
+	if !reflect.DeepEqual(hpa.Status, v2.HorizontalPodAutoscalerStatus{}) {
+		h.Status = hpa.Status
+		err = k8sClient.Status().Update(ctx, h)
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
 func initializeResourcesFromFiles(ctx context.Context, k8sClient client.Client, path string) resources {
 	resource := newResource(path)
 	if resource.hpa != nil {
-		err := k8sClient.Create(ctx, resource.hpa)
-		Expect(err).NotTo(HaveOccurred())
+		createHPAWithStatus(ctx, k8sClient, resource.hpa)
 	}
 
 	createDeploymentWithStatus(ctx, k8sClient, resource.deployment)

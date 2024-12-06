@@ -241,10 +241,10 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 	scalingActive := r.HpaService.CheckHpaMetricStatus(ctx, hpa)
 	if scalingActive == false && tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeAuto && tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseWorking {
-		//switch to emergency mode only when auto tortoise and already working
-		tortoise.Spec.UpdateMode = autoscalingv1beta3.UpdateModeEmergency
-		logger.Info("EMERGENCY MODE")
-		tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, now)
+		tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseAutoEmergency
+	}
+	if scalingActive == true && tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeAuto && tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseAutoEmergency {
+		tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseBackToNormal
 	}
 
 	tortoise = r.TortoiseService.UpdateContainerRecommendationFromVPA(tortoise, monitorvpa, now)

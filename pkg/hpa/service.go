@@ -428,6 +428,9 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	case autoscalingv1beta3.TortoisePhaseEmergency:
 		// when emergency mode, we set the same value on minReplicas.
 		minToActuallyApply = recommendMax
+	case autoscalingv1beta3.TortoisePhaseAutoEmergency:
+		// when emergency mode, we set the same value on minReplicas.
+		minToActuallyApply = recommendMax
 	case autoscalingv1beta3.TortoisePhaseBackToNormal:
 		// gradually reduce the minReplicas.
 		currentMin := *hpa.Spec.MinReplicas
@@ -803,10 +806,11 @@ func (c *Service) CheckHpaMetricStatus(ctx context.Context, currenthpa *v2.Horiz
 
 	if len(currentMetrics) > 0 {
 		for _, currentMetric := range currentMetrics {
-			if currentMetric.ContainerResource.Current.Value.IsZero() {
-				return false
+			if !currentMetric.ContainerResource.Current.Value.IsZero() {
+				return true
 			}
 		}
+		return false
 	}
 
 	logger.Info("HPA status check passed")

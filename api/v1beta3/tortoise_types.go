@@ -256,7 +256,8 @@ const (
 	// TortoisePhaseBackToNormal means tortoise was in the emergency mode, and now it's coming back to the normal operation.
 	// During TortoisePhaseBackToNormal, the number of replicas of workloads are gradually reduced to the usual value.
 	//  - Emergency → BackToNormal
-	TortoisePhaseBackToNormal TortoisePhase = "BackToNormal"
+	TortoisePhaseBackToNormal  TortoisePhase = "BackToNormal"
+	TortoisePhaseAutoEmergency TortoisePhase = "AutoEmergency"
 )
 
 type TargetsStatus struct {

@@ -11,6 +11,17 @@ status:
     - status: "False"
       type: ScalingActive
       message: "the HPA was unable to compute the replica count: failed to get cpu utilization"
+  currentMetrics:
+    - containerResource:
+        container: app
+        name: cpu
+        current:
+          value: 0
+    - containerResource:
+        container: istio-proxy
+        name: cpu
+        current:
+          value: 0
 spec:
   behavior:
     scaleDown:
