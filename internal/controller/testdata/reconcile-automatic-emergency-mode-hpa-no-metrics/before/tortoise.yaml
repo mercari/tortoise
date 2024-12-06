@@ -19,36 +19,50 @@ status:
       memory: Vertical
     containerName: istio-proxy
   conditions:
+    containerResourceRequests:
+      - containerName: "app"
+        resource:
+          cpu: "10"
+          memory: 10Gi
+      - containerName: "istio-proxy"
+        resource:
+          cpu: "4"
+          memory: 4Gi
+    tortoiseConditions:
+    - message: "HPA target utilization is updated"
+      reason: HPATargetUtilizationUpdated
+      status: "True"
+      type: HPATargetUtilizationUpdated
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
       recommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
     - containerName: istio-proxy
       maxRecommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
       recommendation:
         cpu:
-          quantity: "0"
+          quantity: "3"
           updatedAt: null
         memory:
-          quantity: "0"
+          quantity: 3Gi
           updatedAt: null
   recommendations:
     horizontal:
@@ -56,23 +70,31 @@ status:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:15:46Z"
+        updatedAt: "2023-10-06T01:15:47Z"
         value: 15
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-10-06T01:15:46Z"
+        updatedAt: "2023-10-06T01:15:47Z"
         value: 3
       targetUtilizations:
       - containerName: app
         targetUtilization:
-          cpu: 50
+          cpu: 30
       - containerName: istio-proxy
         targetUtilization:
-          cpu: 50
+          cpu: 30
     vertical:
-      containerResourceRecommendation: null
+      containerResourceRecommendation:
+      - RecommendedResource:
+          cpu: "6"
+          memory: 3Gi
+        containerName: app
+      - RecommendedResource:
+          cpu: "4"
+          memory: 3Gi
+        containerName: istio-proxy
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari
     verticalPodAutoscalers:

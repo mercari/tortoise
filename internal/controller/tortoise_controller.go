@@ -241,10 +241,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 	scalingActive := r.HpaService.CheckHpaMetricStatus(ctx, hpa)
 	if scalingActive == false && tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeAuto && tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseWorking {
-		tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseAutoEmergency
-	}
-	if scalingActive == true && tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeAuto && tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseAutoEmergency {
-		tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseBackToNormal
+		tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseEmergency
 	}
 
 	tortoise = r.TortoiseService.UpdateContainerRecommendationFromVPA(tortoise, monitorvpa, now)

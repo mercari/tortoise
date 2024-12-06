@@ -55,20 +55,13 @@ status:
     containerResourceRequests:
     - containerName: app
       resource:
-        cpu: "10"
+        cpu: "6"
         memory: 3Gi
     - containerName: istio-proxy
       resource:
         cpu: "4"
         memory: 3Gi
     tortoiseConditions:
-    - lastTransitionTime: "2023-01-01T00:00:00Z"
-      lastUpdateTime: "2023-01-01T00:00:00Z"
-      message: the current number of replicas is not bigger than the preferred max
-        replica number
-      reason: ScaledUpBasedOnPreferredMaxReplicas
-      status: "False"
-      type: ScaledUpBasedOnPreferredMaxReplicas
     - lastTransitionTime: "2023-01-01T00:00:00Z"
       lastUpdateTime: "2023-01-01T00:00:00Z"
       message: HPA target utilization is updated
@@ -107,25 +100,25 @@ status:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-01-01T00:00:00Z"
-        value: 20
+        updatedAt: "2023-10-06T01:15:47Z"
+        value: 15
       minReplicas:
       - from: 0
         timezone: Local
         to: 24
-        updatedAt: "2023-01-01T00:00:00Z"
-        value: 5
+        updatedAt: "2023-10-06T01:15:47Z"
+        value: 3
       targetUtilizations:
       - containerName: app
         targetUtilization:
-          cpu: 90
+          cpu: 30
       - containerName: istio-proxy
         targetUtilization:
-          cpu: 55
+          cpu: 30
     vertical:
       containerResourceRecommendation:
       - RecommendedResource:
-          cpu: "10"
+          cpu: "6"
           memory: 3Gi
         containerName: app
       - RecommendedResource:
@@ -140,4 +133,4 @@ status:
     verticalPodAutoscalers:
     - name: tortoise-monitor-mercari
       role: Monitor
-  tortoisePhase: AutoEmergency
+  tortoisePhase: Emergency

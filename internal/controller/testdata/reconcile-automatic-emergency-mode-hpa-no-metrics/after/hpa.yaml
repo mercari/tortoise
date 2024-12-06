@@ -18,23 +18,23 @@ spec:
         value: 100
       selectPolicy: Max
       stabilizationWindowSeconds: 0
-  maxReplicas: 20
+  maxReplicas: 15
   metrics:
   - containerResource:
       container: app
       name: cpu
       target:
-        averageUtilization: 55
+        averageUtilization: 30
         type: Utilization
     type: ContainerResource
   - containerResource:
       container: istio-proxy
       name: cpu
       target:
-        averageUtilization: 55
+        averageUtilization: 30
         type: Utilization
     type: ContainerResource
-  minReplicas: 20
+  minReplicas: 15
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
