@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"regexp"
 	"sort"
 	"time"
@@ -764,4 +765,55 @@ func (c *Service) excludeExternalMetric(ctx context.Context, hpa *v2.HorizontalP
 	}
 
 	return newHPA
+}
+
+func (c *Service) CheckHpaMetricStatus(ctx context.Context, currenthpa *v2.HorizontalPodAutoscaler) bool {
+	//currenthpa = currenthpa.DeepCopy()
+	logger := log.FromContext(ctx)
+	if currenthpa == nil {
+		logger.Info("empty HPA passed into status check, ignore")
+		return true
+	}
+
+	if reflect.DeepEqual(currenthpa.Status, v2.HorizontalPodAutoscalerStatus{}) {
+		logger.Info("HPA empty status, switch to emergency mode")
+		return false
+	}
+
+	if currenthpa.Status.Conditions == nil {
+		logger.Info("HPA empty conditions, switch to emergency mode")
+		return false
+	}
+
+	if currenthpa.Status.CurrentMetrics == nil {
+		logger.Info("HPA no metrics, switch to emergency mode")
+		return false
+	}
+	conditions := currenthpa.Status.Conditions
+	currentMetrics := currenthpa.Status.CurrentMetrics
+
+	if len(conditions) > 0 {
+		for _, condition := range conditions {
+			if condition.Type == "ScalingActive" && condition.Status == "False" && condition.Reason == "FailedGetResourceMetric" {
+				//switch to Emergency mode since no metrics
+				logger.Info("HPA failed to get resource metrics, switch to emergency mode")
+				return false
+			}
+		}
+	}
+
+	if len(currentMetrics) > 0 {
+		for _, currentMetric := range currentMetrics {
+			if !currentMetric.ContainerResource.Current.Value.IsZero() {
+				//Can still get metrics for some containers, scale based on those
+				return true
+			}
+		}
+		logger.Info("HPA all metrics return 0, switch to emergency mode")
+		return false
+	}
+
+	logger.Info("HPA status check passed")
+
+	return true
 }

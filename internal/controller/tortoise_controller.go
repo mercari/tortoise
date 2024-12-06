@@ -185,6 +185,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 	tortoise = tortoiseService.UpdateTortoiseAutoscalingPolicyInStatus(tortoise, hpa, now)
+
 	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, now)
 	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseInitializing {
 		logger.Info("initializing tortoise", "tortoise", req.NamespacedName)
@@ -237,6 +238,10 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	if err != nil {
 		logger.Error(err, "failed to get HPA", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
+	}
+	scalingActive := r.HpaService.CheckHpaMetricStatus(ctx, hpa)
+	if !scalingActive && tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeAuto && tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseWorking {
+		tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseEmergency
 	}
 
 	tortoise = r.TortoiseService.UpdateContainerRecommendationFromVPA(tortoise, monitorvpa, now)
