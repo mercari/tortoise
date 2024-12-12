@@ -90,6 +90,7 @@ var (
 func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	logger := log.FromContext(ctx)
 	now := time.Now()
+	hpaCreated := false
 	if onlyTestNow != nil {
 		now = *onlyTestNow
 	}
@@ -203,7 +204,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, fmt.Errorf("add finalizer: %w", err)
 	}
 
-	tortoise, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa, currentDesiredReplicaNum, now)
+	tortoise, hpaCreated, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa, currentDesiredReplicaNum, now)
 	if err != nil {
 		logger.Error(err, "update HPA spec from Tortoise autoscaling policy", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -239,9 +240,18 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		logger.Error(err, "failed to get HPA", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
-	scalingActive := r.HpaService.CheckHpaMetricStatus(ctx, hpa)
-	if !scalingActive && tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeAuto && tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseWorking {
-		tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseEmergency
+	scalingActive, err := r.HpaService.CheckHpaMetricStatus(ctx, hpa)
+	if err != nil {
+		if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseWorking && hpaCreated == false {
+			logger.Error(err, "HPA status abnormal", "tortoise", req.NamespacedName)
+			return ctrl.Result{}, err
+		}
+		err = nil
+	}
+	tortoise, err = r.TortoiseService.UpdateTortoisePhaseIfHPAIsUnhealthy(ctx, scalingActive, tortoise)
+	if err != nil {
+		logger.Error(err, "Tortoise could not switch to emergency mode", "tortoise", req.NamespacedName)
+		return ctrl.Result{}, err
 	}
 
 	tortoise = r.TortoiseService.UpdateContainerRecommendationFromVPA(tortoise, monitorvpa, now)

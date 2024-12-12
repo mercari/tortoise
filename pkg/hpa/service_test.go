@@ -4636,7 +4636,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				// givenHPA is only non-nil when the tortoise has a reference to an existing HPA
 				givenHPA = tt.initialHPA
 			}
-			tortoise, err := c.UpdateHPASpecFromTortoiseAutoscalingPolicy(context.Background(), tt.args.tortoise, givenHPA, tt.args.replicaNum, time.Now())
+			tortoise, _, err := c.UpdateHPASpecFromTortoiseAutoscalingPolicy(context.Background(), tt.args.tortoise, givenHPA, tt.args.replicaNum, time.Now())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Service.UpdateHPASpecFromTortoiseAutoscalingPolicy() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -4890,6 +4890,114 @@ func TestService_CheckHpaMetricStatus(t *testing.T) {
 			},
 			result: false,
 		},
+		{
+			name: "HPA working normally",
+			HPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "existing-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Status:  "True",
+							Type:    v2.AbleToScale,
+							Message: "recommended size matches current size",
+						},
+						{
+							Status:  "True",
+							Type:    v2.ScalingActive,
+							Message: "the HPA was able to successfully calculate a replica count from cpu container resource utilization (percentage of request)",
+						},
+						{
+							Status:  "False",
+							Type:    v2.ScalingLimited,
+							Message: "the desired count is within the acceptable range",
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "app",
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](70),
+									AverageValue:       resource.NewQuantity(5, resource.DecimalSI),
+									Value:              resource.NewQuantity(5, resource.DecimalSI),
+								},
+								Name: v1.ResourceCPU,
+							},
+						},
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "istio-proxy",
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](70),
+									AverageValue:       resource.NewQuantity(5, resource.DecimalSI),
+									Value:              resource.NewQuantity(5, resource.DecimalSI),
+								},
+								Name: v1.ResourceCPU,
+							},
+						},
+					},
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 1000,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name:      v1.ResourceCPU,
+								Container: "app",
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](70),
+									Type:               v2.UtilizationMetricType,
+								},
+							},
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name:      v1.ResourceCPU,
+								Container: "istio-proxy",
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](70),
+									Type:               v2.UtilizationMetricType,
+								},
+							},
+						},
+					},
+					ScaleTargetRef: v2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         100,
+									PeriodSeconds: 60,
+								},
+							},
+						},
+						ScaleDown: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         2,
+									PeriodSeconds: 90,
+								},
+							},
+						},
+					},
+				},
+			},
+			result: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -4897,7 +5005,10 @@ func TestService_CheckHpaMetricStatus(t *testing.T) {
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
-			status := c.CheckHpaMetricStatus(context.Background(), tt.HPA)
+			status, err := c.CheckHpaMetricStatus(context.Background(), tt.HPA)
+			if err != nil {
+				t.Fatalf("New() error = %v", err)
+			}
 			if status != tt.result {
 				t.Errorf("Service.checkHpaMetricStatus() status test: %s failed", tt.name)
 				return

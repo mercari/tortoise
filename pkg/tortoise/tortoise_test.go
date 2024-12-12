@@ -4605,3 +4605,111 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 		})
 	}
 }
+
+func TestService_UpdateTortoisePhaseIfHPAIsUnhealthy(t *testing.T) {
+	type args struct {
+		t             *v1beta3.Tortoise
+		scalingActive bool
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantTortoise *v1beta3.Tortoise
+	}{
+		{
+			name: "healthy HPA tortoise working",
+			args: args{
+				t: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test"},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+				},
+				scalingActive: true,
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test", ResourceVersion: "1"},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+			},
+		},
+		{
+			name: "unhealthy HPA tortoise working",
+			args: args{
+				t: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test"},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+				},
+				scalingActive: false,
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test", ResourceVersion: "1"},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseEmergency,
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+			},
+		},
+		{
+			name: "unhealthy HPA tortoise off",
+			args: args{
+				t: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test"},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeOff,
+					},
+				},
+				scalingActive: false,
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test", ResourceVersion: "1"},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeOff,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			err := v1beta3.AddToScheme(scheme)
+			if err != nil {
+				t.Fatalf("failed to add to scheme: %v", err)
+			}
+			c := fake.NewClientBuilder().WithScheme(scheme).Build()
+			err = c.Create(context.Background(), tt.args.t)
+			if err != nil {
+				t.Fatalf("create tortoise: %v", err)
+			}
+			s := &Service{
+				c:                      c,
+				lastTimeUpdateTortoise: make(map[client.ObjectKey]time.Time),
+			}
+
+			s.UpdateTortoisePhaseIfHPAIsUnhealthy(context.Background(), tt.args.scalingActive, tt.args.t)
+			if d := cmp.Diff(tt.args.t, tt.wantTortoise); d != "" {
+				t.Errorf("UpdateTortoiseStatus() diff = %v", d)
+			}
+		})
+	}
+}

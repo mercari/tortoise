@@ -498,10 +498,11 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 	givenHPA *v2.HorizontalPodAutoscaler,
 	replicaNum int32,
 	now time.Time,
-) (*autoscalingv1beta3.Tortoise, error) {
+) (*autoscalingv1beta3.Tortoise, bool, error) {
+	hpaCreated := false
 	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 		// When UpdateMode is Off, we don't update HPA.
-		return tortoise, nil
+		return tortoise, hpaCreated, nil
 	}
 
 	if !HasHorizontal(tortoise) {
@@ -509,21 +510,21 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 			// HPA should be created by Tortoise, which can be deleted.
 			err := c.DeleteHPACreatedByTortoise(ctx, tortoise)
 			if err != nil && !apierrors.IsNotFound(err) {
-				return tortoise, fmt.Errorf("delete hpa created by tortoise: %w", err)
+				return tortoise, hpaCreated, fmt.Errorf("delete hpa created by tortoise: %w", err)
 			}
 			c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPADeleted, fmt.Sprintf("Deleted a HPA %s/%s because tortoise has no resource to scale horizontally", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
 		} else {
 			// We cannot delete the HPA because it's specified by the user.
 			err := c.disableHPA(ctx, tortoise, replicaNum)
 			if err != nil {
-				return tortoise, fmt.Errorf("disable hpa: %w", err)
+				return tortoise, hpaCreated, fmt.Errorf("disable hpa: %w", err)
 			}
 			c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPADisabled, fmt.Sprintf("Disabled a HPA %s/%s because tortoise has no resource to scale horizontally", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
 		}
 
 		// No need to edit container resource phase.
 
-		return tortoise, nil
+		return tortoise, hpaCreated, nil
 	}
 
 	hpa := &v2.HorizontalPodAutoscaler{}
@@ -535,14 +536,15 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 			//   - In that case, we need to create an initial HPA or give an annotation to existing HPA.
 			tortoise, err = c.InitializeHPA(ctx, tortoise, replicaNum, now)
 			if err != nil {
-				return tortoise, fmt.Errorf("initialize hpa: %w", err)
+				return tortoise, hpaCreated, fmt.Errorf("initialize hpa: %w", err)
 			}
+			hpaCreated = true
 
 			c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPACreated, fmt.Sprintf("Initialized a HPA %s/%s because tortoise has resource to scale horizontally", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
-			return tortoise, nil
+			return tortoise, hpaCreated, nil
 		}
 
-		return tortoise, fmt.Errorf("failed to get hpa on tortoise: %w", err)
+		return tortoise, hpaCreated, fmt.Errorf("failed to get hpa on tortoise: %w", err)
 	}
 
 	var newhpa *v2.HorizontalPodAutoscaler
@@ -550,7 +552,7 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 	newhpa, tortoise, isHpaEdited = c.syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx, tortoise, hpa, now)
 	if !isHpaEdited {
 		// User didn't change anything.
-		return tortoise, nil
+		return tortoise, hpaCreated, nil
 	}
 
 	retryNumber := -1
@@ -569,12 +571,12 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 	}
 
 	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
-		return tortoise, fmt.Errorf("update hpa: %w (%v times retried)", err, replicaNum)
+		return tortoise, hpaCreated, fmt.Errorf("update hpa: %w (%v times retried)", err, replicaNum)
 	}
 
 	c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPAUpdated, fmt.Sprintf("Updated a HPA %s/%s because the autoscaling policy is changed in the tortoise", tortoise.Namespace, tortoise.Status.Targets.HorizontalPodAutoscaler))
 
-	return tortoise, nil
+	return tortoise, hpaCreated, nil
 }
 
 func HasHorizontal(tortoise *autoscalingv1beta3.Tortoise) bool {
@@ -767,27 +769,24 @@ func (c *Service) excludeExternalMetric(ctx context.Context, hpa *v2.HorizontalP
 	return newHPA
 }
 
-func (c *Service) CheckHpaMetricStatus(ctx context.Context, currenthpa *v2.HorizontalPodAutoscaler) bool {
+func (c *Service) CheckHpaMetricStatus(ctx context.Context, currenthpa *v2.HorizontalPodAutoscaler) (bool, error) {
 	//currenthpa = currenthpa.DeepCopy()
 	logger := log.FromContext(ctx)
 	if currenthpa == nil {
 		logger.Info("empty HPA passed into status check, ignore")
-		return true
+		return true, nil
 	}
 
 	if reflect.DeepEqual(currenthpa.Status, v2.HorizontalPodAutoscalerStatus{}) {
-		logger.Info("HPA empty status, switch to emergency mode")
-		return false
+		return false, fmt.Errorf("HPA empty status, switch to emergency mode")
 	}
 
 	if currenthpa.Status.Conditions == nil {
-		logger.Info("HPA empty conditions, switch to emergency mode")
-		return false
+		return false, fmt.Errorf("HPA empty conditions, switch to emergency mode")
 	}
 
 	if currenthpa.Status.CurrentMetrics == nil {
-		logger.Info("HPA no metrics, switch to emergency mode")
-		return false
+		return false, fmt.Errorf("HPA no metrics, switch to emergency mode")
 	}
 	conditions := currenthpa.Status.Conditions
 	currentMetrics := currenthpa.Status.CurrentMetrics
@@ -797,7 +796,7 @@ func (c *Service) CheckHpaMetricStatus(ctx context.Context, currenthpa *v2.Horiz
 			if condition.Type == "ScalingActive" && condition.Status == "False" && condition.Reason == "FailedGetResourceMetric" {
 				//switch to Emergency mode since no metrics
 				logger.Info("HPA failed to get resource metrics, switch to emergency mode")
-				return false
+				return false, nil
 			}
 		}
 	}
@@ -806,14 +805,14 @@ func (c *Service) CheckHpaMetricStatus(ctx context.Context, currenthpa *v2.Horiz
 		for _, currentMetric := range currentMetrics {
 			if !currentMetric.ContainerResource.Current.Value.IsZero() {
 				//Can still get metrics for some containers, scale based on those
-				return true
+				return true, nil
 			}
 		}
 		logger.Info("HPA all metrics return 0, switch to emergency mode")
-		return false
+		return false, nil
 	}
 
 	logger.Info("HPA status check passed")
 
-	return true
+	return true, nil
 }
