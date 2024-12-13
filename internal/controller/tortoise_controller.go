@@ -242,7 +242,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 	scalingActive, err := r.HpaService.CheckHpaMetricStatus(ctx, hpa)
 	if err != nil {
-		if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseWorking && hpaCreated == false {
+		if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseWorking && !hpaCreated {
 			logger.Error(err, "HPA status abnormal", "tortoise", req.NamespacedName)
 			return ctrl.Result{}, err
 		}
