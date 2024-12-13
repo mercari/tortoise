@@ -4706,11 +4706,11 @@ func TestService_UpdateTortoisePhaseIfHPAIsUnhealthy(t *testing.T) {
 				lastTimeUpdateTortoise: make(map[client.ObjectKey]time.Time),
 			}
 
-			tt.args.t, err := s.UpdateTortoisePhaseIfHPAIsUnhealthy(context.Background(), tt.args.scalingActive, tt.args.t)
+			tortoise, err := s.UpdateTortoisePhaseIfHPAIsUnhealthy(context.Background(), tt.args.scalingActive, tt.args.t)
 			if err != nil {
 				t.Fatalf("failed to update tortoise phase: %v", err)
 			}
-			if d := cmp.Diff(tt.args.t, tt.wantTortoise); d != "" {
+			if d := cmp.Diff(tortoise, tt.wantTortoise); d != "" {
 				t.Errorf("UpdateTortoiseStatus() diff = %v", d)
 			}
 		})
