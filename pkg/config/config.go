@@ -171,6 +171,11 @@ type Config struct {
 	// The motivation is to use it has a hard limit to prevent the HPA from scaling up the workload too much in cases of Tortoise's bug, abnormal traffic increase, etc.
 	// If some Tortoise hits this limit, the tortoise controller emits an error log, which may or may not imply you have to change this value.
 	MaximumMaxReplicas int32 `yaml:"MaximumMaxReplicas"`
+	// HigherMaximumMaxReplicas is another cluster wide maxReplica limit for Tortoise to assign to the HPAs.
+	// This value must not be lower than the MaximumMaxReplicas, and ideally be higher than it. (Default: 150)
+	HigherMaximumMaxReplicas int32 `yaml:"higherMaximumMaxReplicas"`
+	// HigherMaximumMaxReplicasServiceWhitelist is a list of strings which are tortoises' names which will be allowed to use the HigherMaximumMaxReplicas
+	HigherMaximumMaxReplicasServiceWhitelist []string `yaml:"higherMaximumMaxReplicasServiceWhitelist"`
 	// MaximumCPURequest is the maximum CPU cores that the tortoise can give to the container resource request (default: 10)
 	MaximumCPURequest string `yaml:"MaximumCPURequest"`
 	// MaximumMemoryRequest is the maximum memory bytes that the tortoise can give to the container resource request (default: 10Gi)
@@ -289,6 +294,8 @@ func defaultConfig() *Config {
 		HPATargetUtilizationUpdateInterval:       time.Hour * 24,
 		MaximumMinReplicas:                       10,
 		MaximumMaxReplicas:                       100,
+		HigherMaximumMaxReplicas:                 150,
+		HigherMaximumMaxReplicasServiceWhitelist: []string{},
 		MaxAllowedScalingDownRatio:               0.8,
 		IstioSidecarProxyDefaultCPU:              "100m",
 		IstioSidecarProxyDefaultMemory:           "200Mi",
@@ -344,6 +351,9 @@ func validate(config *Config) error {
 	}
 	if config.PreferredMaxReplicas >= int(config.MaximumMaxReplicas) {
 		return fmt.Errorf("PreferredMaxReplicas should be less than MaximumMaxReplicas")
+	}
+	if int(config.MaximumMaxReplicas) > int(config.HigherMaximumMaxReplicas) {
+		return fmt.Errorf("MaximumMaxReplicas should be less than or equal to HigherMaximumMaxReplicas")
 	}
 	if config.PreferredMaxReplicas <= config.MinimumMinReplicas {
 		return fmt.Errorf("PreferredMaxReplicas should be greater than or equal to MinimumMinReplicas")

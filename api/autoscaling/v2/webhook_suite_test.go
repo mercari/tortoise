@@ -168,7 +168,7 @@ var _ = BeforeSuite(func() {
 	eventRecorder := mgr.GetEventRecorderFor("tortoise-controller")
 	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, config.RangeOfMinMaxReplicasRecommendationHours, config.TimeZone, config.TortoiseUpdateInterval, config.GatheringDataPeriodType)
 	Expect(err).NotTo(HaveOccurred())
-	hpaService, err := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.MaximumTargetResourceUtilization, 100, time.Hour, 1000, 10000, 3, "")
+	hpaService, err := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.MaximumTargetResourceUtilization, 100, time.Hour, 1000, 10000, 3, 10000, config.HigherMaximumMaxReplicasServiceWhitelist, "")
 	Expect(err).NotTo(HaveOccurred())
 
 	hpaWebhook := New(tortoiseService, hpaService)

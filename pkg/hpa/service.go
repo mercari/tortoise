@@ -40,6 +40,8 @@ type Service struct {
 	minimumMinReplicas                         int32
 	maximumMinReplica                          int32
 	maximumMaxReplica                          int32
+	higherMaximumMaxReplica                    int32
+	higherMaximumMaxReplicasServiceWhitelist   []string
 	externalMetricExclusionRegex               *regexp.Regexp
 }
 
@@ -52,6 +54,8 @@ func New(
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration,
 	maximumMinReplica, maximumMaxReplica int32,
 	minimumMinReplicas int32,
+	higherMaximumMaxReplica int32,
+	higherMaximumMaxReplicasServiceWhitelist []string,
 	externalMetricExclusionRegex string,
 ) (*Service, error) {
 	var regex *regexp.Regexp
@@ -74,6 +78,8 @@ func New(
 		maximumMinReplica:                          maximumMinReplica,
 		minimumMinReplicas:                         minimumMinReplicas,
 		maximumMaxReplica:                          maximumMaxReplica,
+		higherMaximumMaxReplica:                    higherMaximumMaxReplica,
+		higherMaximumMaxReplicasServiceWhitelist:   higherMaximumMaxReplicasServiceWhitelist,
 		externalMetricExclusionRegex:               regex,
 	}, nil
 }
@@ -247,6 +253,26 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
 		// we don't have to create HPA as the user specified the existing HPA.
 		return nil, tortoise, nil
+	}
+
+	// Check the annotation on Tortoise custom resource for higher max replicas demand
+	if demandStr, ok := tortoise.Annotations["tortoise.autoscaling.mercari.com/replicaDemand"]; ok && demandStr == "high" {
+		// Check if this service is in the higher max replicas service whitelist
+		serviceInWhitelist := false
+		for _, service := range c.higherMaximumMaxReplicasServiceWhitelist {
+			if service == tortoise.Name {
+				serviceInWhitelist = true
+				break
+			}
+		}
+
+		// Set the maximumMaxReplica based on the whitelist
+		if serviceInWhitelist {
+			klog.InfoS("Applying higher maximum max replicas based on annotation and whitelist", "service", tortoise.Name)
+			c.maximumMaxReplica = c.higherMaximumMaxReplica // Use the higher value
+		} else {
+			klog.InfoS("Service is not in the whitelist; using standard maximum max replicas", "service", tortoise.Name)
+		}
 	}
 
 	hpa := &v2.HorizontalPodAutoscaler{
