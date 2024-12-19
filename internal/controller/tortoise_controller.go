@@ -90,7 +90,6 @@ var (
 func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	logger := log.FromContext(ctx)
 	now := time.Now()
-	hpaCreated := false
 	if onlyTestNow != nil {
 		now = *onlyTestNow
 	}
@@ -204,7 +203,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, fmt.Errorf("add finalizer: %w", err)
 	}
 
-	tortoise, hpaCreated, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa, currentDesiredReplicaNum, now)
+	tortoise, err = r.HpaService.UpdateHPASpecFromTortoiseAutoscalingPolicy(ctx, tortoise, hpa, currentDesiredReplicaNum, now)
 	if err != nil {
 		logger.Error(err, "update HPA spec from Tortoise autoscaling policy", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
@@ -234,20 +233,22 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	// VPA is ready, we mark all Vertical scaling resources as Running.
 	tortoise = vpa.SetAllVerticalContainerResourcePhaseWorking(tortoise, now)
 
+	isReady := false
+
 	logger.Info("VPA created by tortoise is ready, proceeding to generate the recommendation", "tortoise", req.NamespacedName)
-	hpa, err = r.HpaService.GetHPAOnTortoise(ctx, tortoise)
+	hpa, isReady, err = r.HpaService.GetHPAOnTortoise(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get HPA", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
-	scalingActive, err := r.HpaService.CheckHpaMetricStatus(ctx, hpa)
-	if err != nil {
-		if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseWorking && !hpaCreated {
-			logger.Error(err, "HPA status abnormal", "tortoise", req.NamespacedName)
-			return ctrl.Result{}, err
-		}
-		err = nil
+
+	if !isReady {
+		// HPA is correctly fetched, but looks like not ready yet. We won't be able to calculate things correctly, and hence stop the reconciliation here.
+		logger.Info("HPA not ready, abort reconcile")
+		return ctrl.Result{}, nil
 	}
+	scalingActive := r.HpaService.CheckHpaMetricStatus(ctx, hpa)
+
 	tortoise, err = r.TortoiseService.UpdateTortoisePhaseIfHPAIsUnhealthy(ctx, scalingActive, tortoise)
 	if err != nil {
 		logger.Error(err, "Tortoise could not switch to emergency mode", "tortoise", req.NamespacedName)

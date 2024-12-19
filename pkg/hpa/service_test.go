@@ -4636,7 +4636,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 				// givenHPA is only non-nil when the tortoise has a reference to an existing HPA
 				givenHPA = tt.initialHPA
 			}
-			tortoise, _, err := c.UpdateHPASpecFromTortoiseAutoscalingPolicy(context.Background(), tt.args.tortoise, givenHPA, tt.args.replicaNum, time.Now())
+			tortoise, err := c.UpdateHPASpecFromTortoiseAutoscalingPolicy(context.Background(), tt.args.tortoise, givenHPA, tt.args.replicaNum, time.Now())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Service.UpdateHPASpecFromTortoiseAutoscalingPolicy() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -5005,10 +5005,7 @@ func TestService_CheckHpaMetricStatus(t *testing.T) {
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
-			status, err := c.CheckHpaMetricStatus(context.Background(), tt.HPA)
-			if err != nil {
-				t.Fatalf("New() error = %v", err)
-			}
+			status := c.CheckHpaMetricStatus(context.Background(), tt.HPA)
 			if status != tt.result {
 				t.Errorf("Service.checkHpaMetricStatus() status test: %s failed", tt.name)
 				return
