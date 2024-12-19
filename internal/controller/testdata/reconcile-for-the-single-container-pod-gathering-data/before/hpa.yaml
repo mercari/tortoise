@@ -3,6 +3,20 @@ metadata:
     tortoise.autoscaling.mercari.com/managed-by-tortoise: "true"
   name: tortoise-hpa-mercari
   namespace: default
+status:
+  conditions:
+    - status: "True"
+      type: AbleToScale
+      message: "recommended size matches current size"
+    - status: "True"
+      type: ScalingActive
+      message: "the HPA was able to compute the replica count"
+  currentMetrics:
+    - containerResource:
+        container: app
+        name: cpu
+        current:
+          value: 3
 spec:
   behavior:
     scaleDown:

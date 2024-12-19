@@ -185,6 +185,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 	tortoise = tortoiseService.UpdateTortoiseAutoscalingPolicyInStatus(tortoise, hpa, now)
+
 	tortoise = r.TortoiseService.UpdateTortoisePhase(tortoise, now)
 	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseInitializing {
 		logger.Info("initializing tortoise", "tortoise", req.NamespacedName)
@@ -232,10 +233,25 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	// VPA is ready, we mark all Vertical scaling resources as Running.
 	tortoise = vpa.SetAllVerticalContainerResourcePhaseWorking(tortoise, now)
 
+	isReady := false
+
 	logger.Info("VPA created by tortoise is ready, proceeding to generate the recommendation", "tortoise", req.NamespacedName)
-	hpa, err = r.HpaService.GetHPAOnTortoise(ctx, tortoise)
+	hpa, isReady, err = r.HpaService.GetHPAOnTortoise(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get HPA", "tortoise", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+
+	if !isReady {
+		// HPA is correctly fetched, but looks like not ready yet. We won't be able to calculate things correctly, and hence stop the reconciliation here.
+		logger.Info("HPA not ready, abort reconcile")
+		return ctrl.Result{}, nil
+	}
+	scalingActive := r.HpaService.CheckHpaMetricStatus(ctx, hpa)
+
+	tortoise, err = r.TortoiseService.UpdateTortoisePhaseIfHPAIsUnhealthy(ctx, scalingActive, tortoise)
+	if err != nil {
+		logger.Error(err, "Tortoise could not switch to emergency mode", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
 

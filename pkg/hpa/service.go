@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"regexp"
 	"sort"
 	"time"
@@ -285,19 +286,23 @@ func (c *Service) GetHPAOnTortoiseSpec(ctx context.Context, tortoise *autoscalin
 	return hpa, nil
 }
 
-func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
+func (c *Service) GetHPAOnTortoise(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v2.HorizontalPodAutoscaler, bool, error) {
 	if !HasHorizontal(tortoise) {
 		// there should be no HPA
-		return nil, nil
+		return nil, true, nil
 	}
 	hpa := &v2.HorizontalPodAutoscaler{}
 	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Status.Targets.HorizontalPodAutoscaler}, hpa); err != nil {
-		return nil, fmt.Errorf("failed to get hpa on tortoise: %w", err)
+		return nil, false, fmt.Errorf("failed to get hpa on tortoise: %w", err)
+	}
+	if reflect.DeepEqual(hpa.Status, v2.HorizontalPodAutoscalerStatus{}) || hpa.Status.Conditions == nil || hpa.Status.CurrentMetrics == nil {
+		// Most likely, HPA is just created and not yet handled by HPA controller.
+		return nil, false, nil
 	}
 
 	recordHPAMetric(ctx, tortoise, hpa)
 
-	return hpa, nil
+	return hpa, true, nil
 }
 
 func (s *Service) UpdatingHPATargetUtilizationAllowed(tortoise *autoscalingv1beta3.Tortoise, now time.Time) (*autoscalingv1beta3.Tortoise, bool) {
@@ -764,4 +769,45 @@ func (c *Service) excludeExternalMetric(ctx context.Context, hpa *v2.HorizontalP
 	}
 
 	return newHPA
+}
+
+func (c *Service) CheckHpaMetricStatus(ctx context.Context, currenthpa *v2.HorizontalPodAutoscaler) bool {
+	//currenthpa = currenthpa.DeepCopy()
+	logger := log.FromContext(ctx)
+	if currenthpa == nil {
+		logger.Info("empty HPA passed into status check, ignore")
+		return true
+	}
+
+	if reflect.DeepEqual(currenthpa.Status, v2.HorizontalPodAutoscalerStatus{}) || currenthpa.Status.Conditions == nil || currenthpa.Status.CurrentMetrics == nil {
+		return true
+	}
+
+	conditions := currenthpa.Status.Conditions
+	currentMetrics := currenthpa.Status.CurrentMetrics
+
+	if len(conditions) > 0 {
+		for _, condition := range conditions {
+			if condition.Type == "ScalingActive" && condition.Status == "False" && condition.Reason == "FailedGetResourceMetric" {
+				//switch to Emergency mode since no metrics
+				logger.Info("HPA failed to get resource metrics, switch to emergency mode")
+				return false
+			}
+		}
+	}
+
+	if len(currentMetrics) > 0 {
+		for _, currentMetric := range currentMetrics {
+			if !currentMetric.ContainerResource.Current.Value.IsZero() {
+				//Can still get metrics for some containers, scale based on those
+				return true
+			}
+		}
+		logger.Info("HPA all metrics return 0, switch to emergency mode")
+		return false
+	}
+
+	logger.Info("HPA status check passed")
+
+	return true
 }
