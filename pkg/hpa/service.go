@@ -446,16 +446,25 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	hpa.Spec.MinReplicas = &minToActuallyApply
 	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && recordMetrics {
 		// We don't want to record applied* metric when UpdateMode is Off.
-		netChangeMaxReplicas := float64(hpa.Spec.MaxReplicas - recommendMax)
-		netChangeMinReplicas := float64(*hpa.Spec.MinReplicas) - float64(recommendMin)
-		if netChangeMaxReplicas > 0 || netChangeMinReplicas < 0 {
-			metrics.IncreaseApplyCounter.WithLabelValues(tortoise.Name, tortoise.Namespace).Add(1)
+		netChangeMaxReplicas := float64(recommendMax - hpa.Spec.MaxReplicas)
+		netChangeMinReplicas := float64(recommendMin) - float64(*hpa.Spec.MinReplicas)
+		cpu := float64(0)
+		mem := float64(0)
+		if len(tortoise.Status.Conditions.ContainerResourceRequests) > 0 {
+			for _, requests := range tortoise.Status.Conditions.ContainerResourceRequests {
+				cpu += float64(requests.Resource.Cpu().Value())
+				mem += float64(requests.Resource.Memory().Value())
+			}
 		}
-		if netChangeMaxReplicas < 0 || netChangeMinReplicas > 0 {
-			metrics.DecreaseApplyCounter.WithLabelValues(tortoise.Name, tortoise.Namespace).Add(1)
-		}
-		metrics.NetHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Name).Set(netChangeMinReplicas)
-		metrics.NetHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Name).Set(netChangeMaxReplicas)
+		netChangeMaxReplicasCpu := netChangeMaxReplicas * cpu
+		netChangeMinReplicasCpu := netChangeMinReplicas * cpu
+		netChangeMinReplicasMem := netChangeMinReplicas * mem
+		netChangeMaxReplicasMem := netChangeMaxReplicas * mem
+
+		metrics.NetHPAMinReplicasCPUCores.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(netChangeMinReplicasCpu)
+		metrics.NetHPAMaxReplicasCPUCores.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(netChangeMaxReplicasCpu)
+		metrics.NetHPAMinReplicasMemory.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(netChangeMinReplicasMem)
+		metrics.NetHPAMaxReplicasMemory.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(netChangeMaxReplicasMem)
 		metrics.AppliedHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(*hpa.Spec.MinReplicas))
 		metrics.AppliedHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(hpa.Spec.MaxReplicas))
 	}
