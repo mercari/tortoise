@@ -768,7 +768,7 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 		// only record metrics once in every reconcile loop.
 		for resourcename, value := range r.Resource {
 			oldRequest := oldRequestMap[r.ContainerName][resourcename]
-			netChange := float64(oldRequest.MilliValue() - value.MilliValue())
+			netChange := float64(oldRequest.MilliValue()-value.MilliValue()) * float64(replica)
 			if resourcename == corev1.ResourceCPU {
 				// We don't want to record applied* metric when UpdateMode is Off.
 				metrics.AppliedCPURequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.MilliValue()))
@@ -776,7 +776,7 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 			}
 			if resourcename == corev1.ResourceMemory {
 				metrics.AppliedMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(value.Value()))
-				metrics.NetMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(float64(netChange))
+				metrics.NetMemoryRequest.WithLabelValues(tortoise.Name, tortoise.Namespace, r.ContainerName, tortoise.Spec.TargetRefs.ScaleTargetRef.Name, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind).Set(netChange / float64(1000))
 			}
 		}
 	}
