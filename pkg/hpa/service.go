@@ -450,10 +450,14 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		netChangeMinReplicas := float64(recommendMin) - float64(*hpa.Spec.MinReplicas)
 		cpu := float64(0)
 		mem := float64(0)
-		if len(tortoise.Status.Conditions.ContainerResourceRequests) > 0 {
-			for _, requests := range tortoise.Status.Conditions.ContainerResourceRequests {
-				cpu += float64(requests.Resource.Cpu().Value())
-				mem += float64(requests.Resource.Memory().Value())
+		for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
+			for resourcename, value := range r.Resource {
+				if resourcename == corev1.ResourceCPU {
+					cpu += value.AsApproximateFloat64()
+				}
+				if resourcename == corev1.ResourceMemory {
+					cpu += value.AsApproximateFloat64()
+				}
 			}
 		}
 		netChangeMaxReplicasCpu := netChangeMaxReplicas * cpu
