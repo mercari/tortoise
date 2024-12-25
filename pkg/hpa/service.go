@@ -456,7 +456,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 					cpu += value.AsApproximateFloat64()
 				}
 				if resourcename == corev1.ResourceMemory {
-					cpu += value.AsApproximateFloat64()
+					mem += value.AsApproximateFloat64()
 				}
 			}
 		}

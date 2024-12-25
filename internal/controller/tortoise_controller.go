@@ -258,15 +258,15 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
-	_, tortoise, err = r.HpaService.UpdateHPAFromTortoiseRecommendation(ctx, tortoise, now)
-	if err != nil {
-		logger.Error(err, "update HPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
-		return ctrl.Result{}, err
-	}
-
 	tortoise, err = r.TortoiseService.UpdateResourceRequest(ctx, tortoise, currentDesiredReplicaNum, now)
 	if err != nil {
 		logger.Error(err, "update VPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+
+	_, tortoise, err = r.HpaService.UpdateHPAFromTortoiseRecommendation(ctx, tortoise, now)
+	if err != nil {
+		logger.Error(err, "update HPA based on the recommendation in tortoise", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
 
