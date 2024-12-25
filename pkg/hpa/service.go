@@ -405,6 +405,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		recommendMax = c.maximumMaxReplica
 	}
 
+	oldMax := hpa.Spec.MaxReplicas
 	hpa.Spec.MaxReplicas = recommendMax
 
 	recommendMin, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
@@ -443,11 +444,12 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		minToActuallyApply = recommendMin
 	}
 
+	oldMin := *hpa.Spec.MinReplicas
 	hpa.Spec.MinReplicas = &minToActuallyApply
 	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && recordMetrics {
 		// We don't want to record applied* metric when UpdateMode is Off.
-		netChangeMaxReplicas := float64(recommendMax - hpa.Spec.MaxReplicas)
-		netChangeMinReplicas := float64(recommendMin) - float64(*hpa.Spec.MinReplicas)
+		netChangeMaxReplicas := float64(recommendMax - oldMax)
+		netChangeMinReplicas := float64(recommendMin - oldMin)
 		cpu := float64(0)
 		mem := float64(0)
 		for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
