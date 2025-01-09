@@ -4668,7 +4668,7 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 	}
 }
 
-func TestService_CheckHpaMetricStatus(t *testing.T) {
+func TestService_IsHpaMetricAvailable(t *testing.T) {
 	tests := []struct {
 		name   string
 		HPA    *v2.HorizontalPodAutoscaler
@@ -5005,7 +5005,7 @@ func TestService_CheckHpaMetricStatus(t *testing.T) {
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
-			status := c.CheckHpaMetricStatus(context.Background(), tt.HPA)
+			status := c.IsHpaMetricAvailable(context.Background(), tt.HPA)
 			if status != tt.result {
 				t.Errorf("Service.checkHpaMetricStatus() status test: %s failed", tt.name)
 				return

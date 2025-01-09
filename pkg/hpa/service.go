@@ -771,39 +771,33 @@ func (c *Service) excludeExternalMetric(ctx context.Context, hpa *v2.HorizontalP
 	return newHPA
 }
 
-func (c *Service) CheckHpaMetricStatus(ctx context.Context, currenthpa *v2.HorizontalPodAutoscaler) bool {
-	//currenthpa = currenthpa.DeepCopy()
+func (c *Service) IsHpaMetricAvailable(ctx context.Context, currenthpa *v2.HorizontalPodAutoscaler) bool {
 	logger := log.FromContext(ctx)
-	if currenthpa == nil {
-		logger.Info("empty HPA passed into status check, ignore")
-		return true
-	}
-
-	if reflect.DeepEqual(currenthpa.Status, v2.HorizontalPodAutoscalerStatus{}) || currenthpa.Status.Conditions == nil || currenthpa.Status.CurrentMetrics == nil {
-		return true
+	if currenthpa == nil || reflect.DeepEqual(currenthpa.Status, v2.HorizontalPodAutoscalerStatus{}) || len(currenthpa.Status.Conditions) == 0 || len(currenthpa.Status.CurrentMetrics) == 0 {
+		// shouldn't reach here because, in this HPA unready case, the controller should stop the reconciliation at the point of fetching hpa.
+		logger.Error("unready HPA is passed to IsHpaMetricAvailable")
+		return false
 	}
 
 	conditions := currenthpa.Status.Conditions
 	currentMetrics := currenthpa.Status.CurrentMetrics
 
-	if len(conditions) > 0 {
-		for _, condition := range conditions {
-			if condition.Type == "ScalingActive" && condition.Status == "False" && condition.Reason == "FailedGetResourceMetric" {
-				//switch to Emergency mode since no metrics
-				logger.Info("HPA failed to get resource metrics, switch to emergency mode")
-				return false
-			}
+	for _, condition := range conditions {
+		if condition.Type == "ScalingActive" && condition.Status == "False" && condition.Reason == "FailedGetResourceMetric" {
+			// switch to Emergency mode since no metrics
+			logger.Info("HPA failed to get resource metrics, switch to emergency mode")
+			return false
 		}
 	}
 
 	if len(currentMetrics) > 0 {
 		for _, currentMetric := range currentMetrics {
 			if !currentMetric.ContainerResource.Current.Value.IsZero() {
-				//Can still get metrics for some containers, scale based on those
+				// Can still get metrics for some containers, they can scale based on those
 				return true
 			}
 		}
-		logger.Info("HPA all metrics return 0, switch to emergency mode")
+		logger.Info("HPA looks unready because all the metrics indicate zero", "hpa", currenthpa.Name)
 		return false
 	}
 

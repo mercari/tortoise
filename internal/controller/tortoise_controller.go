@@ -244,10 +244,10 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	if !isReady {
 		// HPA is correctly fetched, but looks like not ready yet. We won't be able to calculate things correctly, and hence stop the reconciliation here.
-		logger.Info("HPA not ready, abort reconcile")
-		return ctrl.Result{}, nil
+		logger.Info("HPA on tortoise is not ready, don't reconcile now and will retry later", "hpa", hpa.Name)
+		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
-	scalingActive := r.HpaService.CheckHpaMetricStatus(ctx, hpa)
+	scalingActive := r.HpaService.IsHpaMetricAvailable(ctx, hpa)
 
 	tortoise, err = r.TortoiseService.UpdateTortoisePhaseIfHPAIsUnhealthy(ctx, scalingActive, tortoise)
 	if err != nil {
