@@ -775,7 +775,7 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, currenthpa *v2.Horiz
 	logger := log.FromContext(ctx)
 	if currenthpa == nil || reflect.DeepEqual(currenthpa.Status, v2.HorizontalPodAutoscalerStatus{}) || len(currenthpa.Status.Conditions) == 0 || len(currenthpa.Status.CurrentMetrics) == 0 {
 		// shouldn't reach here because, in this HPA unready case, the controller should stop the reconciliation at the point of fetching hpa.
-		logger.Error("unready HPA is passed to IsHpaMetricAvailable")
+		logger.Error(nil, "invalid container resource metric", "hpa", klog.KObj(currenthpa))
 		return false
 	}
 
