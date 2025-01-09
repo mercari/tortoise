@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/mercari/tortoise/api/v1beta3"
+	configfile "github.com/mercari/tortoise/pkg/config"
 	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/features"
 	"github.com/mercari/tortoise/pkg/hpa"
@@ -259,7 +260,19 @@ func startController(ctx context.Context) func() {
 	Expect(err).ShouldNot(HaveOccurred())
 	cli, err := vpa.New(mgr.GetConfig(), recorder)
 	Expect(err).ShouldNot(HaveOccurred())
-	hpaS, err := hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour, 1000, 10000, 3, ".*-exclude-metric")
+
+	// Define a dummy config with maximumMaxReplica set to 10000 for the default group
+	defaultGroupName := "default"
+	dummyConfig := &configfile.Config{
+		MaximumMaxReplicas: []configfile.MaximumMaxReplicasPerGroup{
+			{
+				ServiceGroupName:  &defaultGroupName,
+				MaximumMaxReplica: 10000, // Set the value you need
+			},
+		},
+		// Add other default values if your function logic depends on them
+	}
+	hpaS, err := hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour, 1000, 3, ".*-exclude-metric", dummyConfig)
 	Expect(err).ShouldNot(HaveOccurred())
 	reconciler := &TortoiseReconciler{
 		Scheme:             scheme,

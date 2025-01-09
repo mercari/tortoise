@@ -25,6 +25,7 @@ import (
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
+	"github.com/mercari/tortoise/pkg/config"
 	"github.com/mercari/tortoise/pkg/event"
 	"github.com/mercari/tortoise/pkg/metrics"
 	"github.com/mercari/tortoise/pkg/utils"
@@ -40,8 +41,8 @@ type Service struct {
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration
 	minimumMinReplicas                         int32
 	maximumMinReplica                          int32
-	maximumMaxReplica                          int32
 	externalMetricExclusionRegex               *regexp.Regexp
+	config                                     *config.Config
 }
 
 func New(
@@ -51,9 +52,10 @@ func New(
 	maximumTargetResourceUtilization,
 	tortoiseHPATargetUtilizationMaxIncrease int,
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration,
-	maximumMinReplica, maximumMaxReplica int32,
+	maximumMinReplica,
 	minimumMinReplicas int32,
 	externalMetricExclusionRegex string,
+	config *config.Config,
 ) (*Service, error) {
 	var regex *regexp.Regexp
 	if externalMetricExclusionRegex != "" {
@@ -74,8 +76,8 @@ func New(
 		tortoiseHPATargetUtilizationUpdateInterval: tortoiseHPATargetUtilizationUpdateInterval,
 		maximumMinReplica:                          maximumMinReplica,
 		minimumMinReplicas:                         minimumMinReplicas,
-		maximumMaxReplica:                          maximumMaxReplica,
 		externalMetricExclusionRegex:               regex,
+		config:                                     config,
 	}, nil
 }
 
@@ -240,6 +242,21 @@ var globalRecommendedHPABehavior = &v2.HorizontalPodAutoscalerBehavior{
 	},
 }
 
+// Determine which service group is applicable for a given Tortoise using its namespace.
+func determineServiceGroup(tortoise *autoscalingv1beta3.Tortoise, cfg *config.Config) string {
+	tortoiseNamespace := tortoise.Namespace
+	for _, serviceGroup := range cfg.ServiceGroups {
+		for _, namespace := range serviceGroup.Namespaces {
+			if namespace.Name == tortoiseNamespace {
+				klog.InfoS("Namespace matched", "serviceGroup", serviceGroup.Name, "namespace", tortoiseNamespace)
+				return serviceGroup.Name
+			}
+		}
+	}
+	// Returning an empty string to denote a default value when no match.
+	return ""
+}
+
 func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replicaNum int32, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
 	if !HasHorizontal(tortoise) {
 		// no need to create HPA
@@ -249,6 +266,10 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 		// we don't have to create HPA as the user specified the existing HPA.
 		return nil, tortoise, nil
 	}
+
+	// Logic to determine the applicable service group and max replicas.
+	groupName := determineServiceGroup(tortoise, c.config)
+	maximumMaxReplicas := c.getMaximumMaxReplicasForGroup(groupName)
 
 	hpa := &v2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
@@ -262,7 +283,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 				APIVersion: tortoise.Spec.TargetRefs.ScaleTargetRef.APIVersion,
 			},
 			MinReplicas: ptr.To[int32](c.minimumMinReplicas),
-			MaxReplicas: c.maximumMaxReplica,
+			MaxReplicas: maximumMaxReplicas,
 			Behavior:    globalRecommendedHPABehavior,
 		},
 	}
@@ -273,6 +294,25 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 
 	err := c.c.Create(ctx, hpa)
 	return hpa.DeepCopy(), tortoise, err
+}
+
+// getMaximumMaxReplicasForGroup returns the maximum replicas for a specific service group.
+// If the groupName is empty or doesn't match any named group, the function returns the default maximum replicas defined by the group with ServiceGroupName set to "default".
+func (c *Service) getMaximumMaxReplicasForGroup(groupName string) int32 {
+	// Handle the case for the default group first
+	if groupName == "" {
+		return c.config.GetDefaultMaximumMaxReplica()
+	}
+
+	// Look for a specific service group match
+	for _, group := range c.config.MaximumMaxReplicas {
+		if group.ServiceGroupName != nil && *group.ServiceGroupName == groupName {
+			return group.MaximumMaxReplica
+		}
+	}
+
+	// Fallback to the default maximum if no match is found
+	return c.config.GetDefaultMaximumMaxReplica()
 }
 
 func (c *Service) GetHPAOnTortoiseSpec(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v2.HorizontalPodAutoscaler, error) {
@@ -405,9 +445,13 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		recommendMax = *tortoise.Spec.MaxReplicas
 	}
 
-	if recommendMax > c.maximumMaxReplica {
-		c.recorder.Event(tortoise, corev1.EventTypeWarning, event.WarningHittingHardMaxReplicaLimit, fmt.Sprintf("MaxReplica (%v) suggested from Tortoise (%s/%s) hits a cluster-wide maximum replica number (%v). It wouldn't be a problem until the replica number actually grows to %v though, you may want to reach out to your cluster admin.", recommendMax, tortoise.Namespace, tortoise.Name, c.maximumMaxReplica, c.maximumMaxReplica))
-		recommendMax = c.maximumMaxReplica
+	// Determine the service group and the maximum replicas for that group
+	groupName := determineServiceGroup(tortoise, c.config)
+	maximumMaxReplica := c.getMaximumMaxReplicasForGroup(groupName)
+
+	if recommendMax > maximumMaxReplica {
+		c.recorder.Event(tortoise, corev1.EventTypeWarning, event.WarningHittingHardMaxReplicaLimit, fmt.Sprintf("MaxReplica (%v) suggested from Tortoise (%s/%s) hits a cluster-wide maximum replica number (%v). It wouldn't be a problem until the replica number actually grows to %v though, you may want to reach out to your cluster admin.", recommendMax, tortoise.Namespace, tortoise.Name, maximumMaxReplica, maximumMaxReplica))
+		recommendMax = maximumMaxReplica
 	}
 
 	hpa.Spec.MaxReplicas = recommendMax

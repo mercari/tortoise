@@ -7,6 +7,7 @@ import (
 )
 
 func TestParseConfig(t *testing.T) {
+	defaultGroupName := "default"
 	type args struct {
 		path string
 	}
@@ -40,11 +41,17 @@ func TestParseConfig(t *testing.T) {
 				TortoiseUpdateInterval:                   1 * time.Hour,
 				HPATargetUtilizationMaxIncrease:          10,
 				MaximumMinReplicas:                       10,
-				MaximumMaxReplicas:                       100,
-				HPATargetUtilizationUpdateInterval:       3 * time.Hour,
-				IstioSidecarProxyDefaultCPU:              "100m",
-				IstioSidecarProxyDefaultMemory:           "200Mi",
-				MaxAllowedScalingDownRatio:               0.5,
+				ServiceGroups:                            []ServiceGroup{},
+				MaximumMaxReplicas: []MaximumMaxReplicasPerGroup{
+					{
+						ServiceGroupName:  &defaultGroupName,
+						MaximumMaxReplica: 100,
+					},
+				},
+				HPATargetUtilizationUpdateInterval: 3 * time.Hour,
+				IstioSidecarProxyDefaultCPU:        "100m",
+				IstioSidecarProxyDefaultMemory:     "200Mi",
+				MaxAllowedScalingDownRatio:         0.5,
 				MinimumCPURequestPerContainer: map[string]string{
 					"istio-proxy": "100m",
 					"hoge-agent":  "120m",
@@ -84,15 +91,21 @@ func TestParseConfig(t *testing.T) {
 				TortoiseUpdateInterval:                   15 * time.Second,
 				HPATargetUtilizationMaxIncrease:          5,
 				MaximumMinReplicas:                       10,
-				MaximumMaxReplicas:                       100,
-				HPATargetUtilizationUpdateInterval:       24 * time.Hour,
-				IstioSidecarProxyDefaultCPU:              "100m",
-				IstioSidecarProxyDefaultMemory:           "200Mi",
-				MaxAllowedScalingDownRatio:               0.8,
-				MinimumCPURequestPerContainer:            map[string]string{},
-				MinimumMemoryRequestPerContainer:         map[string]string{},
-				ResourceLimitMultiplier:                  map[string]int64{},
-				BufferRatioOnVerticalResource:            0.1,
+				ServiceGroups:                            []ServiceGroup{},
+				MaximumMaxReplicas: []MaximumMaxReplicasPerGroup{
+					{
+						ServiceGroupName:  &defaultGroupName,
+						MaximumMaxReplica: 100,
+					},
+				},
+				HPATargetUtilizationUpdateInterval: 24 * time.Hour,
+				IstioSidecarProxyDefaultCPU:        "100m",
+				IstioSidecarProxyDefaultMemory:     "200Mi",
+				MaxAllowedScalingDownRatio:         0.8,
+				MinimumCPURequestPerContainer:      map[string]string{},
+				MinimumMemoryRequestPerContainer:   map[string]string{},
+				ResourceLimitMultiplier:            map[string]int64{},
+				BufferRatioOnVerticalResource:      0.1,
 			},
 		},
 		{
@@ -126,15 +139,21 @@ func TestParseConfig(t *testing.T) {
 				TortoiseUpdateInterval:                   15 * time.Second,
 				HPATargetUtilizationMaxIncrease:          5,
 				MaximumMinReplicas:                       10,
-				MaximumMaxReplicas:                       100,
-				HPATargetUtilizationUpdateInterval:       24 * time.Hour,
-				IstioSidecarProxyDefaultCPU:              "100m",
-				IstioSidecarProxyDefaultMemory:           "200Mi",
-				MaxAllowedScalingDownRatio:               0.8,
-				MinimumCPURequestPerContainer:            map[string]string{},
-				MinimumMemoryRequestPerContainer:         map[string]string{},
-				ResourceLimitMultiplier:                  map[string]int64{},
-				BufferRatioOnVerticalResource:            0.1,
+				ServiceGroups:                            []ServiceGroup{},
+				MaximumMaxReplicas: []MaximumMaxReplicasPerGroup{
+					{
+						ServiceGroupName:  &defaultGroupName,
+						MaximumMaxReplica: 100,
+					},
+				},
+				HPATargetUtilizationUpdateInterval: 24 * time.Hour,
+				IstioSidecarProxyDefaultCPU:        "100m",
+				IstioSidecarProxyDefaultMemory:     "200Mi",
+				MaxAllowedScalingDownRatio:         0.8,
+				MinimumCPURequestPerContainer:      map[string]string{},
+				MinimumMemoryRequestPerContainer:   map[string]string{},
+				ResourceLimitMultiplier:            map[string]int64{},
+				BufferRatioOnVerticalResource:      0.1,
 			},
 		},
 	}
@@ -153,6 +172,7 @@ func TestParseConfig(t *testing.T) {
 }
 
 func Test_validate(t *testing.T) {
+	defaultGroupName := "default"
 	tests := []struct {
 		name    string
 		config  *Config
@@ -205,7 +225,12 @@ func Test_validate(t *testing.T) {
 				HPATargetUtilizationMaxIncrease:          99,
 				MinimumMinReplicas:                       2,
 				MaximumMinReplicas:                       20,
-				MaximumMaxReplicas:                       10,
+				MaximumMaxReplicas: []MaximumMaxReplicasPerGroup{
+					{
+						ServiceGroupName:  &defaultGroupName,
+						MaximumMaxReplica: 10,
+					},
+				},
 			},
 			wantErr: true,
 		},
@@ -217,21 +242,31 @@ func Test_validate(t *testing.T) {
 				HPATargetUtilizationMaxIncrease:          99,
 				MinimumMinReplicas:                       2,
 				MaximumMinReplicas:                       20,
-				MaximumMaxReplicas:                       100,
-				PreferredMaxReplicas:                     101,
+				MaximumMaxReplicas: []MaximumMaxReplicasPerGroup{
+					{
+						ServiceGroupName:  &defaultGroupName,
+						MaximumMaxReplica: 100,
+					},
+				},
+				PreferredMaxReplicas: 101,
 			},
 			wantErr: true,
 		},
 		{
-			name: "invalid PreferredMaxReplicas",
+			name: "invalid PreferredMaxReplicas less than minimum",
 			config: &Config{
 				RangeOfMinMaxReplicasRecommendationHours: 2,
 				GatheringDataPeriodType:                  "daily",
 				HPATargetUtilizationMaxIncrease:          99,
 				MinimumMinReplicas:                       5,
 				MaximumMinReplicas:                       20,
-				MaximumMaxReplicas:                       100,
-				PreferredMaxReplicas:                     4,
+				MaximumMaxReplicas: []MaximumMaxReplicasPerGroup{
+					{
+						ServiceGroupName:  &defaultGroupName,
+						MaximumMaxReplica: 100,
+					},
+				},
+				PreferredMaxReplicas: 4,
 			},
 			wantErr: true,
 		},
@@ -243,9 +278,15 @@ func Test_validate(t *testing.T) {
 				HPATargetUtilizationMaxIncrease:          99,
 				MinimumMinReplicas:                       5,
 				MaximumMinReplicas:                       20,
-				MaximumMaxReplicas:                       100,
-				PreferredMaxReplicas:                     6,
-				MaxAllowedScalingDownRatio:               1.1,
+				ServiceGroups:                            []ServiceGroup{},
+				MaximumMaxReplicas: []MaximumMaxReplicasPerGroup{
+					{
+						ServiceGroupName:  &defaultGroupName,
+						MaximumMaxReplica: 100,
+					},
+				},
+				PreferredMaxReplicas:       6,
+				MaxAllowedScalingDownRatio: 1.1,
 			},
 			wantErr: true,
 		},
