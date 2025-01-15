@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"time"
 
@@ -168,6 +167,11 @@ type Config struct {
 	// a tortoise will ignore `PreferredMaxReplicas`, and increase the number of replicas.
 	// This feature is controlled by the feature flag `VerticalScalingBasedOnPreferredMaxReplicas`.
 	PreferredMaxReplicas int `yaml:"PreferredMaxReplicas"`
+	// MaximumMaxReplicas is the maximum maxReplica that tortoise can give to the HPA (default: 100)
+	// Note that this is very dangerous. If you set this value too low, the HPA may not be able to scale up the workload.
+	// The motivation is to use it has a hard limit to prevent the HPA from scaling up the workload too much in cases of Tortoise's bug, abnormal traffic increase, etc.
+	// If some Tortoise hits this limit, the tortoise controller emits an error log, which may or may not imply you have to change this value.
+	MaximumMaxReplicas int32 `yaml:"MaximumMaxReplicas"`
 	// MaximumCPURequest is the maximum CPU cores that the tortoise can give to the container resource request (default: 10)
 	MaximumCPURequest string `yaml:"MaximumCPURequest"`
 	// MaximumMemoryRequest is the maximum memory bytes that the tortoise can give to the container resource request (default: 10Gi)
@@ -260,11 +264,9 @@ type Config struct {
 
 	// serviceGroups defines a list of service category names.
 	ServiceGroups []ServiceGroup `yaml:"ServiceGroups"`
-	// MaximumMaxReplicas is the maximum maxReplicas that tortoise can give to the HPA per group (default: 100)
-	// Note that this is very dangerous. If you set this value too low, the HPA may not be able to scale up the workload.
-	// The motivation is to use it has a hard limit to prevent the HPA from scaling up the workload too much in cases of Tortoise's bug, abnormal traffic increase, etc.
-	// If some Tortoise hits this limit, the tortoise controller emits an error log, which may or may not imply you have to change this value.
-	MaximumMaxReplicas []MaximumMaxReplicasPerGroup `yaml:"MaximumMaxReplicas"`
+	// MaximumMaxReplicasPerService is the maximum maxReplicas that tortoise can give to the HPA per service category.
+	// If the service category is not found in this list, tortoise uses the default value which is the value set in MaximumMaxReplicas.
+	MaximumMaxReplicasPerService []MaximumMaxReplicasPerGroup `yaml:"MaximumMaxReplicasPerService"`
 
 	// FeatureFlags is the list of feature flags (default: empty = all alpha features are disabled)
 	// See the list of feature flags in features.go
@@ -294,7 +296,6 @@ type ServiceGroup struct {
 }
 
 func defaultConfig() *Config {
-	defaultGroupName := "default"
 	return &Config{
 		RangeOfMinMaxReplicasRecommendationHours: 1,
 		GatheringDataPeriodType:                  "weekly",
@@ -316,22 +317,15 @@ func defaultConfig() *Config {
 		HPATargetUtilizationMaxIncrease:          5,
 		HPATargetUtilizationUpdateInterval:       time.Hour * 24,
 		MaximumMinReplicas:                       10,
+		MaximumMaxReplicas:                       100,
 		MaxAllowedScalingDownRatio:               0.8,
 		IstioSidecarProxyDefaultCPU:              "100m",
 		IstioSidecarProxyDefaultMemory:           "200Mi",
 		MinimumCPULimit:                          "0",
 		ResourceLimitMultiplier:                  map[string]int64{},
-		ServiceGroups:                            []ServiceGroup{
-			// This is an empty slice, indicating that no service groups are defined by default.
-		},
-		MaximumMaxReplicas: []MaximumMaxReplicasPerGroup{
-			// This is the default maximum maxReplicas limit for all services.
-			{
-				ServiceGroupName:  &defaultGroupName, // Applies to all services by default.
-				MaximumMaxReplica: 100,               // Default max replica limit.
-			},
-		},
-		BufferRatioOnVerticalResource: 0.1,
+		ServiceGroups:                            []ServiceGroup{},
+		MaximumMaxReplicasPerService:             []MaximumMaxReplicasPerGroup{},
+		BufferRatioOnVerticalResource:            0.1,
 	}
 }
 
@@ -359,16 +353,6 @@ func ParseConfig(path string) (*Config, error) {
 	return config, nil
 }
 
-// GetDefaultMaxReplica returns the default maximum max replicas from the configuration.
-func (cfg *Config) GetDefaultMaximumMaxReplica() int32 {
-	for _, maxReplicaGroup := range cfg.MaximumMaxReplicas {
-		if maxReplicaGroup.ServiceGroupName != nil && *maxReplicaGroup.ServiceGroupName == "default" {
-			return maxReplicaGroup.MaximumMaxReplica
-		}
-	}
-	return 100 // Choose a last resort default value if "default" is not found
-}
-
 func validate(config *Config) error {
 	if config.RangeOfMinMaxReplicasRecommendationHours > 24 || config.RangeOfMinMaxReplicasRecommendationHours < 1 {
 		return fmt.Errorf("RangeOfMinMaxReplicasRecommendationHours should be between 1 and 24")
@@ -387,27 +371,12 @@ func validate(config *Config) error {
 		return fmt.Errorf("MinimumMinReplicas should be less than MaximumMinReplicas")
 	}
 
-	// Check that there is at least one MaximumMaxReplicas
-	if len(config.MaximumMaxReplicas) == 0 {
-		return fmt.Errorf("MaximumMaxReplicas must have at least one configuration entry")
-	}
-
 	// Find the minimum value of MaximumMaxReplicas across all service groups
-	minOfMaximumMaxReplicas := int32(math.MaxInt32) // Start with the largest possible int32 value
-	var defaultFound bool
-	for _, group := range config.MaximumMaxReplicas {
+	minOfMaximumMaxReplicas := config.MaximumMaxReplicas // Start with the default value of MaximumMaxReplicas
+	for _, group := range config.MaximumMaxReplicasPerService {
 		if group.MaximumMaxReplica < minOfMaximumMaxReplicas {
 			minOfMaximumMaxReplicas = group.MaximumMaxReplica
 		}
-		// Check for "default" entry
-		if group.ServiceGroupName != nil && *group.ServiceGroupName == "default" {
-			defaultFound = true
-		}
-	}
-
-	// Ensure that there is an entry with "default" for MaximumMaxReplicas
-	if !defaultFound {
-		return fmt.Errorf("There must be at least one MaximumMaxReplicas entry with ServiceGroupName set to \"default\"")
 	}
 
 	// Check for non-negative values
@@ -421,13 +390,8 @@ func validate(config *Config) error {
 		serviceGroupMap[sg.Name] = true
 	}
 
-	for _, maxReplicas := range config.MaximumMaxReplicas {
+	for _, maxReplicas := range config.MaximumMaxReplicasPerService {
 		if maxReplicas.ServiceGroupName != nil {
-			// Allow "default" to bypass the check of matching ServiceGroups.
-			if *maxReplicas.ServiceGroupName == "default" {
-				continue
-			}
-			// If not default, ensure it exists in the serviceGroupMap.
 			if _, exists := serviceGroupMap[*maxReplicas.ServiceGroupName]; !exists {
 				return fmt.Errorf("ServiceGroupName %s in MaximumMaxReplicas is not defined in ServiceGroups", *maxReplicas.ServiceGroupName)
 			}

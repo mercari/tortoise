@@ -152,7 +152,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	hpaService, err := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.MaximumTargetResourceUtilization, config.HPATargetUtilizationMaxIncrease, config.HPATargetUtilizationUpdateInterval, config.MaximumMinReplicas, int32(config.MinimumMinReplicas), config.HPAExternalMetricExclusionRegex, config)
+	hpaService, err := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.MaximumTargetResourceUtilization, config.HPATargetUtilizationMaxIncrease, config.HPATargetUtilizationUpdateInterval, config.MaximumMinReplicas, config.MaximumMaxReplicas, int32(config.MinimumMinReplicas), config.ServiceGroups, config.MaximumMaxReplicasPerService, config.HPAExternalMetricExclusionRegex)
 	if err != nil {
 		setupLog.Error(err, "unable to start hpa service")
 		os.Exit(1)
@@ -176,7 +176,7 @@ func main() {
 			config.MinimumMemoryRequestPerContainer,
 			config.MaximumCPURequest,
 			config.MaximumMemoryRequest,
-			config.GetDefaultMaximumMaxReplica(),
+			config.MaximumMaxReplicas,
 			config.MaxAllowedScalingDownRatio,
 			config.BufferRatioOnVerticalResource,
 			config.FeatureFlags,

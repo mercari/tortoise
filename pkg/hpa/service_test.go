@@ -2751,17 +2751,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Define a dummy config with maximumMaxReplica set to 10001 for the default group
-			defaultGroupName := "default"
-			dummyConfig := &config.Config{
-				MaximumMaxReplicas: []config.MaximumMaxReplicasPerGroup{
-					{
-						ServiceGroupName:  &defaultGroupName,
-						MaximumMaxReplica: 10001,
-					},
-				},
-			}
-			c, err := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 50, time.Hour, 1000, 3, tt.excludeMetricRegex, dummyConfig)
+			c, err := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 50, time.Hour, 1000, 10001, 3, []config.ServiceGroup{}, []config.MaximumMaxReplicasPerGroup{}, tt.excludeMetricRegex)
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
@@ -3074,23 +3064,12 @@ func TestService_InitializeHPA(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Define a dummy config with maximumMaxReplica set to 1000 for the default group
-			defaultGroupName := "default"
-			dummyConfig := &config.Config{
-				MaximumMaxReplicas: []config.MaximumMaxReplicasPerGroup{
-					{
-						ServiceGroupName:  &defaultGroupName,
-						MaximumMaxReplica: 1000, // Set the value you need
-					},
-				},
-				// Add other default values if your function logic depends on them
-			}
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 100, 3, "", dummyConfig)
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 100, 1000, 3, []config.ServiceGroup{}, []config.MaximumMaxReplicasPerGroup{}, "")
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
 			if tt.initialHPA != nil {
-				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 100, 3, "", dummyConfig)
+				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 100, 1000, 3, []config.ServiceGroup{}, []config.MaximumMaxReplicasPerGroup{}, "")
 				if err != nil {
 					t.Fatalf("New() error = %v", err)
 				}
@@ -4643,23 +4622,12 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Define a dummy config with maximumMaxReplica set to 10000 for the default group
-			defaultGroupName := "default"
-			dummyConfig := &config.Config{
-				MaximumMaxReplicas: []config.MaximumMaxReplicasPerGroup{
-					{
-						ServiceGroupName:  &defaultGroupName,
-						MaximumMaxReplica: 10000, // Set the value you need
-					},
-				},
-				// Add other default values if your function logic depends on them
-			}
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 1000, 3, "", dummyConfig)
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 1000, 10000, 3, []config.ServiceGroup{}, []config.MaximumMaxReplicasPerGroup{}, "")
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
 			if tt.initialHPA != nil {
-				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 1000, 3, "", dummyConfig)
+				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 1000, 10000, 3, []config.ServiceGroup{}, []config.MaximumMaxReplicasPerGroup{}, "")
 				if err != nil {
 					t.Fatalf("New() error = %v", err)
 				}
