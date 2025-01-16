@@ -275,24 +275,23 @@ type Config struct {
 
 type MaximumMaxReplicasPerGroup struct {
 	// ServiceGroupName refers to one ServiceGroup at Config.ServiceGroups
-	// If nil, this MaximumMaxReplica would apply to all services.
 	ServiceGroupName *string `yaml:"ServiceGroupName"`
 
 	MaximumMaxReplica int32 `yaml:"MaximumMaxReplica"`
 }
 
-// Namespace represents a Kubernetes namespace and its associated label selectors.
-type Namespace struct {
-	Name           string                  `yaml:"name"`           // Namespace name
-	LabelSelectors []*metav1.LabelSelector `yaml:"labelSelectors"` // Slice of label selectors within this namespace
+// Selector selects a group of pods by matching its namespace and labels.
+type Selector struct {
+	Namespace      string                  `yaml:"Namespace"`        // Namespace name
+	LabelSelectors []*metav1.LabelSelector `yaml:"Labels,omitempty"` // Slice of label selectors within this namespace
 }
 
 // ServiceGroup represents a collection of services grouped together with namespace awareness.
 type ServiceGroup struct {
 	// Name is the group's name (e.g., big-service, fintech-service, etc).
-	Name string `yaml:"name"`
-	// Namespaces represent multiple namespaces with their label selectors.
-	Namespaces []Namespace `yaml:"namespaces"` // A slice of Namespace structs
+	Name string `yaml:"Name"`
+	// Selectors represent multiple pod groups that belong to this ServiceGroup.
+	Selectors []Selector `yaml:"Selectors"` // Slice of namespaces and labels within this service group
 }
 
 func defaultConfig() *Config {
@@ -402,9 +401,16 @@ func validate(config *Config) error {
 	seenServiceGroups := make(map[string]bool)
 	for _, sg := range config.ServiceGroups {
 		if seenServiceGroups[sg.Name] {
-			return fmt.Errorf("Duplicate ServiceGroupName found: %s", sg.Name)
+			return fmt.Errorf("duplicate ServiceGroupName found: %s", sg.Name)
 		}
 		seenServiceGroups[sg.Name] = true
+	}
+
+	// Check all entries in MaximumMaxReplicasPerService have non-nil ServiceGroupName
+	for _, maxReplicas := range config.MaximumMaxReplicasPerService {
+		if maxReplicas.ServiceGroupName == nil {
+			return fmt.Errorf("ServiceGroupName should not be nil in MaximumMaxReplicasPerService entries")
+		}
 	}
 
 	if config.MaximumMinReplicas > minOfMaximumMaxReplicas {

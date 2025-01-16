@@ -247,15 +247,16 @@ var globalRecommendedHPABehavior = &v2.HorizontalPodAutoscalerBehavior{
 	},
 }
 
-// Determine which service group is applicable for a given Tortoise using its namespace.
+// Determine which service group is applicable for a given Tortoise using its selectors.
 func (c *Service) determineServiceGroup(tortoise *autoscalingv1beta3.Tortoise) string {
 	tortoiseNamespace := tortoise.Namespace
 	for _, serviceGroup := range c.serviceGroups {
-		for _, namespace := range serviceGroup.Namespaces {
-			if namespace.Name == tortoiseNamespace {
+		for _, selector := range serviceGroup.Selectors {
+			if selector.Namespace == tortoiseNamespace {
 				klog.InfoS("Namespace matched", "serviceGroup", serviceGroup.Name, "namespace", tortoiseNamespace)
 				return serviceGroup.Name
 			}
+			// TODO(avs): Add logic for matching labels in the future.
 		}
 	}
 	// Returning an empty string to denote a default value when no match.
