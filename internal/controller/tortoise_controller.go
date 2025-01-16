@@ -233,10 +233,8 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	// VPA is ready, we mark all Vertical scaling resources as Running.
 	tortoise = vpa.SetAllVerticalContainerResourcePhaseWorking(tortoise, now)
 
-	isReady := false
-
 	logger.Info("VPA created by tortoise is ready, proceeding to generate the recommendation", "tortoise", req.NamespacedName)
-	hpa, isReady, err = r.HpaService.GetHPAOnTortoise(ctx, tortoise)
+	hpa, isReady, err := r.HpaService.GetHPAOnTortoise(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get HPA", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
