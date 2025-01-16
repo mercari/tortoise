@@ -790,18 +790,13 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, currenthpa *v2.Horiz
 		}
 	}
 
-	if len(currentMetrics) > 0 {
-		for _, currentMetric := range currentMetrics {
-			if !currentMetric.ContainerResource.Current.Value.IsZero() {
-				// Can still get metrics for some containers, they can scale based on those
-				return true
-			}
+	for _, currentMetric := range currentMetrics {
+		if !currentMetric.ContainerResource.Current.Value.IsZero() {
+			// Can still get metrics for some containers, they can scale based on those
+			return true
 		}
-		logger.Info("HPA looks unready because all the metrics indicate zero", "hpa", currenthpa.Name)
-		return false
 	}
+	logger.Info("HPA looks unready because all the metrics indicate zero", "hpa", currenthpa.Name)
+	return false
 
-	logger.Info("HPA status check passed")
-
-	return true
 }
