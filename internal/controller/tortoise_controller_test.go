@@ -494,8 +494,8 @@ var _ = Describe("Test TortoiseController", func() {
 		It("HPA scalingactive no metrics", func() {
 			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-hpa-no-metrics"))
 		})
-		It("HPA scalingactive no metrics", func() {
-			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-hpa-back-to-normal"))
+		It("Tortoise changes the status back to Working if it finds HPA is working fine now", func() {
+			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-hpa-back-to-working"))
 		})
 	})
 	Context("DeletionPolicy is handled correctly", func() {
