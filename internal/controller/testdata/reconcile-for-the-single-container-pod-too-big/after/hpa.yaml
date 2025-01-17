@@ -40,5 +40,16 @@ spec:
     kind: Deployment
     name: mercari-app
 status:
-  currentMetrics: null
-  desiredReplicas: 0
+  conditions:
+    - status: "True"
+      type: AbleToScale
+      message: "recommended size matches current size"
+    - status: "True"
+      type: ScalingActive
+      message: "the HPA was able to compute the replica count"
+  currentMetrics:
+    - containerResource:
+        container: app
+        name: cpu
+        current:
+          value: 3

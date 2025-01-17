@@ -1,0 +1,61 @@
+metadata:
+  annotations:
+    tortoise.autoscaling.mercari.com/managed-by-tortoise: "true"
+  name: tortoise-hpa-mercari
+  namespace: default
+spec:
+  behavior:
+    scaleDown:
+      policies:
+      - periodSeconds: 90
+        type: Percent
+        value: 2
+      selectPolicy: Max
+    scaleUp:
+      policies:
+      - periodSeconds: 60
+        type: Percent
+        value: 100
+      selectPolicy: Max
+      stabilizationWindowSeconds: 0
+  maxReplicas: 15
+  metrics:
+  - containerResource:
+      container: app
+      name: cpu
+      target:
+        averageUtilization: 30
+        type: Utilization
+    type: ContainerResource
+  - containerResource:
+      container: istio-proxy
+      name: cpu
+      target:
+        averageUtilization: 30
+        type: Utilization
+    type: ContainerResource
+  minReplicas: 15
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mercari-app
+status:
+  conditions:
+    - status: "True"
+      type: AbleToScale
+      message: "recommended size matches current size"
+    - status: "False"
+      type: ScalingActive
+      message: "the HPA was unable to compute the replica count: failed to get cpu utilization"
+  currentMetrics:
+    - containerResource:
+        container: app
+        name: cpu
+        current:
+          value: 0
+    - containerResource:
+        container: istio-proxy
+        name: cpu
+        current:
+          value: 0
+  desiredReplicas: 0
