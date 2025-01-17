@@ -69,12 +69,12 @@ var (
 	NetCPURequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "net_cpu_request",
 		Help: "net cpu request (millicore) that tortoises actually applys",
-	}, []string{"tortoise_name", "namespace", "container_name", "kube_deployment", "controller_kind"})
+	}, []string{"tortoise_name", "namespace", "container_name", "controller_name", "controller_kind"})
 
 	NetMemoryRequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "net_memory_request",
 		Help: "net memory request (byte) that tortoises actually applys",
-	}, []string{"tortoise_name", "namespace", "container_name", "kube_deployment", "controller_kind"})
+	}, []string{"tortoise_name", "namespace", "container_name", "controller_name", "controller_kind"})
 
 	ProposedHPATargetUtilization = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "proposed_hpa_utilization_target",
