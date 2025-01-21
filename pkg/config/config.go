@@ -262,7 +262,7 @@ type Config struct {
 	// IstioSidecarProxyDefaultMemory is the default Memory resource request of the istio sidecar proxy (default: 200Mi)
 	IstioSidecarProxyDefaultMemory string `yaml:"IstioSidecarProxyDefaultMemory"`
 
-	// serviceGroups defines a list of service category names.
+	// ServiceGroups defines a list of service category names.
 	ServiceGroups []ServiceGroup `yaml:"ServiceGroups"`
 	// MaximumMaxReplicasPerService is the maximum maxReplicas that tortoise can give to the HPA per service category.
 	// If the service category is not found in this list, tortoise uses the default value which is the value set in MaximumMaxReplicas.
@@ -275,7 +275,7 @@ type Config struct {
 
 type MaximumMaxReplicasPerGroup struct {
 	// ServiceGroupName refers to one ServiceGroup at Config.ServiceGroups
-	ServiceGroupName *string `yaml:"ServiceGroupName"`
+	ServiceGroupName string `yaml:"ServiceGroupName"`
 
 	MaximumMaxReplica int32 `yaml:"MaximumMaxReplica"`
 }
@@ -390,9 +390,9 @@ func validate(config *Config) error {
 	}
 
 	for _, maxReplicas := range config.MaximumMaxReplicasPerService {
-		if maxReplicas.ServiceGroupName != nil {
-			if _, exists := serviceGroupMap[*maxReplicas.ServiceGroupName]; !exists {
-				return fmt.Errorf("ServiceGroupName %s in MaximumMaxReplicas is not defined in ServiceGroups", *maxReplicas.ServiceGroupName)
+		if maxReplicas.ServiceGroupName != "" {
+			if _, exists := serviceGroupMap[maxReplicas.ServiceGroupName]; !exists {
+				return fmt.Errorf("ServiceGroupName %s in MaximumMaxReplicas is not defined in ServiceGroups", maxReplicas.ServiceGroupName)
 			}
 		}
 	}
@@ -408,7 +408,7 @@ func validate(config *Config) error {
 
 	// Check all entries in MaximumMaxReplicasPerService have non-nil ServiceGroupName
 	for _, maxReplicas := range config.MaximumMaxReplicasPerService {
-		if maxReplicas.ServiceGroupName == nil {
+		if maxReplicas.ServiceGroupName == "" {
 			return fmt.Errorf("ServiceGroupName should not be nil in MaximumMaxReplicasPerService entries")
 		}
 	}

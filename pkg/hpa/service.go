@@ -312,7 +312,7 @@ func (c *Service) getMaximumMaxReplicasForGroup(groupName string) int32 {
 
 	// Look for a specific service group match
 	for _, group := range c.maximumMaxReplicasPerService {
-		if group.ServiceGroupName != nil && *group.ServiceGroupName == groupName {
+		if group.ServiceGroupName != "" && group.ServiceGroupName == groupName {
 			return group.MaximumMaxReplica
 		}
 	}

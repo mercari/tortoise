@@ -5014,3 +5014,453 @@ func TestService_IsHpaMetricAvailable(t *testing.T) {
 		})
 	}
 }
+
+func TestHPAServiceGroupReplicaLimits(t *testing.T) {
+	baseHPA := &v2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-hpa",
+			Namespace: "default",
+		},
+		Spec: v2.HorizontalPodAutoscalerSpec{
+			MinReplicas: ptrInt32(3),
+			MaxReplicas: 50,
+			ScaleTargetRef: v2.CrossVersionObjectReference{
+				Kind:       "Deployment",
+				Name:       "test",
+				APIVersion: "apps/v1",
+			},
+		},
+	}
+
+	baseTortoise := &v1beta3.Tortoise{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-tortoise",
+			Namespace: "default",
+		},
+		Spec: v1beta3.TortoiseSpec{
+			TargetRefs: v1beta3.TargetRefs{
+				HorizontalPodAutoscalerName: ptr.To("test-hpa"),
+				ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+					Kind: "Deployment",
+					Name: "test",
+				},
+			},
+		},
+	}
+
+	type args struct {
+		ctx        context.Context
+		tortoise   *v1beta3.Tortoise
+		replicaNum int32
+	}
+
+	tests := []struct {
+		name                  string
+		args                  args
+		initialHPA            *v2.HorizontalPodAutoscaler
+		afterHPA              *v2.HorizontalPodAutoscaler
+		wantTortoise          *v1beta3.Tortoise
+		serviceGroups         []config.ServiceGroup
+		maxReplicasPerService []config.MaximumMaxReplicasPerGroup
+		wantErr               bool
+	}{
+		{
+			name: "valid service group with specific max replicas",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 10,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "test-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "test-group",
+					MaximumMaxReplica: 30,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](10)
+				hpa.Spec.MaxReplicas = 10
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "empty service groups but with maxReplicasPerService",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 5,
+			},
+			initialHPA:    baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "non-existent-group",
+					MaximumMaxReplica: 30,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](5)
+				hpa.Spec.MaxReplicas = 5
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "service group config with zero maxReplicas falls back to global max",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 5,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "test-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "test-group",
+					MaximumMaxReplica: 0,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](5)
+				hpa.Spec.MaxReplicas = 5
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false, // Changed to false as zero value should fall back to global max
+		},
+		{
+			name: "multiple service groups with different maxReplicas",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 8,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "group-1",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+				{
+					Name: "group-2",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "group-1",
+					MaximumMaxReplica: 40,
+				},
+				{
+					ServiceGroupName:  "group-2",
+					MaximumMaxReplica: 20,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](8)
+				hpa.Spec.MaxReplicas = 8
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "both service groups and maxReplicasPerService nil",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 15,
+			},
+			initialHPA:            baseHPA.DeepCopy(),
+			serviceGroups:         nil,
+			maxReplicasPerService: nil,
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](15)
+				hpa.Spec.MaxReplicas = 15
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "service group defined but empty maxReplicasPerService slice",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 7,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "test-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](7)
+				hpa.Spec.MaxReplicas = 7
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "service in different namespace than group selector",
+			args: args{
+				ctx: context.Background(),
+				tortoise: func() *v1beta3.Tortoise {
+					t := baseTortoise.DeepCopy()
+					t.Namespace = "other-namespace"
+					return t
+				}(),
+				replicaNum: 6,
+			},
+			initialHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Namespace = "other-namespace"
+				return hpa
+			}(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "test-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default", // Different namespace
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "test-group",
+					MaximumMaxReplica: 20,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Namespace = "other-namespace"
+				hpa.Spec.MinReplicas = ptr.To[int32](6)
+				hpa.Spec.MaxReplicas = 6
+				return hpa
+			}(),
+			wantTortoise: func() *v1beta3.Tortoise {
+				t := baseTortoise.DeepCopy()
+				t.Namespace = "other-namespace"
+				return t
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "maxReplicasPerService references non-existent service group",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 4,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "existing-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "non-existent-group",
+					MaximumMaxReplica: 25,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](4)
+				hpa.Spec.MaxReplicas = 4
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "duplicate service group names with different maxReplicas",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 9,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "same-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+				{
+					Name: "same-group", // Duplicate name
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "same-group",
+					MaximumMaxReplica: 15,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](9)
+				hpa.Spec.MaxReplicas = 9
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "service group with negative maxReplicas",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 5,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "test-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "test-group",
+					MaximumMaxReplica: -10,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](5)
+				hpa.Spec.MaxReplicas = 5
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a fake client with the initial HPA if it exists
+			clientBuilder := fake.NewClientBuilder()
+			if tt.initialHPA != nil {
+				clientBuilder = clientBuilder.WithRuntimeObjects(tt.initialHPA)
+			}
+
+			// Create a new service instance with the test configuration
+			c, err := New(
+				clientBuilder.Build(),
+				record.NewFakeRecorder(10),
+				0.95,                     // ReplicaReductionFactor
+				90,                       // MaximumTargetResourceUtilization
+				50,                       // MaximumMaxReplicas (global)
+				time.Hour,                // HPATargetUtilizationUpdateInterval
+				3,                        // MinimumMinReplicas
+				100,                      // MaximumMinReplicas
+				70,                       // MinimumTargetResourceUtilization
+				tt.serviceGroups,         // Service Groups
+				tt.maxReplicasPerService, // MaxReplicasPerService
+				"",                       // HPAExternalMetricExclusionRegex
+			)
+			if err != nil {
+				t.Fatalf("New() error = %v", err)
+			}
+
+			var givenHPA *v2.HorizontalPodAutoscaler
+			if tt.args.tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
+				givenHPA = tt.initialHPA
+			}
+
+			tortoise, err := c.UpdateHPASpecFromTortoiseAutoscalingPolicy(
+				tt.args.ctx,
+				tt.args.tortoise,
+				givenHPA,
+				tt.args.replicaNum,
+				time.Now(),
+			)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UpdateHPASpecFromTortoiseAutoscalingPolicy() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				if d := cmp.Diff(tt.wantTortoise, tortoise, cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
+					t.Errorf("UpdateHPASpecFromTortoiseAutoscalingPolicy() tortoise diff = %v", d)
+				}
+
+				hpa := &v2.HorizontalPodAutoscaler{}
+				err = c.c.Get(tt.args.ctx, client.ObjectKey{Name: tt.afterHPA.Name, Namespace: tt.afterHPA.Namespace}, hpa)
+				if err != nil {
+					t.Errorf("get hpa error = %v", err)
+				}
+				if d := cmp.Diff(tt.afterHPA, hpa,
+					cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "TypeMeta"),
+					cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion")); d != "" {
+					t.Errorf("UpdateHPASpecFromTortoiseAutoscalingPolicy() hpa diff = %v", d)
+				}
+			}
+		})
+	}
+}
