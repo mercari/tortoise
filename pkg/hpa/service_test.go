@@ -5002,7 +5002,7 @@ func TestService_IsHpaMetricAvailable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 100, 1000, 3, "")
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 100, 1000, 3, []config.ServiceGroup{}, []config.MaximumMaxReplicasPerGroup{}, "")
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
@@ -5152,7 +5152,7 @@ func TestHPAServiceGroupReplicaLimits(t *testing.T) {
 				return hpa
 			}(),
 			wantTortoise: baseTortoise.DeepCopy(),
-			wantErr:      false, // Changed to false as zero value should fall back to global max
+			wantErr:      false,
 		},
 		{
 			name: "multiple service groups with different maxReplicas",
