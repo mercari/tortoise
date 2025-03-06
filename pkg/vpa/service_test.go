@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -675,6 +676,399 @@ func Test_isMonitorVPAReady(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := isMonitorVPAReady(tt.args.vpa, tt.args.tortoise); got != tt.want {
 				t.Errorf("isMonitorVPAReady() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestService_CreateTortoiseMonitorVPA(t *testing.T) {
+	off := vpav1.UpdateModeOff
+	type args struct {
+		tortoise *autoscalingv1beta3.Tortoise
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantTortoise *autoscalingv1beta3.Tortoise
+		wantVPA      *vpav1.VerticalPodAutoscaler
+		wantErr      bool
+	}{
+		{
+			name: "should create new vpa",
+			args: args{
+				tortoise: &autoscalingv1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+					},
+					Spec: autoscalingv1beta3.TortoiseSpec{
+						TargetRefs: v1beta3.TargetRefs{
+							ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "deployment",
+								APIVersion: "apps/v1",
+							},
+						},
+						ResourcePolicy: []autoscalingv1beta3.ContainerResourcePolicy{
+							{
+								ContainerName: "app",
+								MinAllocatedResources: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("0.5Gi"),
+									v1.ResourceCPU:    resource.MustParse("0.5"),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					TargetRefs: v1beta3.TargetRefs{
+						ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+							Kind:       "Deployment",
+							Name:       "deployment",
+							APIVersion: "apps/v1",
+						},
+					},
+					ResourcePolicy: []autoscalingv1beta3.ContainerResourcePolicy{
+						{
+							ContainerName: "app",
+							MinAllocatedResources: v1.ResourceList{
+								v1.ResourceMemory: resource.MustParse("0.5Gi"),
+								v1.ResourceCPU:    resource.MustParse("0.5"),
+							},
+						},
+					},
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					Targets: autoscalingv1beta3.TargetsStatus{
+						VerticalPodAutoscalers: []autoscalingv1beta3.TargetStatusVerticalPodAutoscaler{
+							{
+								Name: "tortoise-monitor-tortoise",
+								Role: autoscalingv1beta3.VerticalPodAutoscalerRoleMonitor,
+							},
+						},
+					},
+				},
+			},
+			wantVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-monitor-tortoise",
+					Namespace: "default",
+				},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					TargetRef: &autoscalingv1.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode: &off,
+					},
+					ResourcePolicy: &vpav1.PodResourcePolicy{
+						ContainerPolicies: []vpav1.ContainerResourcePolicy{
+							{
+								ContainerName: "app",
+								MinAllowed: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("0.5Gi"),
+									v1.ResourceCPU:    resource.MustParse("0.5"),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "should create new vpa with the same labels as tortoise",
+			args: args{
+				tortoise: &autoscalingv1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app":  "tortoise",
+							"name": "tortoise",
+						},
+					},
+					Spec: autoscalingv1beta3.TortoiseSpec{
+						TargetRefs: v1beta3.TargetRefs{
+							ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "deployment",
+								APIVersion: "apps/v1",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":  "tortoise",
+						"name": "tortoise",
+					},
+				},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					TargetRefs: v1beta3.TargetRefs{
+						ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+							Kind:       "Deployment",
+							Name:       "deployment",
+							APIVersion: "apps/v1",
+						},
+					},
+				},
+				Status: autoscalingv1beta3.TortoiseStatus{
+					Targets: autoscalingv1beta3.TargetsStatus{
+						VerticalPodAutoscalers: []autoscalingv1beta3.TargetStatusVerticalPodAutoscaler{
+							{
+								Name: "tortoise-monitor-tortoise",
+								Role: autoscalingv1beta3.VerticalPodAutoscalerRoleMonitor,
+							},
+						},
+					},
+				},
+			},
+			wantVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-monitor-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":  "tortoise",
+						"name": "tortoise",
+					},
+				},
+				Spec: vpav1.VerticalPodAutoscalerSpec{
+					TargetRef: &autoscalingv1.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					UpdatePolicy: &vpav1.PodUpdatePolicy{
+						UpdateMode: &off,
+					},
+					ResourcePolicy: &vpav1.PodResourcePolicy{
+						ContainerPolicies: []vpav1.ContainerResourcePolicy{},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Service{
+				c:        fake.NewSimpleClientset(),
+				recorder: record.NewFakeRecorder(10),
+			}
+			vpa, tortoise, err := c.CreateTortoiseMonitorVPA(context.Background(), tt.args.tortoise)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Service.CreateTortoiseMonitorVPA() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if d := cmp.Diff(tt.wantTortoise, tortoise); d != "" {
+				t.Errorf("Service.CreateTortoiseMonitorVPA() tortoise diff = %v", d)
+			}
+
+			if d := cmp.Diff(tt.wantVPA, vpa); d != "" {
+				t.Errorf("Service.CreateTortoiseMonitorVPA() vpa diff = %v", d)
+			}
+		})
+	}
+}
+
+func TestService_UpdateVPALabelsFromTortoise(t *testing.T) {
+	type args struct {
+		tortoise *v1beta3.Tortoise
+	}
+	tests := []struct {
+		name       string
+		initialVPA *vpav1.VerticalPodAutoscaler
+		args       args
+		wantVPA    *vpav1.VerticalPodAutoscaler
+		wantErr    bool
+	}{
+		{
+			name: "should update VPA labels",
+			args: args{
+				tortoise: &autoscalingv1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app":  "tortoise",
+							"name": "tortoise",
+						},
+					},
+				},
+			},
+			initialVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-monitor-tortoise",
+					Namespace: "default",
+				},
+			},
+			wantVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-monitor-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":  "tortoise",
+						"name": "tortoise",
+					},
+				},
+			},
+		},
+		{
+			name: "should overwrite VPA labels",
+			args: args{
+				tortoise: &autoscalingv1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app":  "tortoise",
+							"name": "tortoise",
+						},
+					},
+				},
+			},
+			initialVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-monitor-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app": "old-tortoise",
+					},
+				},
+			},
+			wantVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-monitor-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":  "tortoise",
+						"name": "tortoise",
+					},
+				},
+			},
+		},
+		{
+			name: "should remove VPA labels when tortoise labels are empty",
+			args: args{
+				tortoise: &autoscalingv1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+					},
+				},
+			},
+			initialVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-monitor-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":  "tortoise",
+						"name": "tortoise",
+					},
+				},
+			},
+			wantVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-monitor-tortoise",
+					Namespace: "default",
+				},
+			},
+		},
+		{
+			name: "should keep VPA labels empty",
+			args: args{
+				tortoise: &autoscalingv1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+					},
+				},
+			},
+			initialVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-monitor-tortoise",
+					Namespace: "default",
+				},
+			},
+			wantVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-monitor-tortoise",
+					Namespace: "default",
+				},
+			},
+		},
+		{
+			name: "should NOT update when update mode is off",
+			args: args{
+				tortoise: &autoscalingv1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app": "tortoise",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeOff,
+					},
+				},
+			},
+			initialVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-monitor-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":  "tortoise",
+						"name": "tortoise",
+					},
+				},
+			},
+			wantVPA: &vpav1.VerticalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-monitor-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":  "tortoise",
+						"name": "tortoise",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Service{
+				c:        fake.NewSimpleClientset(tt.initialVPA),
+				recorder: record.NewFakeRecorder(10),
+			}
+
+			err := c.UpdateVPALabelsFromTortoise(context.Background(), tt.args.tortoise)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UpdateVPALabelsFromTortoise() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(tt.args.tortoise.Namespace).Get(context.Background(), tt.initialVPA.Name, metav1.GetOptions{})
+			if err != nil {
+				t.Errorf("get vpa error = %v", err)
+			}
+
+			if d := cmp.Diff(tt.wantVPA, vpa); d != "" {
+				t.Errorf("UpdateVPALabelsFromTortoise() vpa diff = %v", d)
 			}
 		})
 	}
