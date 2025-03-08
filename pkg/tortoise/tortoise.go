@@ -816,3 +816,11 @@ func recommendationIncreaseAnyResource(oldTortoise, newTortoise *v1beta3.Tortois
 
 	return false
 }
+
+func (c *Service) UpdateTortoisePhaseIfHPAIsUnhealthy(ctx context.Context, scalingActive bool, tortoise *v1beta3.Tortoise) (*v1beta3.Tortoise, error) {
+	if !scalingActive && tortoise.Spec.UpdateMode == v1beta3.UpdateModeAuto && tortoise.Status.TortoisePhase == v1beta3.TortoisePhaseWorking {
+		log.FromContext(ctx).Info("switching Tortoise to Emergency mode because looks like HPA isn't working properly")
+		tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseEmergency
+	}
+	return tortoise, nil
+}

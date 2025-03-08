@@ -10,6 +10,7 @@ import (
 	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	resource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
@@ -4662,6 +4663,352 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 			}
 			if d := cmp.Diff(tt.afterHPA, hpa, cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "TypeMeta"), cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion")); d != "" {
 				t.Errorf("Service.UpdateHPASpecFromTortoiseAutoscalingPolicy() hpa diff = %v", d)
+			}
+		})
+	}
+}
+
+func TestService_IsHpaMetricAvailable(t *testing.T) {
+	tests := []struct {
+		name   string
+		HPA    *v2.HorizontalPodAutoscaler
+		result bool
+	}{
+		{
+			name: "metric server down, should return false",
+			HPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "existing-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Status:  "True",
+							Type:    v2.AbleToScale,
+							Message: "recommended size matches current size",
+						},
+						{
+							Status:  "False",
+							Type:    v2.ScalingActive,
+							Message: "the HPA was unable to compute the replica count: failed to get cpu utilization",
+						},
+						{
+							Status:  "False",
+							Type:    v2.ScalingLimited,
+							Message: "the desired count is within the acceptable range",
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "app",
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](0),
+									AverageValue:       resource.NewQuantity(0, resource.DecimalSI),
+									Value:              resource.NewQuantity(0, resource.DecimalSI),
+								},
+								Name: v1.ResourceCPU,
+							},
+						},
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "istio-proxy",
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](0),
+									AverageValue:       resource.NewQuantity(0, resource.DecimalSI),
+									Value:              resource.NewQuantity(0, resource.DecimalSI),
+								},
+								Name: v1.ResourceCPU,
+							},
+						},
+					},
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 1000,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name:      v1.ResourceCPU,
+								Container: "app",
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](70),
+									Type:               v2.UtilizationMetricType,
+								},
+							},
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name:      v1.ResourceCPU,
+								Container: "istio-proxy",
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](70),
+									Type:               v2.UtilizationMetricType,
+								},
+							},
+						},
+					},
+					ScaleTargetRef: v2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         100,
+									PeriodSeconds: 60,
+								},
+							},
+						},
+						ScaleDown: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         2,
+									PeriodSeconds: 90,
+								},
+							},
+						},
+					},
+				},
+			},
+			result: false,
+		},
+		{
+			name: "Container resource metric missing",
+			HPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "existing-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Status:  "True",
+							Type:    v2.AbleToScale,
+							Message: "recommended size matches current size",
+						},
+						{
+							Status:  "True",
+							Type:    v2.ScalingActive,
+							Message: "the HPA was able to successfully calculate a replica count from cpu container resource utilization (percentage of request)",
+						},
+						{
+							Status:  "False",
+							Type:    v2.ScalingLimited,
+							Message: "the desired count is within the acceptable range",
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "app",
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](0),
+									AverageValue:       resource.NewQuantity(0, resource.DecimalSI),
+									Value:              resource.NewQuantity(0, resource.DecimalSI),
+								},
+								Name: v1.ResourceCPU,
+							},
+						},
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "istio-proxy",
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](0),
+									AverageValue:       resource.NewQuantity(0, resource.DecimalSI),
+									Value:              resource.NewQuantity(0, resource.DecimalSI),
+								},
+								Name: v1.ResourceCPU,
+							},
+						},
+					},
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 1000,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name:      v1.ResourceCPU,
+								Container: "app",
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](70),
+									Type:               v2.UtilizationMetricType,
+								},
+							},
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name:      v1.ResourceCPU,
+								Container: "istio-proxy",
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](70),
+									Type:               v2.UtilizationMetricType,
+								},
+							},
+						},
+					},
+					ScaleTargetRef: v2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         100,
+									PeriodSeconds: 60,
+								},
+							},
+						},
+						ScaleDown: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         2,
+									PeriodSeconds: 90,
+								},
+							},
+						},
+					},
+				},
+			},
+			result: false,
+		},
+		{
+			name: "HPA working normally",
+			HPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "existing-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Status:  "True",
+							Type:    v2.AbleToScale,
+							Message: "recommended size matches current size",
+						},
+						{
+							Status:  "True",
+							Type:    v2.ScalingActive,
+							Message: "the HPA was able to successfully calculate a replica count from cpu container resource utilization (percentage of request)",
+						},
+						{
+							Status:  "False",
+							Type:    v2.ScalingLimited,
+							Message: "the desired count is within the acceptable range",
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "app",
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](70),
+									AverageValue:       resource.NewQuantity(5, resource.DecimalSI),
+									Value:              resource.NewQuantity(5, resource.DecimalSI),
+								},
+								Name: v1.ResourceCPU,
+							},
+						},
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "istio-proxy",
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](70),
+									AverageValue:       resource.NewQuantity(5, resource.DecimalSI),
+									Value:              resource.NewQuantity(5, resource.DecimalSI),
+								},
+								Name: v1.ResourceCPU,
+							},
+						},
+					},
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 1000,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name:      v1.ResourceCPU,
+								Container: "app",
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](70),
+									Type:               v2.UtilizationMetricType,
+								},
+							},
+						},
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name:      v1.ResourceCPU,
+								Container: "istio-proxy",
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](70),
+									Type:               v2.UtilizationMetricType,
+								},
+							},
+						},
+					},
+					ScaleTargetRef: v2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         100,
+									PeriodSeconds: 60,
+								},
+							},
+						},
+						ScaleDown: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         2,
+									PeriodSeconds: 90,
+								},
+							},
+						},
+					},
+				},
+			},
+			result: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 100, 1000, 3, "")
+			if err != nil {
+				t.Fatalf("New() error = %v", err)
+			}
+			status := c.IsHpaMetricAvailable(context.Background(), tt.HPA)
+			if status != tt.result {
+				t.Errorf("Service.checkHpaMetricStatus() status test: %s failed", tt.name)
+				return
 			}
 		})
 	}

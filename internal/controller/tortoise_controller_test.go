@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -121,11 +122,25 @@ func createTortoiseWithStatus(ctx context.Context, k8sClient client.Client, tort
 	Expect(err).NotTo(HaveOccurred())
 }
 
+func createHPAWithStatus(ctx context.Context, k8sClient client.Client, hpa *v2.HorizontalPodAutoscaler) {
+	err := k8sClient.Create(ctx, hpa.DeepCopy())
+	Expect(err).NotTo(HaveOccurred())
+
+	h := &v2.HorizontalPodAutoscaler{}
+	err = k8sClient.Get(ctx, client.ObjectKey{Namespace: hpa.Namespace, Name: hpa.Name}, h)
+	Expect(err).NotTo(HaveOccurred())
+
+	if !reflect.DeepEqual(hpa.Status, v2.HorizontalPodAutoscalerStatus{}) {
+		h.Status = hpa.Status
+		err = k8sClient.Status().Update(ctx, h)
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
 func initializeResourcesFromFiles(ctx context.Context, k8sClient client.Client, path string) resources {
 	resource := newResource(path)
 	if resource.hpa != nil {
-		err := k8sClient.Create(ctx, resource.hpa)
-		Expect(err).NotTo(HaveOccurred())
+		createHPAWithStatus(ctx, k8sClient, resource.hpa)
 	}
 
 	createDeploymentWithStatus(ctx, k8sClient, resource.deployment)
@@ -171,18 +186,13 @@ func updateResourcesInTestCaseFile(path string, resource resources) error {
 	}
 
 	if resource.hpa != nil {
-		err = writeToFile(filepath.Join(path, "hpa.yaml"), removeUnnecessaryFieldsFromHPA(resource.hpa))
+		err = writeToFile(filepath.Join(path, "hpa.yaml"), resource.hpa)
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func removeUnnecessaryFieldsFromHPA(hpa *v2.HorizontalPodAutoscaler) *v2.HorizontalPodAutoscaler {
-	hpa.Status = v2.HorizontalPodAutoscalerStatus{}
-	return hpa
 }
 
 func removeUnnecessaryFieldsFromDeployment(deployment *v1.Deployment) *v1.Deployment {
@@ -475,6 +485,17 @@ var _ = Describe("Test TortoiseController", func() {
 		})
 		It("Horizontal is removed and modify the existing HPA", func() {
 			runTest(filepath.Join("testdata", "mutable-autoscalingpolicy-remove-horizontal-2"))
+		})
+	})
+	Context("automatic switch to emergency mode", func() {
+		It("HPA scalingactive condition false", func() {
+			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-hpa-condition"))
+		})
+		It("HPA scalingactive no metrics", func() {
+			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-hpa-no-metrics"))
+		})
+		It("Tortoise changes the status back to Working if it finds HPA is working fine now", func() {
+			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-hpa-back-to-working"))
 		})
 	})
 	Context("DeletionPolicy is handled correctly", func() {
