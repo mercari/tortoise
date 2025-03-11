@@ -45,6 +45,8 @@ func TestParseConfig(t *testing.T) {
 				IstioSidecarProxyDefaultCPU:              "100m",
 				IstioSidecarProxyDefaultMemory:           "200Mi",
 				MaxAllowedScalingDownRatio:               0.5,
+				ServiceGroups:                            []ServiceGroup{},
+				MaximumMaxReplicasPerService:             []MaximumMaxReplicasPerGroup{},
 				MinimumCPURequestPerContainer: map[string]string{
 					"istio-proxy": "100m",
 					"hoge-agent":  "120m",
@@ -92,6 +94,8 @@ func TestParseConfig(t *testing.T) {
 				MinimumCPURequestPerContainer:            map[string]string{},
 				MinimumMemoryRequestPerContainer:         map[string]string{},
 				ResourceLimitMultiplier:                  map[string]int64{},
+				ServiceGroups:                            []ServiceGroup{},
+				MaximumMaxReplicasPerService:             []MaximumMaxReplicasPerGroup{},
 				BufferRatioOnVerticalResource:            0.1,
 			},
 		},
@@ -134,6 +138,8 @@ func TestParseConfig(t *testing.T) {
 				MinimumCPURequestPerContainer:            map[string]string{},
 				MinimumMemoryRequestPerContainer:         map[string]string{},
 				ResourceLimitMultiplier:                  map[string]int64{},
+				ServiceGroups:                            []ServiceGroup{},
+				MaximumMaxReplicasPerService:             []MaximumMaxReplicasPerGroup{},
 				BufferRatioOnVerticalResource:            0.1,
 			},
 		},
@@ -223,7 +229,7 @@ func Test_validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "invalid PreferredMaxReplicas",
+			name: "invalid PreferredMaxReplicas less than MinimumMinReplicas",
 			config: &Config{
 				RangeOfMinMaxReplicasRecommendationHours: 2,
 				GatheringDataPeriodType:                  "daily",
