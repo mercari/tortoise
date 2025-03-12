@@ -1,6 +1,8 @@
 metadata:
   name: mercari
   namespace: default
+  labels:
+    app: tortoise
 spec:
   targetRefs:
     scaleTargetRef:
