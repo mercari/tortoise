@@ -219,7 +219,7 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 }
 
 // TODO: move this to configuration
-var globalRecommendedHPABehavior = &v2.HorizontalPodAutoscalerBehavior{
+var defaultHPABehavior = &v2.HorizontalPodAutoscalerBehavior{
 	ScaleUp: &v2.HPAScalingRules{
 		Policies: []v2.HPAScalingPolicy{
 			{
@@ -250,6 +250,10 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 		return nil, tortoise, nil
 	}
 
+	behavior := tortoise.Spec.HorizontalPodAutoscalerBehavior
+	if behavior == nil {
+		behavior = defaultHPABehavior
+	}
 	hpa := &v2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      autoscalingv1beta3.TortoiseDefaultHPAName(tortoise.Name),
@@ -263,7 +267,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 			},
 			MinReplicas: ptr.To[int32](c.minimumMinReplicas),
 			MaxReplicas: c.maximumMaxReplica,
-			Behavior:    globalRecommendedHPABehavior,
+			Behavior:    behavior,
 		},
 	}
 
@@ -615,7 +619,11 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 			return fmt.Errorf("change HPA from tortoise recommendation: %w", err)
 		}
 		metricsRecorded = true
-		hpa.Spec.Behavior = globalRecommendedHPABehavior // overwrite
+		behavior := tortoise.Spec.HorizontalPodAutoscalerBehavior
+		if behavior == nil {
+			behavior = defaultHPABehavior
+		}
+		hpa.Spec.Behavior = behavior // overwrite
 		retTortoise = tortoise
 		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 			// don't update status if update mode is off. (= dryrun)

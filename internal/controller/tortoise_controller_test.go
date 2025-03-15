@@ -440,6 +440,9 @@ var _ = Describe("Test TortoiseController", func() {
 		It("TortoisePhaseWorking and HPA changed", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-hpa-changed"))
 		})
+		It("TortoisePhaseWorking and HPA changed behavior", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-hpa-changed-behavior"))
+		})
 		It("user just enabled TortoisePhaseEmergency", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-emergency-started"))
 		})

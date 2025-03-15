@@ -26,6 +26,7 @@ SOFTWARE.
 package v1beta3
 
 import (
+	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,6 +91,11 @@ type TortoiseSpec struct {
 	// If nil, Tortoise uses the cluster wide default value, which can be configured via the admin config.
 	// +optional
 	MaxReplicas *int32 `json:"maxReplicas,omitempty" protobuf:"bytes,6,opt,name=maxReplicas"`
+	// HorizontalPodAutoscalerBehavior is the behavior of the HPA that Tortoise creates.
+	// This is useful for advanced users who want to customize the scaling behavior of the HPA.
+	// If nil, Tortoise uses the cluster wide default value, which is currently hard-coded.
+	// +optional
+	HorizontalPodAutoscalerBehavior *v2.HorizontalPodAutoscalerBehavior `json:"horizontalPodAutoscalerBehavior,omitempty" protobuf:"bytes,7,opt,name=horizontalPodAutoscalerBehavior"`
 }
 
 type ContainerAutoscalingPolicy struct {
