@@ -71,6 +71,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(autoscalingv1beta3.AddToScheme(scheme))
+	utilruntime.Must(autoscalingv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -191,6 +192,14 @@ func main() {
 	}
 	if err = (&autoscalingv1beta3.Tortoise{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Tortoise")
+		os.Exit(1)
+	}
+	if err = (&controller.ScheduledScalingReconciler{
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		TortoiseService: tortoiseService,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ScheduledScaling")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

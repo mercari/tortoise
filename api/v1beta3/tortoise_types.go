@@ -90,7 +90,29 @@ type TortoiseSpec struct {
 	// If nil, Tortoise uses the cluster wide default value, which can be configured via the admin config.
 	// +optional
 	MaxReplicas *int32 `json:"maxReplicas,omitempty" protobuf:"bytes,6,opt,name=maxReplicas"`
+	// Recommenders are responsible for generating recommendation for this Tortoise.
+	// When you specify your custom recommenders here, Tortoise controller doesn't update the recommendations that yours are responsible for.
+	// +optional
+	Recommenders []*Recommender `json:"recommenders,omitempty" protobuf:"bytes,7,opt,name=recommenders"`
 }
+
+type Recommender struct {
+	// Name is the name of recommender that this selector selects.
+	Name string
+	// ResponsibleFor represents which kind of recommendation this recommender generates.
+	ResponsibleFor []ResponsibleFor
+}
+
+type ResponsibleFor string
+
+const (
+	// This recommender is responsible for generating `.status.Recommendation.Horizontal`.
+	Horizontal ResponsibleFor = "Horizontal"
+	// This recommender is responsible for generating `.status.Recommendation.Vertical`.
+	Vertical ResponsibleFor = "Vertical"
+	// This recommender is responsible for generating `.status.Recommendation.Constraints`.
+	Constraint ResponsibleFor = "Constraints"
+)
 
 type ContainerAutoscalingPolicy struct {
 	// ContainerName is the name of target container.
@@ -283,6 +305,10 @@ type Recommendations struct {
 	Horizontal HorizontalRecommendations `json:"horizontal,omitempty" protobuf:"bytes,1,opt,name=horizontal"`
 	// +optional
 	Vertical VerticalRecommendations `json:"vertical,omitempty" protobuf:"bytes,2,opt,name=vertical"`
+	// Constraints shows the constraints that this Tortoise has to take into account when generating the recommendation.
+	// When this field is empty, a global constraints that are configured through the admin configuration are used.
+	// +optional
+	Constraints Constraints `json:"constraints,omitempty" protobuf:"bytes,3,opt,name=constraints"`
 }
 
 type VerticalRecommendations struct {
@@ -332,6 +358,17 @@ type ReplicasRecommendation struct {
 	Value int32 `json:"value" protobuf:"variant,5,name=value"`
 	// +optional
 	UpdatedAt metav1.Time `json:"updatedAt,omitempty" protobuf:"bytes,6,opt,name=updatedAt"`
+}
+
+type Constraints struct {
+	// MinimumMinReplicas is the minimum replica number that Tortoise gives to HPA.
+	// Note that if it has a value lower than a global MinimumMinReplicas, it's just ignored; a global constraint is priority.
+	// +optional
+	MinimumMinReplicas *int `json:"minimumMinReplicas,omitempty" protobuf:"bytes,1,opt,name=minimumMinReplicas"`
+	// MinAllocatedResources is the minimum resource request that Tortoise gives to the Pods.
+	// Note that if it has a value lower than a global MinAllocatedResources, it's just ignored; a global constraint is priority.
+	// +optional
+	MinAllocatedResources []ContainerResourcePolicy `json:"minAllocatedResources,omitempty" protobuf:"bytes,2,opt,name=minAllocatedResources"`
 }
 
 type HPATargetUtilizationRecommendationPerContainer struct {
