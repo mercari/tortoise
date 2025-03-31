@@ -1,0 +1,9 @@
+apiVersion: autoscaling.mercari.com/v1alpha1
+kind: ScheduledScaling
+metadata:
+  labels:
+    app.kubernetes.io/name: tortoise
+    app.kubernetes.io/managed-by: kustomize
+  name: scheduledscaling-sample
+spec:
+  # TODO(user): Add fields here

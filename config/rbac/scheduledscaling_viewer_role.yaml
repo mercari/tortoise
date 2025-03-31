@@ -1,0 +1,23 @@
+# permissions for end users to view scheduledscalings.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: tortoise
+    app.kubernetes.io/managed-by: kustomize
+  name: scheduledscaling-viewer-role
+rules:
+- apiGroups:
+  - autoscaling.mercari.com
+  resources:
+  - scheduledscalings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - autoscaling.mercari.com
+  resources:
+  - scheduledscalings/status
+  verbs:
+  - get

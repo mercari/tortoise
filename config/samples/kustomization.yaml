@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- autoscaling_v1alpha1_scheduledscaling.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
