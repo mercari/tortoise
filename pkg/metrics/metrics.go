@@ -46,26 +46,6 @@ var (
 		Help: "memory request (byte) that tortoises actually applys",
 	}, []string{"tortoise_name", "namespace", "container_name", "controller_name", "controller_kind"})
 
-	NetHPAMinReplicasCPUCores = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "net_hpa_minreplicas_cpu_cores",
-		Help: "net cpu cores changed by minReplicas that tortoises actually applys to hpa",
-	}, []string{"tortoise_name", "namespace", "hpa_name"})
-
-	NetHPAMinReplicasMemory = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "net_hpa_minreplicas_memory",
-		Help: "net memory changed by minReplicas that tortoises actually applys to hpa",
-	}, []string{"tortoise_name", "namespace", "hpa_name"})
-
-	NetHPAMaxReplicasCPUCores = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "net_hpa_maxreplicas_cpu_cores",
-		Help: "net cpu cores changed by maxReplicas that tortoises actually applys to hpa",
-	}, []string{"tortoise_name", "namespace", "hpa_name"})
-
-	NetHPAMaxReplicasMemory = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "net_hpa_maxreplicas_memory",
-		Help: "net memory changed by maxReplicas that tortoises actually applys to hpa",
-	}, []string{"tortoise_name", "namespace", "hpa_name"})
-
 	NetCPURequest = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "net_cpu_request",
 		Help: "net cpu request (millicore) that tortoises actually applys",
@@ -117,10 +97,6 @@ func init() {
 		AppliedHPAMinReplicas,
 		AppliedCPURequest,
 		AppliedMemoryRequest,
-		NetHPAMinReplicasCPUCores,
-		NetHPAMinReplicasMemory,
-		NetHPAMaxReplicasCPUCores,
-		NetHPAMaxReplicasMemory,
 		NetCPURequest,
 		NetMemoryRequest,
 		ProposedHPATargetUtilization,

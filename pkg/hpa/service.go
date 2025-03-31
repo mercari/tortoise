@@ -405,7 +405,6 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		recommendMax = c.maximumMaxReplica
 	}
 
-	oldMax := hpa.Spec.MaxReplicas
 	hpa.Spec.MaxReplicas = recommendMax
 
 	recommendMin, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
@@ -444,33 +443,9 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		minToActuallyApply = recommendMin
 	}
 
-	oldMin := *hpa.Spec.MinReplicas
 	hpa.Spec.MinReplicas = &minToActuallyApply
 	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && recordMetrics {
 		// We don't want to record applied* metric when UpdateMode is Off.
-		netChangeMaxReplicas := float64(recommendMax - oldMax)
-		netChangeMinReplicas := float64(recommendMin - oldMin)
-		cpu := float64(0)
-		mem := float64(0)
-		for _, r := range tortoise.Status.Conditions.ContainerResourceRequests {
-			for resourcename, value := range r.Resource {
-				if resourcename == corev1.ResourceCPU {
-					cpu += value.AsApproximateFloat64()
-				}
-				if resourcename == corev1.ResourceMemory {
-					mem += value.AsApproximateFloat64()
-				}
-			}
-		}
-		netChangeMaxReplicasCpu := netChangeMaxReplicas * cpu
-		netChangeMinReplicasCpu := netChangeMinReplicas * cpu
-		netChangeMinReplicasMem := netChangeMinReplicas * mem
-		netChangeMaxReplicasMem := netChangeMaxReplicas * mem
-
-		metrics.NetHPAMinReplicasCPUCores.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(netChangeMinReplicasCpu)
-		metrics.NetHPAMaxReplicasCPUCores.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(netChangeMaxReplicasCpu)
-		metrics.NetHPAMinReplicasMemory.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(netChangeMinReplicasMem)
-		metrics.NetHPAMaxReplicasMemory.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(netChangeMaxReplicasMem)
 		metrics.AppliedHPAMinReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(*hpa.Spec.MinReplicas))
 		metrics.AppliedHPAMaxReplicas.WithLabelValues(tortoise.Name, tortoise.Namespace, hpa.Name).Set(float64(hpa.Spec.MaxReplicas))
 	}
