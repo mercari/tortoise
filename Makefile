@@ -78,7 +78,7 @@ test-e2e: manifests generate fmt vet ## Run the e2e tests. Expected an isolated 
 		echo "No Kind cluster is running. Please start a Kind cluster before running the e2e tests."; \
 		exit 1; \
 	}
-	go test ./test/e2e/ -v -ginkgo.v -test.trace --kubeconfig=/tmp/kind-e2e.yaml
+	go test ./test/e2e/ -v -ginkgo.v
 
 .PHONY: lint
 lint:
@@ -199,7 +199,6 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 .PHONY: dependencies
 dependencies:
 	@./scripts/dependencies.sh
-
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary
