@@ -78,7 +78,7 @@ test-e2e: manifests generate fmt vet ## Run the e2e tests. Expected an isolated 
 		echo "No Kind cluster is running. Please start a Kind cluster before running the e2e tests."; \
 		exit 1; \
 	}
-	go test ./test/e2e/ -v -ginkgo.v
+	go test ./test/e2e/ -v -ginkgo.v -test.trace --kubeconfig=/tmp/kind-e2e.yaml
 
 .PHONY: lint
 lint:
@@ -199,6 +199,37 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 .PHONY: dependencies
 dependencies:
 	@./scripts/dependencies.sh
+
+
+
+KIND_CLUSTER = kind-test-cluster
+KIND_KUBECONFIG = kind-test-cluster
+TEMP_DIR = ./tmp/
+K8S_VERSION = 1.27.1
+MANIFEST_DIR = ./local_cluster
+
+cluster/temp:
+	mkdir -p $(TEMP_DIR) && chmod 777 $(TEMP_DIR)
+
+cluster/context: ## Switch kubectl context to use kind cluster
+	kubectl config use-context $(KIND_KUBECONFIG)
+
+cluster/create: cluster/temp ## Create new kind cluster
+	kind create cluster --image=kindest/node:v$(K8S_VERSION) --name $(KIND_CLUSTER) --config $(MANIFEST_DIR)/cluster/kind.yaml
+	make cluster/context
+
+image/local:
+	make cluster/context
+	docker build --target cleaner -t cleaner:latest . 
+	kind load docker-image docker.io/library/cleaner:latest --name ${KIND_CLUSTER}
+
+cluster/delete: cluster/context ## Delete kind cluster
+	kind delete cluster --name $(KIND_CLUSTER)
+
+# kind create cluster --name kind   
+# kubectl config use-context kind-kind          
+# kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.17.0/cert-manager.yaml
+
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary

@@ -5,19 +5,19 @@ resources:
 - bases/autoscaling.mercari.com_tortoises.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
-patchesStrategicMerge:
+# the following config is for teaching kustomize how to do kustomization for CRDs.
+configurations:
+- kustomizeconfig.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+patches:
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
 # patches here are for enabling the conversion webhook for each CRD
 - path: patches/webhook_in_tortoises.yaml
-#- patches/webhook_in_tortoises.yaml
 #+kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [CERTMANAGER] To enable cert-manager, uncomment all the sections with [CERTMANAGER] prefix.
 # patches here are for enabling the CA injection for each CRD
 - path: patches/cainjection_in_tortoises.yaml
-#- patches/cainjection_in_tortoises.yaml
 #+kubebuilder:scaffold:crdkustomizecainjectionpatch
 
-# the following config is for teaching kustomize how to do kustomization for CRDs.
-configurations:
-- kustomizeconfig.yaml
