@@ -1,0 +1,13 @@
+apiVersion: kind.x-k8s.io/v1alpha4
+kind: Cluster
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+    - |
+      kind: InitConfiguration
+      nodeRegistration:
+        kubeletExtraArgs:
+          node-labels: "ingress-ready=true"
+    extraMounts:
+      - hostPath: /Users/jrbangit03/Desktop/test_kind_cluster/ #TO-DO: change to dynamic
+        containerPath: /data
