@@ -240,7 +240,7 @@ func removeUnnecessaryFields(rawdata []byte) ([]byte, error) {
 	delete(typed, "uid")
 	delete(typed, "generation")
 
-	return yaml.Marshal(data)
+	return yaml.Marshal(data) 
 }
 
 func startController(ctx context.Context) func() {
@@ -408,7 +408,7 @@ var _ = Describe("Test TortoiseController", func() {
 			}
 		}
 
-		stopFunc()
+		stopFunc() 
 		time.Sleep(100 * time.Millisecond)
 	})
 
