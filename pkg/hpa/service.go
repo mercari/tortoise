@@ -38,6 +38,7 @@ type Service struct {
 	tortoiseHPATargetUtilizationMaxIncrease    int
 	recorder                                   record.EventRecorder
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration
+	defaultHPABehaviour                        *v2.HorizontalPodAutoscalerBehavior
 	minimumMinReplicas                         int32
 	maximumMinReplica                          int32
 	maximumMaxReplica                          int32
@@ -51,6 +52,7 @@ func New(
 	maximumTargetResourceUtilization,
 	tortoiseHPATargetUtilizationMaxIncrease int,
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration,
+	defaultHPABehaviour *v2.HorizontalPodAutoscalerBehavior,
 	maximumMinReplica, maximumMaxReplica int32,
 	minimumMinReplicas int32,
 	externalMetricExclusionRegex string,
@@ -72,6 +74,7 @@ func New(
 		tortoiseHPATargetUtilizationMaxIncrease: tortoiseHPATargetUtilizationMaxIncrease,
 		recorder:                                recorder,
 		tortoiseHPATargetUtilizationUpdateInterval: tortoiseHPATargetUtilizationUpdateInterval,
+		defaultHPABehaviour:                        defaultHPABehaviour,
 		maximumMinReplica:                          maximumMinReplica,
 		minimumMinReplicas:                         minimumMinReplicas,
 		maximumMaxReplica:                          maximumMaxReplica,
