@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+	v2 "k8s.io/api/autoscaling/v2"
 
 	"github.com/mercari/tortoise/pkg/features"
 )
@@ -235,6 +236,29 @@ type Config struct {
 	// all the external metric which name matches `datadogmetric.*` regex are removed by Tortoise once Tortoise is in Auto mode.
 	HPAExternalMetricExclusionRegex string `yaml:"HPAExternalMetricExclusionRegex"`
 
+	// DefaultHPABehavior defines the default behavior for HPAs created and managed by Tortoise.
+	// If not specified, Tortoise will use built-in default values that scale up aggressively and scale down conservatively.
+	// This default behavior will be used when individual Tortoise resources don't specify their own behavior.
+	//
+	// Example configuration:
+	// ```yaml
+	// DefaultHPABehavior:
+	//   scaleDown:
+	//     policies:
+	//       - periodSeconds: 90
+	//         type: Percent
+	//         value: 2
+	//     selectPolicy: Max
+	//   scaleUp:
+	//     policies:
+	//       - periodSeconds: 60
+	//         type: Percent
+	//         value: 100
+	//     selectPolicy: Max
+	//     stabilizationWindowSeconds: 0
+	// ```
+	DefaultHPABehavior *v2.HorizontalPodAutoscalerBehavior `yaml:"DefaultHPABehavior"`
+
 	// MaxAllowedVerticalScalingDownRatio is the max allowed scaling down ratio (default: 0.8)
 	// For example, if the current resource request is 100m, the max allowed scaling down ratio is 0.8,
 	// the minimum resource request that Tortoise can apply is 80m.
@@ -358,6 +382,51 @@ func validate(config *Config) error {
 			// ResourceLimitMultiplier should be greater than or equal to 1.
 			// If it's less than 1, the resource limit will be less than the resource request, which doesn't make sense.
 			return fmt.Errorf("ResourceLimitMultiplier should be greater than or equal to 1")
+		}
+	}
+
+	// Validate HPA behavior if specified
+	if config.DefaultHPABehavior != nil {
+		// Validate scale up policies
+		if config.DefaultHPABehavior.ScaleUp != nil && len(config.DefaultHPABehavior.ScaleUp.Policies) > 0 {
+			for _, policy := range config.DefaultHPABehavior.ScaleUp.Policies {
+				if policy.PeriodSeconds <= 0 || policy.PeriodSeconds > 1800 {
+					return fmt.Errorf("DefaultHPABehavior.ScaleUp.Policies.PeriodSeconds should be between 1 and 1800 seconds")
+				}
+				if policy.Value <= 0 {
+					return fmt.Errorf("DefaultHPABehavior.ScaleUp.Policies.Value should be greater than 0")
+				}
+				if policy.Type != v2.PodsScalingPolicy && policy.Type != v2.PercentScalingPolicy {
+					return fmt.Errorf("DefaultHPABehavior.ScaleUp.Policies.Type should be either Pods or Percent")
+				}
+			}
+
+			if config.DefaultHPABehavior.ScaleUp.StabilizationWindowSeconds != nil &&
+				(*config.DefaultHPABehavior.ScaleUp.StabilizationWindowSeconds < 0 ||
+					*config.DefaultHPABehavior.ScaleUp.StabilizationWindowSeconds > 3600) {
+				return fmt.Errorf("DefaultHPABehavior.ScaleUp.StabilizationWindowSeconds should be between 0 and 3600 seconds")
+			}
+		}
+
+		// Validate scale down policies
+		if config.DefaultHPABehavior.ScaleDown != nil && len(config.DefaultHPABehavior.ScaleDown.Policies) > 0 {
+			for _, policy := range config.DefaultHPABehavior.ScaleDown.Policies {
+				if policy.PeriodSeconds <= 0 || policy.PeriodSeconds > 1800 {
+					return fmt.Errorf("DefaultHPABehavior.ScaleDown.Policies.PeriodSeconds should be between 1 and 1800 seconds")
+				}
+				if policy.Value <= 0 {
+					return fmt.Errorf("DefaultHPABehavior.ScaleDown.Policies.Value should be greater than 0")
+				}
+				if policy.Type != v2.PodsScalingPolicy && policy.Type != v2.PercentScalingPolicy {
+					return fmt.Errorf("DefaultHPABehavior.ScaleDown.Policies.Type should be either Pods or Percent")
+				}
+			}
+
+			if config.DefaultHPABehavior.ScaleDown.StabilizationWindowSeconds != nil &&
+				(*config.DefaultHPABehavior.ScaleDown.StabilizationWindowSeconds < 0 ||
+					*config.DefaultHPABehavior.ScaleDown.StabilizationWindowSeconds > 3600) {
+				return fmt.Errorf("DefaultHPABehavior.ScaleDown.StabilizationWindowSeconds should be between 0 and 3600 seconds")
+			}
 		}
 	}
 
