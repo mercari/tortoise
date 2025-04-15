@@ -218,26 +218,33 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 	return currenthpa, tortoise, hpaEdited
 }
 
-// TODO: move this to configuration
-var defaultHPABehavior = &v2.HorizontalPodAutoscalerBehavior{
-	ScaleUp: &v2.HPAScalingRules{
-		Policies: []v2.HPAScalingPolicy{
-			{
-				Type:          v2.PercentScalingPolicy,
-				Value:         100,
-				PeriodSeconds: 60,
+func (c *Service) getDefaultHPABehavior() *v2.HorizontalPodAutoscalerBehavior {
+	// If a default was provided in the config, it will be used
+	if c.defaultHPABehavior != nil {
+		return c.defaultHPABehavior
+	}
+
+	// Otherwise we use hard-coded default values
+	return &v2.HorizontalPodAutoscalerBehavior{
+		ScaleUp: &v2.HPAScalingRules{
+			Policies: []v2.HPAScalingPolicy{
+				{
+					Type:          v2.PercentScalingPolicy,
+					Value:         100,
+					PeriodSeconds: 60,
+				},
 			},
 		},
-	},
-	ScaleDown: &v2.HPAScalingRules{
-		Policies: []v2.HPAScalingPolicy{
-			{
-				Type:          v2.PercentScalingPolicy,
-				Value:         2,
-				PeriodSeconds: 90,
+		ScaleDown: &v2.HPAScalingRules{
+			Policies: []v2.HPAScalingPolicy{
+				{
+					Type:          v2.PercentScalingPolicy,
+					Value:         2,
+					PeriodSeconds: 90,
+				},
 			},
 		},
-	},
+	}
 }
 
 func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replicaNum int32, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
@@ -252,7 +259,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 
 	behavior := tortoise.Spec.HorizontalPodAutoscalerBehavior
 	if behavior == nil {
-		behavior = defaultHPABehavior
+		behavior = c.getDefaultHPABehavior()
 	}
 	hpa := &v2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
@@ -621,7 +628,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		metricsRecorded = true
 		behavior := tortoise.Spec.HorizontalPodAutoscalerBehavior
 		if behavior == nil {
-			behavior = defaultHPABehavior
+			behavior = c.getDefaultHPABehavior()
 		}
 		hpa.Spec.Behavior = behavior // overwrite
 		retTortoise = tortoise
