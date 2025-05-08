@@ -267,12 +267,71 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 		},
 	}
 
+	c.copyLabelsFromTortoiseToHPA(tortoise, hpa)
+
 	hpa, tortoise, _ = c.syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx, tortoise, hpa, now)
 
 	tortoise.Status.Targets.HorizontalPodAutoscaler = hpa.Name
 
 	err := c.c.Create(ctx, hpa)
 	return hpa.DeepCopy(), tortoise, err
+}
+
+func (c *Service) copyLabelsFromTortoiseToHPA(tortoise *autoscalingv1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) {
+	if len(tortoise.ObjectMeta.Labels) == 0 {
+		hpa.ObjectMeta.Labels = nil
+		return
+	}
+
+	hpa.ObjectMeta.Labels = make(map[string]string, len(tortoise.ObjectMeta.Labels))
+	for k, v := range tortoise.ObjectMeta.Labels {
+		hpa.ObjectMeta.Labels[k] = v
+	}
+}
+
+// UpdateHPA updates HPA labels from Tortoise.
+// Note that it will not perform any update if the UpdateMode is Off, user specified the existing HPA, or there is no horizontal policy.
+func (c *Service) UpdateHPALabelsFromTortoise(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) error {
+	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+		// When UpdateMode is Off, we don't update HPA.
+		return nil
+	}
+	if !HasHorizontal(tortoise) {
+		// no need to handle when there is no horizontal policy.
+		return nil
+	}
+	if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
+		// no need to handle when the user specified existing HPA.
+		return nil
+	}
+
+	retryNumber := -1
+	updateFn := func() error {
+		retryNumber++
+		hpa := &v2.HorizontalPodAutoscaler{}
+		if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Status.Targets.HorizontalPodAutoscaler}, hpa); err != nil {
+			return fmt.Errorf("failed to get hpa on tortoise: %w", err)
+		}
+		hpa = hpa.DeepCopy()
+
+		if reflect.DeepEqual(hpa.ObjectMeta.Labels, tortoise.ObjectMeta.Labels) {
+			// Labels are already in sync, no need to update.
+			return nil
+		}
+		c.copyLabelsFromTortoiseToHPA(tortoise, hpa)
+
+		if err := c.c.Update(ctx, hpa); err != nil {
+			return fmt.Errorf("failed to update hpa: %w", err)
+		}
+
+		return nil
+	}
+
+	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
+		return fmt.Errorf("update hpa labels: %w (%v times retried)", err, retryNumber)
+	}
+
+	return nil
 }
 
 func (c *Service) GetHPAOnTortoiseSpec(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v2.HorizontalPodAutoscaler, error) {

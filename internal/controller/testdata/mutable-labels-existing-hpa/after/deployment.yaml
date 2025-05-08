@@ -1,0 +1,24 @@
+metadata:
+  name: mercari-app
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: mercari
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2023-01-01T00:00:00Z"
+      creationTimestamp: null
+      labels:
+        app: mercari
+    spec:
+      containers:
+      - image: awesome-mercari-app-image
+        name: app
+        resources:
+          requests:
+            cpu: "10"
+            memory: 10Gi
+status: {}
