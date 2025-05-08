@@ -179,7 +179,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					Name: "hpa",
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
-					Behavior:    defaultHPABehavior.DeepCopy(),
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
 					MinReplicas: ptrInt32(3),
 					MaxReplicas: 6,
 					Metrics: []v2.MetricSpec{
@@ -460,7 +460,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					Name: "hpa",
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
-					Behavior:    defaultHPABehavior.DeepCopy(),
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
 					MinReplicas: ptrInt32(3),
 					MaxReplicas: 6,
 					Metrics: []v2.MetricSpec{
@@ -726,7 +726,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					Name: "hpa",
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
-					Behavior:    defaultHPABehavior.DeepCopy(),
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
 					MinReplicas: ptrInt32(1000), // maximum minReplica
 					MaxReplicas: 10000,
 					Metrics: []v2.MetricSpec{
@@ -987,7 +987,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					Name: "hpa",
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
-					Behavior:    defaultHPABehavior.DeepCopy(),
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
 					MinReplicas: ptrInt32(3),
 					MaxReplicas: 10001, // maximum maxReplica
 					Metrics: []v2.MetricSpec{
@@ -1249,7 +1249,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					Name: "hpa",
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
-					Behavior:    defaultHPABehavior.DeepCopy(),
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
 					MinReplicas: ptrInt32(3),
 					MaxReplicas: 9999, // maximum maxReplica
 					Metrics: []v2.MetricSpec{
@@ -1499,7 +1499,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					Name: "hpa",
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
-					Behavior:    defaultHPABehavior.DeepCopy(),
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
 					MinReplicas: ptrInt32(3),
 					MaxReplicas: 6,
 					Metrics: []v2.MetricSpec{
@@ -1669,7 +1669,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					Name: "hpa",
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
-					Behavior:    defaultHPABehavior.DeepCopy(),
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
 					MinReplicas: ptrInt32(3),
 					MaxReplicas: 6,
 					Metrics: []v2.MetricSpec{
@@ -2232,7 +2232,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					Name: "hpa",
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
-					Behavior:    defaultHPABehavior.DeepCopy(),
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
 					MinReplicas: ptrInt32(3),
 					MaxReplicas: 6,
 					Metrics: []v2.MetricSpec{
@@ -2369,7 +2369,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					Name: "hpa",
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
-					Behavior:    defaultHPABehavior.DeepCopy(),
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
 					MinReplicas: ptrInt32(6),
 					MaxReplicas: 6,
 					Metrics: []v2.MetricSpec{
@@ -2506,7 +2506,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					Name: "hpa",
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
-					Behavior:    defaultHPABehavior.DeepCopy(),
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
 					MinReplicas: ptrInt32(5),
 					MaxReplicas: 6,
 					Metrics: []v2.MetricSpec{
@@ -2643,7 +2643,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 					Name: "hpa",
 				},
 				Spec: v2.HorizontalPodAutoscalerSpec{
-					Behavior:    defaultHPABehavior.DeepCopy(),
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
 					MinReplicas: ptrInt32(3),
 					MaxReplicas: 6,
 					Metrics: []v2.MetricSpec{

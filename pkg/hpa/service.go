@@ -45,6 +45,27 @@ type Service struct {
 	externalMetricExclusionRegex               *regexp.Regexp
 }
 
+var defaultHPABehaviorValue = &v2.HorizontalPodAutoscalerBehavior{
+	ScaleUp: &v2.HPAScalingRules{
+		Policies: []v2.HPAScalingPolicy{
+			{
+				Type:          v2.PercentScalingPolicy,
+				Value:         100,
+				PeriodSeconds: 60,
+			},
+		},
+	},
+	ScaleDown: &v2.HPAScalingRules{
+		Policies: []v2.HPAScalingPolicy{
+			{
+				Type:          v2.PercentScalingPolicy,
+				Value:         2,
+				PeriodSeconds: 90,
+			},
+		},
+	},
+}
+
 func New(
 	c client.Client,
 	recorder record.EventRecorder,
@@ -65,6 +86,11 @@ func New(
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile regex: %w", err)
 		}
+	}
+
+	// If no default behavior is provided, use the built-in default
+	if defaultHPABehavior == nil {
+		defaultHPABehavior = defaultHPABehaviorValue
 	}
 
 	return &Service{
@@ -221,37 +247,6 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 	return currenthpa, tortoise, hpaEdited
 }
 
-var defaultHPABehavior = &v2.HorizontalPodAutoscalerBehavior{
-	ScaleUp: &v2.HPAScalingRules{
-		Policies: []v2.HPAScalingPolicy{
-			{
-				Type:          v2.PercentScalingPolicy,
-				Value:         100,
-				PeriodSeconds: 60,
-			},
-		},
-	},
-	ScaleDown: &v2.HPAScalingRules{
-		Policies: []v2.HPAScalingPolicy{
-			{
-				Type:          v2.PercentScalingPolicy,
-				Value:         2,
-				PeriodSeconds: 90,
-			},
-		},
-	},
-}
-
-func (c *Service) getDefaultHPABehavior() *v2.HorizontalPodAutoscalerBehavior {
-	// If a default was provided in the config, it will be used
-	if c.defaultHPABehavior != nil {
-		return c.defaultHPABehavior
-	}
-
-	// Otherwise we use hard-coded default values from above
-	return defaultHPABehavior
-}
-
 func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replicaNum int32, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
 	if !HasHorizontal(tortoise) {
 		// no need to create HPA
@@ -264,7 +259,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 
 	behavior := tortoise.Spec.HorizontalPodAutoscalerBehavior
 	if behavior == nil {
-		behavior = c.getDefaultHPABehavior()
+		behavior = c.defaultHPABehavior
 	}
 	hpa := &v2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
@@ -633,7 +628,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		metricsRecorded = true
 		behavior := tortoise.Spec.HorizontalPodAutoscalerBehavior
 		if behavior == nil {
-			behavior = c.getDefaultHPABehavior()
+			behavior = c.defaultHPABehavior
 		}
 		hpa.Spec.Behavior = behavior // overwrite
 		retTortoise = tortoise
