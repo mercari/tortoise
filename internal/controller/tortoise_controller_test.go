@@ -240,7 +240,7 @@ func removeUnnecessaryFields(rawdata []byte) ([]byte, error) {
 	delete(typed, "uid")
 	delete(typed, "generation")
 
-	return yaml.Marshal(data) 
+	return yaml.Marshal(data)
 }
 
 func startController(ctx context.Context) func() {
@@ -259,7 +259,7 @@ func startController(ctx context.Context) func() {
 	Expect(err).ShouldNot(HaveOccurred())
 	cli, err := vpa.New(mgr.GetConfig(), recorder)
 	Expect(err).ShouldNot(HaveOccurred())
-	hpaS, err := hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour, 1000, 10000, 3, ".*-exclude-metric")
+	hpaS, err := hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour, nil, 1000, 10000, 3, ".*-exclude-metric")
 	Expect(err).ShouldNot(HaveOccurred())
 	reconciler := &TortoiseReconciler{
 		Scheme:             scheme,
@@ -408,7 +408,7 @@ var _ = Describe("Test TortoiseController", func() {
 			}
 		}
 
-		stopFunc() 
+		stopFunc()
 		time.Sleep(100 * time.Millisecond)
 	})
 
@@ -439,6 +439,9 @@ var _ = Describe("Test TortoiseController", func() {
 		})
 		It("TortoisePhaseWorking and HPA changed", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-hpa-changed"))
+		})
+		It("TortoisePhaseWorking and HPA changed behavior", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-hpa-changed-behavior"))
 		})
 		It("user just enabled TortoisePhaseEmergency", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-emergency-started"))

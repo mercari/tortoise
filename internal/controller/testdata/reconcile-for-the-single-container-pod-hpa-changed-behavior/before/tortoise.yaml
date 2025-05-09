@@ -1,0 +1,80 @@
+metadata:
+  name: mercari
+  namespace: default
+spec:
+  targetRefs:
+    horizontalPodAutoscalerName: tortoise-hpa-mercari
+    scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: mercari-app
+  horizontalPodAutoscalerBehavior:
+    scaleDown:
+      policies:
+        - periodSeconds: 10
+          type: Percent
+          value: 5
+      selectPolicy: Min
+    scaleUp:
+      policies:
+        - periodSeconds: 20
+          type: Percent
+          value: 60
+      selectPolicy: Min
+      stabilizationWindowSeconds: 50
+status:
+  autoscalingPolicy:
+    - policy:
+        cpu: Horizontal
+        memory: Vertical
+      containerName: app
+  conditions:
+    containerRecommendationFromVPA:
+      - containerName: app
+        maxRecommendation:
+          cpu:
+            quantity: "0"
+            updatedAt: null
+          memory:
+            quantity: "0"
+            updatedAt: null
+        recommendation:
+          cpu:
+            quantity: "0"
+            updatedAt: null
+          memory:
+            quantity: "0"
+            updatedAt: null
+  recommendations:
+    horizontal:
+      maxReplicas:
+        - from: 0
+          timezone: Local
+          to: 24
+          updatedAt: "2023-10-06T01:01:24Z"
+          value: 15
+      minReplicas:
+        - from: 0
+          timezone: Local
+          to: 24
+          updatedAt: "2023-10-06T01:01:24Z"
+          value: 3
+      targetUtilizations:
+        - containerName: app
+          targetUtilization:
+            cpu: 50
+    vertical:
+      containerResourceRecommendation: null
+  targets:
+    horizontalPodAutoscaler: tortoise-hpa-mercari
+    verticalPodAutoscalers:
+      - name: tortoise-monitor-mercari
+        role: Monitor
+  tortoisePhase: Working
+  containerResourcePhases:
+    - containerName: "app"
+      resourcePhases:
+        cpu:
+          phase: Working
+        memory:
+          phase: Working

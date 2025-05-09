@@ -38,10 +38,32 @@ type Service struct {
 	tortoiseHPATargetUtilizationMaxIncrease    int
 	recorder                                   record.EventRecorder
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration
+	defaultHPABehavior                         *v2.HorizontalPodAutoscalerBehavior
 	minimumMinReplicas                         int32
 	maximumMinReplica                          int32
 	maximumMaxReplica                          int32
 	externalMetricExclusionRegex               *regexp.Regexp
+}
+
+var defaultHPABehaviorValue = &v2.HorizontalPodAutoscalerBehavior{
+	ScaleUp: &v2.HPAScalingRules{
+		Policies: []v2.HPAScalingPolicy{
+			{
+				Type:          v2.PercentScalingPolicy,
+				Value:         100,
+				PeriodSeconds: 60,
+			},
+		},
+	},
+	ScaleDown: &v2.HPAScalingRules{
+		Policies: []v2.HPAScalingPolicy{
+			{
+				Type:          v2.PercentScalingPolicy,
+				Value:         2,
+				PeriodSeconds: 90,
+			},
+		},
+	},
 }
 
 func New(
@@ -51,6 +73,7 @@ func New(
 	maximumTargetResourceUtilization,
 	tortoiseHPATargetUtilizationMaxIncrease int,
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration,
+	defaultHPABehavior *v2.HorizontalPodAutoscalerBehavior,
 	maximumMinReplica, maximumMaxReplica int32,
 	minimumMinReplicas int32,
 	externalMetricExclusionRegex string,
@@ -65,6 +88,11 @@ func New(
 		}
 	}
 
+	// If no default behavior is provided, use the built-in default
+	if defaultHPABehavior == nil {
+		defaultHPABehavior = defaultHPABehaviorValue
+	}
+
 	return &Service{
 		c:                                       c,
 		replicaReductionFactor:                  replicaReductionFactor,
@@ -72,6 +100,7 @@ func New(
 		tortoiseHPATargetUtilizationMaxIncrease: tortoiseHPATargetUtilizationMaxIncrease,
 		recorder:                                recorder,
 		tortoiseHPATargetUtilizationUpdateInterval: tortoiseHPATargetUtilizationUpdateInterval,
+		defaultHPABehavior:                         defaultHPABehavior,
 		maximumMinReplica:                          maximumMinReplica,
 		minimumMinReplicas:                         minimumMinReplicas,
 		maximumMaxReplica:                          maximumMaxReplica,
@@ -218,28 +247,6 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 	return currenthpa, tortoise, hpaEdited
 }
 
-// TODO: move this to configuration
-var globalRecommendedHPABehavior = &v2.HorizontalPodAutoscalerBehavior{
-	ScaleUp: &v2.HPAScalingRules{
-		Policies: []v2.HPAScalingPolicy{
-			{
-				Type:          v2.PercentScalingPolicy,
-				Value:         100,
-				PeriodSeconds: 60,
-			},
-		},
-	},
-	ScaleDown: &v2.HPAScalingRules{
-		Policies: []v2.HPAScalingPolicy{
-			{
-				Type:          v2.PercentScalingPolicy,
-				Value:         2,
-				PeriodSeconds: 90,
-			},
-		},
-	},
-}
-
 func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, replicaNum int32, now time.Time) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
 	if !HasHorizontal(tortoise) {
 		// no need to create HPA
@@ -250,6 +257,10 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 		return nil, tortoise, nil
 	}
 
+	behavior := tortoise.Spec.HorizontalPodAutoscalerBehavior
+	if behavior == nil {
+		behavior = c.defaultHPABehavior
+	}
 	hpa := &v2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      autoscalingv1beta3.TortoiseDefaultHPAName(tortoise.Name),
@@ -263,7 +274,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 			},
 			MinReplicas: ptr.To[int32](c.minimumMinReplicas),
 			MaxReplicas: c.maximumMaxReplica,
-			Behavior:    globalRecommendedHPABehavior,
+			Behavior:    behavior,
 		},
 	}
 
@@ -615,7 +626,11 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 			return fmt.Errorf("change HPA from tortoise recommendation: %w", err)
 		}
 		metricsRecorded = true
-		hpa.Spec.Behavior = globalRecommendedHPABehavior // overwrite
+		behavior := tortoise.Spec.HorizontalPodAutoscalerBehavior
+		if behavior == nil {
+			behavior = c.defaultHPABehavior
+		}
+		hpa.Spec.Behavior = behavior // overwrite
 		retTortoise = tortoise
 		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 			// don't update status if update mode is off. (= dryrun)

@@ -30,6 +30,7 @@ SOFTWARE.
 package v1beta3
 
 import (
+	"k8s.io/api/autoscaling/v2"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -515,6 +516,11 @@ func (in *TortoiseSpec) DeepCopyInto(out *TortoiseSpec) {
 		in, out := &in.MaxReplicas, &out.MaxReplicas
 		*out = new(int32)
 		**out = **in
+	}
+	if in.HorizontalPodAutoscalerBehavior != nil {
+		in, out := &in.HorizontalPodAutoscalerBehavior, &out.HorizontalPodAutoscalerBehavior
+		*out = new(v2.HorizontalPodAutoscalerBehavior)
+		(*in).DeepCopyInto(*out)
 	}
 }
 
