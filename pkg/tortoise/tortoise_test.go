@@ -4716,3 +4716,207 @@ func TestService_UpdateTortoisePhaseIfHPAIsUnhealthy(t *testing.T) {
 		})
 	}
 }
+
+func TestService_UpdateTortoisePhase(t *testing.T) {
+	now := time.Now()
+
+	tests := []struct {
+		name      string
+		tortoise  *v1beta3.Tortoise
+		wantPhase v1beta3.TortoisePhase
+	}{
+		{
+			name: "EmergencyModeTurnsOff_then_BackToNormal_NoHPA_TransitionsToBackToNormal",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-emergency-off-no-hpa", Namespace: "default"},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+					TargetRefs: v1beta3.TargetRefs{
+						HorizontalPodAutoscalerName: nil,
+					},
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseEmergency,
+				},
+			},
+			wantPhase: v1beta3.TortoisePhaseBackToNormal,
+		},
+		{
+			name: "EmergencyModeTurnsOff_then_BackToNormal_WithHPA_StaysBackToNormal",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-emergency-off-with-hpa", Namespace: "default"},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeEmergency,
+					TargetRefs: v1beta3.TargetRefs{
+						HorizontalPodAutoscalerName: ptr.To("my-hpa"),
+					},
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseEmergency,
+				},
+			},
+			wantPhase: v1beta3.TortoisePhaseEmergency,
+		},
+		{
+			name: "AlreadyBackToNormal_NoHPA_TransitionsToWorking",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-backtonormal-no-hpa", Namespace: "default"},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+					TargetRefs: v1beta3.TargetRefs{
+						HorizontalPodAutoscalerName: nil,
+					},
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseBackToNormal,
+				},
+			},
+			wantPhase: v1beta3.TortoisePhaseWorking,
+		},
+		{
+			name: "AlreadyBackToNormal_WithHPA_StaysWorking",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-backtonormal-with-hpa", Namespace: "default"},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+					TargetRefs: v1beta3.TargetRefs{
+						HorizontalPodAutoscalerName: ptr.To("my-hpa"),
+					},
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseBackToNormal,
+				},
+			},
+			wantPhase: v1beta3.TortoisePhaseWorking,
+		},
+		{
+			name: "OtherPhase_Working_StaysWorking_NoHPA",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-working-no-hpa", Namespace: "default"},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+					TargetRefs: v1beta3.TargetRefs{HorizontalPodAutoscalerName: nil},
+				},
+				Status: v1beta3.TortoiseStatus{TortoisePhase: v1beta3.TortoisePhaseWorking},
+			},
+			wantPhase: v1beta3.TortoisePhaseWorking,
+		},
+		{
+			name: "OtherPhase_GatheringData_StaysGatheringData_WithHPA",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-gatheringdata-with-hpa", Namespace: "default"},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+					TargetRefs: v1beta3.TargetRefs{HorizontalPodAutoscalerName: ptr.To("my-hpa")},
+				},
+				Status: v1beta3.TortoiseStatus{TortoisePhase: v1beta3.TortoisePhaseInitializing},
+			},
+			wantPhase: v1beta3.TortoisePhaseGatheringData,
+		},
+		{
+			name: "EmptyPhase_InitializesTortoisePhase",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-empty-phase", Namespace: "default"},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+					TargetRefs: v1beta3.TargetRefs{HorizontalPodAutoscalerName: ptr.To("my-hpa")},
+				},
+				Status: v1beta3.TortoiseStatus{TortoisePhase: ""},
+			},
+			wantPhase: v1beta3.TortoisePhaseInitializing,
+		},
+		{
+			name: "GatheringData_RemainsUnchanged_WhenDataNotFinished",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-gathering-data", Namespace: "default"},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+					TargetRefs: v1beta3.TargetRefs{HorizontalPodAutoscalerName: ptr.To("my-hpa")},
+				},
+				Status: v1beta3.TortoiseStatus{TortoisePhase: v1beta3.TortoisePhaseGatheringData},
+			},
+			wantPhase: v1beta3.TortoisePhaseGatheringData,
+		},
+		{
+			name: "EmergencyMode_ActivationFails_WithoutHorizontalAutoscaling",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-emergency-activation-no-hpa", Namespace: "default"},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeEmergency,
+					TargetRefs: v1beta3.TargetRefs{HorizontalPodAutoscalerName: nil},
+				},
+				Status: v1beta3.TortoiseStatus{TortoisePhase: v1beta3.TortoisePhaseWorking},
+			},
+			wantPhase: v1beta3.TortoisePhaseWorking,
+		},
+		{
+			name: "EmergencyMode_ActivationFails_DuringInitializationPhase",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-emergency-activation-initializing", Namespace: "default"},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeEmergency,
+					TargetRefs: v1beta3.TargetRefs{HorizontalPodAutoscalerName: ptr.To("my-hpa")},
+				},
+				Status: v1beta3.TortoiseStatus{TortoisePhase: v1beta3.TortoisePhaseInitializing},
+			},
+			wantPhase: v1beta3.TortoisePhaseGatheringData,
+		},
+		{
+			name: "EmergencyMode_ActivatesFrom_WorkingPhase_WithHPA",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-emergency-activation-working", Namespace: "default"},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeEmergency,
+					TargetRefs: v1beta3.TargetRefs{HorizontalPodAutoscalerName: ptr.To("my-hpa")},
+				},
+				Status: v1beta3.TortoiseStatus{TortoisePhase: v1beta3.TortoisePhaseWorking},
+			},
+			wantPhase: v1beta3.TortoisePhaseWorking,
+		},
+		{
+			name: "EmergencyMode_ActivatesFrom_PartlyWorkingPhase_WithHPA",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-emergency-activation-partly-working", Namespace: "default"},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeEmergency,
+					TargetRefs: v1beta3.TargetRefs{HorizontalPodAutoscalerName: ptr.To("my-hpa")},
+				},
+				Status: v1beta3.TortoiseStatus{TortoisePhase: v1beta3.TortoisePhasePartlyWorking},
+			},
+			wantPhase: v1beta3.TortoisePhasePartlyWorking,
+		},
+		{
+			name: "PartlyWorking_RemainsUnchanged_WhenGatheringDataNotFinished",
+			tortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-partly-working", Namespace: "default"},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+					TargetRefs: v1beta3.TargetRefs{HorizontalPodAutoscalerName: ptr.To("my-hpa")},
+				},
+				Status: v1beta3.TortoiseStatus{TortoisePhase: v1beta3.TortoisePhasePartlyWorking},
+			},
+			wantPhase: v1beta3.TortoisePhasePartlyWorking,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tortoiseToTest := tt.tortoise.DeepCopy()
+			recorder := record.NewFakeRecorder(5)
+
+			// Create Service with mocked dependencies to prevent timeout
+			s := &Service{
+				recorder:                                recorder,
+				gatheringDataDuration:                   "daily",
+				rangeOfMinMaxReplicasRecommendationHour: 1,
+				timeZone:                                time.UTC,
+			}
+
+			updatedTortoise := s.UpdateTortoisePhase(tortoiseToTest, now)
+
+			if updatedTortoise.Status.TortoisePhase != tt.wantPhase {
+				t.Errorf("UpdateTortoisePhase() resulted in phase %v, want %v", updatedTortoise.Status.TortoisePhase, tt.wantPhase)
+			}
+		})
+	}
+}

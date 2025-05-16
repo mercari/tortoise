@@ -135,6 +135,13 @@ func (s *Service) UpdateTortoisePhase(tortoise *v1beta3.Tortoise, now time.Time)
 			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Working, "Emergency mode is turned off. Tortoise starts to work on autoscaling normally. HPA.Spec.MinReplica will gradually be reduced")
 			tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseBackToNormal
 		}
+	case v1beta3.TortoisePhaseBackToNormal:
+		if !hasHorizontal(tortoise) {
+			// If there's no HPA, we can transition directly to Working
+			tortoise.Status.TortoisePhase = v1beta3.TortoisePhaseWorking
+			s.recorder.Event(tortoise, corev1.EventTypeNormal, event.Working, "Tortoise has no horizontal scaling, transitioning directly to Working phase")
+		}
+		// If there is HPA, let the HPA service handle the transition
 	}
 
 	if tortoise.Spec.UpdateMode == v1beta3.UpdateModeEmergency {
