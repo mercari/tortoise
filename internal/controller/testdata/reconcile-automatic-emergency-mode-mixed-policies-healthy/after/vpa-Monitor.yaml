@@ -1,0 +1,39 @@
+metadata:
+  annotations:
+    tortoise.autoscaling.mercari.com/managed-by-tortoise: "true"
+  name: tortoise-monitor-mercari
+  namespace: default
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mercari-app
+  updatePolicy:
+    updateMode: "Off"
+status:
+  conditions:
+  - lastTransitionTime: null
+    status: "True"
+    type: RecommendationProvided
+  recommendation:
+    containerRecommendations:
+    - containerName: app
+      lowerBound:
+        cpu: "4"
+        memory: 4Gi
+      target:
+        cpu: "5"
+        memory: 5Gi
+      upperBound:
+        cpu: "7"
+        memory: 7Gi
+    - containerName: istio-proxy
+      lowerBound:
+        cpu: "1"
+        memory: 1Gi
+      target:
+        cpu: "1.5"
+        memory: 1.5Gi
+      upperBound:
+        cpu: "2.5"
+        memory: 2.5Gi
