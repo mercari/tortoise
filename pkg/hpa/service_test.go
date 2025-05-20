@@ -4669,13 +4669,50 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 }
 
 func TestService_IsHpaMetricAvailable(t *testing.T) {
+	commonTortoise := &v1beta3.Tortoise{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-tortoise",
+			Namespace: "default",
+		},
+		Status: v1beta3.TortoiseStatus{
+			AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+				{
+					ContainerName: "app",
+					Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+						v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+					},
+				},
+			},
+		},
+	}
+
+	verticalOnlyTortoise := &v1beta3.Tortoise{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-tortoise-vertical",
+			Namespace: "default",
+		},
+		Status: v1beta3.TortoiseStatus{
+			AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+				{
+					ContainerName: "app",
+					Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+						v1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+						v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+					},
+				},
+			},
+		},
+	}
+
 	tests := []struct {
-		name   string
-		HPA    *v2.HorizontalPodAutoscaler
-		result bool
+		name     string
+		Tortoise *v1beta3.Tortoise
+		HPA      *v2.HorizontalPodAutoscaler
+		result   bool
 	}{
 		{
-			name: "metric server down, should return false",
+			name:     "metric server down, should return false",
+			Tortoise: commonTortoise,
 			HPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "existing-hpa",
@@ -4783,7 +4820,8 @@ func TestService_IsHpaMetricAvailable(t *testing.T) {
 			result: false,
 		},
 		{
-			name: "Container resource metric missing",
+			name:     "Container resource metric missing",
+			Tortoise: commonTortoise,
 			HPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "existing-hpa",
@@ -4891,7 +4929,8 @@ func TestService_IsHpaMetricAvailable(t *testing.T) {
 			result: false,
 		},
 		{
-			name: "HPA working normally",
+			name:     "HPA working normally",
+			Tortoise: commonTortoise,
 			HPA: &v2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "existing-hpa",
@@ -4998,6 +5037,56 @@ func TestService_IsHpaMetricAvailable(t *testing.T) {
 			},
 			result: true,
 		},
+		{
+			name:     "all policies are vertical, should return true",
+			Tortoise: verticalOnlyTortoise,
+			HPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Type:   "ScalingActive",
+							Status: "False",
+							Reason: "FailedGetResourceMetric",
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Name:      v1.ResourceCPU,
+								Container: "app",
+								Current: v2.MetricValueStatus{
+									Value: resource.NewQuantity(0, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+			},
+			result: true,
+		},
+		{
+			name:     "all policies are vertical with nil HPA, should return true",
+			Tortoise: verticalOnlyTortoise,
+			HPA:      nil,
+			result:   true,
+		},
+		{
+			name:     "all policies are vertical with empty HPA status, should return true",
+			Tortoise: verticalOnlyTortoise,
+			HPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{},
+			},
+			result: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -5005,7 +5094,7 @@ func TestService_IsHpaMetricAvailable(t *testing.T) {
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
-			status := c.IsHpaMetricAvailable(context.Background(), tt.HPA)
+			status := c.IsHpaMetricAvailable(context.Background(), tt.Tortoise, tt.HPA)
 			if status != tt.result {
 				t.Errorf("Service.checkHpaMetricStatus() status test: %s failed", tt.name)
 				return

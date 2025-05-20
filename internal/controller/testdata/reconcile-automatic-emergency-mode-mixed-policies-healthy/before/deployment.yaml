@@ -1,0 +1,27 @@
+metadata:
+  name: mercari-app
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: mercari
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+        sidecar.istio.io/proxyCPU: "2"
+        sidecar.istio.io/proxyMemory: "2Gi"
+      labels:
+        app: mercari
+    spec:
+      containers:
+      - name: istio-proxy # will be ignored.
+        image: auto
+      - image: awesome-mercari-app-image
+        name: app
+        resources:
+          requests:
+            cpu: "6"
+            memory: 6Gi
+  replicas: 4

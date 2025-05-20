@@ -500,6 +500,15 @@ var _ = Describe("Test TortoiseController", func() {
 		It("Tortoise changes the status back to Working if it finds HPA is working fine now", func() {
 			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-hpa-back-to-working"))
 		})
+		It("Vertical scaling active condition - tortoise stays in same phase", func() {
+			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-vertical-scaling"))
+		})
+		It("Mixed policies with scalingactive condition false - tortoise moves to emergency", func() {
+			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-mixed-policies-unhealthy"))
+		})
+		It("Mixed policies with scalingactive condition true - tortoise stays in same phase", func() {
+			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-mixed-policies-healthy"))
+		})
 	})
 	Context("DeletionPolicy is handled correctly", func() {
 		It("[DeletionPolicy = DeleteAll] delete HPA and VPA when Tortoise is deleted", func() {
