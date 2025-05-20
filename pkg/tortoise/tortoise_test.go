@@ -4688,6 +4688,188 @@ func TestService_UpdateTortoisePhaseIfHPAIsUnhealthy(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "all vertical policies tortoise working",
+			args: args{
+				t: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test"},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+									corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+									corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								},
+							},
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+				},
+				scalingActive: true,
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test", ResourceVersion: "1"},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+							},
+						},
+					},
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+			},
+		},
+		{
+			name: "mixed policies with unhealthy HPA tortoise working",
+			args: args{
+				t: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test"},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+									corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+									corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+				},
+				scalingActive: false,
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test", ResourceVersion: "1"},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseEmergency,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+			},
+		},
+		{
+			name: "all vertical policies with update mode off",
+			args: args{
+				t: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test"},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+									corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+									corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								},
+							},
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeOff,
+					},
+				},
+				scalingActive: true,
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test", ResourceVersion: "1"},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+							},
+						},
+					},
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeOff,
+				},
+			},
+		},
+		{
+			name: "mixed vertical policies with update mode off",
+			args: args{
+				t: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test"},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+									corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+									corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+									corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+									corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+								},
+							},
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeOff,
+					},
+				},
+				scalingActive: false,
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "test", ResourceVersion: "1"},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+							},
+						},
+					},
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeOff,
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

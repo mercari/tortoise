@@ -786,8 +786,13 @@ func (c *Service) excludeExternalMetric(ctx context.Context, hpa *v2.HorizontalP
 	return newHPA
 }
 
-func (c *Service) IsHpaMetricAvailable(ctx context.Context, currenthpa *v2.HorizontalPodAutoscaler) bool {
+func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, currenthpa *v2.HorizontalPodAutoscaler) bool {
 	logger := log.FromContext(ctx)
+	if !HasHorizontal(tortoise) {
+		// if all scaling policies are vertical, we return scalingActive as True
+		return true
+	}
+
 	if currenthpa == nil || reflect.DeepEqual(currenthpa.Status, v2.HorizontalPodAutoscalerStatus{}) || len(currenthpa.Status.Conditions) == 0 || len(currenthpa.Status.CurrentMetrics) == 0 {
 		// shouldn't reach here because, in this HPA unready case, the controller should stop the reconciliation at the point of fetching hpa.
 		logger.Error(nil, "invalid container resource metric", "hpa", klog.KObj(currenthpa))
