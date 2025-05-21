@@ -17,11 +17,13 @@ status:
         name: cpu
         current:
           value: 4
+      type: ContainerResource
     - containerResource:
         container: istio-proxy
         name: cpu
         current:
           value: 1
+      type: ContainerResource
 spec:
   behavior:
     scaleDown:

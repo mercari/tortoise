@@ -811,12 +811,19 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalin
 	}
 
 	for _, currentMetric := range currentMetrics {
-		if !currentMetric.ContainerResource.Current.Value.IsZero() {
-			// Can still get metrics for some containers, they can scale based on those
-			return true
+		switch currentMetric.Type {
+		case v2.ContainerResourceMetricSourceType:
+			if currentMetric.ContainerResource != nil && !currentMetric.ContainerResource.Current.Value.IsZero() {
+				// Can still get metrics for some containers, they can scale based on those
+				return true
+			}
+		case v2.ExternalMetricSourceType:
+			if currentMetric.External != nil && !currentMetric.External.Current.Value.IsZero() {
+				// External metrics are also valid
+				return true
+			}
 		}
 	}
 	logger.Info("HPA looks unready because all the metrics indicate zero", "hpa", currenthpa.Name)
 	return false
-
 }
