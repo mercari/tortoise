@@ -5087,6 +5087,166 @@ func TestService_IsHpaMetricAvailable(t *testing.T) {
 			},
 			result: true,
 		},
+		{
+			name:     "HPA with non-zero external metric and non-zero container metric, should return true",
+			Tortoise: commonTortoise,
+			HPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Type:   "ScalingActive",
+							Status: "True",
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: "External",
+							External: &v2.ExternalMetricStatus{
+								Current: v2.MetricValueStatus{
+									Value: resource.NewQuantity(500, resource.DecimalSI),
+								},
+							},
+						},
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "app",
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](50),
+									AverageValue:       resource.NewQuantity(1, resource.DecimalSI),
+									Value:              resource.NewQuantity(1, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+			},
+			result: true,
+		},
+		{
+			name:     "HPA with zero external metric and non-zero container metric, should return true",
+			Tortoise: commonTortoise,
+			HPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Type:   "ScalingActive",
+							Status: "True",
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: "External",
+							External: &v2.ExternalMetricStatus{
+								Current: v2.MetricValueStatus{
+									Value: resource.NewQuantity(0, resource.DecimalSI),
+								},
+							},
+						},
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "app",
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](50),
+									AverageValue:       resource.NewQuantity(1, resource.DecimalSI),
+									Value:              resource.NewQuantity(1, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+			},
+			result: true,
+		},
+		{
+			name:     "HPA with non-zero external metric and zero container metric, should return true",
+			Tortoise: commonTortoise,
+			HPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Type:   "ScalingActive",
+							Status: "True",
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: "External",
+							External: &v2.ExternalMetricStatus{
+								Current: v2.MetricValueStatus{
+									Value: resource.NewQuantity(500, resource.DecimalSI),
+								},
+							},
+						},
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "app",
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](0),
+									AverageValue:       resource.NewQuantity(0, resource.DecimalSI),
+									Value:              resource.NewQuantity(0, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+			},
+			result: true,
+		},
+		{
+			name:     "HPA with zero external metric and zero container metric, should return false",
+			Tortoise: commonTortoise,
+			HPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Type:   "ScalingActive",
+							Status: "True",
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: "External",
+							External: &v2.ExternalMetricStatus{
+								Current: v2.MetricValueStatus{
+									Value: resource.NewQuantity(0, resource.DecimalSI),
+								},
+							},
+						},
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "app",
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](0),
+									AverageValue:       resource.NewQuantity(0, resource.DecimalSI),
+									Value:              resource.NewQuantity(0, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+			},
+			result: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

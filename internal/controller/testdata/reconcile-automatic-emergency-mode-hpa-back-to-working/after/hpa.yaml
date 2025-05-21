@@ -53,8 +53,10 @@ status:
         name: cpu
         current:
           value: 3
+      type: ContainerResource
     - containerResource:
         container: istio-proxy
         name: cpu
         current:
           value: 3
+      type: ContainerResource
