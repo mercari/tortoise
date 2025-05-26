@@ -4,21 +4,7 @@ metadata:
   name: tortoise-hpa-mercari
   namespace: default
   labels:
-    app: "existing-hpa"
-status:
-  conditions:
-    - status: "True"
-      type: AbleToScale
-      message: "recommended size matches current size"
-    - status: "True"
-      type: ScalingActive
-      message: "the HPA was able to compute the replica count"
-  currentMetrics:
-    - containerResource:
-        container: app
-        name: cpu
-        current:
-          value: 3
+    app: existing-hpa
 spec:
   behavior:
     scaleDown:
@@ -34,7 +20,7 @@ spec:
         value: 100
       selectPolicy: Max
       stabilizationWindowSeconds: 0
-  maxReplicas: 100
+  maxReplicas: 20
   metrics:
   - containerResource:
       container: app
@@ -43,9 +29,22 @@ spec:
         averageUtilization: 50
         type: Utilization
     type: ContainerResource
-  minReplicas: 1
+  minReplicas: 5
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: mercari-app
-
+status:
+  conditions:
+    - status: "True"
+      type: AbleToScale
+      message: "recommended size matches current size"
+    - status: "True"
+      type: ScalingActive
+      message: "the HPA was able to compute the replica count"
+  currentMetrics:
+    - containerResource:
+        container: app
+        name: cpu
+        current:
+          value: 3

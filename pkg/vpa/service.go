@@ -3,6 +3,7 @@ package vpa
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	autoscaling "k8s.io/api/autoscaling/v1"
@@ -104,6 +105,7 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 			ResourcePolicy: &v1.PodResourcePolicy{},
 		},
 	}
+
 	crp := make([]v1.ContainerResourcePolicy, 0, len(tortoise.Spec.ResourcePolicy))
 	for _, c := range tortoise.Spec.ResourcePolicy {
 		if c.MinAllocatedResources == nil {
@@ -121,6 +123,8 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 		Role: autoscalingv1beta3.VerticalPodAutoscalerRoleMonitor,
 	})
 
+	c.copyLabelsFromTortoiseToVPA(tortoise, vpa)
+
 	vpa, err := c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Create(ctx, vpa, metav1.CreateOptions{})
 	if err != nil {
 		return nil, tortoise, err
@@ -129,6 +133,49 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 	c.recorder.Event(tortoise, corev1.EventTypeNormal, event.VPACreated, fmt.Sprintf("Initialized a monitor VPA %s/%s", vpa.Namespace, vpa.Name))
 
 	return vpa, tortoise, nil
+}
+
+func (c *Service) copyLabelsFromTortoiseToVPA(tortoise *autoscalingv1beta3.Tortoise, vpa *v1.VerticalPodAutoscaler) {
+	if len(tortoise.ObjectMeta.Labels) == 0 {
+		vpa.ObjectMeta.Labels = nil
+		return
+	}
+
+	vpa.ObjectMeta.Labels = make(map[string]string, len(tortoise.ObjectMeta.Labels))
+	for k, v := range tortoise.ObjectMeta.Labels {
+		vpa.ObjectMeta.Labels[k] = v
+	}
+}
+
+func (c *Service) UpdateVPALabelsFromTortoise(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) error {
+	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
+		// When UpdateMode is Off, we don't update VPA.
+		return nil
+	}
+
+	retryNumber := -1
+	updateFn := func() error {
+		retryNumber++
+		vpa, _, err := c.GetTortoiseMonitorVPA(ctx, tortoise)
+		if err != nil {
+			return fmt.Errorf("failed to get vpa on tortoise: %w", err)
+		}
+		vpa = vpa.DeepCopy()
+
+		if reflect.DeepEqual(vpa.ObjectMeta.Labels, tortoise.ObjectMeta.Labels) {
+			return nil
+		}
+		c.copyLabelsFromTortoiseToVPA(tortoise, vpa)
+
+		_, err = c.c.AutoscalingV1().VerticalPodAutoscalers(vpa.Namespace).Update(ctx, vpa, metav1.UpdateOptions{})
+		return err
+	}
+
+	if err := retry.RetryOnConflict(retry.DefaultRetry, updateFn); err != nil {
+		return fmt.Errorf("update vpa labels: %w (%v times retried)", err, retryNumber)
+	}
+
+	return nil
 }
 
 func (c *Service) GetTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, bool, error) {

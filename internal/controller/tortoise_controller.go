@@ -209,6 +209,20 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
+	// Update HPA labels to match Tortoise labels
+	err = r.HpaService.UpdateHPALabelsFromTortoise(ctx, tortoise)
+	if err != nil {
+		logger.Error(err, "update HPA labels from Tortoise", "tortoise", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+
+	// Update VPA labels to match Tortoise labels
+	err = r.VpaService.UpdateVPALabelsFromTortoise(ctx, tortoise)
+	if err != nil {
+		logger.Error(err, "update VPA labels from Tortoise", "tortoise", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+
 	monitorvpa, ready, err := r.VpaService.GetTortoiseMonitorVPA(ctx, tortoise)
 	if err != nil {
 		logger.Error(err, "failed to get tortoise VPA", "tortoise", req.NamespacedName)

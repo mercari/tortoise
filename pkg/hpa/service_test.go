@@ -2886,6 +2886,92 @@ func TestService_InitializeHPA(t *testing.T) {
 			},
 		},
 		{
+			name: "should create new hpa with the same labels as tortoise",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app": "tortoise",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						TargetRefs: v1beta3.TargetRefs{
+							ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "deployment",
+								APIVersion: "apps/v1",
+							},
+						},
+					},
+					Status: v1beta3.TortoiseStatus{
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+					},
+				},
+				replicaNum: 4,
+			},
+			afterHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tortoise-hpa-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app": "tortoise",
+					},
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 1000,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name:      v1.ResourceCPU,
+								Container: "app",
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](70),
+									Type:               v2.UtilizationMetricType,
+								},
+							},
+						},
+					},
+					ScaleTargetRef: v2.CrossVersionObjectReference{
+						Kind:       "Deployment",
+						Name:       "deployment",
+						APIVersion: "apps/v1",
+					},
+					Behavior: &v2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         100,
+									PeriodSeconds: 60,
+								},
+							},
+						},
+						ScaleDown: &v2.HPAScalingRules{
+							Policies: []v2.HPAScalingPolicy{
+								{
+									Type:          v2.PercentScalingPolicy,
+									Value:         2,
+									PeriodSeconds: 90,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "just give annotation to existing hpa",
 			args: args{
 				tortoise: &v1beta3.Tortoise{
@@ -5258,6 +5344,349 @@ func TestService_IsHpaMetricAvailable(t *testing.T) {
 			if status != tt.result {
 				t.Errorf("Service.checkHpaMetricStatus() status test: %s failed", tt.name)
 				return
+			}
+		})
+	}
+}
+
+func TestService_UpdateHPALabelsFromTortoise(t *testing.T) {
+	type args struct {
+		tortoise *v1beta3.Tortoise
+	}
+	tests := []struct {
+		name string
+		// initialHPA is the initial state of the HPA in kube-apiserver
+		initialHPA *v2.HorizontalPodAutoscaler
+		args       args
+		afterHPA   *v2.HorizontalPodAutoscaler
+		wantErr    bool
+	}{
+		{
+			name: "should update HPA labels when HPA is created by tortoise",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app": "tortoise",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						TargetRefs: v1beta3.TargetRefs{
+							ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "deployment",
+								APIVersion: "apps/v1",
+							},
+						},
+					},
+					Status: v1beta3.TortoiseStatus{
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+					},
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+			},
+			afterHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app": "tortoise",
+					},
+				},
+			},
+		},
+		{
+			name: "should remove HPA labels when tortoise labels are empty",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+					},
+					Spec: v1beta3.TortoiseSpec{
+						TargetRefs: v1beta3.TargetRefs{
+							ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "deployment",
+								APIVersion: "apps/v1",
+							},
+						},
+					},
+					Status: v1beta3.TortoiseStatus{
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+					},
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app": "tortoise",
+					},
+				},
+			},
+			afterHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+			},
+		},
+		{
+			name: "should overwrite existing labels on Tortoise-managed HPA",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app":  "tortoise",
+							"name": "tortoise",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						TargetRefs: v1beta3.TargetRefs{
+							ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "deployment",
+								APIVersion: "apps/v1",
+							},
+						},
+					},
+					Status: v1beta3.TortoiseStatus{
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+					},
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app": "old-tortoise",
+					},
+				},
+			},
+			afterHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":  "tortoise",
+						"name": "tortoise",
+					},
+				},
+			},
+		},
+		{
+			name: "should NOT update HPA labels when user specified existing HPA",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app": "tortoise",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						TargetRefs: v1beta3.TargetRefs{
+							HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
+							ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "deployment",
+								APIVersion: "apps/v1",
+							},
+						},
+					},
+					Status: v1beta3.TortoiseStatus{
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+					},
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "existing-hpa",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app": "existing-hpa",
+					},
+				},
+			},
+			afterHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "existing-hpa",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app": "existing-hpa",
+					},
+				},
+			},
+		},
+		{
+			name: "should NOT update when update mode is off",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app": "tortoise",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeOff,
+						TargetRefs: v1beta3.TargetRefs{
+							ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "deployment",
+								APIVersion: "apps/v1",
+							},
+						},
+					},
+					Status: v1beta3.TortoiseStatus{
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+					},
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+			},
+			afterHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+			},
+		},
+		{
+			name: "should NOT update when no horizontal policy is set",
+			args: args{
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app": "tortoise",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						TargetRefs: v1beta3.TargetRefs{
+							ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+								Kind:       "Deployment",
+								Name:       "deployment",
+								APIVersion: "apps/v1",
+							},
+						},
+					},
+					Status: v1beta3.TortoiseStatus{
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+									v1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+								},
+							},
+						},
+					},
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+			},
+			afterHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, err := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, 1000, 10000, 3, "")
+			if err != nil {
+				t.Fatalf("New() error = %v", err)
+			}
+
+			err = c.UpdateHPALabelsFromTortoise(context.Background(), tt.args.tortoise)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Service.UpdateHPALabelsFromTortoise() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			hpa := &v2.HorizontalPodAutoscaler{}
+			err = c.c.Get(context.Background(), client.ObjectKey{Name: tt.afterHPA.Name, Namespace: tt.afterHPA.Namespace}, hpa)
+			if err != nil {
+				t.Errorf("get hpa error = %v", err)
+			}
+			if d := cmp.Diff(tt.afterHPA, hpa, cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "TypeMeta"), cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion")); d != "" {
+				t.Errorf("Service.UpdateHPALabelsFromTortoise() hpa diff = %v", d)
 			}
 		})
 	}
