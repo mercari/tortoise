@@ -18,8 +18,16 @@ testbin/*
 
 !vendor/**/zz_generated.*
 
+# Generated installation files
+dist/
+
 # editor and IDE paraphernalia
 .idea
 *.swp
 *.swo
 *~
+
+# Claude code related ignores
+.claude-helper
+claude-helper
+project-state.md
