@@ -39,12 +39,34 @@ type Service struct {
 	tortoiseHPATargetUtilizationMaxIncrease    int
 	recorder                                   record.EventRecorder
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration
+	defaultHPABehavior                         *v2.HorizontalPodAutoscalerBehavior
 	minimumMinReplicas                         int32
 	maximumMinReplica                          int32
 	maximumMaxReplica                          int32
 	serviceGroups                              []config.ServiceGroup
 	maximumMaxReplicasPerService               []config.MaximumMaxReplicasPerGroup
 	externalMetricExclusionRegex               *regexp.Regexp
+}
+
+var defaultHPABehaviorValue = &v2.HorizontalPodAutoscalerBehavior{
+	ScaleUp: &v2.HPAScalingRules{
+		Policies: []v2.HPAScalingPolicy{
+			{
+				Type:          v2.PercentScalingPolicy,
+				Value:         100,
+				PeriodSeconds: 60,
+			},
+		},
+	},
+	ScaleDown: &v2.HPAScalingRules{
+		Policies: []v2.HPAScalingPolicy{
+			{
+				Type:          v2.PercentScalingPolicy,
+				Value:         2,
+				PeriodSeconds: 90,
+			},
+		},
+	},
 }
 
 func New(
@@ -54,6 +76,7 @@ func New(
 	maximumTargetResourceUtilization,
 	tortoiseHPATargetUtilizationMaxIncrease int,
 	tortoiseHPATargetUtilizationUpdateInterval time.Duration,
+	defaultHPABehavior *v2.HorizontalPodAutoscalerBehavior,
 	maximumMinReplica, maximumMaxReplica int32,
 	minimumMinReplicas int32,
 	serviceGroups []config.ServiceGroup,
@@ -70,6 +93,11 @@ func New(
 		}
 	}
 
+	// If no default behavior is provided, use the built-in default
+	if defaultHPABehavior == nil {
+		defaultHPABehavior = defaultHPABehaviorValue
+	}
+
 	return &Service{
 		c:                                       c,
 		replicaReductionFactor:                  replicaReductionFactor,
@@ -77,6 +105,7 @@ func New(
 		tortoiseHPATargetUtilizationMaxIncrease: tortoiseHPATargetUtilizationMaxIncrease,
 		recorder:                                recorder,
 		tortoiseHPATargetUtilizationUpdateInterval: tortoiseHPATargetUtilizationUpdateInterval,
+		defaultHPABehavior:                         defaultHPABehavior,
 		maximumMinReplica:                          maximumMinReplica,
 		minimumMinReplicas:                         minimumMinReplicas,
 		maximumMaxReplica:                          maximumMaxReplica,
@@ -277,6 +306,10 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 	groupName := c.determineServiceGroup(tortoise)
 	maximumMaxReplicas := c.getMaximumMaxReplicasForGroup(groupName)
 
+	behavior := tortoise.Spec.HorizontalPodAutoscalerBehavior
+	if behavior == nil {
+		behavior = c.defaultHPABehavior
+	}
 	hpa := &v2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      autoscalingv1beta3.TortoiseDefaultHPAName(tortoise.Name),
@@ -290,7 +323,7 @@ func (c *Service) CreateHPA(ctx context.Context, tortoise *autoscalingv1beta3.To
 			},
 			MinReplicas: ptr.To[int32](c.minimumMinReplicas),
 			MaxReplicas: maximumMaxReplicas,
-			Behavior:    globalRecommendedHPABehavior,
+			Behavior:    behavior,
 		},
 	}
 
@@ -665,7 +698,11 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 			return fmt.Errorf("change HPA from tortoise recommendation: %w", err)
 		}
 		metricsRecorded = true
-		hpa.Spec.Behavior = globalRecommendedHPABehavior // overwrite
+		behavior := tortoise.Spec.HorizontalPodAutoscalerBehavior
+		if behavior == nil {
+			behavior = c.defaultHPABehavior
+		}
+		hpa.Spec.Behavior = behavior // overwrite
 		retTortoise = tortoise
 		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 			// don't update status if update mode is off. (= dryrun)
@@ -821,8 +858,13 @@ func (c *Service) excludeExternalMetric(ctx context.Context, hpa *v2.HorizontalP
 	return newHPA
 }
 
-func (c *Service) IsHpaMetricAvailable(ctx context.Context, currenthpa *v2.HorizontalPodAutoscaler) bool {
+func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, currenthpa *v2.HorizontalPodAutoscaler) bool {
 	logger := log.FromContext(ctx)
+	if !HasHorizontal(tortoise) {
+		// if all scaling policies are vertical, we return scalingActive as True
+		return true
+	}
+
 	if currenthpa == nil || reflect.DeepEqual(currenthpa.Status, v2.HorizontalPodAutoscalerStatus{}) || len(currenthpa.Status.Conditions) == 0 || len(currenthpa.Status.CurrentMetrics) == 0 {
 		// shouldn't reach here because, in this HPA unready case, the controller should stop the reconciliation at the point of fetching hpa.
 		logger.Error(nil, "invalid container resource metric", "hpa", klog.KObj(currenthpa))
@@ -841,12 +883,19 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, currenthpa *v2.Horiz
 	}
 
 	for _, currentMetric := range currentMetrics {
-		if !currentMetric.ContainerResource.Current.Value.IsZero() {
-			// Can still get metrics for some containers, they can scale based on those
-			return true
+		switch currentMetric.Type {
+		case v2.ContainerResourceMetricSourceType:
+			if currentMetric.ContainerResource != nil && !currentMetric.ContainerResource.Current.Value.IsZero() {
+				// Can still get metrics for some containers, they can scale based on those
+				return true
+			}
+		case v2.ExternalMetricSourceType:
+			if currentMetric.External != nil && !currentMetric.External.Current.Value.IsZero() {
+				// External metrics are also valid
+				return true
+			}
 		}
 	}
 	logger.Info("HPA looks unready because all the metrics indicate zero", "hpa", currenthpa.Name)
 	return false
-
 }

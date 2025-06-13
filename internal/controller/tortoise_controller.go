@@ -245,7 +245,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		logger.Info("HPA on tortoise is not ready, don't reconcile now and will retry later", "hpa", hpa.Name)
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
-	scalingActive := r.HpaService.IsHpaMetricAvailable(ctx, hpa)
+	scalingActive := r.HpaService.IsHpaMetricAvailable(ctx, tortoise, hpa)
 
 	tortoise, err = r.TortoiseService.UpdateTortoisePhaseIfHPAIsUnhealthy(ctx, scalingActive, tortoise)
 	if err != nil {

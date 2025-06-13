@@ -17,13 +17,6 @@ status:
         name: cpu
         current:
           value: 3
-      type: ContainerResource
-    - containerResource:
-        container: istio-proxy
-        name: cpu
-        current:
-          value: 3
-      type: ContainerResource
 spec:
   behavior:
     scaleDown:
@@ -39,23 +32,23 @@ spec:
         value: 100
       selectPolicy: Max
       stabilizationWindowSeconds: 0
-  maxReplicas: 15
+  maxReplicas: 100
   metrics:
+  - external:
+      metric:
+        name: datadogmetric@hoge:hoge
+      target:
+        type: Value
+        value: 90
+    type: External
   - containerResource:
       container: app
-      name: cpu
+      name: memory
       target:
-        averageUtilization: 30
+        averageUtilization: 50
         type: Utilization
     type: ContainerResource
-  - containerResource:
-      container: istio-proxy
-      name: cpu
-      target:
-        averageUtilization: 30
-        type: Utilization
-    type: ContainerResource
-  minReplicas: 3
+  minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment

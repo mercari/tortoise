@@ -4,6 +4,9 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	v2 "k8s.io/api/autoscaling/v2"
+	"k8s.io/utils/ptr"
 )
 
 func TestParseConfig(t *testing.T) {
@@ -252,6 +255,326 @@ func Test_validate(t *testing.T) {
 				MaximumMaxReplicas:                       100,
 				PreferredMaxReplicas:                     6,
 				MaxAllowedScalingDownRatio:               1.1,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid ResourceLimitMultiplier",
+			config: &Config{
+				ResourceLimitMultiplier: map[string]int64{
+					"cpu":    0,
+					"memory": 1,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid HPA behavior - nil behavior",
+			config: &Config{
+				DefaultHPABehavior:                       nil,
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumTargetResourceUtilization:         65,
+				MaximumTargetResourceUtilization:         90,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid HPA behavior - empty policies",
+			config: &Config{
+				DefaultHPABehavior: &v2.HorizontalPodAutoscalerBehavior{
+					ScaleUp:   &v2.HPAScalingRules{},
+					ScaleDown: &v2.HPAScalingRules{},
+				},
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumTargetResourceUtilization:         65,
+				MaximumTargetResourceUtilization:         90,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid HPA behavior - only scale up policy",
+			config: &Config{
+				DefaultHPABehavior: &v2.HorizontalPodAutoscalerBehavior{
+					ScaleUp: &v2.HPAScalingRules{
+						Policies: []v2.HPAScalingPolicy{
+							{
+								Type:          v2.PercentScalingPolicy,
+								Value:         100,
+								PeriodSeconds: 60,
+							},
+						},
+						StabilizationWindowSeconds: ptr.To[int32](0),
+						SelectPolicy:               ptr.To(v2.ScalingPolicySelect("Max")),
+					},
+				},
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumTargetResourceUtilization:         65,
+				MaximumTargetResourceUtilization:         90,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid HPA behavior - only scale down policy",
+			config: &Config{
+				DefaultHPABehavior: &v2.HorizontalPodAutoscalerBehavior{
+					ScaleDown: &v2.HPAScalingRules{
+						Policies: []v2.HPAScalingPolicy{
+							{
+								Type:          v2.PercentScalingPolicy,
+								Value:         2,
+								PeriodSeconds: 90,
+							},
+						},
+						StabilizationWindowSeconds: ptr.To[int32](300),
+						SelectPolicy:               ptr.To(v2.ScalingPolicySelect("Min")),
+					},
+				},
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumTargetResourceUtilization:         65,
+				MaximumTargetResourceUtilization:         90,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid HPA behavior - comprehensive scale up and down policies",
+			config: &Config{
+				DefaultHPABehavior: &v2.HorizontalPodAutoscalerBehavior{
+					ScaleUp: &v2.HPAScalingRules{
+						Policies: []v2.HPAScalingPolicy{
+							{
+								Type:          v2.PercentScalingPolicy,
+								Value:         100,
+								PeriodSeconds: 60,
+							},
+							{
+								Type:          v2.PodsScalingPolicy,
+								Value:         4,
+								PeriodSeconds: 60,
+							},
+						},
+						StabilizationWindowSeconds: ptr.To[int32](0),
+						SelectPolicy:               ptr.To(v2.ScalingPolicySelect("Max")),
+					},
+					ScaleDown: &v2.HPAScalingRules{
+						Policies: []v2.HPAScalingPolicy{
+							{
+								Type:          v2.PercentScalingPolicy,
+								Value:         2,
+								PeriodSeconds: 90,
+							},
+							{
+								Type:          v2.PodsScalingPolicy,
+								Value:         1,
+								PeriodSeconds: 60,
+							},
+						},
+						StabilizationWindowSeconds: ptr.To[int32](300),
+						SelectPolicy:               ptr.To(v2.ScalingPolicySelect("Min")),
+					},
+				},
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumTargetResourceUtilization:         65,
+				MaximumTargetResourceUtilization:         90,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid HPA behavior - invalid policy type",
+			config: &Config{
+				DefaultHPABehavior: &v2.HorizontalPodAutoscalerBehavior{
+					ScaleUp: &v2.HPAScalingRules{
+						Policies: []v2.HPAScalingPolicy{
+							{
+								Type:          "InvalidType",
+								Value:         100,
+								PeriodSeconds: 60,
+							},
+						},
+					},
+				},
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumTargetResourceUtilization:         65,
+				MaximumTargetResourceUtilization:         90,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid HPA behavior - invalid policy value",
+			config: &Config{
+				DefaultHPABehavior: &v2.HorizontalPodAutoscalerBehavior{
+					ScaleUp: &v2.HPAScalingRules{
+						Policies: []v2.HPAScalingPolicy{
+							{
+								Type:          v2.PercentScalingPolicy,
+								Value:         0,
+								PeriodSeconds: 60,
+							},
+						},
+					},
+				},
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumTargetResourceUtilization:         65,
+				MaximumTargetResourceUtilization:         90,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid HPA behavior - invalid period seconds",
+			config: &Config{
+				DefaultHPABehavior: &v2.HorizontalPodAutoscalerBehavior{
+					ScaleUp: &v2.HPAScalingRules{
+						Policies: []v2.HPAScalingPolicy{
+							{
+								Type:          v2.PercentScalingPolicy,
+								Value:         100,
+								PeriodSeconds: 2000, // > 1800
+							},
+						},
+					},
+				},
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumTargetResourceUtilization:         65,
+				MaximumTargetResourceUtilization:         90,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid HPA behavior - invalid stabilization window seconds",
+			config: &Config{
+				DefaultHPABehavior: &v2.HorizontalPodAutoscalerBehavior{
+					ScaleUp: &v2.HPAScalingRules{
+						Policies: []v2.HPAScalingPolicy{
+							{
+								Type:          v2.PercentScalingPolicy,
+								Value:         100,
+								PeriodSeconds: 60,
+							},
+						},
+						StabilizationWindowSeconds: ptr.To[int32](4000), // > 3600
+					},
+				},
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumTargetResourceUtilization:         65,
+				MaximumTargetResourceUtilization:         90,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid HPA behavior - invalid select policy",
+			config: &Config{
+				DefaultHPABehavior: &v2.HorizontalPodAutoscalerBehavior{
+					ScaleUp: &v2.HPAScalingRules{
+						Policies: []v2.HPAScalingPolicy{
+							{
+								Type:          "InvalidType",
+								Value:         100,
+								PeriodSeconds: 60,
+							},
+						},
+						SelectPolicy: ptr.To(v2.ScalingPolicySelect("InvalidPolicy")),
+					},
+				},
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumTargetResourceUtilization:         65,
+				MaximumTargetResourceUtilization:         90,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid HPA behavior - negative stabilization window seconds",
+			config: &Config{
+				DefaultHPABehavior: &v2.HorizontalPodAutoscalerBehavior{
+					ScaleUp: &v2.HPAScalingRules{
+						Policies: []v2.HPAScalingPolicy{
+							{
+								Type:          v2.PercentScalingPolicy,
+								Value:         100,
+								PeriodSeconds: 60,
+							},
+						},
+						StabilizationWindowSeconds: ptr.To[int32](-1),
+					},
+				},
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumTargetResourceUtilization:         65,
+				MaximumTargetResourceUtilization:         90,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
 			},
 			wantErr: true,
 		},

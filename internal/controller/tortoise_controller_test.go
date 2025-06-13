@@ -261,7 +261,7 @@ func startController(ctx context.Context) func() {
 	cli, err := vpa.New(mgr.GetConfig(), recorder)
 	Expect(err).ShouldNot(HaveOccurred())
 
-	hpaS, err := hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour, 1000, 10000, 3, []config_file.ServiceGroup{}, []config_file.MaximumMaxReplicasPerGroup{}, ".*-exclude-metric")
+	hpaS, err := hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour, nil, 1000, 10000, 3, []config_file.ServiceGroup{}, []config_file.MaximumMaxReplicasPerGroup{}, ".*-exclude-metric")
 	Expect(err).ShouldNot(HaveOccurred())
 	reconciler := &TortoiseReconciler{
 		Scheme:             scheme,
@@ -442,6 +442,9 @@ var _ = Describe("Test TortoiseController", func() {
 		It("TortoisePhaseWorking and HPA changed", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-hpa-changed"))
 		})
+		It("TortoisePhaseWorking and HPA changed behavior", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-hpa-changed-behavior"))
+		})
 		It("user just enabled TortoisePhaseEmergency", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-emergency-started"))
 		})
@@ -498,6 +501,15 @@ var _ = Describe("Test TortoiseController", func() {
 		})
 		It("Tortoise changes the status back to Working if it finds HPA is working fine now", func() {
 			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-hpa-back-to-working"))
+		})
+		It("Vertical scaling active condition - tortoise stays in same phase", func() {
+			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-vertical-scaling"))
+		})
+		It("Mixed policies with scalingactive condition false - tortoise moves to emergency", func() {
+			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-mixed-policies-unhealthy"))
+		})
+		It("Mixed policies with scalingactive condition true - tortoise stays in same phase", func() {
+			runTest(filepath.Join("testdata", "reconcile-automatic-emergency-mode-mixed-policies-healthy"))
 		})
 	})
 	Context("DeletionPolicy is handled correctly", func() {

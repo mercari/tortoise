@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+	v2 "k8s.io/api/autoscaling/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/mercari/tortoise/pkg/features"
@@ -236,6 +237,29 @@ type Config struct {
 	// all the external metric which name matches `datadogmetric.*` regex are removed by Tortoise once Tortoise is in Auto mode.
 	HPAExternalMetricExclusionRegex string `yaml:"HPAExternalMetricExclusionRegex"`
 
+	// DefaultHPABehavior defines the default behavior for HPAs created and managed by Tortoise.
+	// If not specified, Tortoise will use built-in default values that scale up aggressively and scale down conservatively.
+	// This default behavior will be used when individual Tortoise resources don't specify their own behavior.
+	//
+	// Example configuration:
+	// ```yaml
+	// DefaultHPABehavior:
+	//   scaleDown:
+	//     policies:
+	//       - periodSeconds: 90
+	//         type: Percent
+	//         value: 2
+	//     selectPolicy: Max
+	//   scaleUp:
+	//     policies:
+	//       - periodSeconds: 60
+	//         type: Percent
+	//         value: 100
+	//     selectPolicy: Max
+	//     stabilizationWindowSeconds: 0
+	// ```
+	DefaultHPABehavior *v2.HorizontalPodAutoscalerBehavior `yaml:"DefaultHPABehavior"`
+
 	// MaxAllowedVerticalScalingDownRatio is the max allowed scaling down ratio (default: 0.8)
 	// For example, if the current resource request is 100m, the max allowed scaling down ratio is 0.8,
 	// the minimum resource request that Tortoise can apply is 80m.
@@ -352,6 +376,57 @@ func ParseConfig(path string) (*Config, error) {
 	return config, nil
 }
 
+// validateDefaultHPA validates the HPA behavior configuration
+func validateDefaultHPA(behavior *v2.HorizontalPodAutoscalerBehavior) error {
+	if behavior == nil {
+		return nil
+	}
+
+	// Validate scale up policies
+	if behavior.ScaleUp != nil && len(behavior.ScaleUp.Policies) > 0 {
+		for _, policy := range behavior.ScaleUp.Policies {
+			if policy.PeriodSeconds <= 0 || policy.PeriodSeconds > 1800 {
+				return fmt.Errorf("DefaultHPABehavior.ScaleUp.Policies.PeriodSeconds should be between 1 and 1800 seconds")
+			}
+			if policy.Value <= 0 {
+				return fmt.Errorf("DefaultHPABehavior.ScaleUp.Policies.Value should be greater than 0")
+			}
+			if policy.Type != v2.PodsScalingPolicy && policy.Type != v2.PercentScalingPolicy {
+				return fmt.Errorf("DefaultHPABehavior.ScaleUp.Policies.Type should be either Pods or Percent")
+			}
+		}
+
+		if behavior.ScaleUp.StabilizationWindowSeconds != nil &&
+			(*behavior.ScaleUp.StabilizationWindowSeconds < 0 ||
+				*behavior.ScaleUp.StabilizationWindowSeconds > 3600) {
+			return fmt.Errorf("DefaultHPABehavior.ScaleUp.StabilizationWindowSeconds should be between 0 and 3600 seconds")
+		}
+	}
+
+	// Validate scale down policies
+	if behavior.ScaleDown != nil && len(behavior.ScaleDown.Policies) > 0 {
+		for _, policy := range behavior.ScaleDown.Policies {
+			if policy.PeriodSeconds <= 0 || policy.PeriodSeconds > 1800 {
+				return fmt.Errorf("DefaultHPABehavior.ScaleDown.Policies.PeriodSeconds should be between 1 and 1800 seconds")
+			}
+			if policy.Value <= 0 {
+				return fmt.Errorf("DefaultHPABehavior.ScaleDown.Policies.Value should be greater than 0")
+			}
+			if policy.Type != v2.PodsScalingPolicy && policy.Type != v2.PercentScalingPolicy {
+				return fmt.Errorf("DefaultHPABehavior.ScaleDown.Policies.Type should be either Pods or Percent")
+			}
+		}
+
+		if behavior.ScaleDown.StabilizationWindowSeconds != nil &&
+			(*behavior.ScaleDown.StabilizationWindowSeconds < 0 ||
+				*behavior.ScaleDown.StabilizationWindowSeconds > 3600) {
+			return fmt.Errorf("DefaultHPABehavior.ScaleDown.StabilizationWindowSeconds should be between 0 and 3600 seconds")
+		}
+	}
+
+	return nil
+}
+
 func validate(config *Config) error {
 	if config.RangeOfMinMaxReplicasRecommendationHours > 24 || config.RangeOfMinMaxReplicasRecommendationHours < 1 {
 		return fmt.Errorf("RangeOfMinMaxReplicasRecommendationHours should be between 1 and 24")
@@ -433,6 +508,11 @@ func validate(config *Config) error {
 			// If it's less than 1, the resource limit will be less than the resource request, which doesn't make sense.
 			return fmt.Errorf("ResourceLimitMultiplier should be greater than or equal to 1")
 		}
+	}
+
+	// Validate HPA behavior if specified
+	if err := validateDefaultHPA(config.DefaultHPABehavior); err != nil {
+		return err
 	}
 
 	return nil
