@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/mercari/tortoise/api/v1beta3"
-	config_file "github.com/mercari/tortoise/pkg/config"
 	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/features"
 	"github.com/mercari/tortoise/pkg/hpa"
@@ -261,7 +260,7 @@ func startController(ctx context.Context) func() {
 	cli, err := vpa.New(mgr.GetConfig(), recorder)
 	Expect(err).ShouldNot(HaveOccurred())
 
-	hpaS, err := hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour, nil, 1000, 10000, 3, []config_file.ServiceGroup{}, []config_file.MaximumMaxReplicasPerGroup{}, ".*-exclude-metric")
+	hpaS, err := hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour, nil, 1000, 10000, 3, nil, nil, ".*-exclude-metric")
 	Expect(err).ShouldNot(HaveOccurred())
 	reconciler := &TortoiseReconciler{
 		Scheme:             scheme,

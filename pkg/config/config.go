@@ -459,40 +459,49 @@ func validate(config *Config) error {
 	}
 
 	// Ensure ServiceGroupNames in MaximumMaxReplicas match defined ServiceGroups
-	serviceGroupMap := make(map[string]bool)
-	for _, sg := range config.ServiceGroups {
-		serviceGroupMap[sg.Name] = true
-	}
-
-	for _, maxReplicas := range config.MaximumMaxReplicasPerService {
-		if maxReplicas.ServiceGroupName != "" {
-			if _, exists := serviceGroupMap[maxReplicas.ServiceGroupName]; !exists {
-				return fmt.Errorf("ServiceGroupName %s in MaximumMaxReplicas is not defined in ServiceGroups", maxReplicas.ServiceGroupName)
-			}
-		}
-	}
-
 	// Ensure no duplicates in ServiceGroups
 	seenServiceGroups := make(map[string]bool)
+	serviceGroupMap := make(map[string]bool)
 	for _, sg := range config.ServiceGroups {
+		if sg.Name == "" {
+			return fmt.Errorf("name of the service group should not be empty")
+		}
 		if seenServiceGroups[sg.Name] {
 			return fmt.Errorf("duplicate ServiceGroupName found: %s", sg.Name)
 		}
 		seenServiceGroups[sg.Name] = true
+		serviceGroupMap[sg.Name] = true
 	}
 
+	// Ensure MaximumMaxReplicasPerService is defined in ServiceGroups
 	// Check all entries in MaximumMaxReplicasPerService have non-nil ServiceGroupName
 	for _, maxReplicas := range config.MaximumMaxReplicasPerService {
 		if maxReplicas.ServiceGroupName == "" {
 			return fmt.Errorf("ServiceGroupName should not be nil in MaximumMaxReplicasPerService entries")
 		}
+		if _, exists := serviceGroupMap[maxReplicas.ServiceGroupName]; !exists {
+			return fmt.Errorf("ServiceGroupName %s in MaximumMaxReplicas is not defined in ServiceGroups", maxReplicas.ServiceGroupName)
+		}
 	}
 
-	if config.MaximumMinReplicas > minOfMaximumMaxReplicas {
-		return fmt.Errorf("MaximumMinReplicas should be less than or equal to MaximumMaxReplicas")
+	// Validate MaximumMinReplicas against default first, then service groups
+	if config.MaximumMinReplicas > config.MaximumMaxReplicas {
+		return fmt.Errorf("MaximumMinReplicas (%v) should be less than or equal to MaximumMaxReplicas (%v)", config.MaximumMinReplicas, config.MaximumMaxReplicas)
 	}
-	if config.PreferredMaxReplicas >= int(minOfMaximumMaxReplicas) {
-		return fmt.Errorf("PreferredMaxReplicas should be less than MaximumMaxReplicas")
+	for _, group := range config.MaximumMaxReplicasPerService {
+		if config.MaximumMinReplicas > group.MaximumMaxReplica {
+			return fmt.Errorf("MaximumMinReplicas (%v) should be less than or equal to MaximumMaxReplica (%v) for service group %s", config.MaximumMinReplicas, group.MaximumMaxReplica, group.ServiceGroupName)
+		}
+	}
+
+	// Validate PreferredMaxReplicas against default first, then service groups
+	if config.PreferredMaxReplicas >= int(config.MaximumMaxReplicas) {
+		return fmt.Errorf("PreferredMaxReplicas (%v) should be less than MaximumMaxReplicas (%v)", config.PreferredMaxReplicas, config.MaximumMaxReplicas)
+	}
+	for _, group := range config.MaximumMaxReplicasPerService {
+		if config.PreferredMaxReplicas >= int(group.MaximumMaxReplica) {
+			return fmt.Errorf("PreferredMaxReplicas (%v) should be less than MaximumMaxReplica (%v) for service group %s", config.PreferredMaxReplicas, group.MaximumMaxReplica, group.ServiceGroupName)
+		}
 	}
 	if config.PreferredMaxReplicas <= config.MinimumMinReplicas {
 		return fmt.Errorf("PreferredMaxReplicas should be greater than or equal to MinimumMinReplicas")

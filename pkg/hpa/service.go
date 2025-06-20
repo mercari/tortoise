@@ -254,28 +254,6 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 	return currenthpa, tortoise, hpaEdited
 }
 
-// TODO: move this to configuration
-var globalRecommendedHPABehavior = &v2.HorizontalPodAutoscalerBehavior{
-	ScaleUp: &v2.HPAScalingRules{
-		Policies: []v2.HPAScalingPolicy{
-			{
-				Type:          v2.PercentScalingPolicy,
-				Value:         100,
-				PeriodSeconds: 60,
-			},
-		},
-	},
-	ScaleDown: &v2.HPAScalingRules{
-		Policies: []v2.HPAScalingPolicy{
-			{
-				Type:          v2.PercentScalingPolicy,
-				Value:         2,
-				PeriodSeconds: 90,
-			},
-		},
-	},
-}
-
 // Determine which service group is applicable for a given Tortoise using its selectors.
 func (c *Service) determineServiceGroup(tortoise *autoscalingv1beta3.Tortoise) string {
 	tortoiseNamespace := tortoise.Namespace
