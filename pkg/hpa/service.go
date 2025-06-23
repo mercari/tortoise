@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
@@ -257,15 +258,50 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 // Determine which service group is applicable for a given Tortoise using its selectors.
 func (c *Service) determineServiceGroup(tortoise *autoscalingv1beta3.Tortoise) string {
 	tortoiseNamespace := tortoise.Namespace
+	tortoiseLabels := labels.Set(tortoise.Labels)
+
 	for _, serviceGroup := range c.serviceGroups {
 		for _, selector := range serviceGroup.Selectors {
-			if selector.Namespace == tortoiseNamespace {
-				klog.InfoS("Namespace matched", "serviceGroup", serviceGroup.Name, "namespace", tortoiseNamespace)
+			// First check if namespace matches
+			if selector.Namespace != tortoiseNamespace {
+				continue
+			}
+
+			klog.InfoS("Namespace matched", "serviceGroup", serviceGroup.Name, "namespace", tortoiseNamespace)
+
+			// If no label selectors are defined, namespace match is sufficient (backward compatibility)
+			if len(selector.LabelSelectors) == 0 {
+				klog.InfoS("No label selectors defined, using namespace match only", "serviceGroup", serviceGroup.Name)
 				return serviceGroup.Name
 			}
-			// TODO(avs): Add logic for matching labels in the future.
+
+			// Check if any of the label selectors match the tortoise labels
+			for _, labelSelector := range selector.LabelSelectors {
+				if labelSelector == nil {
+					continue
+				}
+
+				// Convert metav1.LabelSelector to labels.Selector for matching
+				parsedSelector, err := metav1.LabelSelectorAsSelector(labelSelector)
+				if err != nil {
+					klog.ErrorS(err, "Failed to parse label selector", "serviceGroup", serviceGroup.Name, "labelSelector", labelSelector)
+					continue
+				}
+
+				// Check if the tortoise labels match this selector
+				if parsedSelector.Matches(tortoiseLabels) {
+					klog.InfoS("Label selector matched", "serviceGroup", serviceGroup.Name,
+						"namespace", tortoiseNamespace, "labelSelector", labelSelector)
+					return serviceGroup.Name
+				}
+			}
+
+			klog.InfoS("Namespace matched but no label selectors matched",
+				"serviceGroup", serviceGroup.Name, "namespace", tortoiseNamespace,
+				"tortoiseLabels", tortoiseLabels)
 		}
 	}
+
 	// Returning an empty string to denote a default value when no match.
 	return ""
 }
