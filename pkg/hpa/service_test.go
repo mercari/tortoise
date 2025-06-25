@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/mercari/tortoise/api/v1beta3"
+	"github.com/mercari/tortoise/pkg/config"
 )
 
 func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
@@ -29,13 +30,15 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 		now      time.Time
 	}
 	tests := []struct {
-		name               string
-		args               args
-		excludeMetricRegex string
-		initialHPA         *v2.HorizontalPodAutoscaler
-		want               *v2.HorizontalPodAutoscaler
-		wantTortoise       *v1beta3.Tortoise
-		wantErr            bool
+		name                  string
+		args                  args
+		excludeMetricRegex    string
+		serviceGroups         []config.ServiceGroup
+		maxReplicasPerService []config.MaximumMaxReplicasPerGroup
+		initialHPA            *v2.HorizontalPodAutoscaler
+		want                  *v2.HorizontalPodAutoscaler
+		wantTortoise          *v1beta3.Tortoise
+		wantErr               bool
 	}{
 		{
 			name: "Basic test case with container resource metrics",
@@ -2746,11 +2749,3278 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "Service group matching namespace - caps maxReplicas to service group limit",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "frontend-namespace",
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     100, // This exceeds service group limit of 20
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "frontend-services",
+					Selectors: []config.Selector{
+						{
+							Namespace: "frontend-namespace",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "frontend-services",
+					MaximumMaxReplica: 20, // Lower than recommendation (100)
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "frontend-namespace",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "frontend-namespace",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 20, // Capped to service group limit
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "frontend-namespace",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     100,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Service group not matching namespace - uses default maxReplicas",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "backend-namespace", // Different from service group
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     30, // Within default limit
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "frontend-services",
+					Selectors: []config.Selector{
+						{
+							Namespace: "frontend-namespace", // Different namespace
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "frontend-services",
+					MaximumMaxReplica: 20,
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "backend-namespace",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "backend-namespace",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 30, // Uses recommendation (not service group limit)
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "backend-namespace",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     30,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "No service groups defined - uses default maxReplicas",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "any-namespace",
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     40, // Within default limit of 50
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups:         []config.ServiceGroup{},               // Empty service groups
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{}, // Empty max replicas per service
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "any-namespace",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "any-namespace",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 40, // Uses recommendation (global default limit is 50)
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "any-namespace",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     40,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Multiple service groups - selects correct one based on namespace match",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "backend-namespace",
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     50, // Exceeds backend limit of 35
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "frontend-services",
+					Selectors: []config.Selector{
+						{
+							Namespace: "frontend-namespace",
+						},
+					},
+				},
+				{
+					Name: "backend-services",
+					Selectors: []config.Selector{
+						{
+							Namespace: "backend-namespace", // This should match
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "frontend-services",
+					MaximumMaxReplica: 25,
+				},
+				{
+					ServiceGroupName:  "backend-services",
+					MaximumMaxReplica: 35, // This should be used
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "backend-namespace",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "backend-namespace",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 35, // Capped to backend service group limit
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "backend-namespace",
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     50,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Service group with matching label selector",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app.mercari.in/part-of": "search-team",
+							"environment":            "production",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     60, // Exceeds search team limit of 25
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "search-team-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+							LabelSelectors: []*metav1.LabelSelector{
+								{
+									MatchLabels: map[string]string{
+										"app.mercari.in/part-of": "search-team",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "search-team-group",
+					MaximumMaxReplica: 25, // Lower than recommendation (60)
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 25, // Capped to search team service group limit
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.mercari.in/part-of": "search-team",
+						"environment":            "production",
+					},
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     60,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Service group with label selector mismatch - uses default",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app.mercari.in/part-of": "payment-team", // Different team
+							"environment":            "production",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     30, // Within default limit of 50
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "search-team-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+							LabelSelectors: []*metav1.LabelSelector{
+								{
+									MatchLabels: map[string]string{
+										"app.mercari.in/part-of": "search-team", // Won't match payment-team
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "search-team-group",
+					MaximumMaxReplica: 25,
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 30, // Uses recommendation (no group matches)
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.mercari.in/part-of": "payment-team",
+						"environment":            "production",
+					},
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     30,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Multiple service groups with label selectors - second group matches",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app.mercari.in/part-of": "payment-team",
+							"environment":            "production",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     70, // Exceeds payment team limit of 40
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "search-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+							LabelSelectors: []*metav1.LabelSelector{
+								{
+									MatchLabels: map[string]string{
+										"app.mercari.in/part-of": "search-team",
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Name: "payment-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+							LabelSelectors: []*metav1.LabelSelector{
+								{
+									MatchLabels: map[string]string{
+										"app.mercari.in/part-of": "payment-team",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "search-group",
+					MaximumMaxReplica: 30,
+				},
+				{
+					ServiceGroupName:  "payment-group",
+					MaximumMaxReplica: 40, // This should be used
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 40, // Capped to payment group limit
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.mercari.in/part-of": "payment-team",
+						"environment":            "production",
+					},
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     70,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Service group with complex label selector using expressions",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app.mercari.in/part-of": "search-team",
+							"environment":            "production",
+							"criticality":            "high",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     80, // Exceeds critical limit of 60
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "critical-services",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+							LabelSelectors: []*metav1.LabelSelector{
+								{
+									MatchLabels: map[string]string{
+										"app.mercari.in/part-of": "search-team",
+									},
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{
+											Key:      "environment",
+											Operator: metav1.LabelSelectorOpIn,
+											Values:   []string{"production", "staging"},
+										},
+										{
+											Key:      "criticality",
+											Operator: metav1.LabelSelectorOpExists,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "critical-services",
+					MaximumMaxReplica: 60, // Lower than recommendation (80)
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 60, // Capped to critical services group limit
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.mercari.in/part-of": "search-team",
+						"environment":            "production",
+						"criticality":            "high",
+					},
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     80,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Backward compatibility - namespace-only matching (no label selectors)",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "legacy-namespace",
+						Labels: map[string]string{
+							"some-label": "some-value",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     45, // Within legacy limit of 50
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "legacy-services",
+					Selectors: []config.Selector{
+						{
+							Namespace: "legacy-namespace",
+							// No LabelSelectors - backward compatibility
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "legacy-services",
+					MaximumMaxReplica: 50,
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "legacy-namespace",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "legacy-namespace",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 45, // Uses recommendation (within group limit)
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "legacy-namespace",
+					Labels: map[string]string{
+						"some-label": "some-value",
+					},
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     45,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Tortoise with nil labels but service group requires labels",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "default",
+						Labels:    nil, // No labels on tortoise
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     35, // Within default limit of 50
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "requires-labels-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+							LabelSelectors: []*metav1.LabelSelector{
+								{
+									MatchLabels: map[string]string{
+										"app.mercari.in/part-of": "required-team",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "requires-labels-group",
+					MaximumMaxReplica: 20,
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 35, // Uses default since no group matches
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "default",
+					Labels:    nil,
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     35,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Namespace mismatch but labels would match",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "wrong-namespace", // Different namespace
+						Labels: map[string]string{
+							"app.mercari.in/part-of": "search-team", // Labels would match
+							"environment":            "production",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     40, // Within default limit of 50
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "search-team-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default", // Different namespace
+							LabelSelectors: []*metav1.LabelSelector{
+								{
+									MatchLabels: map[string]string{
+										"app.mercari.in/part-of": "search-team",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "search-team-group",
+					MaximumMaxReplica: 25,
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "wrong-namespace",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "wrong-namespace",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 40, // Uses default since namespace doesn't match
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "wrong-namespace",
+					Labels: map[string]string{
+						"app.mercari.in/part-of": "search-team",
+						"environment":            "production",
+					},
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     40,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Service group with NotIn expression selector",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app.mercari.in/part-of": "search-team",
+							"environment":            "production", // NotIn [development, testing]
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     65, // Exceeds production limit of 50
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "production-services",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+							LabelSelectors: []*metav1.LabelSelector{
+								{
+									MatchLabels: map[string]string{
+										"app.mercari.in/part-of": "search-team",
+									},
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{
+											Key:      "environment",
+											Operator: metav1.LabelSelectorOpNotIn,
+											Values:   []string{"development", "testing"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "production-services",
+					MaximumMaxReplica: 50, // Lower than recommendation (65)
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 50, // Capped to production services group limit
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.mercari.in/part-of": "search-team",
+						"environment":            "production",
+					},
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     65,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Service group with DoesNotExist expression selector",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app.mercari.in/part-of": "search-team",
+							"environment":            "production",
+							// Note: no "legacy" label - which satisfies DoesNotExist
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     75, // Exceeds modern services limit of 60
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "modern-services",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+							LabelSelectors: []*metav1.LabelSelector{
+								{
+									MatchLabels: map[string]string{
+										"app.mercari.in/part-of": "search-team",
+									},
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{
+											Key:      "legacy",
+											Operator: metav1.LabelSelectorOpDoesNotExist,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "modern-services",
+					MaximumMaxReplica: 60, // Lower than recommendation (75)
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 60, // Capped to modern services group limit
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.mercari.in/part-of": "search-team",
+						"environment":            "production",
+					},
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     75,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Multiple service groups both could match - first wins",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-tortoise",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app.mercari.in/part-of": "search-team",
+							"environment":            "production",
+							"criticality":            "high",
+						},
+					},
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceCPU: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceCPU: 80,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     90, // Exceeds both group limits
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "search-team-first", // This should win
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+							LabelSelectors: []*metav1.LabelSelector{
+								{
+									MatchLabels: map[string]string{
+										"app.mercari.in/part-of": "search-team",
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Name: "high-criticality-second", // This could also match but comes second
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+							LabelSelectors: []*metav1.LabelSelector{
+								{
+									MatchLabels: map[string]string{
+										"criticality": "high",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "search-team-first",
+					MaximumMaxReplica: 70, // This should be used (first match)
+				},
+				{
+					ServiceGroupName:  "high-criticality-second",
+					MaximumMaxReplica: 80, // This should not be used
+				},
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(1),
+					MaxReplicas: 2,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hpa",
+					Namespace: "default",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 70, // Capped to first matching group limit
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceCPU,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](80),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantTortoise: &v1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tortoise",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.mercari.in/part-of": "search-team",
+						"environment":            "production",
+						"criticality":            "high",
+					},
+				},
+				Spec: v1beta3.TortoiseSpec{
+					UpdateMode: v1beta3.UpdateModeAuto,
+				},
+				Status: v1beta3.TortoiseStatus{
+					TortoisePhase: v1beta3.TortoisePhaseWorking,
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+								v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						TortoiseConditions: []v1beta3.TortoiseCondition{
+							{
+								Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+								Status:             v1.ConditionTrue,
+								LastUpdateTime:     now,
+								LastTransitionTime: now,
+								Reason:             "HPATargetUtilizationUpdated",
+								Message:            "HPA target utilization is updated",
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "app",
+							ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+								v1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						HorizontalPodAutoscaler: "hpa",
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "app",
+									TargetUtilization: map[v1.ResourceName]int32{
+										v1.ResourceCPU: 80,
+									},
+								},
+							},
+							MaxReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     90,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+							MinReplicas: []v1beta3.ReplicasRecommendation{
+								{
+									From:      0,
+									To:        2,
+									Value:     3,
+									UpdatedAt: now,
+									WeekDay:   ptr.To(now.Weekday().String()),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 50, time.Hour, nil, 1000, 10001, 3, tt.excludeMetricRegex)
+			c, err := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 50, time.Hour, nil, 1000, 10001, 3, tt.serviceGroups, tt.maxReplicasPerService, tt.excludeMetricRegex)
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
@@ -3063,12 +6333,12 @@ func TestService_InitializeHPA(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "")
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, []config.ServiceGroup{}, []config.MaximumMaxReplicasPerGroup{}, "")
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
 			if tt.initialHPA != nil {
-				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "")
+				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, []config.ServiceGroup{}, []config.MaximumMaxReplicasPerGroup{}, "")
 				if err != nil {
 					t.Fatalf("New() error = %v", err)
 				}
@@ -4621,12 +7891,12 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 1000, 10000, 3, "")
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 1000, 10000, 3, []config.ServiceGroup{}, []config.MaximumMaxReplicasPerGroup{}, "")
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
 			if tt.initialHPA != nil {
-				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 1000, 10000, 3, "")
+				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 1000, 10000, 3, []config.ServiceGroup{}, []config.MaximumMaxReplicasPerGroup{}, "")
 				if err != nil {
 					t.Fatalf("New() error = %v", err)
 				}
@@ -5250,7 +8520,7 @@ func TestService_IsHpaMetricAvailable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "")
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, []config.ServiceGroup{}, []config.MaximumMaxReplicasPerGroup{}, "")
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
@@ -5258,6 +8528,457 @@ func TestService_IsHpaMetricAvailable(t *testing.T) {
 			if status != tt.result {
 				t.Errorf("Service.checkHpaMetricStatus() status test: %s failed", tt.name)
 				return
+			}
+		})
+	}
+}
+
+func TestHPAServiceGroupReplicaLimits(t *testing.T) {
+	baseHPA := &v2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-hpa",
+			Namespace: "default",
+		},
+		Spec: v2.HorizontalPodAutoscalerSpec{
+			MinReplicas: ptrInt32(3),
+			MaxReplicas: 50,
+			ScaleTargetRef: v2.CrossVersionObjectReference{
+				Kind:       "Deployment",
+				Name:       "test",
+				APIVersion: "apps/v1",
+			},
+		},
+	}
+
+	baseTortoise := &v1beta3.Tortoise{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-tortoise",
+			Namespace: "default",
+		},
+		Spec: v1beta3.TortoiseSpec{
+			TargetRefs: v1beta3.TargetRefs{
+				HorizontalPodAutoscalerName: ptr.To("test-hpa"),
+				ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+					Kind: "Deployment",
+					Name: "test",
+				},
+			},
+		},
+	}
+
+	type args struct {
+		ctx        context.Context
+		tortoise   *v1beta3.Tortoise
+		replicaNum int32
+	}
+
+	tests := []struct {
+		name                  string
+		args                  args
+		initialHPA            *v2.HorizontalPodAutoscaler
+		afterHPA              *v2.HorizontalPodAutoscaler
+		wantTortoise          *v1beta3.Tortoise
+		serviceGroups         []config.ServiceGroup
+		maxReplicasPerService []config.MaximumMaxReplicasPerGroup
+		wantErr               bool
+	}{
+		{
+			name: "valid service group with specific max replicas",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 10,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "test-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "test-group",
+					MaximumMaxReplica: 30,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](10)
+				hpa.Spec.MaxReplicas = 10
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "empty service groups but with maxReplicasPerService",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 5,
+			},
+			initialHPA:    baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "non-existent-group",
+					MaximumMaxReplica: 30,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](5)
+				hpa.Spec.MaxReplicas = 5
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "service group config with zero maxReplicas falls back to global max",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 5,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "test-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "test-group",
+					MaximumMaxReplica: 0,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](5)
+				hpa.Spec.MaxReplicas = 5
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "multiple service groups with different maxReplicas",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 8,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "group-1",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+				{
+					Name: "group-2",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "group-1",
+					MaximumMaxReplica: 40,
+				},
+				{
+					ServiceGroupName:  "group-2",
+					MaximumMaxReplica: 20,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](8)
+				hpa.Spec.MaxReplicas = 8
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "both service groups and maxReplicasPerService nil",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 15,
+			},
+			initialHPA:            baseHPA.DeepCopy(),
+			serviceGroups:         nil,
+			maxReplicasPerService: nil,
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](15)
+				hpa.Spec.MaxReplicas = 15
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "service group defined but empty maxReplicasPerService slice",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 7,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "test-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](7)
+				hpa.Spec.MaxReplicas = 7
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "service in different namespace than group selector",
+			args: args{
+				ctx: context.Background(),
+				tortoise: func() *v1beta3.Tortoise {
+					t := baseTortoise.DeepCopy()
+					t.Namespace = "other-namespace"
+					return t
+				}(),
+				replicaNum: 6,
+			},
+			initialHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Namespace = "other-namespace"
+				return hpa
+			}(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "test-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default", // Different namespace
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "test-group",
+					MaximumMaxReplica: 20,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Namespace = "other-namespace"
+				hpa.Spec.MinReplicas = ptr.To[int32](6)
+				hpa.Spec.MaxReplicas = 6
+				return hpa
+			}(),
+			wantTortoise: func() *v1beta3.Tortoise {
+				t := baseTortoise.DeepCopy()
+				t.Namespace = "other-namespace"
+				return t
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "maxReplicasPerService references non-existent service group",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 4,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "existing-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "non-existent-group",
+					MaximumMaxReplica: 25,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](4)
+				hpa.Spec.MaxReplicas = 4
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "duplicate service group names with different maxReplicas",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 9,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "same-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+				{
+					Name: "same-group", // Duplicate name
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "same-group",
+					MaximumMaxReplica: 15,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](9)
+				hpa.Spec.MaxReplicas = 9
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+		{
+			name: "service group with negative maxReplicas",
+			args: args{
+				ctx:        context.Background(),
+				tortoise:   baseTortoise.DeepCopy(),
+				replicaNum: 5,
+			},
+			initialHPA: baseHPA.DeepCopy(),
+			serviceGroups: []config.ServiceGroup{
+				{
+					Name: "test-group",
+					Selectors: []config.Selector{
+						{
+							Namespace: "default",
+						},
+					},
+				},
+			},
+			maxReplicasPerService: []config.MaximumMaxReplicasPerGroup{
+				{
+					ServiceGroupName:  "test-group",
+					MaximumMaxReplica: -10,
+				},
+			},
+			afterHPA: func() *v2.HorizontalPodAutoscaler {
+				hpa := baseHPA.DeepCopy()
+				hpa.Spec.MinReplicas = ptr.To[int32](5)
+				hpa.Spec.MaxReplicas = 5
+				return hpa
+			}(),
+			wantTortoise: baseTortoise.DeepCopy(),
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a fake client with the initial HPA if it exists
+			clientBuilder := fake.NewClientBuilder()
+			if tt.initialHPA != nil {
+				clientBuilder = clientBuilder.WithRuntimeObjects(tt.initialHPA)
+			}
+
+			// Create a new service instance with the test configuration
+			c, err := New(
+				clientBuilder.Build(),
+				record.NewFakeRecorder(10),
+				0.95,                     // ReplicaReductionFactor
+				90,                       // MaximumTargetResourceUtilization
+				50,                       // MaximumMaxReplicas (global)
+				time.Hour,                // HPATargetUtilizationUpdateInterval
+				nil,                      // DefaultHPABehavior
+				3,                        // MinimumMinReplicas
+				100,                      // MaximumMinReplicas
+				70,                       // MinimumTargetResourceUtilization
+				tt.serviceGroups,         // Service Groups
+				tt.maxReplicasPerService, // MaxReplicasPerService
+				"",                       // HPAExternalMetricExclusionRegex
+			)
+			if err != nil {
+				t.Fatalf("New() error = %v", err)
+			}
+
+			var givenHPA *v2.HorizontalPodAutoscaler
+			if tt.args.tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName != nil {
+				givenHPA = tt.initialHPA
+			}
+
+			tortoise, err := c.UpdateHPASpecFromTortoiseAutoscalingPolicy(
+				tt.args.ctx,
+				tt.args.tortoise,
+				givenHPA,
+				tt.args.replicaNum,
+				time.Now(),
+			)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UpdateHPASpecFromTortoiseAutoscalingPolicy() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				if d := cmp.Diff(tt.wantTortoise, tortoise, cmpopts.IgnoreTypes(metav1.Time{})); d != "" {
+					t.Errorf("UpdateHPASpecFromTortoiseAutoscalingPolicy() tortoise diff = %v", d)
+				}
+
+				hpa := &v2.HorizontalPodAutoscaler{}
+				err = c.c.Get(tt.args.ctx, client.ObjectKey{Name: tt.afterHPA.Name, Namespace: tt.afterHPA.Namespace}, hpa)
+				if err != nil {
+					t.Errorf("get hpa error = %v", err)
+				}
+				if d := cmp.Diff(tt.afterHPA, hpa,
+					cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "TypeMeta"),
+					cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion")); d != "" {
+					t.Errorf("UpdateHPASpecFromTortoiseAutoscalingPolicy() hpa diff = %v", d)
+				}
 			}
 		})
 	}

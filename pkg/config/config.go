@@ -7,6 +7,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 	v2 "k8s.io/api/autoscaling/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/mercari/tortoise/pkg/features"
 )
@@ -285,9 +286,36 @@ type Config struct {
 	// IstioSidecarProxyDefaultMemory is the default Memory resource request of the istio sidecar proxy (default: 200Mi)
 	IstioSidecarProxyDefaultMemory string `yaml:"IstioSidecarProxyDefaultMemory"`
 
+	// ServiceGroups defines a list of service category names.
+	ServiceGroups []ServiceGroup `yaml:"ServiceGroups"`
+	// MaximumMaxReplicasPerService is the maximum maxReplicas that tortoise can give to the HPA per service category.
+	// If the service category is not found in this list, tortoise uses the default value which is the value set in MaximumMaxReplicas.
+	MaximumMaxReplicasPerService []MaximumMaxReplicasPerGroup `yaml:"MaximumMaxReplicasPerService"`
+
 	// FeatureFlags is the list of feature flags (default: empty = all alpha features are disabled)
 	// See the list of feature flags in features.go
 	FeatureFlags []features.FeatureFlag `yaml:"FeatureFlags"`
+}
+
+type MaximumMaxReplicasPerGroup struct {
+	// ServiceGroupName refers to one ServiceGroup at Config.ServiceGroups
+	ServiceGroupName string `yaml:"ServiceGroupName"`
+
+	MaximumMaxReplica int32 `yaml:"MaximumMaxReplica"`
+}
+
+// Selector selects a group of pods by matching its namespace and labels.
+type Selector struct {
+	Namespace      string                  `yaml:"Namespace"`        // Namespace name
+	LabelSelectors []*metav1.LabelSelector `yaml:"Labels,omitempty"` // Slice of label selectors within this namespace
+}
+
+// ServiceGroup represents a collection of services grouped together with namespace awareness.
+type ServiceGroup struct {
+	// Name is the group's name (e.g., big-service, fintech-service, etc).
+	Name string `yaml:"Name"`
+	// Selectors represent multiple pod groups that belong to this ServiceGroup.
+	Selectors []Selector `yaml:"Selectors"` // Slice of namespaces and labels within this service group
 }
 
 func defaultConfig() *Config {
@@ -318,6 +346,8 @@ func defaultConfig() *Config {
 		IstioSidecarProxyDefaultMemory:           "200Mi",
 		MinimumCPULimit:                          "0",
 		ResourceLimitMultiplier:                  map[string]int64{},
+		ServiceGroups:                            []ServiceGroup{},
+		MaximumMaxReplicasPerService:             []MaximumMaxReplicasPerGroup{},
 		BufferRatioOnVerticalResource:            0.1,
 	}
 }
@@ -414,11 +444,64 @@ func validate(config *Config) error {
 	if config.MinimumMinReplicas >= int(config.MaximumMinReplicas) {
 		return fmt.Errorf("MinimumMinReplicas should be less than MaximumMinReplicas")
 	}
-	if config.MaximumMinReplicas > config.MaximumMaxReplicas {
-		return fmt.Errorf("MaximumMinReplicas should be less than or equal to MaximumMaxReplicas")
+
+	// Find the minimum value of MaximumMaxReplicas across all service groups
+	minOfMaximumMaxReplicas := config.MaximumMaxReplicas // Start with the default value of MaximumMaxReplicas
+	for _, group := range config.MaximumMaxReplicasPerService {
+		if group.MaximumMaxReplica < minOfMaximumMaxReplicas {
+			minOfMaximumMaxReplicas = group.MaximumMaxReplica
+		}
 	}
+
+	// Check for non-negative values
+	if minOfMaximumMaxReplicas < 0 {
+		return fmt.Errorf("MaximumMaxReplicas should contain non-negative values")
+	}
+
+	// Ensure ServiceGroupNames in MaximumMaxReplicas match defined ServiceGroups
+	// Ensure no duplicates in ServiceGroups
+	seenServiceGroups := make(map[string]bool)
+	serviceGroupMap := make(map[string]bool)
+	for _, sg := range config.ServiceGroups {
+		if sg.Name == "" {
+			return fmt.Errorf("name of the service group should not be empty")
+		}
+		if seenServiceGroups[sg.Name] {
+			return fmt.Errorf("duplicate ServiceGroupName found: %s", sg.Name)
+		}
+		seenServiceGroups[sg.Name] = true
+		serviceGroupMap[sg.Name] = true
+	}
+
+	// Ensure MaximumMaxReplicasPerService is defined in ServiceGroups
+	// Check all entries in MaximumMaxReplicasPerService have non-nil ServiceGroupName
+	for _, maxReplicas := range config.MaximumMaxReplicasPerService {
+		if maxReplicas.ServiceGroupName == "" {
+			return fmt.Errorf("ServiceGroupName should not be nil in MaximumMaxReplicasPerService entries")
+		}
+		if _, exists := serviceGroupMap[maxReplicas.ServiceGroupName]; !exists {
+			return fmt.Errorf("ServiceGroupName %s in MaximumMaxReplicas is not defined in ServiceGroups", maxReplicas.ServiceGroupName)
+		}
+	}
+
+	// Validate MaximumMinReplicas against default first, then service groups
+	if config.MaximumMinReplicas > config.MaximumMaxReplicas {
+		return fmt.Errorf("MaximumMinReplicas (%v) should be less than or equal to MaximumMaxReplicas (%v)", config.MaximumMinReplicas, config.MaximumMaxReplicas)
+	}
+	for _, group := range config.MaximumMaxReplicasPerService {
+		if config.MaximumMinReplicas > group.MaximumMaxReplica {
+			return fmt.Errorf("MaximumMinReplicas (%v) should be less than or equal to MaximumMaxReplica (%v) for service group %s", config.MaximumMinReplicas, group.MaximumMaxReplica, group.ServiceGroupName)
+		}
+	}
+
+	// Validate PreferredMaxReplicas against default first, then service groups
 	if config.PreferredMaxReplicas >= int(config.MaximumMaxReplicas) {
-		return fmt.Errorf("PreferredMaxReplicas should be less than MaximumMaxReplicas")
+		return fmt.Errorf("PreferredMaxReplicas (%v) should be less than MaximumMaxReplicas (%v)", config.PreferredMaxReplicas, config.MaximumMaxReplicas)
+	}
+	for _, group := range config.MaximumMaxReplicasPerService {
+		if config.PreferredMaxReplicas >= int(group.MaximumMaxReplica) {
+			return fmt.Errorf("PreferredMaxReplicas (%v) should be less than MaximumMaxReplica (%v) for service group %s", config.PreferredMaxReplicas, group.MaximumMaxReplica, group.ServiceGroupName)
+		}
 	}
 	if config.PreferredMaxReplicas <= config.MinimumMinReplicas {
 		return fmt.Errorf("PreferredMaxReplicas should be greater than or equal to MinimumMinReplicas")
