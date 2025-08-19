@@ -1,0 +1,111 @@
+---
+# Example ScheduledScaling resource for testing
+apiVersion: autoscaling.mercari.com/v1alpha1
+kind: ScheduledScaling
+metadata:
+  name: test-scheduled-scaling
+  namespace: default
+spec:
+  schedule:
+    # Start immediately (optional - if not set, starts right after creation)
+    startAt: "2024-01-01T00:00:00Z"
+    # End in 1 hour
+    finishAt: "2024-01-01T01:00:00Z"
+  targetRefs:
+    tortoiseName: "test-tortoise"
+  strategy:
+    static:
+      # Set minimum replicas to 3 during the scheduled period
+      minimumMinReplicas: 3
+      # Set minimum resource requests for containers
+      minAllocatedResources:
+        - containerName: "app"
+          resource:
+            cpu: "500m"
+            memory: "512Mi"
+        - containerName: "sidecar"
+          resource:
+            cpu: "100m"
+            memory: "128Mi"
+---
+# Example Tortoise resource to test against
+apiVersion: autoscaling.mercari.com/v1beta3
+kind: Tortoise
+metadata:
+  name: test-tortoise
+  namespace: default
+spec:
+  targetRefs:
+    scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: test-deployment
+    horizontalPodAutoscalerName: "test-hpa"
+  updateMode: "Auto"
+  autoscalingPolicy:
+    - containerName: "app"
+      policy:
+        cpu: "Horizontal"
+        memory: "Vertical"
+    - containerName: "sidecar"
+      policy:
+        cpu: "Off"
+        memory: "Off"
+---
+# Example Deployment for testing
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: test-app
+  template:
+    metadata:
+      labels:
+        app: test-app
+    spec:
+      containers:
+      - name: app
+        image: nginx:latest
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+      - name: sidecar
+        image: busybox:latest
+        command: ["sleep", "3600"]
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "100m"
+            memory: "128Mi"
+---
+# Example HPA for testing
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: test-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: test-deployment
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70

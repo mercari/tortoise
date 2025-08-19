@@ -54,6 +54,7 @@ rules:
 - apiGroups:
   - autoscaling.mercari.com
   resources:
+  - scheduledscalings
   - tortoises
   verbs:
   - create
@@ -66,12 +67,14 @@ rules:
 - apiGroups:
   - autoscaling.mercari.com
   resources:
+  - scheduledscalings/finalizers
   - tortoises/finalizers
   verbs:
   - update
 - apiGroups:
   - autoscaling.mercari.com
   resources:
+  - scheduledscalings/status
   - tortoises/status
   verbs:
   - get
@@ -102,29 +105,3 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - autoscaling.mercari.com
-  resources:
-  - scheduledscalings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - autoscaling.mercari.com
-  resources:
-  - scheduledscalings/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - autoscaling.mercari.com
-  resources:
-  - scheduledscalings/status
-  verbs:
-  - get
-  - patch
-  - update

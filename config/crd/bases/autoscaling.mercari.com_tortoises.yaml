@@ -108,6 +108,27 @@ spec:
                   If nil, Tortoise uses the cluster wide default value, which can be configured via the admin config.
                 format: int32
                 type: integer
+              recommenders:
+                description: |-
+                  Recommenders are responsible for generating recommendation for this Tortoise.
+                  When you specify your custom recommenders here, Tortoise controller doesn't update the recommendations that yours are responsible for.
+                items:
+                  properties:
+                    name:
+                      description: Name is the name of recommender that this selector
+                        selects.
+                      type: string
+                    responsibleFor:
+                      description: ResponsibleFor represents which kind of recommendation
+                        this recommender generates.
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - name
+                  - responsibleFor
+                  type: object
+                type: array
               resourcePolicy:
                 description: ResourcePolicy contains the policy how each resource
                   is updated.
@@ -388,6 +409,59 @@ spec:
                 type: array
               recommendations:
                 properties:
+                  constraints:
+                    description: |-
+                      Constraints shows the constraints that this Tortoise has to take into account when generating the recommendation.
+                      When this field is empty, a global constraints that are configured through the admin configuration are used.
+                    properties:
+                      minAllocatedResources:
+                        description: |-
+                          MinAllocatedResources is the minimum resource request that Tortoise gives to the Pods.
+                          Note that if it has a value lower than a global MinAllocatedResources, it's just ignored; a global constraint is priority.
+                        items:
+                          properties:
+                            containerName:
+                              description: ContainerName is the name of target container.
+                              type: string
+                            maxAllocatedResources:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              description: |-
+                                MaxAllocatedResources is the maximum amount of resources which is given to the container.
+                                Tortoise never set the resources request on the container more than MaxAllocatedResources.
+                                If nil, Tortoise uses the cluster wide default value, which can be configured via the admin config.
+                              type: object
+                            minAllocatedResources:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              description: |-
+                                MinAllocatedResources is the minimum amount of resources which is given to the container.
+                                Tortoise never set the resources request on the container less than MinAllocatedResources.
+                                If nil, Tortoise uses the cluster wide default value, which can be configured via the admin config.
+
+                                If empty, tortoise may reduce the resource request to the value which is suggested from VPA.
+                                Given the VPA suggests values based on the historical resource usage,
+                                you have no choice but to use MinAllocatedResources to pre-scaling your Pods,
+                                for example, when maybe your application change will result in consuming resources more than the past.
+                              type: object
+                          required:
+                          - containerName
+                          type: object
+                        type: array
+                      minimumMinReplicas:
+                        description: |-
+                          MinimumMinReplicas is the minimum replica number that Tortoise gives to HPA.
+                          Note that if it has a value lower than a global MinimumMinReplicas, it's just ignored; a global constraint is priority.
+                        type: integer
+                    type: object
                   horizontal:
                     properties:
                       maxReplicas:

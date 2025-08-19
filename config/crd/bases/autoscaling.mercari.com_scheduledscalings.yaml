@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.13.0
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: scheduledscalings.autoscaling.mercari.com
 spec:
   group: autoscaling.mercari.com
@@ -20,14 +20,19 @@ spec:
         description: ScheduledScaling is the Schema for the scheduledscalings API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -38,26 +43,31 @@ spec:
                 description: / Schedule RFC3339 format e.g., "2006-01-02T15:04:05Z09:00"
                 properties:
                   finishAt:
-                    description: end of schedule
+                    description: end of schedule. Must not be empty.
                     type: string
                   startAt:
-                    description: / RFC3339 format e.g., "2006-01-02T15:04:05Z09:00"
-                      start of schedule
+                    description: |-
+                      / RFC3339 format e.g., "2006-01-02T15:04:05Z09:00"
+                      start of schedule. If empty, it starts right after the creation.
                     type: string
+                required:
+                - finishAt
                 type: object
               strategy:
-                description: Strategy describes how this ScheduledScaling scales the
-                  target workload. Currently, it only supports the static strategy.
+                description: |-
+                  Strategy describes how this ScheduledScaling scales the target workload.
+                  Currently, it only supports the static strategy.
                 properties:
                   static:
-                    description: Resource scaling requirements Static strategy receives
-                      the static value of the replica number and resource requests
-                      that users want to give to Pods during this ScheduledScaling
-                      is valid. This field is optional for the future when we add
-                      another strategy here though, until then this strategy is the
-                      only supported strategy you must set this.
+                    description: |-
+                      Resource scaling requirements
+                      Static strategy receives the static value of the replica number and resource requests
+                      that users want to give to Pods during this ScheduledScaling is valid.
+                      This field is optional for the future when we add another strategy here though,
+                      until then this strategy is the only supported strategy
+                      you must set this.
                     properties:
-                      minAllocatedResourcesomitempty:
+                      minAllocatedResources:
                         description: MinAllowedResources means the minimum resource
                           requests that Tortoise gives to each container.
                         items:
@@ -93,6 +103,8 @@ spec:
                   tortoiseName:
                     description: Tortoise to be targeted for scheduled scaling
                     type: string
+                required:
+                - tortoiseName
                 type: object
             required:
             - schedule
@@ -103,6 +115,9 @@ spec:
             description: ScheduledScalingStatus defines the observed state of ScheduledScaling
             properties:
               scheduledScalingPhase:
+                enum:
+                - Inactive
+                - Active
                 type: string
             required:
             - scheduledScalingPhase

@@ -27,67 +27,72 @@ package controller
 
 import (
 	"context"
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
+	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 )
 
 var _ = Describe("ScheduledScaling Controller", func() {
-	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+	const (
+		timeout  = time.Second * 10
+		interval = time.Millisecond * 250
+	)
 
-		ctx := context.Background()
+	Context("When creating a ScheduledScaling", func() {
+		It("Should create successfully", func() {
+			By("Creating a new ScheduledScaling")
+			ctx := context.Background()
+			resourceName := "test-scheduledscaling"
 
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
-		}
-		scheduledscaling := &autoscalingv1alpha1.ScheduledScaling{}
-
-		BeforeEach(func() {
-			By("creating the custom resource for the Kind ScheduledScaling")
-			err := k8sClient.Get(ctx, typeNamespacedName, scheduledscaling)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &autoscalingv1alpha1.ScheduledScaling{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
+			resource := &autoscalingv1alpha1.ScheduledScaling{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: "default",
+				},
+				Spec: autoscalingv1alpha1.ScheduledScalingSpec{
+					Schedule: autoscalingv1alpha1.Schedule{
+						FinishAt: func() *string { v := "2024-12-31T23:59:59Z"; return &v }(),
 					},
-					// TODO(user): Specify other spec details if needed.
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+					TargetRefs: autoscalingv1alpha1.TargetRefs{
+						TortoiseName: func() *string { v := "test-tortoise"; return &v }(),
+					},
+					Strategy: autoscalingv1alpha1.Strategy{
+						Static: &autoscalingv1alpha1.Static{
+							MinimumMinReplicas: func() *int { v := 1; return &v }(),
+						},
+					},
+				},
 			}
-		})
+			Expect(k8sClient.Create(ctx, resource)).Should(Succeed())
 
-		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &autoscalingv1alpha1.ScheduledScaling{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance ScheduledScaling")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
-			controllerReconciler := &ScheduledScalingReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
+			// Let's make sure it was created in the cluster
+			resourceLookupKey := types.NamespacedName{
+				Name:      resourceName,
+				Namespace: "default",
 			}
+			createdResource := &autoscalingv1alpha1.ScheduledScaling{}
 
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, resourceLookupKey, createdResource)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Let's wait until the resource is reconciled
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, resourceLookupKey, createdResource)
+				// Add any specific conditions you want to check
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Perform cleanup
+			By("Cleaning up the created resource")
+			Expect(k8sClient.Delete(ctx, createdResource)).Should(Succeed())
 		})
 	})
 })

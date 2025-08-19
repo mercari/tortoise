@@ -98,9 +98,9 @@ type TortoiseSpec struct {
 
 type Recommender struct {
 	// Name is the name of recommender that this selector selects.
-	Name string
+	Name string `json:"name"`
 	// ResponsibleFor represents which kind of recommendation this recommender generates.
-	ResponsibleFor []ResponsibleFor
+	ResponsibleFor []ResponsibleFor `json:"responsibleFor"`
 }
 
 type ResponsibleFor string

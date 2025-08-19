@@ -27,6 +27,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -47,11 +48,6 @@ type ScheduledScalingReconciler struct {
 	TortoiseService *tortoiseService.Service
 }
 
-var (
-	// During the test, we want to use a fixed time.
-	onlyTestNow *time.Time
-)
-
 // +kubebuilder:rbac:groups=autoscaling.mercari.com,resources=scheduledscalings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=autoscaling.mercari.com,resources=scheduledscalings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=autoscaling.mercari.com,resources=scheduledscalings/finalizers,verbs=update
@@ -68,34 +64,52 @@ var (
 func (r *ScheduledScalingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	now := time.Now()
-	if onlyTestNow != nil {
-		now = *onlyTestNow
-	}
 
 	logger.Info("the reconciliation is started", "scheduledScaling", req.NamespacedName)
 
 	// get scheduledScaling
-	// TODO: Implement scheduledScaling pkg
-	scheduledScaling, err := r.scheduledScalingService.GetScheduledScaling(ctx, req.NamespacedName)
+	scheduledScaling := &autoscalingv1alpha1.ScheduledScaling{}
+	err := r.Get(ctx, req.NamespacedName, scheduledScaling)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.Info("scheduledScaling is not found", "scheduledScaling", req.NamespacedName)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "failed to get scheduledScaling", "scheduledScaling", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+
 	startAt := time.Time{}
 	if scheduledScaling.Spec.Schedule.StartAt != nil {
-		startAt, err = time.Parse(time.RFC3339, scheduledScaling.Spec.Schedule.StartAt)
+		startAt, err = time.Parse(time.RFC3339, *scheduledScaling.Spec.Schedule.StartAt)
 		if err != nil {
 			logger.Error(err, "incorrect startAt format", "scheduledScaling", req.NamespacedName)
 			return ctrl.Result{}, err
 		}
 	}
-	finishAt, err := time.Parse(time.RFC3339, scheduledScaling.Spec.Schedule.FinishAt)
+
+	if scheduledScaling.Spec.Schedule.FinishAt == nil {
+		logger.Error(fmt.Errorf("finishAt is required"), "finishAt is not set", "scheduledScaling", req.NamespacedName)
+		return ctrl.Result{}, fmt.Errorf("finishAt is required")
+	}
+
+	finishAt, err := time.Parse(time.RFC3339, *scheduledScaling.Spec.Schedule.FinishAt)
 	if err != nil {
 		logger.Error(err, "incorrect finishAt format", "scheduledScaling", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
+
 	// if startAt empty or now is between startAt and finishAt,
 	if startAt == (time.Time{}) || (now.After(startAt) && now.Before(finishAt)) {
 		// if status inactive
 		if scheduledScaling.Status.ScheduledScalingPhase == autoscalingv1alpha1.ScheduledScalingInactive {
 			// get tortoise
-			tortoise, err := r.TortoiseService.GetTortoise(ctx, types.NamespacedName{Namespace: scheduledScaling.Namespace, Name: scheduledScaling.Spec.TargetRefs.TortoiseName})
+			if scheduledScaling.Spec.TargetRefs.TortoiseName == nil {
+				logger.Error(fmt.Errorf("tortoiseName is required"), "tortoiseName is not set", "scheduledScaling", req.NamespacedName)
+				return ctrl.Result{}, fmt.Errorf("tortoiseName is required")
+			}
+
+			_, err := r.TortoiseService.GetTortoise(ctx, types.NamespacedName{Namespace: scheduledScaling.Namespace, Name: *scheduledScaling.Spec.TargetRefs.TortoiseName})
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					// Probably deleted already and finalizer is already removed.
@@ -106,10 +120,8 @@ func (r *ScheduledScalingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				logger.Error(err, "failed to get tortoise", "scheduledScaling", req.NamespacedName)
 				return ctrl.Result{}, err
 			}
-			// sets ScheduledScaling recommender at Tortoise.spec.recommenders
-
+			// TODO: sets ScheduledScaling recommender at Tortoise.spec.recommenders
 		}
-
 	}
 
 	// TODO(user): your logic here

@@ -58,7 +58,7 @@ type ScheduledScalingStatus struct {
 	ScheduledScalingPhase ScheduledScalingPhase `json:"scheduledScalingPhase" protobuf:"bytes,1,name=scheduledScalingPhase"`
 }
 
-// +kubebuilder:validation:Enum=Inactive,Active
+// +kubebuilder:validation:Enum=Inactive;Active
 type ScheduledScalingPhase string
 
 const (
@@ -116,7 +116,7 @@ type Static struct {
 	// MinimumMinReplicas means the minimum MinReplicas that Tortoise gives to HPA during this ScheduledScaling is valid.
 	MinimumMinReplicas *int `json:"minimumMinReplica,omitempty" protobuf:"bytes,1,opt,name=minimumMinReplica"`
 	// MinAllowedResources means the minimum resource requests that Tortoise gives to each container.
-	MinAllocatedResources []autoscalingv1beta3.ContainerResourceRequests `json:"minAllocatedResourcesomitempty,omitempty" protobuf:"bytes,2,opt,name=minAllocatedResources"`
+	MinAllocatedResources []autoscalingv1beta3.ContainerResourceRequests `json:"minAllocatedResources,omitempty" protobuf:"bytes,2,opt,name=minAllocatedResources"`
 }
 
 func init() {
