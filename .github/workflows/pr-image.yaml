@@ -1,0 +1,23 @@
+name: PR docker image build and push
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+jobs:
+  build-tortoise-pr:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+      - name: Build
+        run: docker build -t ghcr.io/mercari/tortoise:pr-${{ github.event.number }} .
+      - name: Login
+        run: echo $TOKEN | docker login ghcr.io -u ${OWNER,,} --password-stdin
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+      - name: Push
+        run: docker push ghcr.io/mercari/tortoise:pr-${{ github.event.number }}
