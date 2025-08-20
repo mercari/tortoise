@@ -18,9 +18,12 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -86,6 +89,10 @@ func (r *ScheduledScalingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if now.Before(startTime) {
 		// Calculate time until start
 		timeUntilStart := startTime.Sub(now)
+		// Set status to Pending if not already set
+		if scheduledScaling.Status.Phase != autoscalingv1alpha1.ScheduledScalingPhasePending {
+			return ctrl.Result{RequeueAfter: timeUntilStart}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhasePending, "Waiting", "Waiting for scheduled scaling to begin")
+		}
 		return ctrl.Result{RequeueAfter: timeUntilStart}, nil
 	} else if now.After(finishTime) {
 		// Apply normal scaling (restore original settings)
@@ -104,12 +111,17 @@ func (r *ScheduledScalingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseFailed, "ScalingFailed", err.Error())
 		}
 
+		// Set status to Active if not already set
+		if scheduledScaling.Status.Phase != autoscalingv1alpha1.ScheduledScalingPhaseActive {
+			return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseActive, "Active", "Scheduled scaling is currently active")
+		}
+
 		// Calculate time until finish
 		timeUntilFinish := finishTime.Sub(now)
 		return ctrl.Result{RequeueAfter: timeUntilFinish}, nil
 	}
 
-	// Update status if phase changed
+	// Update status if phase changed (this handles Completed phase)
 	if scheduledScaling.Status.Phase != newPhase {
 		return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, newPhase, reason, message)
 	}
@@ -120,44 +132,115 @@ func (r *ScheduledScalingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 // applyScheduledScaling applies the scheduled scaling configuration to the target Tortoise
 func (r *ScheduledScalingReconciler) applyScheduledScaling(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling) error {
 	// Get the target Tortoise
-	tortoise := &autoscalingv1beta3.Tortoise{}
-	tortoiseKey := types.NamespacedName{
-		Namespace: scheduledScaling.Namespace,
-		Name:      scheduledScaling.Spec.TargetRefs.TortoiseName,
-	}
-
-	if err := r.Get(ctx, tortoiseKey, tortoise); err != nil {
+	t := &autoscalingv1beta3.Tortoise{}
+	key := types.NamespacedName{Namespace: scheduledScaling.Namespace, Name: scheduledScaling.Spec.TargetRefs.TortoiseName}
+	if err := r.Get(ctx, key, t); err != nil {
 		return fmt.Errorf("failed to get target tortoise: %w", err)
 	}
 
-	// Apply the scheduled scaling configuration
-	// This is a simplified implementation - in practice, you might want to:
-	// 1. Store the original configuration before applying changes
-	// 2. Apply the new configuration
-	// 3. Handle conflicts with other scaling policies
+	const annOriginal = "autoscaling.mercari.com/scheduledscaling-original-spec"
+	const annMinReplicas = "autoscaling.mercari.com/scheduledscaling-min-replicas"
+	if t.Annotations == nil {
+		t.Annotations = map[string]string{}
+	}
 
-	// For now, we'll just log what we would do
-	logger := log.FromContext(ctx)
-	logger.Info("Applying scheduled scaling",
-		"tortoise", tortoise.Name,
-		"minReplicas", scheduledScaling.Spec.Strategy.Static.MinimumMinReplicas,
-		"cpu", scheduledScaling.Spec.Strategy.Static.MinAllocatedResources.CPU,
-		"memory", scheduledScaling.Spec.Strategy.Static.MinAllocatedResources.Memory)
+	// Persist original spec if not already stored
+	if _, exists := t.Annotations[annOriginal]; !exists {
+		orig, err := json.Marshal(t.Spec)
+		if err != nil {
+			return fmt.Errorf("marshal original tortoise spec: %w", err)
+		}
+		t.Annotations[annOriginal] = string(orig)
+	}
 
+	// Desired resource minimums from strategy
+	dCPU := scheduledScaling.Spec.Strategy.Static.MinAllocatedResources.CPU
+	dMem := scheduledScaling.Spec.Strategy.Static.MinAllocatedResources.Memory
+	var qCPU, qMem resource.Quantity
+	var hasCPU, hasMem bool
+	if dCPU != "" {
+		v, err := resource.ParseQuantity(dCPU)
+		if err != nil {
+			return fmt.Errorf("invalid cpu quantity %q: %w", dCPU, err)
+		}
+		qCPU = v
+		hasCPU = true
+	}
+	if dMem != "" {
+		v, err := resource.ParseQuantity(dMem)
+		if err != nil {
+			return fmt.Errorf("invalid memory quantity %q: %w", dMem, err)
+		}
+		qMem = v
+		hasMem = true
+	}
+
+	updated := false
+	for i := range t.Spec.ResourcePolicy {
+		pol := &t.Spec.ResourcePolicy[i]
+		if pol.MinAllocatedResources == nil {
+			pol.MinAllocatedResources = v1.ResourceList{}
+		}
+		if hasCPU {
+			curr := pol.MinAllocatedResources[v1.ResourceCPU]
+			if curr.Cmp(qCPU) < 0 {
+				pol.MinAllocatedResources[v1.ResourceCPU] = qCPU
+				updated = true
+			}
+		}
+		if hasMem {
+			curr := pol.MinAllocatedResources[v1.ResourceMemory]
+			if curr.Cmp(qMem) < 0 {
+				pol.MinAllocatedResources[v1.ResourceMemory] = qMem
+				updated = true
+			}
+		}
+	}
+
+	if m := scheduledScaling.Spec.Strategy.Static.MinimumMinReplicas; m > 0 {
+		// Store intent; future versions could wire this to Tortoise min replicas recommendation
+		t.Annotations[annMinReplicas] = fmt.Sprintf("%d", m)
+		updated = true
+	}
+
+	if !updated {
+		log.FromContext(ctx).Info("Scheduled scaling made no changes to tortoise spec", "tortoise", t.Name)
+		return nil
+	}
+	if err := r.Update(ctx, t); err != nil {
+		return fmt.Errorf("update tortoise: %w", err)
+	}
 	return nil
 }
 
 // applyNormalScaling restores the normal scaling configuration
 func (r *ScheduledScalingReconciler) applyNormalScaling(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling) error {
-	logger := log.FromContext(ctx)
-	logger.Info("Restoring normal scaling configuration", "tortoise", scheduledScaling.Spec.TargetRefs.TortoiseName)
+	// Fetch target tortoise
+	t := &autoscalingv1beta3.Tortoise{}
+	key := types.NamespacedName{Namespace: scheduledScaling.Namespace, Name: scheduledScaling.Spec.TargetRefs.TortoiseName}
+	if err := r.Get(ctx, key, t); err != nil {
+		return fmt.Errorf("failed to get target tortoise for restore: %w", err)
+	}
 
-	// In practice, you would restore the original configuration here
-	// This might involve:
-	// 1. Retrieving the stored original configuration
-	// 2. Applying it to the Tortoise
-	// 3. Cleaning up any temporary resources
-
+	const annOriginal = "autoscaling.mercari.com/scheduledscaling-original-spec"
+	const annMinReplicas = "autoscaling.mercari.com/scheduledscaling-min-replicas"
+	if t.Annotations == nil {
+		return nil
+	}
+	orig, ok := t.Annotations[annOriginal]
+	if !ok || orig == "" {
+		return nil
+	}
+	var spec autoscalingv1beta3.TortoiseSpec
+	if err := json.Unmarshal([]byte(orig), &spec); err != nil {
+		return fmt.Errorf("unmarshal original tortoise spec: %w", err)
+	}
+	t.Spec = spec
+	delete(t.Annotations, annOriginal)
+	delete(t.Annotations, annMinReplicas)
+	if err := r.Update(ctx, t); err != nil {
+		return fmt.Errorf("restore tortoise: %w", err)
+	}
 	return nil
 }
 
