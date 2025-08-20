@@ -1,0 +1,160 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.1
+  name: scheduledscalings.autoscaling.mercari.com
+spec:
+  group: autoscaling.mercari.com
+  names:
+    kind: ScheduledScaling
+    listKind: ScheduledScalingList
+    plural: scheduledscalings
+    singular: scheduledscaling
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Status
+      type: string
+    - jsonPath: .spec.schedule.startAt
+      name: Start Time
+      type: string
+    - jsonPath: .spec.schedule.finishAt
+      name: End Time
+      type: string
+    - jsonPath: .spec.targetRefs.tortoiseName
+      name: Target
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ScheduledScaling is the Schema for the scheduledscalings API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ScheduledScalingSpec defines the desired state of ScheduledScaling
+            properties:
+              schedule:
+                description: Schedule defines when the scaling should occur
+                properties:
+                  finishAt:
+                    description: |-
+                      FinishAt specifies when the scaling should end and return to normal
+                      Format: RFC3339 (e.g., "2024-01-15T18:00:00Z")
+                    type: string
+                  startAt:
+                    description: |-
+                      StartAt specifies when the scaling should begin
+                      Format: RFC3339 (e.g., "2024-01-15T10:00:00Z")
+                    type: string
+                required:
+                - finishAt
+                - startAt
+                type: object
+              status:
+                default: Inactive
+                description: Status indicates the current state of the scheduled scaling
+                enum:
+                - Inactive
+                - Active
+                type: string
+              strategy:
+                description: Strategy defines how the scaling should be performed
+                properties:
+                  static:
+                    description: Static defines static scaling parameters
+                    properties:
+                      minAllocatedResources:
+                        description: MinAllocatedResources sets the minimum allocated
+                          resources during scaling
+                        properties:
+                          cpu:
+                            description: CPU specifies the CPU resource requirements
+                            type: string
+                          memory:
+                            description: Memory specifies the memory resource requirements
+                            type: string
+                        required:
+                        - cpu
+                        - memory
+                        type: object
+                      minimumMinReplicas:
+                        description: MinimumMinReplicas sets the minimum number of
+                          replicas during scaling
+                        format: int32
+                        minimum: 1
+                        type: integer
+                    required:
+                    - minAllocatedResources
+                    - minimumMinReplicas
+                    type: object
+                required:
+                - static
+                type: object
+              targetRefs:
+                description: TargetRefs specifies which resources this scheduled scaling
+                  should affect
+                properties:
+                  tortoiseName:
+                    description: TortoiseName is the name of the Tortoise resource
+                      to scale
+                    type: string
+                required:
+                - tortoiseName
+                type: object
+            required:
+            - schedule
+            - strategy
+            - targetRefs
+            type: object
+          status:
+            description: ScheduledScalingStatus defines the observed state of ScheduledScaling
+            properties:
+              lastTransitionTime:
+                description: LastTransitionTime is the last time the status transitioned
+                  from one phase to another
+                format: date-time
+                type: string
+              message:
+                description: Message provides additional information about the current
+                  phase
+                type: string
+              phase:
+                description: Phase indicates the current phase of the scheduled scaling
+                enum:
+                - Pending
+                - Active
+                - Completed
+                - Failed
+                type: string
+              reason:
+                description: Reason indicates why the scheduled scaling is in the
+                  current phase
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
