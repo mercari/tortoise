@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-tortoise-pr:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Check out code into the Go module directory
