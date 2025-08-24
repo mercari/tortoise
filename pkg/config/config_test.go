@@ -48,6 +48,8 @@ func TestParseConfig(t *testing.T) {
 				IstioSidecarProxyDefaultCPU:              "100m",
 				IstioSidecarProxyDefaultMemory:           "200Mi",
 				MaxAllowedScalingDownRatio:               0.5,
+				ServiceGroups:                            []ServiceGroup{},
+				MaximumMaxReplicasPerService:             []MaximumMaxReplicasPerGroup{},
 				MinimumCPURequestPerContainer: map[string]string{
 					"istio-proxy": "100m",
 					"hoge-agent":  "120m",
@@ -95,6 +97,8 @@ func TestParseConfig(t *testing.T) {
 				MinimumCPURequestPerContainer:            map[string]string{},
 				MinimumMemoryRequestPerContainer:         map[string]string{},
 				ResourceLimitMultiplier:                  map[string]int64{},
+				ServiceGroups:                            []ServiceGroup{},
+				MaximumMaxReplicasPerService:             []MaximumMaxReplicasPerGroup{},
 				BufferRatioOnVerticalResource:            0.1,
 			},
 		},
@@ -137,6 +141,8 @@ func TestParseConfig(t *testing.T) {
 				MinimumCPURequestPerContainer:            map[string]string{},
 				MinimumMemoryRequestPerContainer:         map[string]string{},
 				ResourceLimitMultiplier:                  map[string]int64{},
+				ServiceGroups:                            []ServiceGroup{},
+				MaximumMaxReplicasPerService:             []MaximumMaxReplicasPerGroup{},
 				BufferRatioOnVerticalResource:            0.1,
 			},
 		},
@@ -226,7 +232,7 @@ func Test_validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "invalid PreferredMaxReplicas",
+			name: "invalid PreferredMaxReplicas less than MinimumMinReplicas",
 			config: &Config{
 				RangeOfMinMaxReplicasRecommendationHours: 2,
 				GatheringDataPeriodType:                  "daily",
@@ -571,6 +577,190 @@ func Test_validate(t *testing.T) {
 				MaxAllowedScalingDownRatio:               0.8,
 			},
 			wantErr: true,
+		},
+		// ServiceGroup validation test cases
+		{
+			name: "invalid ServiceGroup - empty service group name",
+			config: &Config{
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+				ServiceGroups: []ServiceGroup{
+					{
+						Name: "", // Empty name should be invalid
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid ServiceGroup - duplicate service group names",
+			config: &Config{
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+				ServiceGroups: []ServiceGroup{
+					{Name: "frontend"},
+					{Name: "frontend"}, // Duplicate name should be invalid
+				},
+			},
+			wantErr: true,
+		},
+		// MaximumMaxReplicasPerGroup validation test cases
+		{
+			name: "invalid MaximumMaxReplicasPerService - empty ServiceGroupName",
+			config: &Config{
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+				ServiceGroups: []ServiceGroup{
+					{Name: "frontend"},
+				},
+				MaximumMaxReplicasPerService: []MaximumMaxReplicasPerGroup{
+					{
+						ServiceGroupName:  "", // Empty ServiceGroupName should be invalid
+						MaximumMaxReplica: 50,
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid MaximumMaxReplicasPerService - ServiceGroupName not defined in ServiceGroups",
+			config: &Config{
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+				ServiceGroups: []ServiceGroup{
+					{Name: "frontend"},
+				},
+				MaximumMaxReplicasPerService: []MaximumMaxReplicasPerGroup{
+					{
+						ServiceGroupName:  "backend", // Not defined in ServiceGroups
+						MaximumMaxReplica: 50,
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid MaximumMaxReplicasPerService - negative MaximumMaxReplica",
+			config: &Config{
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+				ServiceGroups: []ServiceGroup{
+					{Name: "frontend"},
+				},
+				MaximumMaxReplicasPerService: []MaximumMaxReplicasPerGroup{
+					{
+						ServiceGroupName:  "frontend",
+						MaximumMaxReplica: -5, // Negative value should be invalid
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid MaximumMinReplicas greater than service group MaximumMaxReplica",
+			config: &Config{
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       15, // Greater than service group MaximumMaxReplica
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+				ServiceGroups: []ServiceGroup{
+					{Name: "frontend"},
+				},
+				MaximumMaxReplicasPerService: []MaximumMaxReplicasPerGroup{
+					{
+						ServiceGroupName:  "frontend",
+						MaximumMaxReplica: 10, // Less than MaximumMinReplicas
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid PreferredMaxReplicas greater than service group MaximumMaxReplica",
+			config: &Config{
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     25, // Greater than service group MaximumMaxReplica
+				MaxAllowedScalingDownRatio:               0.8,
+				ServiceGroups: []ServiceGroup{
+					{Name: "frontend"},
+				},
+				MaximumMaxReplicasPerService: []MaximumMaxReplicasPerGroup{
+					{
+						ServiceGroupName:  "frontend",
+						MaximumMaxReplica: 20, // Less than PreferredMaxReplicas
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid ServiceGroups and MaximumMaxReplicasPerService configuration",
+			config: &Config{
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumTargetResourceUtilization:         65,
+				MaximumTargetResourceUtilization:         90,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+				ServiceGroups: []ServiceGroup{
+					{Name: "frontend"},
+					{Name: "backend"},
+				},
+				MaximumMaxReplicasPerService: []MaximumMaxReplicasPerGroup{
+					{
+						ServiceGroupName:  "frontend",
+						MaximumMaxReplica: 50,
+					},
+					{
+						ServiceGroupName:  "backend",
+						MaximumMaxReplica: 80,
+					},
+				},
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
