@@ -2746,6 +2746,983 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "MinReplicas below minimum allowed replicas should be adjusted",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceMemory: 90,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     10,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     1, // Below minimum (3)
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 10,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3), // Should be adjusted to minimum
+					MaxReplicas: 10,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](90),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "MaxReplicas below minimum allowed replicas should be adjusted",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceMemory: 90,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     1, // Below minimum (3)
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 10,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 3, // Should be adjusted to minimum (3) since minReplicas is 3
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](90),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "MinReplicas exceeds MaxReplicas should adjust MaxReplicas",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceMemory: 90,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     5,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     8, // Exceeds maxReplicas (5)
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 10,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(8),
+					MaxReplicas: 8, // Should be adjusted to minReplicas (8)
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](90),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "BackToNormal phase should temporarily increase MaxReplicas for safety",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseBackToNormal,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceMemory: 90,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     5,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(10), // Current min is high (from emergency)
+					MaxReplicas: 5,            // But max is low
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(9), // Reduced by 0.95 factor (10 * 0.95 = 9.5, truncated to 9)
+					MaxReplicas: 9,           // Temporarily increased to accommodate minReplicas
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](90),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Emergency phase should set minReplicas to maxReplicas",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseEmergency,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceMemory: 90,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     10,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 10,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(10), // Should be set to maxReplicas in emergency
+					MaxReplicas: 10,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](90),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "User-specified MaxReplicas limit should be respected",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode:  v1beta3.UpdateModeAuto,
+						MaxReplicas: ptr.To[int32](5), // User-specified limit
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceMemory: 90,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     10, // Exceeds user-specified limit (5)
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 10,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 5, // Should be capped to user-specified limit
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](90),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "MinReplicas above cluster-wide maximum should be capped",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseWorking,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceMemory: 90,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     10,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     1000, // Above cluster-wide maximum (1000)
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(3),
+					MaxReplicas: 10,
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(1000), // Should be capped to cluster-wide maximum
+					MaxReplicas: 1000,           // Should also be adjusted to match
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](90),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Final validation should ensure minReplicas doesn't exceed maxReplicas after BackToNormal",
+			args: args{
+				ctx: context.Background(),
+				tortoise: &v1beta3.Tortoise{
+					Spec: v1beta3.TortoiseSpec{
+						UpdateMode: v1beta3.UpdateModeAuto,
+					},
+					Status: v1beta3.TortoiseStatus{
+						TortoisePhase: v1beta3.TortoisePhaseBackToNormal,
+						AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+							{
+								ContainerName: "app",
+								Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+									v1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+								},
+							},
+						},
+						Conditions: v1beta3.Conditions{
+							TortoiseConditions: []v1beta3.TortoiseCondition{
+								{
+									Type:               v1beta3.TortoiseConditionTypeHPATargetUtilizationUpdated,
+									Status:             v1.ConditionTrue,
+									LastUpdateTime:     metav1.NewTime(now.Add(-3 * time.Hour)),
+									LastTransitionTime: metav1.NewTime(now.Add(-3 * time.Hour)),
+									Reason:             "HPATargetUtilizationUpdated",
+									Message:            "HPA target utilization is updated",
+								},
+							},
+						},
+						ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+							{
+								ContainerName: "app",
+								ResourcePhases: map[v1.ResourceName]v1beta3.ResourcePhase{
+									v1.ResourceMemory: {
+										Phase: v1beta3.ContainerResourcePhaseWorking,
+									},
+								},
+							},
+						},
+						Targets: v1beta3.TargetsStatus{
+							HorizontalPodAutoscaler: "hpa",
+						},
+						Recommendations: v1beta3.Recommendations{
+							Horizontal: v1beta3.HorizontalRecommendations{
+								TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+									{
+										ContainerName: "app",
+										TargetUtilization: map[v1.ResourceName]int32{
+											v1.ResourceMemory: 90,
+										},
+									},
+								},
+								MaxReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     5,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+								MinReplicas: []v1beta3.ReplicasRecommendation{
+									{
+										From:      0,
+										To:        2,
+										Value:     3,
+										UpdatedAt: now,
+										WeekDay:   ptr.To(now.Weekday().String()),
+									},
+								},
+							},
+						},
+					},
+				},
+				now: now.Time,
+			},
+			initialHPA: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptrInt32(20), // Very high current min (from emergency)
+					MaxReplicas: 5,            // But max is low
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](60),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			want: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hpa",
+				},
+				Spec: v2.HorizontalPodAutoscalerSpec{
+					Behavior:    defaultHPABehaviorValue.DeepCopy(),
+					MinReplicas: ptrInt32(19), // Reduced by 0.95 factor (20 * 0.95 = 19)
+					MaxReplicas: 19,           // Temporarily increased to accommodate minReplicas
+					Metrics: []v2.MetricSpec{
+						{
+							Type: v2.ContainerResourceMetricSourceType,
+							ContainerResource: &v2.ContainerResourceMetricSource{
+								Name: v1.ResourceMemory,
+								Target: v2.MetricTarget{
+									AverageUtilization: ptr.To[int32](90),
+								},
+								Container: "app",
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
