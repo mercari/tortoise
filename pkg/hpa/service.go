@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
@@ -804,9 +805,43 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalin
 
 	for _, condition := range conditions {
 		if condition.Type == "ScalingActive" && condition.Status == "False" && condition.Reason == "FailedGetResourceMetric" {
-			// switch to Emergency mode since no metrics
-			logger.Info("HPA failed to get resource metrics, switch to emergency mode")
-			return false
+			// HPA failed to get resource metrics, but we need to check how many times it failed, because FailedGetResourceMetric is an informational message and can happen for various reasons (including a new pod from recent scale up).
+			logger.Info("HPA failed to get resource metrics, querying k8s events to see how many FailedGetResourceMetric events are there", "hpa", currenthpa.Name)
+
+			sel := fields.AndSelectors(
+				fields.OneTermEqualSelector("involvedObject.kind", "HorizontalPodAutoscaler"),
+				fields.OneTermEqualSelector("involvedObject.name", currenthpa.Name),
+				fields.OneTermEqualSelector("involvedObject.namespace", currenthpa.Namespace),
+				fields.OneTermEqualSelector("reason", "FailedGetResourceMetric"),
+			)
+			var evList corev1.EventList
+			opts := &client.ListOptions{
+				Namespace: currenthpa.Namespace,
+				Raw: &metav1.ListOptions{
+					FieldSelector: sel.String(),
+				},
+			}
+
+			if err := c.c.List(ctx, &evList, opts); err != nil {
+				logger.Info("Failed to get events for HPA to check for FailedGetResourceMetric, switch to emergency mode", "hpa", currenthpa.Name)
+				return false
+			}
+
+			// count number of FailedGetResourceMetric events that occured in the last 5 minutes
+			fiveMinutesAgo := time.Now().Add(-5 * time.Minute)
+			count := 0
+			for _, ev := range evList.Items {
+				if ev.EventTime.Time.After(fiveMinutesAgo) {
+					count++
+				}
+			}
+
+			if count > 5 {
+				logger.Info("HPA failed to get resource metrics over 5 times in the last 5 minutes, switch to emergency mode", "hpa", currenthpa.Name, "failCount", count)
+				return false
+			}
+
+			logger.Info("HPA did not fail to get resource metrics enough times to switch to emergency mode", "hpa", currenthpa.Name, "failCount", count)
 		}
 	}
 
