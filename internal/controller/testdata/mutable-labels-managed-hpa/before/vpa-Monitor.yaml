@@ -3,8 +3,6 @@ metadata:
     tortoise.autoscaling.mercari.com/managed-by-tortoise: "true"
   name: tortoise-monitor-mercari
   namespace: default
-  labels:
-    app: tortoise
 spec:
   targetRef:
     apiVersion: apps/v1
@@ -29,13 +27,3 @@ status:
       upperBound:
         cpu: "5"
         memory: 5Gi
-    - containerName: istio-proxy
-      lowerBound:
-        cpu: "3"
-        memory: 3Gi
-      target:
-        cpu: "3"
-        memory: 3Gi
-      upperBound:
-        cpu: 350m
-        memory: 3584Mi

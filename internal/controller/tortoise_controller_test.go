@@ -428,8 +428,11 @@ var _ = Describe("Test TortoiseController", func() {
 		It("TortoisePhaseWorking (GatheringData)", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-gathering-data"))
 		})
-		It("TortoisePhaseInitializing", func() {
+		It("TortoisePhaseInitializing with horizontalPodAutoscalerName configured", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-initializing"))
+		})
+		It("TortoisePhaseInitializing without horizontalPodAutoscalerName configured", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-managed-hpa-initializing"))
 		})
 		It("TortoisePhaseWorking (GatheringData is just finished)", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-single-container-pod-gathering-data-finished"))
@@ -477,7 +480,7 @@ var _ = Describe("Test TortoiseController", func() {
 		})
 	})
 	Context("mutable AutoscalingPolicy", func() {
-		It("Tortoise get Horizontal and create HPA", func() {
+		It("Tortoise get Horizontal and create HPA (with the same labels)", func() {
 			runTest(filepath.Join("testdata", "mutable-autoscalingpolicy-no-hpa-and-add-horizontal"))
 		})
 		It("Tortoise get another Horizontal and modify the existing HPA", func() {
@@ -550,6 +553,17 @@ var _ = Describe("Test TortoiseController", func() {
 			}).Should(Succeed())
 		})
 	})
+	Context("labels propagation", func() {
+		It("Labels is updated without horizontalPodAutoscalerName configured", func() {
+			runTest(filepath.Join("testdata", "mutable-labels-managed-hpa"))
+		})
+		It("Labels is updated with horizontalPodAutoscalerName configured", func() {
+			runTest(filepath.Join("testdata", "mutable-labels-existing-hpa"))
+		})
+		It("Labels is updated with Tortoise in dry-run mode", func() {
+			runTest(filepath.Join("testdata", "mutable-labels-dryrun"))
+		})
+	})
 })
 
 type testCase struct {
@@ -567,9 +581,16 @@ func (t *testCase) compare(got resources) error {
 	if d := cmp.Diff(t.want.tortoise, got.tortoise, cmpopts.IgnoreFields(v1beta3.Tortoise{}, "ObjectMeta")); d != "" {
 		return fmt.Errorf("unexpected tortoise: diff = %s", d)
 	}
+
 	if d := cmp.Diff(t.want.hpa, got.hpa, cmpopts.IgnoreFields(v2.HorizontalPodAutoscaler{}, "ObjectMeta")); d != "" {
 		return fmt.Errorf("unexpected hpa: diff = %s", d)
 	}
+	if t.want.hpa != nil {
+		if d := cmp.Diff(t.want.hpa.ObjectMeta.Labels, got.hpa.ObjectMeta.Labels); d != "" {
+			return fmt.Errorf("unexpected hpa labels: diff = %s", d)
+		}
+	}
+
 	// Only restartedAt annotation could be modified by the reconciliation
 	// We don't care about the value, but the existence of the annotation.
 	if got.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] != t.want.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] {
@@ -578,6 +599,11 @@ func (t *testCase) compare(got resources) error {
 
 	if d := cmp.Diff(t.want.vpa, got.vpa, cmpopts.IgnoreFields(autoscalingv1.VerticalPodAutoscaler{}, "ObjectMeta")); d != "" {
 		return fmt.Errorf("unexpected vpa: diff = %s", d)
+	}
+	if t.want.vpa != nil {
+		if d := cmp.Diff(t.want.vpa.ObjectMeta.Labels, got.vpa.ObjectMeta.Labels); d != "" {
+			return fmt.Errorf("unexpected vpa labels: diff = %s", d)
+		}
 	}
 
 	return nil
