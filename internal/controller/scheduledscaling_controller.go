@@ -138,6 +138,13 @@ func (r *ScheduledScalingReconciler) applyScheduledScaling(ctx context.Context, 
 		return fmt.Errorf("failed to get target tortoise: %w", err)
 	}
 
+	// Preserve existing HPA reference if present and not already specified in spec
+	if t.Spec.TargetRefs.HorizontalPodAutoscalerName == nil && t.Status.Targets.HorizontalPodAutoscaler != "" {
+		// If tortoise created an HPA but spec doesn't reference it explicitly,
+		// add the reference to prevent HPA recreation during scheduled scaling
+		t.Spec.TargetRefs.HorizontalPodAutoscalerName = &t.Status.Targets.HorizontalPodAutoscaler
+	}
+
 	const annOriginal = "autoscaling.mercari.com/scheduledscaling-original-spec"
 	const annMinReplicas = "autoscaling.mercari.com/scheduledscaling-min-replicas"
 	if t.Annotations == nil {
@@ -235,6 +242,14 @@ func (r *ScheduledScalingReconciler) applyNormalScaling(ctx context.Context, sch
 	if err := json.Unmarshal([]byte(orig), &spec); err != nil {
 		return fmt.Errorf("unmarshal original tortoise spec: %w", err)
 	}
+
+	// Preserve HPA reference if it was added during scheduled scaling to prevent HPA recreation
+	if spec.TargetRefs.HorizontalPodAutoscalerName == nil && t.Spec.TargetRefs.HorizontalPodAutoscalerName != nil && t.Status.Targets.HorizontalPodAutoscaler != "" {
+		// If original spec didn't have HPA reference but current spec does (added during scheduled scaling),
+		// preserve it to avoid HPA recreation when restoring
+		spec.TargetRefs.HorizontalPodAutoscalerName = t.Spec.TargetRefs.HorizontalPodAutoscalerName
+	}
+
 	t.Spec = spec
 	delete(t.Annotations, annOriginal)
 	delete(t.Annotations, annMinReplicas)

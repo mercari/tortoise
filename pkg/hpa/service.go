@@ -133,6 +133,19 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta
 		return tortoise, nil
 	}
 
+	// Check if tortoise already has an HPA reference in status that exists
+	if tortoise.Status.Targets.HorizontalPodAutoscaler != "" {
+		hpa := &v2.HorizontalPodAutoscaler{}
+		if err := c.c.Get(ctx, types.NamespacedName{
+			Namespace: tortoise.Namespace,
+			Name:      tortoise.Status.Targets.HorizontalPodAutoscaler,
+		}, hpa); err == nil {
+			logger.Info("tortoise already has an existing HPA, no need to create new one", "hpa", tortoise.Status.Targets.HorizontalPodAutoscaler)
+			return tortoise, nil
+		}
+		logger.Info("tortoise status references HPA that doesn't exist, will create new one", "missing_hpa", tortoise.Status.Targets.HorizontalPodAutoscaler)
+	}
+
 	logger.Info("no existing HPA specified, creating HPA")
 
 	// create default HPA.
