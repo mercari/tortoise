@@ -1,0 +1,11 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tortoise-scheduledscaling-access
+rules:
+- apiGroups: ["autoscaling.mercari.com"]
+  resources: ["scheduledscalings", "scheduledscalings/status"]
+  verbs: ["get","list","watch","update","patch"]
+- apiGroups: ["autoscaling.mercari.com"]
+  resources: ["tortoises", "tortoises/status"]
+  verbs: ["get","list","watch","update","patch"]

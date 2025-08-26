@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tortoise-scheduledscaling-access
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tortoise-scheduledscaling-access
+subjects:
+- kind: ServiceAccount
+  name: tortoise-controller-manager
+  namespace: mercari-tortoise-lab
