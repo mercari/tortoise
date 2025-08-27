@@ -24,17 +24,50 @@ type ScheduledScalingSpec struct {
 	Status ScheduledScalingState `json:"status,omitempty"`
 }
 
+// ScheduleType defines the type of scheduling to use
+type ScheduleType string
+
+const (
+	// ScheduleTypeTime uses specific start and end times
+	ScheduleTypeTime ScheduleType = "time"
+	// ScheduleTypeCron uses cron expression for periodic scheduling
+	ScheduleTypeCron ScheduleType = "cron"
+)
+
 // Schedule defines the timing for scheduled scaling
 type Schedule struct {
+	// Type specifies the scheduling type: "time" or "cron"
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=time;cron
+	Type ScheduleType `json:"type"`
+
+	// Time-based scheduling fields (used when type="time")
 	// StartAt specifies when the scaling should begin
 	// Format: RFC3339 (e.g., "2024-01-15T10:00:00Z")
-	// +kubebuilder:validation:Required
-	StartAt string `json:"startAt"`
+	// +kubebuilder:validation:Optional
+	StartAt string `json:"startAt,omitempty"`
 
 	// FinishAt specifies when the scaling should end and return to normal
 	// Format: RFC3339 (e.g., "2024-01-15T18:00:00Z")
-	// +kubebuilder:validation:Required
-	FinishAt string `json:"finishAt"`
+	// +kubebuilder:validation:Optional
+	FinishAt string `json:"finishAt,omitempty"`
+
+	// Cron-based scheduling fields (used when type="cron")
+	// CronExpression defines when scaling periods should start using cron format
+	// Format: "minute hour day month dayofweek" (e.g., "0 9 * * 1-5" for 9 AM weekdays)
+	// +kubebuilder:validation:Optional
+	CronExpression string `json:"cronExpression,omitempty"`
+
+	// Duration specifies how long each scaling period should last
+	// Format: Go duration (e.g., "8h", "30m", "1h30m")
+	// +kubebuilder:validation:Optional
+	Duration string `json:"duration,omitempty"`
+
+	// TimeZone specifies the timezone for cron-based scheduling
+	// Format: IANA timezone (e.g., "Asia/Tokyo", "UTC", "America/New_York")
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="Asia/Tokyo"
+	TimeZone string `json:"timeZone,omitempty"`
 }
 
 // TargetRefs specifies which resources to scale

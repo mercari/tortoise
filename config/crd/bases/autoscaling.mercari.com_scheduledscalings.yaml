@@ -58,6 +58,17 @@ spec:
               schedule:
                 description: Schedule defines when the scaling should occur
                 properties:
+                  cronExpression:
+                    description: |-
+                      Cron-based scheduling fields (used when type="cron")
+                      CronExpression defines when scaling periods should start using cron format
+                      Format: "minute hour day month dayofweek" (e.g., "0 9 * * 1-5" for 9 AM weekdays)
+                    type: string
+                  duration:
+                    description: |-
+                      Duration specifies how long each scaling period should last
+                      Format: Go duration (e.g., "8h", "30m", "1h30m")
+                    type: string
                   finishAt:
                     description: |-
                       FinishAt specifies when the scaling should end and return to normal
@@ -65,12 +76,24 @@ spec:
                     type: string
                   startAt:
                     description: |-
+                      Time-based scheduling fields (used when type="time")
                       StartAt specifies when the scaling should begin
                       Format: RFC3339 (e.g., "2024-01-15T10:00:00Z")
                     type: string
+                  timeZone:
+                    default: Asia/Tokyo
+                    description: |-
+                      TimeZone specifies the timezone for cron-based scheduling
+                      Format: IANA timezone (e.g., "Asia/Tokyo", "UTC", "America/New_York")
+                    type: string
+                  type:
+                    description: 'Type specifies the scheduling type: "time" or "cron"'
+                    enum:
+                    - time
+                    - cron
+                    type: string
                 required:
-                - finishAt
-                - startAt
+                - type
                 type: object
               status:
                 default: Inactive

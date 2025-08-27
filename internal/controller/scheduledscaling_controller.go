@@ -59,27 +59,34 @@ func (r *ScheduledScalingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	logger.Info("Reconciling ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+	logger.Info("Reconciling ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace, "type", scheduledScaling.Spec.Schedule.Type)
 
-	// Parse the schedule times
-	startTime, err := time.Parse(time.RFC3339, scheduledScaling.Spec.Schedule.StartAt)
-	if err != nil {
-		logger.Error(err, "Failed to parse start time", "startAt", scheduledScaling.Spec.Schedule.StartAt)
-		return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseFailed, "InvalidStartTime", err.Error())
-	}
-
-	finishTime, err := time.Parse(time.RFC3339, scheduledScaling.Spec.Schedule.FinishAt)
-	if err != nil {
-		logger.Error(err, "Failed to parse finish time", "finishAt", scheduledScaling.Spec.Schedule.FinishAt)
-		return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseFailed, "InvalidFinishTime", err.Error())
-	}
-
-	// Validate that finish time is after start time
-	if finishTime.Before(startTime) || finishTime.Equal(startTime) {
-		err := fmt.Errorf("finish time must be after start time")
-		logger.Error(err, "Invalid schedule", "startAt", startTime, "finishAt", finishTime)
+	// Validate the schedule configuration
+	if err := scheduledScaling.Spec.Schedule.Validate(); err != nil {
+		logger.Error(err, "Invalid schedule configuration")
 		return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseFailed, "InvalidSchedule", err.Error())
 	}
+
+	// Handle scheduling based on type
+	switch scheduledScaling.Spec.Schedule.Type {
+	case autoscalingv1alpha1.ScheduleTypeTime:
+		return r.handleTimeBasedScheduling(ctx, scheduledScaling)
+	case autoscalingv1alpha1.ScheduleTypeCron:
+		return r.handleCronBasedScheduling(ctx, scheduledScaling)
+	default:
+		err := fmt.Errorf("unsupported schedule type: %s", scheduledScaling.Spec.Schedule.Type)
+		logger.Error(err, "Invalid schedule type")
+		return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseFailed, "InvalidScheduleType", err.Error())
+	}
+}
+
+// handleTimeBasedScheduling handles scheduling based on specific start/end times
+func (r *ScheduledScalingReconciler) handleTimeBasedScheduling(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	// Parse the schedule times (already validated by Validate())
+	startTime, _ := time.Parse(time.RFC3339, scheduledScaling.Spec.Schedule.StartAt)
+	finishTime, _ := time.Parse(time.RFC3339, scheduledScaling.Spec.Schedule.FinishAt)
 
 	now := time.Now()
 	var newPhase autoscalingv1alpha1.ScheduledScalingPhase
@@ -91,7 +98,7 @@ func (r *ScheduledScalingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		timeUntilStart := startTime.Sub(now)
 		// Set status to Pending if not already set
 		if scheduledScaling.Status.Phase != autoscalingv1alpha1.ScheduledScalingPhasePending {
-			return ctrl.Result{RequeueAfter: timeUntilStart}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhasePending, "Waiting", "Waiting for scheduled scaling to begin")
+			return ctrl.Result{RequeueAfter: timeUntilStart}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhasePending, "Waiting", fmt.Sprintf("Waiting for scheduled scaling to begin at %s", startTime.Format(time.RFC3339)))
 		}
 		return ctrl.Result{RequeueAfter: timeUntilStart}, nil
 	} else if now.After(finishTime) {
@@ -113,7 +120,7 @@ func (r *ScheduledScalingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		// Set status to Active if not already set
 		if scheduledScaling.Status.Phase != autoscalingv1alpha1.ScheduledScalingPhaseActive {
-			return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseActive, "Active", "Scheduled scaling is currently active")
+			return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseActive, "Active", fmt.Sprintf("Scheduled scaling is active until %s", finishTime.Format(time.RFC3339)))
 		}
 
 		// Calculate time until finish
@@ -127,6 +134,87 @@ func (r *ScheduledScalingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// handleCronBasedScheduling handles scheduling based on cron expressions
+func (r *ScheduledScalingReconciler) handleCronBasedScheduling(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+	now := time.Now()
+
+	// Check if we're currently in an active scaling window
+	isActive, endTime, err := scheduledScaling.Spec.Schedule.IsCurrentlyActive(now)
+	if err != nil {
+		logger.Error(err, "Failed to check if schedule is currently active")
+		return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseFailed, "ScheduleCheckFailed", err.Error())
+	}
+
+	if isActive {
+		// We're in an active scaling period
+		// Apply scheduled scaling
+		if err := r.applyScheduledScaling(ctx, scheduledScaling); err != nil {
+			logger.Error(err, "Failed to apply scheduled scaling")
+			return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseFailed, "ScalingFailed", err.Error())
+		}
+
+		// Set status to Active if not already set
+		if scheduledScaling.Status.Phase != autoscalingv1alpha1.ScheduledScalingPhaseActive {
+			return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseActive, "Active", fmt.Sprintf("Cron-based scheduled scaling is active until %s", endTime.Format(time.RFC3339)))
+		}
+
+		// Calculate time until this window ends
+		timeUntilEnd := endTime.Sub(now)
+		// Add a small buffer to ensure we catch the transition
+		requeueAfter := timeUntilEnd + time.Minute
+		if requeueAfter < time.Minute {
+			requeueAfter = time.Minute
+		}
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
+	} else {
+		// We're not in an active scaling period
+		// Apply normal scaling (restore original settings) if we were previously active
+		if scheduledScaling.Status.Phase == autoscalingv1alpha1.ScheduledScalingPhaseActive {
+			if err := r.applyNormalScaling(ctx, scheduledScaling); err != nil {
+				logger.Error(err, "Failed to apply normal scaling")
+				return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseFailed, "RestoreFailed", err.Error())
+			}
+		}
+
+		// Find the next scheduled window
+		nextStart, nextEnd, err := scheduledScaling.Spec.Schedule.GetNextScheduleWindow(now)
+		if err != nil {
+			logger.Error(err, "Failed to calculate next schedule window")
+			return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseFailed, "NextScheduleFailed", err.Error())
+		}
+
+		// Set status to Pending if not already set
+		if scheduledScaling.Status.Phase != autoscalingv1alpha1.ScheduledScalingPhasePending {
+			message := fmt.Sprintf("Next scheduled scaling window: %s to %s (cron: %s)",
+				nextStart.Format(time.RFC3339),
+				nextEnd.Format(time.RFC3339),
+				scheduledScaling.Spec.Schedule.CronExpression)
+
+			return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhasePending, "WaitingForNext", message)
+		}
+
+		// Calculate time until next start
+		timeUntilNext := nextStart.Sub(now)
+		// Add a small buffer but ensure reasonable polling interval
+		requeueAfter := timeUntilNext
+		if requeueAfter > 10*time.Minute {
+			// For far future schedules, check every 10 minutes
+			requeueAfter = 10 * time.Minute
+		} else if requeueAfter < time.Minute {
+			// For immediate schedules, check in 1 minute
+			requeueAfter = time.Minute
+		}
+
+		logger.V(1).Info("Cron schedule waiting for next window",
+			"nextStart", nextStart,
+			"timeUntilNext", timeUntilNext,
+			"requeueAfter", requeueAfter)
+
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
+	}
 }
 
 // applyScheduledScaling applies the scheduled scaling configuration to the target Tortoise

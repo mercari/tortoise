@@ -858,15 +858,42 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalin
 
 	for _, condition := range conditions {
 		if condition.Type == "ScalingActive" && condition.Status == "False" && condition.Reason == "FailedGetResourceMetric" {
-			// Always apply grace period before triggering emergency mode to handle temporary
-			// metric unavailability during HPA updates, deployments, scheduled scaling, etc.
+			// Enhanced grace period logic that handles frequent pod restarts more robustly
 			conditionAge := time.Since(condition.LastTransitionTime.Time)
+
+			// Use HPA creation time as fallback for very frequent condition changes
+			// This prevents grace period from being reset constantly during pod restart storms
+			hpaAge := time.Since(currenthpa.CreationTimestamp.Time)
+
+			// If the condition is very new (< 30 seconds) but HPA has been having issues for longer,
+			// use a minimum grace period based on recent condition changes rather than resetting completely
+			if conditionAge < 30*time.Second && hpaAge > c.emergencyModeGracePeriod {
+				// Look for any persistent failure pattern - if the HPA has been consistently failing,
+				// don't reset the grace period for every small condition change
+				logger.Info("HPA condition recently changed but HPA has persistent issues, using reduced grace period",
+					"gracePeriod", c.emergencyModeGracePeriod,
+					"conditionAge", conditionAge,
+					"hpaAge", hpaAge)
+
+				// Give a minimum 2-minute grace period even if condition just changed
+				// This prevents constant emergency mode cycling during pod restart storms
+				if conditionAge < 2*time.Minute {
+					logger.Info("HPA metric temporarily unavailable during pod restarts, giving minimum grace time",
+						"gracePeriod", c.emergencyModeGracePeriod,
+						"conditionAge", conditionAge,
+						"minGracePeriod", 2*time.Minute)
+					return true
+				}
+			}
+
+			// Standard grace period logic
 			if conditionAge < c.emergencyModeGracePeriod {
 				logger.Info("HPA metric temporarily unavailable, giving grace time before emergency mode",
 					"gracePeriod", c.emergencyModeGracePeriod,
 					"conditionAge", conditionAge)
 				return true // Give grace period before emergency mode
 			}
+
 			// Grace period expired, switch to Emergency mode since no metrics
 			logger.Info("HPA failed to get resource metrics after grace period, switch to emergency mode",
 				"gracePeriod", c.emergencyModeGracePeriod,
