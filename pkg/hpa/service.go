@@ -23,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/mercari/tortoise/api/v1beta3"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/event"
 	"github.com/mercari/tortoise/pkg/metrics"
@@ -43,6 +42,7 @@ type Service struct {
 	maximumMinReplica                          int32
 	maximumMaxReplica                          int32
 	externalMetricExclusionRegex               *regexp.Regexp
+	emergencyModeGracePeriod                   time.Duration
 }
 
 var defaultHPABehaviorValue = &v2.HorizontalPodAutoscalerBehavior{
@@ -77,6 +77,7 @@ func New(
 	maximumMinReplica, maximumMaxReplica int32,
 	minimumMinReplicas int32,
 	externalMetricExclusionRegex string,
+	emergencyModeGracePeriod time.Duration,
 ) (*Service, error) {
 	var regex *regexp.Regexp
 	if externalMetricExclusionRegex != "" {
@@ -93,6 +94,12 @@ func New(
 		defaultHPABehavior = defaultHPABehaviorValue
 	}
 
+	// Default emergency mode grace period if not provided
+	// This prevents false emergency mode triggers during temporary HPA metric unavailability
+	if emergencyModeGracePeriod == 0 {
+		emergencyModeGracePeriod = 5 * time.Minute
+	}
+
 	return &Service{
 		c:                                       c,
 		replicaReductionFactor:                  replicaReductionFactor,
@@ -105,6 +112,7 @@ func New(
 		minimumMinReplicas:                         minimumMinReplicas,
 		maximumMaxReplica:                          maximumMaxReplica,
 		externalMetricExclusionRegex:               regex,
+		emergencyModeGracePeriod:                   emergencyModeGracePeriod,
 	}, nil
 }
 
@@ -220,7 +228,7 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 		}
 		currenthpa.Spec.Metrics = append(currenthpa.Spec.Metrics, m)
 		hpaEdited = true
-		tortoise = utils.ChangeTortoiseContainerResourcePhase(tortoise, d.containerName, d.rn, now, v1beta3.ContainerResourcePhaseGatheringData)
+		tortoise = utils.ChangeTortoiseContainerResourcePhase(tortoise, d.containerName, d.rn, now, autoscalingv1beta3.ContainerResourcePhaseGatheringData)
 	}
 
 	// remove metrics
@@ -352,7 +360,7 @@ func (s *Service) RecordHPATargetUtilizationUpdate(tortoise *autoscalingv1beta3.
 }
 
 func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time, recordMetrics bool) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
-	if tortoise.Status.TortoisePhase == v1beta3.TortoisePhaseInitializing || tortoise.Status.TortoisePhase == "" {
+	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseInitializing || tortoise.Status.TortoisePhase == "" {
 		// Tortoise is not ready, don't update HPA
 		return hpa, tortoise, nil
 	}
@@ -704,7 +712,7 @@ func (c *Service) updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containe
 	return fmt.Errorf("no corresponding metric found: %s/%s", hpa.Namespace, hpa.Name)
 }
 
-func recordHPAMetric(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) {
+func recordHPAMetric(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) {
 	for _, policies := range tortoise.Status.AutoscalingPolicy {
 		for k, p := range policies.Policy {
 			if p != autoscalingv1beta3.AutoscalingTypeHorizontal {
@@ -786,6 +794,9 @@ func (c *Service) excludeExternalMetric(ctx context.Context, hpa *v2.HorizontalP
 	return newHPA
 }
 
+// IsHpaMetricAvailable checks if HPA metrics are available for decision making.
+// It includes a configurable grace period before triggering emergency mode to handle
+// temporary metric unavailability during HPA updates, deployments, or other transient issues.
 func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, currenthpa *v2.HorizontalPodAutoscaler) bool {
 	logger := log.FromContext(ctx)
 	if !HasHorizontal(tortoise) {
@@ -804,26 +815,43 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalin
 
 	for _, condition := range conditions {
 		if condition.Type == "ScalingActive" && condition.Status == "False" && condition.Reason == "FailedGetResourceMetric" {
-			// switch to Emergency mode since no metrics
-			logger.Info("HPA failed to get resource metrics, switch to emergency mode")
+			// Always apply grace period before triggering emergency mode to handle temporary
+			// metric unavailability during HPA updates, deployments, scheduled scaling, etc.
+			conditionAge := time.Since(condition.LastTransitionTime.Time)
+			if conditionAge < c.emergencyModeGracePeriod {
+				logger.Info("HPA metric temporarily unavailable, giving grace time before emergency mode",
+					"gracePeriod", c.emergencyModeGracePeriod,
+					"conditionAge", conditionAge)
+				return true // Give grace period before emergency mode
+			}
+			// Grace period expired, switch to Emergency mode since no metrics
+			logger.Info("HPA failed to get resource metrics after grace period, switch to emergency mode",
+				"gracePeriod", c.emergencyModeGracePeriod,
+				"conditionAge", conditionAge)
 			return false
 		}
 	}
 
+	hasValidMetrics := false
 	for _, currentMetric := range currentMetrics {
 		switch currentMetric.Type {
 		case v2.ContainerResourceMetricSourceType:
 			if currentMetric.ContainerResource != nil && !currentMetric.ContainerResource.Current.Value.IsZero() {
 				// Can still get metrics for some containers, they can scale based on those
-				return true
+				hasValidMetrics = true
 			}
 		case v2.ExternalMetricSourceType:
 			if currentMetric.External != nil && !currentMetric.External.Current.Value.IsZero() {
 				// External metrics are also valid
-				return true
+				hasValidMetrics = true
 			}
 		}
 	}
+
+	if hasValidMetrics {
+		return true
+	}
+
 	logger.Info("HPA looks unready because all the metrics indicate zero", "hpa", currenthpa.Name)
 	return false
 }
