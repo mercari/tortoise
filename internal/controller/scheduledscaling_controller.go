@@ -71,6 +71,12 @@ func (r *ScheduledScalingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// If the object is being deleted, don't continue with reconciliation
+	if scheduledScaling.DeletionTimestamp != nil {
+		logger.Info("ScheduledScaling is being deleted, skipping further reconciliation", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+		return ctrl.Result{}, nil
+	}
+
 	// Validate the schedule configuration
 	if err := scheduledScaling.Spec.Schedule.Validate(); err != nil {
 		logger.Error(err, "Invalid schedule configuration")
@@ -246,6 +252,12 @@ func (r *ScheduledScalingReconciler) handleCronBasedScheduling(ctx context.Conte
 
 // applyScheduledScaling applies the scheduled scaling configuration to the target Tortoise
 func (r *ScheduledScalingReconciler) applyScheduledScaling(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling) error {
+	// Skip applying scheduled scaling if the object is being deleted
+	if scheduledScaling.DeletionTimestamp != nil {
+		log.FromContext(ctx).Info("Skipping scheduled scaling application - object is being deleted", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+		return nil
+	}
+
 	// Get the target Tortoise
 	t := &autoscalingv1beta3.Tortoise{}
 	key := types.NamespacedName{Namespace: scheduledScaling.Namespace, Name: scheduledScaling.Spec.TargetRefs.TortoiseName}
