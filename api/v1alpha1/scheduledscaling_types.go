@@ -545,14 +545,31 @@ func (s *ScheduledScaling) getWeekdayName(weekday string) string {
 	}
 }
 
+// getTimezone returns the timezone to use for formatting times
+// Defaults to Asia/Tokyo if not specified
+func (s *ScheduledScaling) getTimezone() *time.Location {
+	timezone := s.Spec.Schedule.TimeZone
+	if timezone == "" {
+		timezone = "Asia/Tokyo" // Default timezone
+	}
+
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		// Fallback to Asia/Tokyo if the specified timezone is invalid
+		loc, _ = time.LoadLocation("Asia/Tokyo")
+	}
+	return loc
+}
+
 // GetHumanReadableTime formats a time in a human-readable way
 func (s *ScheduledScaling) GetHumanReadableTime(t *metav1.Time) string {
 	if t == nil {
 		return "-"
 	}
 
-	now := time.Now()
-	timeDiff := t.Time.Sub(now)
+	loc := s.getTimezone()
+	now := time.Now().In(loc)
+	timeDiff := t.Time.In(loc).Sub(now)
 
 	// Format based on how far in the past/future the time is
 	if timeDiff < 0 {
@@ -593,25 +610,27 @@ func (s *ScheduledScaling) GetFormattedTime(t *metav1.Time) string {
 		return "-"
 	}
 
-	now := time.Now()
+	loc := s.getTimezone()
+	now := time.Now().In(loc)
+	targetTime := t.Time.In(loc)
 
 	// If it's today, show "Today at time"
-	if t.Time.Year() == now.Year() && t.Time.YearDay() == now.YearDay() {
-		return fmt.Sprintf("Today at %s", t.Time.Format("3:04 PM"))
+	if targetTime.Year() == now.Year() && targetTime.YearDay() == now.YearDay() {
+		return fmt.Sprintf("Today at %s", targetTime.Format("3:04 PM"))
 	}
 
 	// If it's tomorrow, show "Tomorrow at time"
-	if t.Time.Year() == now.Year() && t.Time.YearDay() == now.YearDay()+1 {
-		return fmt.Sprintf("Tomorrow at %s", t.Time.Format("3:04 PM"))
+	if targetTime.Year() == now.Year() && targetTime.YearDay() == now.YearDay()+1 {
+		return fmt.Sprintf("Tomorrow at %s", targetTime.Format("3:04 PM"))
 	}
 
 	// If it's within a week, show day and time
-	if t.Time.Sub(now) < 7*24*time.Hour {
-		return t.Time.Format("Mon 3:04 PM")
+	if targetTime.Sub(now) < 7*24*time.Hour {
+		return targetTime.Format("Mon 3:04 PM")
 	}
 
 	// Otherwise show date and time
-	return t.Time.Format("Jan 2, 3:04 PM")
+	return targetTime.Format("Jan 2, 3:04 PM")
 }
 
 // pluralSuffix returns the appropriate plural suffix

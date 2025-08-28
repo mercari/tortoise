@@ -29,10 +29,15 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
+)
+
+const (
+	scheduledScalingFinalizer = "scheduledscaling.autoscaling.mercari.com/finalizer"
 )
 
 // ScheduledScalingReconciler reconciles a ScheduledScaling object
@@ -60,6 +65,11 @@ func (r *ScheduledScalingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	logger.Info("Reconciling ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace, "type", scheduledScaling.Spec.Schedule.Type)
+
+	// Handle finalizer logic
+	if err := r.handleFinalizer(ctx, scheduledScaling); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// Validate the schedule configuration
 	if err := scheduledScaling.Spec.Schedule.Validate(); err != nil {
@@ -327,6 +337,8 @@ func (r *ScheduledScalingReconciler) applyScheduledScaling(ctx context.Context, 
 
 // applyNormalScaling restores the normal scaling configuration
 func (r *ScheduledScalingReconciler) applyNormalScaling(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling) error {
+	logger := log.FromContext(ctx)
+
 	// Fetch target tortoise
 	t := &autoscalingv1beta3.Tortoise{}
 	key := types.NamespacedName{Namespace: scheduledScaling.Namespace, Name: scheduledScaling.Spec.TargetRefs.TortoiseName}
@@ -336,13 +348,21 @@ func (r *ScheduledScalingReconciler) applyNormalScaling(ctx context.Context, sch
 
 	const annOriginal = "autoscaling.mercari.com/scheduledscaling-original-spec"
 	const annMinReplicas = "autoscaling.mercari.com/scheduledscaling-min-replicas"
+
+	logger.Info("applyNormalScaling: checking annotations", "tortoise", t.Name, "annotations", t.Annotations)
+
 	if t.Annotations == nil {
+		logger.Info("applyNormalScaling: no annotations found")
 		return nil
 	}
 	orig, ok := t.Annotations[annOriginal]
 	if !ok || orig == "" {
+		logger.Info("applyNormalScaling: original spec annotation not found")
 		return nil
 	}
+
+	logger.Info("applyNormalScaling: found original spec annotation", "original", orig)
+
 	var spec autoscalingv1beta3.TortoiseSpec
 	if err := json.Unmarshal([]byte(orig), &spec); err != nil {
 		return fmt.Errorf("unmarshal original tortoise spec: %w", err)
@@ -355,12 +375,16 @@ func (r *ScheduledScalingReconciler) applyNormalScaling(ctx context.Context, sch
 		spec.TargetRefs.HorizontalPodAutoscalerName = t.Spec.TargetRefs.HorizontalPodAutoscalerName
 	}
 
+	logger.Info("applyNormalScaling: restoring tortoise spec", "tortoise", t.Name, "newSpec", spec)
+
 	t.Spec = spec
 	delete(t.Annotations, annOriginal)
 	delete(t.Annotations, annMinReplicas)
 	if err := r.Update(ctx, t); err != nil {
 		return fmt.Errorf("restore tortoise: %w", err)
 	}
+
+	logger.Info("applyNormalScaling: successfully restored tortoise", "tortoise", t.Name)
 	return nil
 }
 
@@ -432,6 +456,56 @@ func (r *ScheduledScalingReconciler) updateCronStatus(ctx context.Context, sched
 
 	if err := r.Status().Update(ctx, scheduledScaling); err != nil {
 		return fmt.Errorf("failed to update cron status: %w", err)
+	}
+
+	return nil
+}
+
+// handleFinalizer handles the finalizer logic for ScheduledScaling resources
+func (r *ScheduledScalingReconciler) handleFinalizer(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling) error {
+	logger := log.FromContext(ctx)
+
+	// Check if the ScheduledScaling is being deleted
+	if scheduledScaling.DeletionTimestamp != nil {
+		// If finalizer exists, run cleanup logic
+		if controllerutil.ContainsFinalizer(scheduledScaling, scheduledScalingFinalizer) {
+			logger.Info("Running finalizer cleanup for ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+
+			// Try to restore the Tortoise to its original state
+			// If the Tortoise doesn't exist anymore, that's fine - just log it
+			if err := r.applyNormalScaling(ctx, scheduledScaling); err != nil {
+				if client.IgnoreNotFound(err) == nil {
+					// Tortoise was not found (likely already deleted), which is fine
+					logger.Info("Tortoise not found during finalizer cleanup (likely already deleted)", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+				} else {
+					// Some other error occurred
+					logger.Error(err, "Failed to restore Tortoise during finalizer cleanup")
+					return fmt.Errorf("finalizer cleanup failed: %w", err)
+				}
+			}
+
+			// Remove the finalizer
+			controllerutil.RemoveFinalizer(scheduledScaling, scheduledScalingFinalizer)
+			logger.Info("Removing finalizer from ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+
+			if err := r.Update(ctx, scheduledScaling); err != nil {
+				// If update fails, it might be because the resource is being modified elsewhere
+				// In this case, we should return an error to trigger a requeue
+				return fmt.Errorf("failed to remove finalizer: %w", err)
+			}
+
+			logger.Info("Finalizer cleanup completed for ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+		}
+		return nil
+	}
+
+	// Add finalizer if it doesn't exist
+	if !controllerutil.ContainsFinalizer(scheduledScaling, scheduledScalingFinalizer) {
+		controllerutil.AddFinalizer(scheduledScaling, scheduledScalingFinalizer)
+		if err := r.Update(ctx, scheduledScaling); err != nil {
+			return fmt.Errorf("failed to add finalizer: %w", err)
+		}
+		logger.Info("Added finalizer to ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 	}
 
 	return nil

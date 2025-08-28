@@ -584,5 +584,6 @@ var _ = Describe("ScheduledScaling Controller", func() {
 			Expect(k8sClient.Delete(ctx, scheduledScaling)).Should(Succeed())
 			Expect(k8sClient.Delete(ctx, t)).Should(Succeed())
 		})
+
 	})
 })
