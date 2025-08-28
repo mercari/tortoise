@@ -30,11 +30,14 @@ spec:
     - jsonPath: .status.formattedNextStartTime
       name: Next Start
       type: string
-    - jsonPath: .status.humanReadableSchedule
+    - jsonPath: .status.formattedStartTime
       name: Schedule
       type: string
     - jsonPath: .spec.targetRefs.tortoiseName
       name: Target Tortoise
+      type: string
+    - jsonPath: .status.message
+      name: Warnings
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age

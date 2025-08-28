@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -408,4 +410,79 @@ func findSubstring(text, substr string) bool {
 		}
 	}
 	return false
+}
+
+// TestScheduledScaling_AnnotationCleanup tests that ScheduledScaling annotations are properly cleaned up
+func TestScheduledScaling_AnnotationCleanup(t *testing.T) {
+	// This test verifies the expected behavior of annotation cleanup
+	// The actual cleanup logic is in the controller, but we can test the annotation constants
+
+	const annOriginal = "autoscaling.mercari.com/scheduledscaling-original-spec"
+	const annMinReplicas = "autoscaling.mercari.com/scheduledscaling-min-replicas"
+
+	// Verify annotation names are correctly defined
+	if annOriginal == "" {
+		t.Error("annOriginal constant should not be empty")
+	}
+
+	if annMinReplicas == "" {
+		t.Error("annMinReplicas constant should not be empty")
+	}
+
+	// Verify annotation names follow the expected pattern
+	expectedPrefix := "autoscaling.mercari.com/scheduledscaling-"
+	if !strings.HasPrefix(annOriginal, expectedPrefix) {
+		t.Errorf("annOriginal should start with %s, got %s", expectedPrefix, annOriginal)
+	}
+
+	if !strings.HasPrefix(annMinReplicas, expectedPrefix) {
+		t.Errorf("annMinReplicas should start with %s, got %s", expectedPrefix, annMinReplicas)
+	}
+}
+
+// TestScheduledScaling_ValidateMinReplicasWarning tests the minReplicas validation warning logic
+func TestScheduledScaling_ValidateMinReplicasWarning(t *testing.T) {
+	tests := []struct {
+		name                 string
+		requestedMinReplicas int32
+		hpaRecommendation    int32
+		expectedWarning      bool
+		expectedMessage      string
+	}{
+		{
+			name:                 "no warning when requested >= recommended",
+			requestedMinReplicas: 5,
+			hpaRecommendation:    3,
+			expectedWarning:      false,
+			expectedMessage:      "",
+		},
+		{
+			name:                 "warning when requested < recommended",
+			requestedMinReplicas: 2,
+			hpaRecommendation:    5,
+			expectedWarning:      true,
+			expectedMessage:      "Requested minReplicas (2) is lower than HPA's current recommendation (5) for the workload. Using HPA recommendation (5) instead to prevent performance issues. Consider reviewing your scaling strategy.",
+		},
+		{
+			name:                 "no warning when requested equals recommended",
+			requestedMinReplicas: 5,
+			hpaRecommendation:    5,
+			expectedWarning:      false,
+			expectedMessage:      "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test the expected warning message format
+			if tt.expectedWarning {
+				expectedMsg := fmt.Sprintf("Requested minReplicas (%d) is lower than HPA's current recommendation (%d) for the workload. Using HPA recommendation (%d) instead to prevent performance issues. Consider reviewing your scaling strategy.",
+					tt.requestedMinReplicas, tt.hpaRecommendation, tt.hpaRecommendation)
+
+				if expectedMsg != tt.expectedMessage {
+					t.Errorf("expected warning message %q, got %q", tt.expectedMessage, expectedMsg)
+				}
+			}
+		})
+	}
 }

@@ -181,8 +181,9 @@ const (
 //+kubebuilder:printcolumn:name="Start Time",type="string",JSONPath=".status.formattedStartTime"
 //+kubebuilder:printcolumn:name="End Time",type="string",JSONPath=".status.formattedEndTime"
 //+kubebuilder:printcolumn:name="Next Start",type="string",JSONPath=".status.formattedNextStartTime"
-//+kubebuilder:printcolumn:name="Schedule",type="string",JSONPath=".status.humanReadableSchedule"
+//+kubebuilder:printcolumn:name="Schedule",type="string",JSONPath=".status.formattedStartTime"
 //+kubebuilder:printcolumn:name="Target Tortoise",type="string",JSONPath=".spec.targetRefs.tortoiseName"
+//+kubebuilder:printcolumn:name="Warnings",type="string",JSONPath=".status.message"
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ScheduledScaling is the Schema for the scheduledscalings API

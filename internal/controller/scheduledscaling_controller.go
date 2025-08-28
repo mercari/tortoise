@@ -320,8 +320,38 @@ func (r *ScheduledScalingReconciler) applyScheduledScaling(ctx context.Context, 
 	}
 
 	if m := scheduledScaling.Spec.Strategy.Static.MinimumMinReplicas; m > 0 {
-		// Store intent; future versions could wire this to Tortoise min replicas recommendation
-		t.Annotations[annMinReplicas] = fmt.Sprintf("%d", m)
+		// Validate that the requested minReplicas is not lower than HPA's recommendation
+		isValid, warningMsg, recommendedValue := r.validateMinReplicasAgainstHPARecommendation(ctx, t, m)
+
+		// Determine what value to actually use
+		effectiveMinReplicas := m
+		if !isValid && recommendedValue > 0 {
+			// Use the HPA's recommended value instead of the requested value
+			effectiveMinReplicas = recommendedValue
+			log.FromContext(ctx).Info("ScheduledScaling minReplicas using HPA recommendation instead of requested value",
+				"tortoise", t.Name,
+				"requested", m,
+				"using", effectiveMinReplicas,
+				"warning", warningMsg)
+		} else if !isValid {
+			// Log the warning but still apply the requested change
+			log.FromContext(ctx).Info("ScheduledScaling minReplicas validation warning",
+				"tortoise", t.Name,
+				"requested", m,
+				"warning", warningMsg)
+		}
+
+		// Update the status message to include the warning for user visibility
+		if !isValid && warningMsg != "" {
+			if scheduledScaling.Status.Message == "" {
+				scheduledScaling.Status.Message = warningMsg
+			} else {
+				scheduledScaling.Status.Message = scheduledScaling.Status.Message + "; " + warningMsg
+			}
+		}
+
+		// Store the effective minReplicas value (either requested or HPA recommended)
+		t.Annotations[annMinReplicas] = fmt.Sprintf("%d", effectiveMinReplicas)
 		updated = true
 	}
 
@@ -351,45 +381,69 @@ func (r *ScheduledScalingReconciler) applyNormalScaling(ctx context.Context, sch
 
 	logger.Info("applyNormalScaling: checking annotations", "tortoise", t.Name, "annotations", t.Annotations)
 
-	if t.Annotations == nil {
-		logger.Info("applyNormalScaling: no annotations found")
-		return nil
-	}
-	orig, ok := t.Annotations[annOriginal]
-	if !ok || orig == "" {
-		logger.Info("applyNormalScaling: original spec annotation not found")
-		return nil
-	}
+	// Always clean up ScheduledScaling annotations, even if we can't restore the original spec
+	hasChanges := false
 
-	logger.Info("applyNormalScaling: found original spec annotation", "original", orig)
+	// Try to restore the original spec first, before removing annotations
+	if t.Annotations != nil {
+		if orig, ok := t.Annotations[annOriginal]; ok && orig != "" {
+			logger.Info("applyNormalScaling: found original spec annotation", "original", orig)
 
-	var spec autoscalingv1beta3.TortoiseSpec
-	if err := json.Unmarshal([]byte(orig), &spec); err != nil {
-		return fmt.Errorf("unmarshal original tortoise spec: %w", err)
-	}
+			var spec autoscalingv1beta3.TortoiseSpec
+			if err := json.Unmarshal([]byte(orig), &spec); err != nil {
+				logger.Error(err, "Failed to unmarshal original tortoise spec, but continuing with annotation cleanup")
+			} else {
+				// Preserve HPA reference if it was added during scheduled scaling to prevent HPA recreation
+				if spec.TargetRefs.HorizontalPodAutoscalerName == nil && t.Spec.TargetRefs.HorizontalPodAutoscalerName != nil && t.Status.Targets.HorizontalPodAutoscaler != "" {
+					// If original spec didn't have HPA reference but current spec does (added during scheduled scaling),
+					// preserve it to avoid HPA recreation when restoring
+					spec.TargetRefs.HorizontalPodAutoscalerName = t.Spec.TargetRefs.HorizontalPodAutoscalerName
+				}
 
-	// Preserve HPA reference if it was added during scheduled scaling to prevent HPA recreation
-	if spec.TargetRefs.HorizontalPodAutoscalerName == nil && t.Spec.TargetRefs.HorizontalPodAutoscalerName != nil && t.Status.Targets.HorizontalPodAutoscaler != "" {
-		// If original spec didn't have HPA reference but current spec does (added during scheduled scaling),
-		// preserve it to avoid HPA recreation when restoring
-		spec.TargetRefs.HorizontalPodAutoscalerName = t.Spec.TargetRefs.HorizontalPodAutoscalerName
-	}
-
-	logger.Info("applyNormalScaling: restoring tortoise spec", "tortoise", t.Name, "newSpec", spec)
-
-	t.Spec = spec
-	delete(t.Annotations, annOriginal)
-	delete(t.Annotations, annMinReplicas)
-	if err := r.Update(ctx, t); err != nil {
-		return fmt.Errorf("restore tortoise: %w", err)
+				logger.Info("applyNormalScaling: restoring tortoise spec", "tortoise", t.Name, "newSpec", spec)
+				t.Spec = spec
+				hasChanges = true
+			}
+		} else {
+			logger.Info("applyNormalScaling: original spec annotation not found, skipping spec restoration", "tortoise", t.Name)
+		}
 	}
 
-	logger.Info("applyNormalScaling: successfully restored tortoise", "tortoise", t.Name)
+	// Remove ScheduledScaling annotations after restoring the spec
+	if t.Annotations != nil {
+		if _, hasOriginal := t.Annotations[annOriginal]; hasOriginal {
+			delete(t.Annotations, annOriginal)
+			hasChanges = true
+			logger.Info("applyNormalScaling: removed original spec annotation", "tortoise", t.Name)
+		}
+
+		if _, hasMinReplicas := t.Annotations[annMinReplicas]; hasMinReplicas {
+			delete(t.Annotations, annMinReplicas)
+			hasChanges = true
+			logger.Info("applyNormalScaling: removed min replicas annotation", "tortoise", t.Name)
+		}
+	}
+
+	// Only update if we made changes
+	if hasChanges {
+		if err := r.Update(ctx, t); err != nil {
+			return fmt.Errorf("failed to update tortoise during cleanup: %w", err)
+		}
+		logger.Info("applyNormalScaling: successfully cleaned up tortoise", "tortoise", t.Name)
+	} else {
+		logger.Info("applyNormalScaling: no changes needed", "tortoise", t.Name)
+	}
+
 	return nil
 }
 
 // updateStatus updates the status of the ScheduledScaling resource
 func (r *ScheduledScalingReconciler) updateStatus(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling, phase autoscalingv1alpha1.ScheduledScalingPhase, reason, message string) error {
+	// Skip status updates if the object is being deleted
+	if scheduledScaling.DeletionTimestamp != nil {
+		return nil
+	}
+
 	if scheduledScaling.Status.Phase != phase {
 		scheduledScaling.Status.Phase = phase
 		scheduledScaling.Status.Reason = reason
@@ -409,6 +463,11 @@ func (r *ScheduledScalingReconciler) updateStatus(ctx context.Context, scheduled
 
 // updateTimeBasedStatus updates the time-based status fields with formatted times
 func (r *ScheduledScalingReconciler) updateTimeBasedStatus(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling, startTime, finishTime time.Time) error {
+	// Skip status updates if the object is being deleted
+	if scheduledScaling.DeletionTimestamp != nil {
+		return nil
+	}
+
 	// Parse the times and create metav1.Time objects
 	startMetaTime := metav1.NewTime(startTime)
 	finishMetaTime := metav1.NewTime(finishTime)
@@ -434,6 +493,11 @@ func (r *ScheduledScalingReconciler) updateTimeBasedStatus(ctx context.Context, 
 
 // updateCronStatus updates the cron-specific status fields
 func (r *ScheduledScalingReconciler) updateCronStatus(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling, currentStart, currentEnd, nextStart *time.Time) error {
+	// Skip status updates if the object is being deleted
+	if scheduledScaling.DeletionTimestamp != nil {
+		return nil
+	}
+
 	// Update current window times
 	if currentStart != nil {
 		startTime := metav1.NewTime(*currentStart)
@@ -471,8 +535,9 @@ func (r *ScheduledScalingReconciler) handleFinalizer(ctx context.Context, schedu
 		if controllerutil.ContainsFinalizer(scheduledScaling, scheduledScalingFinalizer) {
 			logger.Info("Running finalizer cleanup for ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 
-			// Try to restore the Tortoise to its original state
+			// Try to restore the Tortoise to its original state and clean up annotations
 			// If the Tortoise doesn't exist anymore, that's fine - just log it
+			logger.Info("Starting Tortoise cleanup and annotation removal", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 			if err := r.applyNormalScaling(ctx, scheduledScaling); err != nil {
 				if client.IgnoreNotFound(err) == nil {
 					// Tortoise was not found (likely already deleted), which is fine
@@ -482,6 +547,8 @@ func (r *ScheduledScalingReconciler) handleFinalizer(ctx context.Context, schedu
 					logger.Error(err, "Failed to restore Tortoise during finalizer cleanup")
 					return fmt.Errorf("finalizer cleanup failed: %w", err)
 				}
+			} else {
+				logger.Info("Successfully cleaned up Tortoise annotations and restored original spec", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 			}
 
 			// Remove the finalizer
@@ -509,6 +576,65 @@ func (r *ScheduledScalingReconciler) handleFinalizer(ctx context.Context, schedu
 	}
 
 	return nil
+}
+
+// validateMinReplicasAgainstHPARecommendation validates that the requested minReplicas
+// is not lower than the HPA's recommended value to prevent scaling down too aggressively
+// Returns: (isValid, warningMessage, recommendedValue)
+func (r *ScheduledScalingReconciler) validateMinReplicasAgainstHPARecommendation(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, requestedMinReplicas int32) (bool, string, int32) {
+	logger := log.FromContext(ctx)
+
+	// If no minReplicas is requested, no validation needed
+	if requestedMinReplicas <= 0 {
+		return true, "", 0
+	}
+
+	// Check if Tortoise has HPA recommendations
+	if tortoise.Status.Recommendations.Horizontal.MinReplicas == nil || len(tortoise.Status.Recommendations.Horizontal.MinReplicas) == 0 {
+		logger.Info("No HPA minReplicas recommendations available for validation", "tortoise", tortoise.Name)
+		return true, "", 0
+	}
+
+	// Find the current time slot recommendation
+	now := time.Now()
+	currentHour := now.Hour()
+	currentWeekday := now.Weekday().String()
+
+	var recommendedMinReplicas int32
+	var foundRecommendation bool
+
+	for _, rec := range tortoise.Status.Recommendations.Horizontal.MinReplicas {
+		// Check if this recommendation applies to the current time
+		if rec.From <= currentHour && currentHour < rec.To {
+			// Check weekday if specified
+			if rec.WeekDay == nil || *rec.WeekDay == currentWeekday {
+				recommendedMinReplicas = rec.Value
+				foundRecommendation = true
+				break
+			}
+		}
+	}
+
+	if !foundRecommendation {
+		logger.Info("No HPA minReplicas recommendation found for current time slot", "tortoise", tortoise.Name, "hour", currentHour, "weekday", currentWeekday)
+		return true, "", 0
+	}
+
+	// Validate that requested minReplicas is not lower than recommended
+	if requestedMinReplicas < recommendedMinReplicas {
+		warningMsg := fmt.Sprintf("Requested minReplicas (%d) is lower than HPA's current recommendation (%d) for the workload. Using HPA recommendation (%d) instead to prevent performance issues. Consider reviewing your scaling strategy.",
+			requestedMinReplicas, recommendedMinReplicas, recommendedMinReplicas)
+
+		logger.Info("ScheduledScaling minReplicas validation warning",
+			"tortoise", tortoise.Name,
+			"requested", requestedMinReplicas,
+			"recommended", recommendedMinReplicas,
+			"warning", warningMsg)
+
+		return false, warningMsg, recommendedMinReplicas
+	}
+
+	return true, "", 0
 }
 
 // SetupWithManager sets up the controller with the Manager.
