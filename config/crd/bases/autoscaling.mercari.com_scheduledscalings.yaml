@@ -18,14 +18,23 @@ spec:
     - jsonPath: .status.phase
       name: Status
       type: string
-    - jsonPath: .spec.schedule.startAt
+    - jsonPath: .spec.schedule.type
+      name: Type
+      type: string
+    - jsonPath: .status.formattedStartTime
       name: Start Time
       type: string
-    - jsonPath: .spec.schedule.finishAt
+    - jsonPath: .status.formattedEndTime
       name: End Time
       type: string
+    - jsonPath: .status.formattedNextStartTime
+      name: Next Start
+      type: string
+    - jsonPath: .status.humanReadableSchedule
+      name: Schedule
+      type: string
     - jsonPath: .spec.targetRefs.tortoiseName
-      name: Target
+      name: Target Tortoise
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -154,6 +163,32 @@ spec:
           status:
             description: ScheduledScalingStatus defines the observed state of ScheduledScaling
             properties:
+              currentWindowEnd:
+                description: CurrentWindowEnd indicates the end of the current scaling
+                  window (for cron-based scheduling)
+                format: date-time
+                type: string
+              currentWindowStart:
+                description: CurrentWindowStart indicates the start of the current
+                  scaling window (for cron-based scheduling)
+                format: date-time
+                type: string
+              formattedEndTime:
+                description: FormattedEndTime provides a human-readable formatted
+                  end time
+                type: string
+              formattedNextStartTime:
+                description: FormattedNextStartTime provides a human-readable formatted
+                  next start time
+                type: string
+              formattedStartTime:
+                description: FormattedStartTime provides a human-readable formatted
+                  start time
+                type: string
+              humanReadableSchedule:
+                description: HumanReadableSchedule provides a human-readable description
+                  of the schedule
+                type: string
               lastTransitionTime:
                 description: LastTransitionTime is the last time the status transitioned
                   from one phase to another
@@ -162,6 +197,11 @@ spec:
               message:
                 description: Message provides additional information about the current
                   phase
+                type: string
+              nextWindowStart:
+                description: NextWindowStart indicates when the next scaling window
+                  will start (for cron-based scheduling)
+                format: date-time
                 type: string
               phase:
                 description: Phase indicates the current phase of the scheduled scaling

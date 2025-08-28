@@ -120,6 +120,10 @@ func (r *ScheduledScalingReconciler) handleTimeBasedScheduling(ctx context.Conte
 
 		// Set status to Active if not already set
 		if scheduledScaling.Status.Phase != autoscalingv1alpha1.ScheduledScalingPhaseActive {
+			// Update time-based status with formatted times
+			if err := r.updateTimeBasedStatus(ctx, scheduledScaling, startTime, finishTime); err != nil {
+				logger.Error(err, "Failed to update time-based status")
+			}
 			return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseActive, "Active", fmt.Sprintf("Scheduled scaling is active until %s", finishTime.Format(time.RFC3339)))
 		}
 
@@ -150,6 +154,10 @@ func (r *ScheduledScalingReconciler) handleCronBasedScheduling(ctx context.Conte
 
 	if isActive {
 		// We're in an active scaling period
+		// Calculate current window start time
+		duration, _ := time.ParseDuration(scheduledScaling.Spec.Schedule.Duration)
+		currentStart := endTime.Add(-duration)
+
 		// Apply scheduled scaling
 		if err := r.applyScheduledScaling(ctx, scheduledScaling); err != nil {
 			logger.Error(err, "Failed to apply scheduled scaling")
@@ -158,6 +166,10 @@ func (r *ScheduledScalingReconciler) handleCronBasedScheduling(ctx context.Conte
 
 		// Set status to Active if not already set
 		if scheduledScaling.Status.Phase != autoscalingv1alpha1.ScheduledScalingPhaseActive {
+			// Update cron status with current window information
+			if err := r.updateCronStatus(ctx, scheduledScaling, &currentStart, &endTime, nil); err != nil {
+				logger.Error(err, "Failed to update cron status")
+			}
 			return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhaseActive, "Active", fmt.Sprintf("Cron-based scheduled scaling is active until %s", endTime.Format(time.RFC3339)))
 		}
 
@@ -192,6 +204,11 @@ func (r *ScheduledScalingReconciler) handleCronBasedScheduling(ctx context.Conte
 				nextStart.Format(time.RFC3339),
 				nextEnd.Format(time.RFC3339),
 				scheduledScaling.Spec.Schedule.CronExpression)
+
+			// Update cron status with next window information
+			if err := r.updateCronStatus(ctx, scheduledScaling, nil, nil, &nextStart); err != nil {
+				logger.Error(err, "Failed to update cron status")
+			}
 
 			return ctrl.Result{}, r.updateStatus(ctx, scheduledScaling, autoscalingv1alpha1.ScheduledScalingPhasePending, "WaitingForNext", message)
 		}
@@ -355,9 +372,66 @@ func (r *ScheduledScalingReconciler) updateStatus(ctx context.Context, scheduled
 		scheduledScaling.Status.Message = message
 		scheduledScaling.Status.LastTransitionTime = metav1.Now()
 
+		// Update human-readable schedule description
+		scheduledScaling.Status.HumanReadableSchedule = scheduledScaling.GetHumanReadableSchedule()
+
 		if err := r.Status().Update(ctx, scheduledScaling); err != nil {
 			return fmt.Errorf("failed to update status: %w", err)
 		}
+	}
+
+	return nil
+}
+
+// updateTimeBasedStatus updates the time-based status fields with formatted times
+func (r *ScheduledScalingReconciler) updateTimeBasedStatus(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling, startTime, finishTime time.Time) error {
+	// Parse the times and create metav1.Time objects
+	startMetaTime := metav1.NewTime(startTime)
+	finishMetaTime := metav1.NewTime(finishTime)
+
+	// Update the status fields
+	scheduledScaling.Status.CurrentWindowStart = &startMetaTime
+	scheduledScaling.Status.CurrentWindowEnd = &finishMetaTime
+	scheduledScaling.Status.FormattedStartTime = scheduledScaling.GetFormattedTime(&startMetaTime)
+	scheduledScaling.Status.FormattedEndTime = scheduledScaling.GetFormattedTime(&finishMetaTime)
+
+	// For time-based schedules, Next Start is not applicable
+	scheduledScaling.Status.FormattedNextStartTime = "N/A"
+
+	// Update human-readable schedule description
+	scheduledScaling.Status.HumanReadableSchedule = scheduledScaling.GetHumanReadableSchedule()
+
+	if err := r.Status().Update(ctx, scheduledScaling); err != nil {
+		return fmt.Errorf("failed to update time-based status: %w", err)
+	}
+
+	return nil
+}
+
+// updateCronStatus updates the cron-specific status fields
+func (r *ScheduledScalingReconciler) updateCronStatus(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling, currentStart, currentEnd, nextStart *time.Time) error {
+	// Update current window times
+	if currentStart != nil {
+		startTime := metav1.NewTime(*currentStart)
+		scheduledScaling.Status.CurrentWindowStart = &startTime
+		scheduledScaling.Status.FormattedStartTime = scheduledScaling.GetFormattedTime(&startTime)
+	}
+	if currentEnd != nil {
+		endTime := metav1.NewTime(*currentEnd)
+		scheduledScaling.Status.CurrentWindowEnd = &endTime
+		scheduledScaling.Status.FormattedEndTime = scheduledScaling.GetFormattedTime(&endTime)
+	}
+	if nextStart != nil {
+		nextTime := metav1.NewTime(*nextStart)
+		scheduledScaling.Status.NextWindowStart = &nextTime
+		scheduledScaling.Status.FormattedNextStartTime = scheduledScaling.GetFormattedTime(&nextTime)
+	}
+
+	// Update human-readable schedule description
+	scheduledScaling.Status.HumanReadableSchedule = scheduledScaling.GetHumanReadableSchedule()
+
+	if err := r.Status().Update(ctx, scheduledScaling); err != nil {
+		return fmt.Errorf("failed to update cron status: %w", err)
 	}
 
 	return nil

@@ -214,7 +214,7 @@ var _ = Describe("ScheduledScaling Controller", func() {
 
 			// Create a baseline Tortoise that ScheduledScaling will target
 			t := &autoscalingv1beta3.Tortoise{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-tortoise-default-tz-unique", Namespace: "default"},
+				ObjectMeta: metav1.ObjectMeta{Name: "test-tortoise-cron", Namespace: "default"},
 				Spec: autoscalingv1beta3.TortoiseSpec{
 					ResourcePolicy: []autoscalingv1beta3.ContainerResourcePolicy{
 						{
@@ -276,7 +276,12 @@ var _ = Describe("ScheduledScaling Controller", func() {
 			}, timeout, interval).Should(Or(Equal(autoscalingv1alpha1.ScheduledScalingPhasePending), Equal(autoscalingv1alpha1.ScheduledScalingPhaseActive)))
 
 			// Verify the status message contains cron information
-			Expect(createdResource.Status.Message).Should(ContainSubstring("cron: 0 9 * * 1-5"))
+			// The message format depends on whether the schedule is currently active or pending
+			if createdResource.Status.Phase == autoscalingv1alpha1.ScheduledScalingPhaseActive {
+				Expect(createdResource.Status.Message).Should(ContainSubstring("Cron-based scheduled scaling is active"))
+			} else {
+				Expect(createdResource.Status.Message).Should(ContainSubstring("cron: 0 9 * * 1-5"))
+			}
 
 			// Clean up
 			Expect(k8sClient.Delete(ctx, scheduledScaling)).Should(Succeed())
@@ -510,7 +515,7 @@ var _ = Describe("ScheduledScaling Controller", func() {
 
 			// Create a baseline Tortoise that ScheduledScaling will target
 			t := &autoscalingv1beta3.Tortoise{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-tortoise-cron", Namespace: "default"},
+				ObjectMeta: metav1.ObjectMeta{Name: "test-tortoise", Namespace: "default"},
 				Spec: autoscalingv1beta3.TortoiseSpec{
 					ResourcePolicy: []autoscalingv1beta3.ContainerResourcePolicy{
 						{
@@ -526,6 +531,7 @@ var _ = Describe("ScheduledScaling Controller", func() {
 			Expect(k8sClient.Create(ctx, t)).Should(Succeed())
 
 			// Create a cron ScheduledScaling without explicitly setting timezone (should default to Asia/Tokyo)
+			// Use a schedule that won't be active during testing (e.g., 2 AM on weekdays)
 			scheduledScaling := &autoscalingv1alpha1.ScheduledScaling{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-default-timezone",
@@ -534,7 +540,7 @@ var _ = Describe("ScheduledScaling Controller", func() {
 				Spec: autoscalingv1alpha1.ScheduledScalingSpec{
 					Schedule: autoscalingv1alpha1.Schedule{
 						Type:           autoscalingv1alpha1.ScheduleTypeCron,
-						CronExpression: "0 9 * * 1-5",
+						CronExpression: "0 9 * * 0,6", // 9 AM on weekends only (Sunday=0, Saturday=6, should not be active during weekdays)
 						Duration:       "8h",
 						// TimeZone: not specified, should default to Asia/Tokyo
 					},
