@@ -20,6 +20,10 @@ import (
 	"github.com/mercari/tortoise/api/v1beta3"
 )
 
+const (
+	defaultEmergencyModeGracePeriod = 5 * time.Minute
+)
+
 func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 	now := metav1.NewTime(time.Date(2022, 1, 1, 1, 1, 1, 1, time.UTC))
 
@@ -5326,8 +5330,8 @@ func TestService_IsHpaMetricAvailable_EmergencyModeGracePeriod(t *testing.T) {
 					},
 				},
 			},
-			emergencyModeGracePeriod: 5 * time.Minute, // Grace period longer than failure time
-			expected:                 true,            // Should NOT trigger emergency mode
+			emergencyModeGracePeriod: defaultEmergencyModeGracePeriod, // Grace period longer than failure time
+			expected:                 true,                            // Should NOT trigger emergency mode
 			description:              "Recent failure within grace period should return true (no emergency)",
 		},
 		{
@@ -5364,8 +5368,8 @@ func TestService_IsHpaMetricAvailable_EmergencyModeGracePeriod(t *testing.T) {
 					},
 				},
 			},
-			emergencyModeGracePeriod: 5 * time.Minute, // Grace period shorter than failure time
-			expected:                 false,           // Should trigger emergency mode
+			emergencyModeGracePeriod: defaultEmergencyModeGracePeriod, // Grace period shorter than failure time
+			expected:                 false,                           // Should trigger emergency mode
 			description:              "Old failure beyond grace period should return false (trigger emergency)",
 		},
 		{
@@ -5440,7 +5444,7 @@ func TestService_IsHpaMetricAvailable_EmergencyModeGracePeriod(t *testing.T) {
 					},
 				},
 			},
-			emergencyModeGracePeriod: 5 * time.Minute,
+			emergencyModeGracePeriod: defaultEmergencyModeGracePeriod,
 			expected:                 true, // Should work normally
 			description:              "Normal HPA operation should not be affected by grace period",
 		},
@@ -5485,7 +5489,7 @@ func TestService_IsHpaMetricAvailable_EmergencyModeGracePeriod(t *testing.T) {
 					},
 				},
 			},
-			emergencyModeGracePeriod: 5 * time.Minute,
+			emergencyModeGracePeriod: defaultEmergencyModeGracePeriod,
 			expected:                 false, // Should trigger emergency mode due to old condition
 			description:              "With multiple conditions, should trigger emergency if any are beyond grace period",
 		},

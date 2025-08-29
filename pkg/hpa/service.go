@@ -94,11 +94,7 @@ func New(
 		defaultHPABehavior = defaultHPABehaviorValue
 	}
 
-	// Default emergency mode grace period if not provided
 	// This prevents false emergency mode triggers during temporary HPA metric unavailability
-	if emergencyModeGracePeriod == 0 {
-		emergencyModeGracePeriod = 5 * time.Minute
-	}
 
 	return &Service{
 		c:                                       c,
@@ -819,7 +815,7 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalin
 			// metric unavailability during HPA updates, deployments, scheduled scaling, etc.
 			conditionAge := time.Since(condition.LastTransitionTime.Time)
 			if conditionAge < c.emergencyModeGracePeriod {
-				logger.Info("HPA metric temporarily unavailable, giving grace time before emergency mode",
+				logger.V(1).Info("HPA metric temporarily unavailable, giving grace time before emergency mode",
 					"gracePeriod", c.emergencyModeGracePeriod,
 					"conditionAge", conditionAge)
 				return true // Give grace period before emergency mode
