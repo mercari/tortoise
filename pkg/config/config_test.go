@@ -61,6 +61,7 @@ func TestParseConfig(t *testing.T) {
 					"memory": 1,
 				},
 				BufferRatioOnVerticalResource: 0.2,
+				EmergencyModeGracePeriod:      5 * time.Minute,
 			},
 		},
 		{
@@ -96,6 +97,7 @@ func TestParseConfig(t *testing.T) {
 				MinimumMemoryRequestPerContainer:         map[string]string{},
 				ResourceLimitMultiplier:                  map[string]int64{},
 				BufferRatioOnVerticalResource:            0.1,
+				EmergencyModeGracePeriod:                 5 * time.Minute,
 			},
 		},
 		{
@@ -138,6 +140,7 @@ func TestParseConfig(t *testing.T) {
 				MinimumMemoryRequestPerContainer:         map[string]string{},
 				ResourceLimitMultiplier:                  map[string]int64{},
 				BufferRatioOnVerticalResource:            0.1,
+				EmergencyModeGracePeriod:                 5 * time.Minute,
 			},
 		},
 	}
