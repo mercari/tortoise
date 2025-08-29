@@ -26,6 +26,7 @@ SOFTWARE.
 package controller
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -39,11 +40,14 @@ import (
 	v1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -57,6 +61,7 @@ var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var scheme = runtime.NewScheme()
+var controllerMgrCancel context.CancelFunc
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -83,6 +88,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
+	err = autoscalingv1alpha1.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
 	err = autoscalingv1beta3.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = v1.AddToScheme(scheme)
@@ -97,6 +104,29 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	// Start the controller manager
+	By("starting the controller manager")
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:  scheme,
+		Metrics: server.Options{BindAddress: "0"},
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	// Setup the ScheduledScaling controller
+	err = (&ScheduledScalingReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Start the manager with a cancellable context
+	ctx, cancel := context.WithCancel(context.Background())
+	controllerMgrCancel = cancel
+	go func() {
+		err = mgr.Start(ctx)
+		Expect(err).NotTo(HaveOccurred())
+	}()
 
 	// fix a time to reduce the diff when regenerating the files.
 	onlyTestNow = ptr.To(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC))
@@ -118,6 +148,12 @@ $ rm -rf %s
 `, strings.Join(testEnv.ControlPlane.KubeCtl().Opts, " "), testEnv.ControlPlane.APIServer.CertDir) //nolint:staticcheck
 
 		return
+	}
+
+	// Stop manager first to help envtest terminate cleanly
+	if controllerMgrCancel != nil {
+		controllerMgrCancel()
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	err := testEnv.Stop()
