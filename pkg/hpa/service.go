@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
-	"strconv"
 	"time"
 
 	v2 "k8s.io/api/autoscaling/v2"
@@ -127,19 +126,6 @@ func (c *Service) InitializeHPA(ctx context.Context, tortoise *autoscalingv1beta
 		tortoise.Status.Targets.HorizontalPodAutoscaler = *tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName
 
 		return tortoise, nil
-	}
-
-	// Check if tortoise already has an HPA reference in status that exists
-	if tortoise.Status.Targets.HorizontalPodAutoscaler != "" {
-		hpa := &v2.HorizontalPodAutoscaler{}
-		if err := c.c.Get(ctx, types.NamespacedName{
-			Namespace: tortoise.Namespace,
-			Name:      tortoise.Status.Targets.HorizontalPodAutoscaler,
-		}, hpa); err == nil {
-			logger.Info("tortoise already has an existing HPA, no need to create new one", "hpa", tortoise.Status.Targets.HorizontalPodAutoscaler)
-			return tortoise, nil
-		}
-		logger.Info("tortoise status references HPA that doesn't exist, will create new one", "missing_hpa", tortoise.Status.Targets.HorizontalPodAutoscaler)
 	}
 
 	logger.Info("no existing HPA specified, creating HPA")
@@ -434,19 +420,6 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		recommendMax = *tortoise.Spec.MaxReplicas
 	}
 
-	// ScheduledScaling: ensure max is not below the scheduled min override
-	var ssMinOverride int32
-	if tortoise.Annotations != nil {
-		if v, ok := tortoise.Annotations["autoscaling.mercari.com/scheduledscaling-min-replicas"]; ok && v != "" {
-			if parsed, perr := strconv.ParseInt(v, 10, 32); perr == nil && parsed > 0 {
-				ssMinOverride = int32(parsed)
-			}
-		}
-	}
-	if ssMinOverride > 0 && recommendMax < ssMinOverride {
-		recommendMax = ssMinOverride
-	}
-
 	if recommendMax > c.maximumMaxReplica {
 		c.recorder.Event(tortoise, corev1.EventTypeWarning, event.WarningHittingHardMaxReplicaLimit, fmt.Sprintf("MaxReplica (%v) suggested from Tortoise (%s/%s) hits a cluster-wide maximum replica number (%v). It wouldn't be a problem until the replica number actually grows to %v though, you may want to reach out to your cluster admin.", recommendMax, tortoise.Namespace, tortoise.Name, c.maximumMaxReplica, c.maximumMaxReplica))
 		recommendMax = c.maximumMaxReplica
@@ -488,22 +461,6 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		}
 	default:
 		minToActuallyApply = recommendMin
-	}
-
-	// ScheduledScaling: enforce configured minimum replicas during Active
-	if ssMinOverride > 0 && minToActuallyApply < ssMinOverride {
-		minToActuallyApply = ssMinOverride
-	}
-
-	// Ensure consistency: MaxReplicas >= MinReplicas
-	if recommendMax < minToActuallyApply {
-		recommendMax = minToActuallyApply
-		if recommendMax > c.maximumMaxReplica {
-			recommendMax = c.maximumMaxReplica
-			if minToActuallyApply > recommendMax {
-				minToActuallyApply = recommendMax
-			}
-		}
 	}
 
 	hpa.Spec.MinReplicas = &minToActuallyApply
@@ -863,7 +820,6 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalin
 					"conditionAge", conditionAge)
 				return true // Give grace period before emergency mode
 			}
-
 			// Grace period expired, switch to Emergency mode since no metrics
 			logger.Info("HPA failed to get resource metrics after grace period, switch to emergency mode",
 				"gracePeriod", c.emergencyModeGracePeriod,
