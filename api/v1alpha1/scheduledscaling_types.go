@@ -181,7 +181,7 @@ const (
 //+kubebuilder:printcolumn:name="Start Time",type="string",JSONPath=".status.formattedStartTime"
 //+kubebuilder:printcolumn:name="End Time",type="string",JSONPath=".status.formattedEndTime"
 //+kubebuilder:printcolumn:name="Next Start",type="string",JSONPath=".status.formattedNextStartTime"
-//+kubebuilder:printcolumn:name="Schedule",type="string",JSONPath=".status.formattedStartTime"
+//+kubebuilder:printcolumn:name="Schedule",type="string",JSONPath=".status.humanReadableSchedule"
 //+kubebuilder:printcolumn:name="Target Tortoise",type="string",JSONPath=".spec.targetRefs.tortoiseName"
 //+kubebuilder:printcolumn:name="Warnings",type="string",JSONPath=".status.message"
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
@@ -546,9 +546,9 @@ func (s *ScheduledScaling) getWeekdayName(weekday string) string {
 	}
 }
 
-// getTimezone returns the timezone to use for formatting times
+// GetTimezone returns the timezone to use for formatting times
 // Defaults to Asia/Tokyo if not specified
-func (s *ScheduledScaling) getTimezone() *time.Location {
+func (s *ScheduledScaling) GetTimezone() *time.Location {
 	timezone := s.Spec.Schedule.TimeZone
 	if timezone == "" {
 		timezone = "Asia/Tokyo" // Default timezone
@@ -568,7 +568,7 @@ func (s *ScheduledScaling) GetHumanReadableTime(t *metav1.Time) string {
 		return "-"
 	}
 
-	loc := s.getTimezone()
+	loc := s.GetTimezone()
 	now := time.Now().In(loc)
 	timeDiff := t.Time.In(loc).Sub(now)
 
@@ -611,7 +611,7 @@ func (s *ScheduledScaling) GetFormattedTime(t *metav1.Time) string {
 		return "-"
 	}
 
-	loc := s.getTimezone()
+	loc := s.GetTimezone()
 	now := time.Now().In(loc)
 	targetTime := t.Time.In(loc)
 

@@ -216,9 +216,11 @@ func (r *ScheduledScalingReconciler) handleCronBasedScheduling(ctx context.Conte
 
 		// Set status to Pending if not already set
 		if scheduledScaling.Status.Phase != autoscalingv1alpha1.ScheduledScalingPhasePending {
+			// Get the timezone for formatting (defaults to Asia/Tokyo)
+			loc := scheduledScaling.GetTimezone()
 			message := fmt.Sprintf("Next scheduled scaling window: %s to %s (cron: %s)",
-				nextStart.Format(time.RFC3339),
-				nextEnd.Format(time.RFC3339),
+				nextStart.In(loc).Format("2006-01-02T15:04:05"),
+				nextEnd.In(loc).Format("2006-01-02T15:04:05"),
 				scheduledScaling.Spec.Schedule.CronExpression)
 
 			// Update cron status with next window information
