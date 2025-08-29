@@ -20,6 +20,10 @@ import (
 	"github.com/mercari/tortoise/api/v1beta3"
 )
 
+const (
+	defaultEmergencyModeGracePeriod = 5 * time.Minute
+)
+
 func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 	now := metav1.NewTime(time.Date(2022, 1, 1, 1, 1, 1, 1, time.UTC))
 
@@ -2750,7 +2754,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 50, time.Hour, nil, 1000, 10001, 3, tt.excludeMetricRegex)
+			c, err := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 50, time.Hour, nil, 1000, 10001, 3, tt.excludeMetricRegex, 5*time.Minute)
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
@@ -3063,12 +3067,12 @@ func TestService_InitializeHPA(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "")
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "", 5*time.Minute)
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
 			if tt.initialHPA != nil {
-				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "")
+				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "", 5*time.Minute)
 				if err != nil {
 					t.Fatalf("New() error = %v", err)
 				}
@@ -4621,12 +4625,12 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 1000, 10000, 3, "")
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 1000, 10000, 3, "", 5*time.Minute)
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
 			if tt.initialHPA != nil {
-				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 1000, 10000, 3, "")
+				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 1000, 10000, 3, "", 5*time.Minute)
 				if err != nil {
 					t.Fatalf("New() error = %v", err)
 				}
@@ -5250,7 +5254,7 @@ func TestService_IsHpaMetricAvailable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "")
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "", 5*time.Minute)
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
@@ -5258,6 +5262,261 @@ func TestService_IsHpaMetricAvailable(t *testing.T) {
 			if status != tt.result {
 				t.Errorf("Service.checkHpaMetricStatus() status test: %s failed", tt.name)
 				return
+			}
+		})
+	}
+}
+
+func TestService_IsHpaMetricAvailable_EmergencyModeGracePeriod(t *testing.T) {
+	now := time.Now()
+
+	// Tortoise with horizontal scaling policy
+	horizontalTortoise := &v1beta3.Tortoise{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-tortoise",
+			Namespace: "default",
+		},
+		Status: v1beta3.TortoiseStatus{
+			AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+				{
+					ContainerName: "app",
+					Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+						v1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name                     string
+		tortoise                 *v1beta3.Tortoise
+		hpa                      *v2.HorizontalPodAutoscaler
+		emergencyModeGracePeriod time.Duration
+		expected                 bool
+		description              string
+	}{
+		{
+			name:     "Grace period active - recent failure should not trigger emergency mode",
+			tortoise: horizontalTortoise,
+			hpa: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Type:               v2.ScalingActive,
+							Status:             "False",
+							Reason:             "FailedGetResourceMetric",
+							Message:            "failed to get cpu utilization: unable to fetch metrics from resource metrics API",
+							LastTransitionTime: metav1.NewTime(now.Add(-2 * time.Minute)), // Recent failure
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "app",
+								Name:      v1.ResourceCPU,
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](0),
+									AverageValue:       resource.NewQuantity(0, resource.DecimalSI),
+									Value:              resource.NewQuantity(0, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+			},
+			emergencyModeGracePeriod: defaultEmergencyModeGracePeriod, // Grace period longer than failure time
+			expected:                 true,                            // Should NOT trigger emergency mode
+			description:              "Recent failure within grace period should return true (no emergency)",
+		},
+		{
+			name:     "Grace period expired - old failure should trigger emergency mode",
+			tortoise: horizontalTortoise,
+			hpa: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Type:               v2.ScalingActive,
+							Status:             "False",
+							Reason:             "FailedGetResourceMetric",
+							Message:            "failed to get cpu utilization: unable to fetch metrics from resource metrics API",
+							LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Minute)), // Old failure
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "app",
+								Name:      v1.ResourceCPU,
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](0),
+									AverageValue:       resource.NewQuantity(0, resource.DecimalSI),
+									Value:              resource.NewQuantity(0, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+			},
+			emergencyModeGracePeriod: defaultEmergencyModeGracePeriod, // Grace period shorter than failure time
+			expected:                 false,                           // Should trigger emergency mode
+			description:              "Old failure beyond grace period should return false (trigger emergency)",
+		},
+		{
+			name:     "Short grace period - should trigger emergency mode quickly",
+			tortoise: horizontalTortoise,
+			hpa: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Type:               v2.ScalingActive,
+							Status:             "False",
+							Reason:             "FailedGetResourceMetric",
+							Message:            "failed to get cpu utilization",
+							LastTransitionTime: metav1.NewTime(now.Add(-2 * time.Minute)), // 2 minutes ago
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "app",
+								Name:      v1.ResourceCPU,
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](0),
+									AverageValue:       resource.NewQuantity(0, resource.DecimalSI),
+									Value:              resource.NewQuantity(0, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+			},
+			emergencyModeGracePeriod: 1 * time.Minute, // Short grace period
+			expected:                 false,           // Should trigger emergency mode
+			description:              "Short grace period should allow emergency mode to trigger sooner",
+		},
+		{
+			name:     "No failure condition - should work normally",
+			tortoise: horizontalTortoise,
+			hpa: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Type:               v2.ScalingActive,
+							Status:             "True", // Working normally
+							Reason:             "ValidMetricFound",
+							Message:            "the HPA was able to successfully calculate a replica count",
+							LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Minute)),
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "app",
+								Name:      v1.ResourceCPU,
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](50), // Normal utilization
+									AverageValue:       resource.NewQuantity(100, resource.DecimalSI),
+									Value:              resource.NewQuantity(100, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+			},
+			emergencyModeGracePeriod: defaultEmergencyModeGracePeriod,
+			expected:                 true, // Should work normally
+			description:              "Normal HPA operation should not be affected by grace period",
+		},
+		{
+			name:     "Multiple failure conditions - should respect grace period for all",
+			tortoise: horizontalTortoise,
+			hpa: &v2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+				},
+				Status: v2.HorizontalPodAutoscalerStatus{
+					Conditions: []v2.HorizontalPodAutoscalerCondition{
+						{
+							Type:               v2.ScalingActive,
+							Status:             "False",
+							Reason:             "FailedGetResourceMetric",
+							Message:            "failed to get cpu utilization",
+							LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Minute)), // Old failure
+						},
+						{
+							Type:               v2.AbleToScale,
+							Status:             "False",
+							Reason:             "FailedGetScale",
+							Message:            "failed to get scale",
+							LastTransitionTime: metav1.NewTime(now.Add(-2 * time.Minute)), // Recent failure
+						},
+					},
+					CurrentMetrics: []v2.MetricStatus{
+						{
+							Type: "ContainerResource",
+							ContainerResource: &v2.ContainerResourceMetricStatus{
+								Container: "app",
+								Name:      v1.ResourceCPU,
+								Current: v2.MetricValueStatus{
+									AverageUtilization: ptr.To[int32](0),
+									AverageValue:       resource.NewQuantity(0, resource.DecimalSI),
+									Value:              resource.NewQuantity(0, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+			},
+			emergencyModeGracePeriod: defaultEmergencyModeGracePeriod,
+			expected:                 false, // Should trigger emergency mode due to old condition
+			description:              "With multiple conditions, should trigger emergency if any are beyond grace period",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create service with the specified grace period
+			c, err := New(
+				fake.NewClientBuilder().Build(),
+				record.NewFakeRecorder(10),
+				0.95, 90, 100,
+				time.Hour,
+				nil,
+				100, 1000, 3,
+				"",
+				tt.emergencyModeGracePeriod,
+			)
+			if err != nil {
+				t.Fatalf("New() error = %v", err)
+			}
+
+			result := c.IsHpaMetricAvailable(context.Background(), tt.tortoise, tt.hpa)
+
+			if result != tt.expected {
+				t.Errorf("Test '%s' failed: %s\nExpected: %v, Got: %v",
+					tt.name, tt.description, tt.expected, result)
 			}
 		})
 	}

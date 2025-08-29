@@ -236,6 +236,11 @@ type Config struct {
 	// all the external metric which name matches `datadogmetric.*` regex are removed by Tortoise once Tortoise is in Auto mode.
 	HPAExternalMetricExclusionRegex string `yaml:"HPAExternalMetricExclusionRegex"`
 
+	// EmergencyModeGracePeriod is the grace period before triggering emergency mode when HPA metrics are temporarily unavailable (default: 5m)
+	// This prevents false emergency mode triggers during temporary HPA metric unavailability during HPA updates, deployments, scheduled scaling, etc.
+	// During this grace period, the system will continue normal operation even if HPA metrics are temporarily unavailable.
+	EmergencyModeGracePeriod time.Duration `yaml:"EmergencyModeGracePeriod"`
+
 	// DefaultHPABehavior defines the default behavior for HPAs created and managed by Tortoise.
 	// If not specified, Tortoise will use built-in default values that scale up aggressively and scale down conservatively.
 	// This default behavior will be used when individual Tortoise resources don't specify their own behavior.
@@ -319,6 +324,7 @@ func defaultConfig() *Config {
 		MinimumCPULimit:                          "0",
 		ResourceLimitMultiplier:                  map[string]int64{},
 		BufferRatioOnVerticalResource:            0.1,
+		EmergencyModeGracePeriod:                 5 * time.Minute,
 	}
 }
 
