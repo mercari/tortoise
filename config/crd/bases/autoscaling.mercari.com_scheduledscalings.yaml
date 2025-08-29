@@ -30,7 +30,7 @@ spec:
     - jsonPath: .status.formattedNextStartTime
       name: Next Start
       type: string
-    - jsonPath: .status.formattedStartTime
+    - jsonPath: .status.humanReadableSchedule
       name: Schedule
       type: string
     - jsonPath: .spec.targetRefs.tortoiseName
