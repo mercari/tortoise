@@ -421,6 +421,8 @@ func (r *ScheduledScalingReconciler) applyNormalScaling(ctx context.Context, sch
 		} else {
 			logger.Info("applyNormalScaling: original spec annotation not found, skipping spec restoration", "tortoise", t.Name)
 		}
+	} else {
+		logger.Info("applyNormalScaling: no annotations found on tortoise", "tortoise", t.Name)
 	}
 
 	// Remove ScheduledScaling annotations after restoring the spec
@@ -549,30 +551,65 @@ func (r *ScheduledScalingReconciler) handleFinalizer(ctx context.Context, schedu
 		if controllerutil.ContainsFinalizer(scheduledScaling, scheduledScalingFinalizer) {
 			logger.Info("Running finalizer cleanup for ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 
-			// Try to restore the Tortoise to its original state and clean up annotations
-			// If the Tortoise doesn't exist anymore, that's fine - just log it
-			logger.Info("Starting Tortoise cleanup and annotation removal", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
-			if err := r.applyNormalScaling(ctx, scheduledScaling); err != nil {
-				if client.IgnoreNotFound(err) == nil {
-					// Tortoise was not found (likely already deleted), which is fine
-					logger.Info("Tortoise not found during finalizer cleanup (likely already deleted)", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
-				} else {
-					// Some other error occurred
-					logger.Error(err, "Failed to restore Tortoise during finalizer cleanup")
-					return fmt.Errorf("finalizer cleanup failed: %w", err)
-				}
+			// Only perform cleanup if the resource was ever active (has annotations or was in Active phase)
+			// If it's still in Pending status, no cleanup is needed
+			if scheduledScaling.Status.Phase == autoscalingv1alpha1.ScheduledScalingPhasePending {
+				logger.Info("ScheduledScaling was never active, skipping cleanup", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 			} else {
-				logger.Info("Successfully cleaned up Tortoise annotations and restored original spec", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+				// Try to restore the Tortoise to its original state and clean up annotations
+				// If the Tortoise doesn't exist anymore, that's fine - just log it
+				logger.Info("Starting Tortoise cleanup and annotation removal", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+
+				// Create a timeout context for the cleanup operation to prevent it from getting stuck
+				cleanupCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+				defer cancel()
+
+				if err := r.applyNormalScaling(cleanupCtx, scheduledScaling); err != nil {
+					if client.IgnoreNotFound(err) == nil {
+						// Tortoise was not found (likely already deleted), which is fine
+						logger.Info("Tortoise not found during finalizer cleanup (likely already deleted)", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+					} else if cleanupCtx.Err() == context.DeadlineExceeded {
+						// Cleanup timed out - log warning but continue with finalizer removal
+						logger.Info("Tortoise cleanup timed out during finalizer cleanup, but continuing with finalizer removal to prevent stuck deletion", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+					} else {
+						// Some other error occurred - log it but don't fail the finalizer removal
+						// This prevents the resource from getting permanently stuck in deletion
+						logger.Error(err, "Failed to restore Tortoise during finalizer cleanup, but continuing with finalizer removal to prevent stuck deletion")
+					}
+				} else {
+					logger.Info("Successfully cleaned up Tortoise annotations and restored original spec", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+				}
 			}
 
-			// Remove the finalizer
+			// Remove the finalizer - this should always succeed to prevent stuck deletion
 			controllerutil.RemoveFinalizer(scheduledScaling, scheduledScalingFinalizer)
 			logger.Info("Removing finalizer from ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 
-			if err := r.Update(ctx, scheduledScaling); err != nil {
-				// If update fails, it might be because the resource is being modified elsewhere
-				// In this case, we should return an error to trigger a requeue
-				return fmt.Errorf("failed to remove finalizer: %w", err)
+			// Try to update the resource to remove the finalizer
+			// If it fails, retry a few times with exponential backoff to prevent stuck deletion
+			maxRetries := 3
+			for attempt := 1; attempt <= maxRetries; attempt++ {
+				if err := r.Update(ctx, scheduledScaling); err != nil {
+					if attempt == maxRetries {
+						// Final attempt failed - this is critical as it could cause stuck deletion
+						logger.Error(err, "Failed to remove finalizer after all retries - this could cause stuck deletion", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace, "attempt", attempt)
+						return fmt.Errorf("failed to remove finalizer after %d attempts: %w", maxRetries, err)
+					}
+
+					// Wait before retry with exponential backoff
+					backoffTime := time.Duration(attempt) * time.Second
+					logger.Info("Failed to remove finalizer, retrying", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace, "attempt", attempt, "backoff", backoffTime)
+
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case <-time.After(backoffTime):
+						continue
+					}
+				} else {
+					// Successfully removed finalizer
+					break
+				}
 			}
 
 			logger.Info("Finalizer cleanup completed for ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
@@ -582,11 +619,16 @@ func (r *ScheduledScalingReconciler) handleFinalizer(ctx context.Context, schedu
 
 	// Add finalizer if it doesn't exist
 	if !controllerutil.ContainsFinalizer(scheduledScaling, scheduledScalingFinalizer) {
-		controllerutil.AddFinalizer(scheduledScaling, scheduledScalingFinalizer)
-		if err := r.Update(ctx, scheduledScaling); err != nil {
-			return fmt.Errorf("failed to add finalizer: %w", err)
+		// Only add finalizer if the resource is not being deleted
+		if scheduledScaling.DeletionTimestamp == nil {
+			controllerutil.AddFinalizer(scheduledScaling, scheduledScalingFinalizer)
+			if err := r.Update(ctx, scheduledScaling); err != nil {
+				return fmt.Errorf("failed to add finalizer: %w", err)
+			}
+			logger.Info("Added finalizer to ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+		} else {
+			logger.Info("Skipping finalizer addition for resource being deleted", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 		}
-		logger.Info("Added finalizer to ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 	}
 
 	return nil
