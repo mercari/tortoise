@@ -23,6 +23,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,7 +35,6 @@ import (
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
-	"k8s.io/apimachinery/pkg/api/errors" as apierrors
 )
 
 const (
