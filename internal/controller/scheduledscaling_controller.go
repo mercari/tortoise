@@ -34,6 +34,7 @@ import (
 
 	autoscalingv1alpha1 "github.com/mercari/tortoise/api/v1alpha1"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
+	"k8s.io/apimachinery/pkg/api/errors" as apierrors
 )
 
 const (
@@ -585,31 +586,13 @@ func (r *ScheduledScalingReconciler) handleFinalizer(ctx context.Context, schedu
 			controllerutil.RemoveFinalizer(scheduledScaling, scheduledScalingFinalizer)
 			logger.Info("Removing finalizer from ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 
-			// Try to update the resource to remove the finalizer
-			// If it fails, retry a few times with exponential backoff to prevent stuck deletion
-			maxRetries := 3
-			for attempt := 1; attempt <= maxRetries; attempt++ {
-				if err := r.Update(ctx, scheduledScaling); err != nil {
-					if attempt == maxRetries {
-						// Final attempt failed - this is critical as it could cause stuck deletion
-						logger.Error(err, "Failed to remove finalizer after all retries - this could cause stuck deletion", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace, "attempt", attempt)
-						return fmt.Errorf("failed to remove finalizer after %d attempts: %w", maxRetries, err)
-					}
-
-					// Wait before retry with exponential backoff
-					backoffTime := time.Duration(attempt) * time.Second
-					logger.Info("Failed to remove finalizer, retrying", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace, "attempt", attempt, "backoff", backoffTime)
-
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case <-time.After(backoffTime):
-						continue
-					}
-				} else {
-					// Successfully removed finalizer
-					break
+			if err := r.Update(ctx, scheduledScaling); err != nil {
+				// If update fails, it might be because the resource is being modified elsewhere.
+				// Returning an error will trigger a requeue, and the next reconciliation will attempt to remove the finalizer again.
+				if apierrors.IsConflict(err) {
+					logger.Info("Conflict detected when removing finalizer, requeueing", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 				}
+				return fmt.Errorf("failed to remove finalizer: %w", err)
 			}
 
 			logger.Info("Finalizer cleanup completed for ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
