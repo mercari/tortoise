@@ -290,84 +290,151 @@ func (r *ScheduledScalingReconciler) applyScheduledScaling(ctx context.Context, 
 		t.Annotations[annOriginal] = string(orig)
 	}
 
-	// Desired resource minimums from strategy
-	dCPU := scheduledScaling.Spec.Strategy.Static.MinAllocatedResources.CPU
-	dMem := scheduledScaling.Spec.Strategy.Static.MinAllocatedResources.Memory
-	var qCPU, qMem resource.Quantity
-	var hasCPU, hasMem bool
-	if dCPU != "" {
-		v, err := resource.ParseQuantity(dCPU)
-		if err != nil {
-			return fmt.Errorf("invalid cpu quantity %q: %w", dCPU, err)
+	// Handle resource scaling - both global and container-specific
+	updated := false
+
+	// Process global resource requirements (applied to all containers)
+	var globalCPU, globalMemory resource.Quantity
+	var hasGlobalCPU, hasGlobalMemory bool
+
+	if scheduledScaling.Spec.Strategy.Static.MinAllocatedResources != nil {
+		if scheduledScaling.Spec.Strategy.Static.MinAllocatedResources.CPU != "" {
+			v, err := resource.ParseQuantity(scheduledScaling.Spec.Strategy.Static.MinAllocatedResources.CPU)
+			if err != nil {
+				return fmt.Errorf("invalid global cpu quantity %q: %w", scheduledScaling.Spec.Strategy.Static.MinAllocatedResources.CPU, err)
+			}
+			globalCPU = v
+			hasGlobalCPU = true
 		}
-		qCPU = v
-		hasCPU = true
-	}
-	if dMem != "" {
-		v, err := resource.ParseQuantity(dMem)
-		if err != nil {
-			return fmt.Errorf("invalid memory quantity %q: %w", dMem, err)
+		if scheduledScaling.Spec.Strategy.Static.MinAllocatedResources.Memory != "" {
+			v, err := resource.ParseQuantity(scheduledScaling.Spec.Strategy.Static.MinAllocatedResources.Memory)
+			if err != nil {
+				return fmt.Errorf("invalid global memory quantity %q: %w", scheduledScaling.Spec.Strategy.Static.MinAllocatedResources.Memory, err)
+			}
+			globalMemory = v
+			hasGlobalMemory = true
 		}
-		qMem = v
-		hasMem = true
 	}
 
-	updated := false
+	// Process container-specific resource requirements
+	containerResources := make(map[string]struct {
+		cpu    resource.Quantity
+		memory resource.Quantity
+		hasCPU bool
+		hasMem bool
+	})
+
+	if scheduledScaling.Spec.Strategy.Static.ContainerMinAllocatedResources != nil {
+		for _, containerReq := range scheduledScaling.Spec.Strategy.Static.ContainerMinAllocatedResources {
+			var cpu, mem resource.Quantity
+			var hasCPU, hasMem bool
+
+			if containerReq.Resources.CPU != "" {
+				v, err := resource.ParseQuantity(containerReq.Resources.CPU)
+				if err != nil {
+					return fmt.Errorf("invalid cpu quantity for container %s: %q: %w", containerReq.ContainerName, containerReq.Resources.CPU, err)
+				}
+				cpu = v
+				hasCPU = true
+			}
+			if containerReq.Resources.Memory != "" {
+				v, err := resource.ParseQuantity(containerReq.Resources.Memory)
+				if err != nil {
+					return fmt.Errorf("invalid memory quantity for container %s: %q: %w", containerReq.ContainerName, containerReq.Resources.Memory, err)
+				}
+				mem = v
+				hasMem = true
+			}
+
+			containerResources[containerReq.ContainerName] = struct {
+				cpu    resource.Quantity
+				memory resource.Quantity
+				hasCPU bool
+				hasMem bool
+			}{cpu, mem, hasCPU, hasMem}
+		}
+	}
+
+	// Apply resource requirements to each container in the tortoise
 	for i := range t.Spec.ResourcePolicy {
 		pol := &t.Spec.ResourcePolicy[i]
+		containerName := pol.ContainerName
+
+		// Initialize resource lists if they don't exist
 		if pol.MinAllocatedResources == nil {
 			pol.MinAllocatedResources = v1.ResourceList{}
 		}
-		if hasCPU {
-			curr := pol.MinAllocatedResources[v1.ResourceCPU]
-			if curr.Cmp(qCPU) < 0 {
-				pol.MinAllocatedResources[v1.ResourceCPU] = qCPU
-				updated = true
-			}
+		if pol.MaxAllocatedResources == nil {
+			pol.MaxAllocatedResources = v1.ResourceList{}
 		}
-		if hasMem {
-			curr := pol.MinAllocatedResources[v1.ResourceMemory]
-			if curr.Cmp(qMem) < 0 {
-				pol.MinAllocatedResources[v1.ResourceMemory] = qMem
-				updated = true
-			}
+
+		// Check if we have container-specific resources for this container
+		containerSpec, hasContainerSpec := containerResources[containerName]
+
+		// Apply CPU resources
+		if hasContainerSpec && containerSpec.hasCPU {
+			// Container-specific CPU takes precedence
+			pol.MinAllocatedResources[v1.ResourceCPU] = containerSpec.cpu
+			pol.MaxAllocatedResources[v1.ResourceCPU] = containerSpec.cpu
+			updated = true
+		} else if hasGlobalCPU {
+			// Apply global CPU to this container
+			pol.MinAllocatedResources[v1.ResourceCPU] = globalCPU
+			pol.MaxAllocatedResources[v1.ResourceCPU] = globalCPU
+			updated = true
+		}
+
+		// Apply Memory resources
+		if hasContainerSpec && containerSpec.hasMem {
+			// Container-specific memory takes precedence
+			pol.MinAllocatedResources[v1.ResourceMemory] = containerSpec.memory
+			pol.MaxAllocatedResources[v1.ResourceMemory] = containerSpec.memory
+			updated = true
+		} else if hasGlobalMemory {
+			// Apply global memory to this container
+			pol.MinAllocatedResources[v1.ResourceMemory] = globalMemory
+			pol.MaxAllocatedResources[v1.ResourceMemory] = globalMemory
+			updated = true
 		}
 	}
 
-	if m := scheduledScaling.Spec.Strategy.Static.MinimumMinReplicas; m > 0 {
-		// Validate that the requested minReplicas is not lower than HPA's recommendation
-		isValid, warningMsg, recommendedValue := r.validateMinReplicasAgainstHPARecommendation(ctx, t, m)
+	if scheduledScaling.Spec.Strategy.Static.MinimumMinReplicas != nil {
+		m := *scheduledScaling.Spec.Strategy.Static.MinimumMinReplicas
+		if m > 0 {
+			// Validate that the requested minReplicas is not lower than HPA's recommendation
+			isValid, warningMsg, recommendedValue := r.validateMinReplicasAgainstHPARecommendation(ctx, t, m)
 
-		// Determine what value to actually use
-		effectiveMinReplicas := m
-		if !isValid && recommendedValue > 0 {
-			// Use the HPA's recommended value instead of the requested value
-			effectiveMinReplicas = recommendedValue
-			log.FromContext(ctx).Info("ScheduledScaling minReplicas using HPA recommendation instead of requested value",
-				"tortoise", t.Name,
-				"requested", m,
-				"using", effectiveMinReplicas,
-				"warning", warningMsg)
-		} else if !isValid {
-			// Log the warning but still apply the requested change
-			log.FromContext(ctx).Info("ScheduledScaling minReplicas validation warning",
-				"tortoise", t.Name,
-				"requested", m,
-				"warning", warningMsg)
-		}
-
-		// Update the status message to include the warning for user visibility
-		if !isValid && warningMsg != "" {
-			if scheduledScaling.Status.Message == "" {
-				scheduledScaling.Status.Message = warningMsg
-			} else {
-				scheduledScaling.Status.Message = scheduledScaling.Status.Message + "; " + warningMsg
+			// Determine what value to actually use
+			effectiveMinReplicas := m
+			if !isValid && recommendedValue > 0 {
+				// Use the HPA's recommended value instead of the requested value
+				effectiveMinReplicas = recommendedValue
+				log.FromContext(ctx).Info("ScheduledScaling minReplicas using HPA recommendation instead of requested value",
+					"tortoise", t.Name,
+					"requested", m,
+					"using", effectiveMinReplicas,
+					"warning", warningMsg)
+			} else if !isValid {
+				// Log the warning but still apply the requested change
+				log.FromContext(ctx).Info("ScheduledScaling minReplicas validation warning",
+					"tortoise", t.Name,
+					"requested", m,
+					"warning", warningMsg)
 			}
-		}
 
-		// Store the effective minReplicas value (either requested or HPA recommended)
-		t.Annotations[annMinReplicas] = fmt.Sprintf("%d", effectiveMinReplicas)
-		updated = true
+			// Update the status message to include the warning for user visibility
+			if !isValid && warningMsg != "" {
+				if scheduledScaling.Status.Message == "" {
+					scheduledScaling.Status.Message = warningMsg
+				} else {
+					scheduledScaling.Status.Message = scheduledScaling.Status.Message + "; " + warningMsg
+				}
+			}
+
+			// Store the effective minReplicas value (either requested or HPA recommended)
+			t.Annotations[annMinReplicas] = fmt.Sprintf("%d", effectiveMinReplicas)
+			updated = true
+		}
 	}
 
 	if !updated {
@@ -629,7 +696,7 @@ func (r *ScheduledScalingReconciler) validateMinReplicasAgainstHPARecommendation
 	}
 
 	// Check if Tortoise has HPA recommendations
-	if tortoise.Status.Recommendations.Horizontal.MinReplicas == nil || len(tortoise.Status.Recommendations.Horizontal.MinReplicas) == 0 {
+	if len(tortoise.Status.Recommendations.Horizontal.MinReplicas) == 0 {
 		logger.Info("No HPA minReplicas recommendations available for validation", "tortoise", tortoise.Name)
 		return true, "", 0
 	}

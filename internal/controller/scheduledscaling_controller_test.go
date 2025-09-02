@@ -32,6 +32,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// Helper function to create int32 pointers
+func int32Ptr(i int32) *int32 {
+	return &i
+}
+
 var _ = Describe("ScheduledScaling Controller", func() {
 	const (
 		timeout  = time.Second * 10
@@ -59,8 +64,8 @@ var _ = Describe("ScheduledScaling Controller", func() {
 					},
 					Strategy: autoscalingv1alpha1.Strategy{
 						Static: autoscalingv1alpha1.StaticStrategy{
-							MinimumMinReplicas: 3,
-							MinAllocatedResources: autoscalingv1alpha1.ResourceRequirements{
+							MinimumMinReplicas: int32Ptr(3),
+							MinAllocatedResources: &autoscalingv1alpha1.ResourceRequirements{
 								CPU:    "500m",
 								Memory: "512Mi",
 							},
@@ -111,8 +116,8 @@ var _ = Describe("ScheduledScaling Controller", func() {
 					},
 					Strategy: autoscalingv1alpha1.Strategy{
 						Static: autoscalingv1alpha1.StaticStrategy{
-							MinimumMinReplicas: 3,
-							MinAllocatedResources: autoscalingv1alpha1.ResourceRequirements{
+							MinimumMinReplicas: int32Ptr(3),
+							MinAllocatedResources: &autoscalingv1alpha1.ResourceRequirements{
 								CPU:    "500m",
 								Memory: "512Mi",
 							},
@@ -176,8 +181,8 @@ var _ = Describe("ScheduledScaling Controller", func() {
 					Schedule:   autoscalingv1alpha1.Schedule{Type: autoscalingv1alpha1.ScheduleTypeTime, StartAt: start, FinishAt: finish},
 					TargetRefs: autoscalingv1alpha1.TargetRefs{TortoiseName: t.Name},
 					Strategy: autoscalingv1alpha1.Strategy{Static: autoscalingv1alpha1.StaticStrategy{
-						MinimumMinReplicas:    5,
-						MinAllocatedResources: autoscalingv1alpha1.ResourceRequirements{CPU: "500m", Memory: "512Mi"},
+						MinimumMinReplicas:    int32Ptr(5),
+						MinAllocatedResources: &autoscalingv1alpha1.ResourceRequirements{CPU: "500m", Memory: "512Mi"},
 					}},
 				},
 			}
@@ -204,6 +209,297 @@ var _ = Describe("ScheduledScaling Controller", func() {
 				pol := cur.Spec.ResourcePolicy[0]
 				g.Expect(pol.MinAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("100m"))).To(BeTrue())
 				g.Expect(pol.MinAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("128Mi"))).To(BeTrue())
+			}, time.Second*12, interval).Should(Succeed())
+		})
+
+		It("should apply container-specific resources and override both min and max", func() {
+			ctx := context.Background()
+
+			// Create a baseline Tortoise with multiple containers and max resources
+			t := &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-tortoise-container-specific", Namespace: "default"},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					ResourcePolicy: []autoscalingv1beta3.ContainerResourcePolicy{
+						{
+							ContainerName: "app",
+							MinAllocatedResources: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse("100m"),
+								v1.ResourceMemory: resource.MustParse("128Mi"),
+							},
+							MaxAllocatedResources: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse("2000m"),
+								v1.ResourceMemory: resource.MustParse("2Gi"),
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							MinAllocatedResources: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse("50m"),
+								v1.ResourceMemory: resource.MustParse("64Mi"),
+							},
+							MaxAllocatedResources: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse("500m"),
+								v1.ResourceMemory: resource.MustParse("512Mi"),
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, t)).Should(Succeed())
+
+			// Prepare a ScheduledScaling with container-specific resources
+			start := time.Now().Add(-1 * time.Second).Format(time.RFC3339)
+			finish := time.Now().Add(3 * time.Second).Format(time.RFC3339)
+			ss := &autoscalingv1alpha1.ScheduledScaling{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-container-specific", Namespace: "default"},
+				Spec: autoscalingv1alpha1.ScheduledScalingSpec{
+					Schedule:   autoscalingv1alpha1.Schedule{Type: autoscalingv1alpha1.ScheduleTypeTime, StartAt: start, FinishAt: finish},
+					TargetRefs: autoscalingv1alpha1.TargetRefs{TortoiseName: t.Name},
+					Strategy: autoscalingv1alpha1.Strategy{Static: autoscalingv1alpha1.StaticStrategy{
+						ContainerMinAllocatedResources: []autoscalingv1alpha1.ContainerResourceRequirements{
+							{
+								ContainerName: "app",
+								Resources: autoscalingv1alpha1.ResourceRequirements{
+									CPU:    "1500m",
+									Memory: "1.5Gi",
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resources: autoscalingv1alpha1.ResourceRequirements{
+									CPU:    "300m",
+									Memory: "256Mi",
+								},
+							},
+						},
+					}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ss)).Should(Succeed())
+
+			// During active window, Tortoise should be updated with container-specific resources
+			Eventually(func(g Gomega) {
+				cur := &autoscalingv1beta3.Tortoise{}
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, cur)
+				g.Expect(err).ShouldNot(HaveOccurred())
+				g.Expect(cur.Spec.ResourcePolicy).To(HaveLen(2))
+
+				// Check app container
+				appPol := cur.Spec.ResourcePolicy[0]
+				if appPol.ContainerName == "sidecar" {
+					appPol = cur.Spec.ResourcePolicy[1]
+				}
+				g.Expect(appPol.ContainerName).To(Equal("app"))
+				g.Expect(appPol.MinAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("1500m"))).To(BeTrue())
+				g.Expect(appPol.MinAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("1.5Gi"))).To(BeTrue())
+				// Max resources should also be overridden
+				g.Expect(appPol.MaxAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("1500m"))).To(BeTrue())
+				g.Expect(appPol.MaxAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("1.5Gi"))).To(BeTrue())
+
+				// Check sidecar container
+				sidecarPol := cur.Spec.ResourcePolicy[0]
+				if sidecarPol.ContainerName == "app" {
+					sidecarPol = cur.Spec.ResourcePolicy[1]
+				}
+				g.Expect(sidecarPol.ContainerName).To(Equal("sidecar"))
+				g.Expect(sidecarPol.MinAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("300m"))).To(BeTrue())
+				g.Expect(sidecarPol.MinAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("256Mi"))).To(BeTrue())
+				// Max resources should also be overridden
+				g.Expect(sidecarPol.MaxAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("300m"))).To(BeTrue())
+				g.Expect(sidecarPol.MaxAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("256Mi"))).To(BeTrue())
+			}, timeout, interval).Should(Succeed())
+
+			// After the window finishes, original spec should be restored
+			Eventually(func(g Gomega) {
+				cur := &autoscalingv1beta3.Tortoise{}
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, cur)
+				g.Expect(err).ShouldNot(HaveOccurred())
+				g.Expect(cur.Spec.ResourcePolicy).To(HaveLen(2))
+
+				// Check app container restoration
+				appPol := cur.Spec.ResourcePolicy[0]
+				if appPol.ContainerName == "sidecar" {
+					appPol = cur.Spec.ResourcePolicy[1]
+				}
+				g.Expect(appPol.ContainerName).To(Equal("app"))
+				g.Expect(appPol.MinAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("100m"))).To(BeTrue())
+				g.Expect(appPol.MinAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("128Mi"))).To(BeTrue())
+				g.Expect(appPol.MaxAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("2000m"))).To(BeTrue())
+				g.Expect(appPol.MaxAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("2Gi"))).To(BeTrue())
+
+				// Check sidecar container restoration
+				sidecarPol := cur.Spec.ResourcePolicy[0]
+				if sidecarPol.ContainerName == "app" {
+					sidecarPol = cur.Spec.ResourcePolicy[1]
+				}
+				g.Expect(sidecarPol.ContainerName).To(Equal("sidecar"))
+				g.Expect(sidecarPol.MinAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("50m"))).To(BeTrue())
+				g.Expect(sidecarPol.MinAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("64Mi"))).To(BeTrue())
+				g.Expect(sidecarPol.MaxAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("500m"))).To(BeTrue())
+				g.Expect(sidecarPol.MaxAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("512Mi"))).To(BeTrue())
+			}, time.Second*12, interval).Should(Succeed())
+		})
+
+		It("should apply mixed global and container-specific resources with proper precedence", func() {
+			ctx := context.Background()
+
+			// Create a baseline Tortoise with multiple containers
+			t := &autoscalingv1beta3.Tortoise{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-tortoise-mixed", Namespace: "default"},
+				Spec: autoscalingv1beta3.TortoiseSpec{
+					ResourcePolicy: []autoscalingv1beta3.ContainerResourcePolicy{
+						{
+							ContainerName: "app",
+							MinAllocatedResources: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse("100m"),
+								v1.ResourceMemory: resource.MustParse("128Mi"),
+							},
+							MaxAllocatedResources: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse("2000m"),
+								v1.ResourceMemory: resource.MustParse("2Gi"),
+							},
+						},
+						{
+							ContainerName: "sidecar",
+							MinAllocatedResources: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse("50m"),
+								v1.ResourceMemory: resource.MustParse("64Mi"),
+							},
+							MaxAllocatedResources: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse("500m"),
+								v1.ResourceMemory: resource.MustParse("512Mi"),
+							},
+						},
+						{
+							ContainerName: "monitoring",
+							MinAllocatedResources: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse("25m"),
+								v1.ResourceMemory: resource.MustParse("32Mi"),
+							},
+							MaxAllocatedResources: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse("200m"),
+								v1.ResourceMemory: resource.MustParse("256Mi"),
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, t)).Should(Succeed())
+
+			// Prepare a ScheduledScaling with both global and container-specific resources
+			start := time.Now().Add(-1 * time.Second).Format(time.RFC3339)
+			finish := time.Now().Add(3 * time.Second).Format(time.RFC3339)
+			ss := &autoscalingv1alpha1.ScheduledScaling{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-mixed-resources", Namespace: "default"},
+				Spec: autoscalingv1alpha1.ScheduledScalingSpec{
+					Schedule:   autoscalingv1alpha1.Schedule{Type: autoscalingv1alpha1.ScheduleTypeTime, StartAt: start, FinishAt: finish},
+					TargetRefs: autoscalingv1alpha1.TargetRefs{TortoiseName: t.Name},
+					Strategy: autoscalingv1alpha1.Strategy{Static: autoscalingv1alpha1.StaticStrategy{
+						// Global resources (fallback for containers without specific specs)
+						MinAllocatedResources: &autoscalingv1alpha1.ResourceRequirements{
+							CPU:    "800m",
+							Memory: "1Gi",
+						},
+						// Container-specific resources (take precedence)
+						ContainerMinAllocatedResources: []autoscalingv1alpha1.ContainerResourceRequirements{
+							{
+								ContainerName: "app",
+								Resources: autoscalingv1alpha1.ResourceRequirements{
+									CPU:    "1500m",
+									Memory: "1.5Gi",
+								},
+							},
+							{
+								ContainerName: "sidecar",
+								Resources: autoscalingv1alpha1.ResourceRequirements{
+									CPU:    "300m",
+									Memory: "256Mi",
+								},
+							},
+							// monitoring container will use global resources
+						},
+					}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ss)).Should(Succeed())
+
+			// During active window, verify mixed resource application
+			Eventually(func(g Gomega) {
+				cur := &autoscalingv1beta3.Tortoise{}
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, cur)
+				g.Expect(err).ShouldNot(HaveOccurred())
+				g.Expect(cur.Spec.ResourcePolicy).To(HaveLen(3))
+
+				// Find each container policy
+				var appPol, sidecarPol, monitoringPol *autoscalingv1beta3.ContainerResourcePolicy
+				for i := range cur.Spec.ResourcePolicy {
+					switch cur.Spec.ResourcePolicy[i].ContainerName {
+					case "app":
+						appPol = &cur.Spec.ResourcePolicy[i]
+					case "sidecar":
+						sidecarPol = &cur.Spec.ResourcePolicy[i]
+					case "monitoring":
+						monitoringPol = &cur.Spec.ResourcePolicy[i]
+					}
+				}
+
+				// App container: should use container-specific resources
+				g.Expect(appPol).ToNot(BeNil())
+				g.Expect(appPol.MinAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("1500m"))).To(BeTrue())
+				g.Expect(appPol.MinAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("1.5Gi"))).To(BeTrue())
+				g.Expect(appPol.MaxAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("1500m"))).To(BeTrue())
+				g.Expect(appPol.MaxAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("1.5Gi"))).To(BeTrue())
+
+				// Sidecar container: should use container-specific resources
+				g.Expect(sidecarPol).ToNot(BeNil())
+				g.Expect(sidecarPol.MinAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("300m"))).To(BeTrue())
+				g.Expect(sidecarPol.MinAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("256Mi"))).To(BeTrue())
+				g.Expect(sidecarPol.MaxAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("300m"))).To(BeTrue())
+				g.Expect(sidecarPol.MaxAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("256Mi"))).To(BeTrue())
+
+				// Monitoring container: should use global resources
+				g.Expect(monitoringPol).ToNot(BeNil())
+				g.Expect(monitoringPol.MinAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("800m"))).To(BeTrue())
+				g.Expect(monitoringPol.MinAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("1Gi"))).To(BeTrue())
+				g.Expect(monitoringPol.MaxAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("800m"))).To(BeTrue())
+				g.Expect(monitoringPol.MaxAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("1Gi"))).To(BeTrue())
+			}, timeout, interval).Should(Succeed())
+
+			// After the window finishes, original spec should be restored
+			Eventually(func(g Gomega) {
+				cur := &autoscalingv1beta3.Tortoise{}
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, cur)
+				g.Expect(err).ShouldNot(HaveOccurred())
+				g.Expect(cur.Spec.ResourcePolicy).To(HaveLen(3))
+
+				// Find each container policy
+				var appPol, sidecarPol, monitoringPol *autoscalingv1beta3.ContainerResourcePolicy
+				for i := range cur.Spec.ResourcePolicy {
+					switch cur.Spec.ResourcePolicy[i].ContainerName {
+					case "app":
+						appPol = &cur.Spec.ResourcePolicy[i]
+					case "sidecar":
+						sidecarPol = &cur.Spec.ResourcePolicy[i]
+					case "monitoring":
+						monitoringPol = &cur.Spec.ResourcePolicy[i]
+					}
+				}
+
+				// Verify all containers have original resources restored
+				g.Expect(appPol.MinAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("100m"))).To(BeTrue())
+				g.Expect(appPol.MinAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("128Mi"))).To(BeTrue())
+				g.Expect(appPol.MaxAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("2000m"))).To(BeTrue())
+				g.Expect(appPol.MaxAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("2Gi"))).To(BeTrue())
+
+				g.Expect(sidecarPol.MinAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("50m"))).To(BeTrue())
+				g.Expect(sidecarPol.MinAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("64Mi"))).To(BeTrue())
+				g.Expect(sidecarPol.MaxAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("500m"))).To(BeTrue())
+				g.Expect(sidecarPol.MaxAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("512Mi"))).To(BeTrue())
+
+				g.Expect(monitoringPol.MinAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("25m"))).To(BeTrue())
+				g.Expect(monitoringPol.MinAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("32Mi"))).To(BeTrue())
+				g.Expect(monitoringPol.MaxAllocatedResources[v1.ResourceCPU].Equal(resource.MustParse("200m"))).To(BeTrue())
+				g.Expect(monitoringPol.MaxAllocatedResources[v1.ResourceMemory].Equal(resource.MustParse("256Mi"))).To(BeTrue())
 			}, time.Second*12, interval).Should(Succeed())
 		})
 	})
@@ -247,8 +543,8 @@ var _ = Describe("ScheduledScaling Controller", func() {
 					},
 					Strategy: autoscalingv1alpha1.Strategy{
 						Static: autoscalingv1alpha1.StaticStrategy{
-							MinimumMinReplicas: 5,
-							MinAllocatedResources: autoscalingv1alpha1.ResourceRequirements{
+							MinimumMinReplicas: int32Ptr(5),
+							MinAllocatedResources: &autoscalingv1alpha1.ResourceRequirements{
 								CPU:    "1000m",
 								Memory: "1Gi",
 							},
@@ -326,8 +622,8 @@ var _ = Describe("ScheduledScaling Controller", func() {
 					},
 					Strategy: autoscalingv1alpha1.Strategy{
 						Static: autoscalingv1alpha1.StaticStrategy{
-							MinimumMinReplicas: 3,
-							MinAllocatedResources: autoscalingv1alpha1.ResourceRequirements{
+							MinimumMinReplicas: int32Ptr(3),
+							MinAllocatedResources: &autoscalingv1alpha1.ResourceRequirements{
 								CPU:    "500m",
 								Memory: "512Mi",
 							},
@@ -400,8 +696,8 @@ var _ = Describe("ScheduledScaling Controller", func() {
 					},
 					Strategy: autoscalingv1alpha1.Strategy{
 						Static: autoscalingv1alpha1.StaticStrategy{
-							MinimumMinReplicas: 3,
-							MinAllocatedResources: autoscalingv1alpha1.ResourceRequirements{
+							MinimumMinReplicas: int32Ptr(3),
+							MinAllocatedResources: &autoscalingv1alpha1.ResourceRequirements{
 								CPU:    "500m",
 								Memory: "512Mi",
 							},
@@ -474,8 +770,8 @@ var _ = Describe("ScheduledScaling Controller", func() {
 					},
 					Strategy: autoscalingv1alpha1.Strategy{
 						Static: autoscalingv1alpha1.StaticStrategy{
-							MinimumMinReplicas: 3,
-							MinAllocatedResources: autoscalingv1alpha1.ResourceRequirements{
+							MinimumMinReplicas: int32Ptr(3),
+							MinAllocatedResources: &autoscalingv1alpha1.ResourceRequirements{
 								CPU:    "500m",
 								Memory: "512Mi",
 							},
@@ -549,8 +845,8 @@ var _ = Describe("ScheduledScaling Controller", func() {
 					},
 					Strategy: autoscalingv1alpha1.Strategy{
 						Static: autoscalingv1alpha1.StaticStrategy{
-							MinimumMinReplicas: 3,
-							MinAllocatedResources: autoscalingv1alpha1.ResourceRequirements{
+							MinimumMinReplicas: int32Ptr(3),
+							MinAllocatedResources: &autoscalingv1alpha1.ResourceRequirements{
 								CPU:    "500m",
 								Memory: "512Mi",
 							},

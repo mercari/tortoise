@@ -10,6 +10,7 @@ import (
 )
 
 // ScheduledScalingSpec defines the desired state of ScheduledScaling
+// +kubebuilder:object:generate=true
 type ScheduledScalingSpec struct {
 	// Schedule defines when the scaling should occur
 	// +kubebuilder:validation:Required
@@ -83,6 +84,7 @@ type TargetRefs struct {
 }
 
 // Strategy defines how the scaling should be performed
+// +kubebuilder:object:generate=true
 type Strategy struct {
 	// Static defines static scaling parameters
 	// +kubebuilder:validation:Required
@@ -90,18 +92,26 @@ type Strategy struct {
 }
 
 // StaticStrategy defines static scaling parameters
+// +kubebuilder:object:generate=true
 type StaticStrategy struct {
 	// MinimumMinReplicas sets the minimum number of replicas during scaling
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Required
-	MinimumMinReplicas int32 `json:"minimumMinReplicas"`
+	// +kubebuilder:validation:Optional
+	MinimumMinReplicas *int32 `json:"minimumMinReplicas,omitempty"`
 
 	// MinAllocatedResources sets the minimum allocated resources during scaling
-	// +kubebuilder:validation:Required
-	MinAllocatedResources ResourceRequirements `json:"minAllocatedResources"`
+	// This can be either global (applied to all containers) or container-specific
+	// +kubebuilder:validation:Optional
+	MinAllocatedResources *ResourceRequirements `json:"minAllocatedResources,omitempty"`
+
+	// ContainerMinAllocatedResources sets container-specific minimum allocated resources
+	// If specified, this takes precedence over MinAllocatedResources for specific containers
+	// +kubebuilder:validation:Optional
+	ContainerMinAllocatedResources []ContainerResourceRequirements `json:"containerMinAllocatedResources,omitempty"`
 }
 
 // ResourceRequirements describes the compute resource requirements
+// +kubebuilder:object:generate=true
 type ResourceRequirements struct {
 	// CPU specifies the CPU resource requirements
 	// +kubebuilder:validation:Required
@@ -110,6 +120,18 @@ type ResourceRequirements struct {
 	// Memory specifies the memory resource requirements
 	// +kubebuilder:validation:Required
 	Memory string `json:"memory"`
+}
+
+// ContainerResourceRequirements describes container-specific resource requirements
+// +kubebuilder:object:generate=true
+type ContainerResourceRequirements struct {
+	// ContainerName specifies which container these resources apply to
+	// +kubebuilder:validation:Required
+	ContainerName string `json:"containerName"`
+
+	// Resources specifies the resource requirements for this container
+	// +kubebuilder:validation:Required
+	Resources ResourceRequirements `json:"resources"`
 }
 
 // ScheduledScalingState represents the desired state of a scheduled scaling operation
@@ -187,6 +209,7 @@ const (
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ScheduledScaling is the Schema for the scheduledscalings API
+// +kubebuilder:object:generate=true
 type ScheduledScaling struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

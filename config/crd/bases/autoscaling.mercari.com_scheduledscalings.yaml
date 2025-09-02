@@ -120,9 +120,42 @@ spec:
                   static:
                     description: Static defines static scaling parameters
                     properties:
+                      containerMinAllocatedResources:
+                        description: |-
+                          ContainerMinAllocatedResources sets container-specific minimum allocated resources
+                          If specified, this takes precedence over MinAllocatedResources for specific containers
+                        items:
+                          description: ContainerResourceRequirements describes container-specific
+                            resource requirements
+                          properties:
+                            containerName:
+                              description: ContainerName specifies which container
+                                these resources apply to
+                              type: string
+                            resources:
+                              description: Resources specifies the resource requirements
+                                for this container
+                              properties:
+                                cpu:
+                                  description: CPU specifies the CPU resource requirements
+                                  type: string
+                                memory:
+                                  description: Memory specifies the memory resource
+                                    requirements
+                                  type: string
+                              required:
+                              - cpu
+                              - memory
+                              type: object
+                          required:
+                          - containerName
+                          - resources
+                          type: object
+                        type: array
                       minAllocatedResources:
-                        description: MinAllocatedResources sets the minimum allocated
-                          resources during scaling
+                        description: |-
+                          MinAllocatedResources sets the minimum allocated resources during scaling
+                          This can be either global (applied to all containers) or container-specific
                         properties:
                           cpu:
                             description: CPU specifies the CPU resource requirements
@@ -140,9 +173,6 @@ spec:
                         format: int32
                         minimum: 1
                         type: integer
-                    required:
-                    - minAllocatedResources
-                    - minimumMinReplicas
                     type: object
                 required:
                 - static
