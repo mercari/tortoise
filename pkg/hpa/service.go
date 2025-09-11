@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	v2 "k8s.io/api/autoscaling/v2"
@@ -458,7 +459,13 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	switch tortoise.Status.TortoisePhase {
 	case autoscalingv1beta3.TortoisePhaseEmergency:
 		// when emergency mode, we set the same value on minReplicas.
-		minToActuallyApply = recommendMax
+		// However, if ScheduledScaling is active, respect its minReplicas override
+		if ssMinOverride > 0 && ssMinOverride > recommendMax {
+			// ScheduledScaling requires higher minReplicas than emergency mode would set
+			minToActuallyApply = ssMinOverride
+		} else {
+			minToActuallyApply = recommendMax
+		}
 	case autoscalingv1beta3.TortoisePhaseBackToNormal:
 		// gradually reduce the minReplicas.
 		currentMin := *hpa.Spec.MinReplicas
@@ -839,26 +846,76 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalin
 	currentMetrics := currenthpa.Status.CurrentMetrics
 
 	for _, condition := range conditions {
-		if condition.Type == "ScalingActive" && condition.Status == "False" && condition.Reason == "FailedGetResourceMetric" {
+		if condition.Type == "ScalingActive" && condition.Status == "False" && isMetricFailureReason(condition.Reason) {
 			// Always apply grace period before triggering emergency mode to handle temporary
 			// metric unavailability during HPA updates, deployments, scheduled scaling, etc.
 			conditionAge := time.Since(condition.LastTransitionTime.Time)
-			if conditionAge < c.emergencyModeGracePeriod {
+			gracePeriod := c.emergencyModeGracePeriod
+
+			// Extend grace period if ScheduledScaling is active to allow more time for new pods to start
+			if tortoise.Annotations != nil {
+				if _, exists := tortoise.Annotations["autoscaling.mercari.com/scheduledscaling-min-replicas"]; exists {
+					// Double the grace period during ScheduledScaling to account for pod startup time
+					gracePeriod = gracePeriod * 2
+					logger.V(1).Info("ScheduledScaling detected, extending grace period",
+						"originalGracePeriod", c.emergencyModeGracePeriod,
+						"extendedGracePeriod", gracePeriod)
+				}
+			}
+
+			if conditionAge < gracePeriod {
 				logger.V(1).Info("HPA metric temporarily unavailable, giving grace time before emergency mode",
-					"gracePeriod", c.emergencyModeGracePeriod,
-					"conditionAge", conditionAge)
+					"gracePeriod", gracePeriod,
+					"conditionAge", conditionAge,
+					"reason", condition.Reason)
 				return true // Give grace period before emergency mode
 			}
 			// Grace period expired, switch to Emergency mode since no metrics
-			logger.Info("HPA failed to get resource metrics after grace period, switch to emergency mode",
-				"gracePeriod", c.emergencyModeGracePeriod,
-				"conditionAge", conditionAge)
+			logger.Info("HPA failed to get metrics after grace period, switch to emergency mode",
+				"gracePeriod", gracePeriod,
+				"conditionAge", conditionAge,
+				"reason", condition.Reason)
 			return false
 		}
 	}
 
 	hasValidMetrics := false
+
+	// Check if currentMetrics is empty or has empty entries (common during rapid scaling)
+	if len(currentMetrics) == 0 {
+		logger.V(1).Info("HPA currentMetrics is empty, checking grace period", "hpa", currenthpa.Name)
+
+		// Use lastScaleTime to determine grace period for empty metrics
+		if currenthpa.Status.LastScaleTime != nil {
+			timeSinceLastScale := time.Since(currenthpa.Status.LastScaleTime.Time)
+			gracePeriod := c.emergencyModeGracePeriod
+
+			// Extend grace period if ScheduledScaling is active
+			if tortoise.Annotations != nil {
+				if _, exists := tortoise.Annotations["autoscaling.mercari.com/scheduledscaling-min-replicas"]; exists {
+					gracePeriod = gracePeriod * 2
+				}
+			}
+
+			if timeSinceLastScale < gracePeriod {
+				logger.V(1).Info("Empty metrics within grace period since last scale",
+					"hpa", currenthpa.Name,
+					"timeSinceLastScale", timeSinceLastScale,
+					"gracePeriod", gracePeriod)
+				return true
+			}
+		}
+		// If no lastScaleTime or grace period expired, continue to check for emergency mode
+	}
+
 	for _, currentMetric := range currentMetrics {
+		// Check for empty metric types (common during scaling)
+		if currentMetric.Type == "" {
+			// For individual empty metric entries, we'll continue processing other metrics
+			// The final grace period check at the end will handle the overall empty metrics situation
+			continue // Skip empty metric entries but continue checking other metrics
+		}
+
 		switch currentMetric.Type {
 		case v2.ContainerResourceMetricSourceType:
 			if currentMetric.ContainerResource != nil && !currentMetric.ContainerResource.Current.Value.IsZero() {
@@ -870,6 +927,14 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalin
 				// External metrics are also valid
 				hasValidMetrics = true
 			}
+		case v2.ObjectMetricSourceType:
+			if currentMetric.Object != nil && !currentMetric.Object.Current.Value.IsZero() {
+				hasValidMetrics = true
+			}
+		case v2.PodsMetricSourceType:
+			if currentMetric.Pods != nil && !currentMetric.Pods.Current.Value.IsZero() {
+				hasValidMetrics = true
+			}
 		}
 	}
 
@@ -877,6 +942,58 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalin
 		return true
 	}
 
+	// If ScheduledScaling is active and we have no valid metrics, check if we should still give grace time
+	if tortoise.Annotations != nil {
+		if _, exists := tortoise.Annotations["autoscaling.mercari.com/scheduledscaling-min-replicas"]; exists {
+			// For empty metrics during ScheduledScaling, we need to check the HPA's lastScaleTime
+			// to determine how long the scaling has been happening
+			if currenthpa.Status.LastScaleTime != nil {
+				timeSinceLastScale := time.Since(currenthpa.Status.LastScaleTime.Time)
+				gracePeriod := c.emergencyModeGracePeriod * 2 // Extended grace during ScheduledScaling
+
+				if timeSinceLastScale < gracePeriod {
+					logger.Info("No valid metrics during ScheduledScaling, but within grace period since last scale",
+						"hpa", currenthpa.Name,
+						"tortoise", tortoise.Name,
+						"timeSinceLastScale", timeSinceLastScale,
+						"gracePeriod", gracePeriod)
+					return true // Still within grace period
+				} else {
+					logger.Info("No valid metrics during ScheduledScaling and grace period expired since last scale",
+						"hpa", currenthpa.Name,
+						"tortoise", tortoise.Name,
+						"timeSinceLastScale", timeSinceLastScale,
+						"gracePeriod", gracePeriod)
+					// Fall through to trigger emergency mode
+				}
+			} else {
+				// No lastScaleTime available, give benefit of doubt during ScheduledScaling
+				logger.Info("No valid metrics during ScheduledScaling and no lastScaleTime, giving additional grace",
+					"hpa", currenthpa.Name,
+					"tortoise", tortoise.Name)
+				return true
+			}
+		}
+	}
+
 	logger.Info("HPA looks unready because all the metrics indicate zero", "hpa", currenthpa.Name)
 	return false
+}
+
+// isMetricFailureReason returns true if the HPA condition reason indicates a metric failure
+// that should be covered by the emergency mode grace period
+func isMetricFailureReason(reason string) bool {
+	switch reason {
+	case "FailedGetResourceMetric",
+		"FailedGetExternalMetric",
+		"FailedGetObjectMetric",
+		"FailedGetPodsMetric",
+		"FailedComputeMetricsReplicas",
+		"FailedComputeReplicas":
+		return true
+	default:
+		// Also catch any other "Failed*Metric*" patterns that might be added in future Kubernetes versions
+		return strings.Contains(reason, "Failed") &&
+			(strings.Contains(reason, "Metric") || strings.Contains(reason, "Compute"))
+	}
 }
