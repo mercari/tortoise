@@ -191,6 +191,13 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Tortoise")
 		os.Exit(1)
 	}
+	if err = (&controller.ScheduledScalingReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ScheduledScaling")
+		os.Exit(1)
+	}
 	if err = (&autoscalingv1beta3.Tortoise{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Tortoise")
 		os.Exit(1)
