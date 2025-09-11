@@ -525,6 +525,7 @@ func (r *ScheduledScalingReconciler) applyNormalScaling(ctx context.Context, sch
 func (r *ScheduledScalingReconciler) updateStatus(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling, phase autoscalingv1alpha1.ScheduledScalingPhase, reason, message string) error {
 	// Skip status updates if the object is being deleted
 	if scheduledScaling.DeletionTimestamp != nil {
+		log.FromContext(ctx).V(1).Info("Skipping status update for resource being deleted", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 		return nil
 	}
 
@@ -538,6 +539,15 @@ func (r *ScheduledScalingReconciler) updateStatus(ctx context.Context, scheduled
 		scheduledScaling.Status.HumanReadableSchedule = scheduledScaling.GetHumanReadableSchedule()
 
 		if err := r.Status().Update(ctx, scheduledScaling); err != nil {
+			if apierrors.IsNotFound(err) {
+				// Resource was deleted while we were trying to update status
+				log.FromContext(ctx).Info("ScheduledScaling was deleted while updating status", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+				return nil
+			}
+			if apierrors.IsConflict(err) {
+				// Resource was modified, status update will be retried on next reconciliation
+				log.FromContext(ctx).V(1).Info("Conflict detected during status update, will retry", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+			}
 			return fmt.Errorf("failed to update status: %w", err)
 		}
 	}
@@ -549,6 +559,7 @@ func (r *ScheduledScalingReconciler) updateStatus(ctx context.Context, scheduled
 func (r *ScheduledScalingReconciler) updateTimeBasedStatus(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling, startTime, finishTime time.Time) error {
 	// Skip status updates if the object is being deleted
 	if scheduledScaling.DeletionTimestamp != nil {
+		log.FromContext(ctx).V(1).Info("Skipping time-based status update for resource being deleted", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 		return nil
 	}
 
@@ -569,6 +580,15 @@ func (r *ScheduledScalingReconciler) updateTimeBasedStatus(ctx context.Context, 
 	scheduledScaling.Status.HumanReadableSchedule = scheduledScaling.GetHumanReadableSchedule()
 
 	if err := r.Status().Update(ctx, scheduledScaling); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Resource was deleted while we were trying to update status
+			log.FromContext(ctx).Info("ScheduledScaling was deleted while updating time-based status", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+			return nil
+		}
+		if apierrors.IsConflict(err) {
+			// Resource was modified, status update will be retried on next reconciliation
+			log.FromContext(ctx).V(1).Info("Conflict detected during time-based status update, will retry", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+		}
 		return fmt.Errorf("failed to update time-based status: %w", err)
 	}
 
@@ -579,6 +599,7 @@ func (r *ScheduledScalingReconciler) updateTimeBasedStatus(ctx context.Context, 
 func (r *ScheduledScalingReconciler) updateCronStatus(ctx context.Context, scheduledScaling *autoscalingv1alpha1.ScheduledScaling, currentStart, currentEnd, nextStart *time.Time) error {
 	// Skip status updates if the object is being deleted
 	if scheduledScaling.DeletionTimestamp != nil {
+		log.FromContext(ctx).V(1).Info("Skipping cron status update for resource being deleted", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 		return nil
 	}
 
@@ -603,6 +624,15 @@ func (r *ScheduledScalingReconciler) updateCronStatus(ctx context.Context, sched
 	scheduledScaling.Status.HumanReadableSchedule = scheduledScaling.GetHumanReadableSchedule()
 
 	if err := r.Status().Update(ctx, scheduledScaling); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Resource was deleted while we were trying to update status
+			log.FromContext(ctx).Info("ScheduledScaling was deleted while updating cron status", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+			return nil
+		}
+		if apierrors.IsConflict(err) {
+			// Resource was modified, status update will be retried on next reconciliation
+			log.FromContext(ctx).V(1).Info("Conflict detected during cron status update, will retry", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+		}
 		return fmt.Errorf("failed to update cron status: %w", err)
 	}
 
@@ -619,47 +649,82 @@ func (r *ScheduledScalingReconciler) handleFinalizer(ctx context.Context, schedu
 		if controllerutil.ContainsFinalizer(scheduledScaling, scheduledScalingFinalizer) {
 			logger.Info("Running finalizer cleanup for ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 
-			// Only perform cleanup if the resource was ever active (has annotations or was in Active phase)
-			// If it's still in Pending status, no cleanup is needed
-			if scheduledScaling.Status.Phase == autoscalingv1alpha1.ScheduledScalingPhasePending {
-				logger.Info("ScheduledScaling was never active, skipping cleanup", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
-			} else {
-				// Try to restore the Tortoise to its original state and clean up annotations
-				// If the Tortoise doesn't exist anymore, that's fine - just log it
-				logger.Info("Starting Tortoise cleanup and annotation removal", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+			// Always attempt cleanup, regardless of phase, to ensure we don't leave orphaned annotations
+			logger.Info("Starting Tortoise cleanup and annotation removal", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 
-				// Create a timeout context for the cleanup operation to prevent it from getting stuck
-				cleanupCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-				defer cancel()
+			// Create a timeout context for the cleanup operation to prevent it from getting stuck
+			// Increase timeout to 60 seconds to handle slow API responses
+			cleanupCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+			defer cancel()
 
-				if err := r.applyNormalScaling(cleanupCtx, scheduledScaling); err != nil {
-					if client.IgnoreNotFound(err) == nil {
-						// Tortoise was not found (likely already deleted), which is fine
-						logger.Info("Tortoise not found during finalizer cleanup (likely already deleted)", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
-					} else if cleanupCtx.Err() == context.DeadlineExceeded {
-						// Cleanup timed out - log warning but continue with finalizer removal
-						logger.Info("Tortoise cleanup timed out during finalizer cleanup, but continuing with finalizer removal to prevent stuck deletion", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
-					} else {
-						// Some other error occurred - log it but don't fail the finalizer removal
-						// This prevents the resource from getting permanently stuck in deletion
-						logger.Error(err, "Failed to restore Tortoise during finalizer cleanup, but continuing with finalizer removal to prevent stuck deletion")
-					}
+			// Attempt cleanup but don't let it block deletion
+			cleanupErr := r.applyNormalScaling(cleanupCtx, scheduledScaling)
+			if cleanupErr != nil {
+				if client.IgnoreNotFound(cleanupErr) == nil {
+					// Tortoise was not found (likely already deleted), which is fine
+					logger.Info("Tortoise not found during finalizer cleanup (likely already deleted)", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+				} else if cleanupCtx.Err() == context.DeadlineExceeded {
+					// Cleanup timed out - log warning but continue with finalizer removal
+					logger.Info("Tortoise cleanup timed out during finalizer cleanup, continuing with finalizer removal to prevent stuck deletion", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace, "timeout", "60s")
 				} else {
-					logger.Info("Successfully cleaned up Tortoise annotations and restored original spec", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+					// Some other error occurred - log it but don't fail the finalizer removal
+					// This prevents the resource from getting permanently stuck in deletion
+					logger.Error(cleanupErr, "Failed to restore Tortoise during finalizer cleanup, continuing with finalizer removal to prevent stuck deletion", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 				}
+			} else {
+				logger.Info("Successfully cleaned up Tortoise annotations and restored original spec", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 			}
 
 			// Remove the finalizer - this should always succeed to prevent stuck deletion
 			controllerutil.RemoveFinalizer(scheduledScaling, scheduledScalingFinalizer)
 			logger.Info("Removing finalizer from ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
 
-			if err := r.Update(ctx, scheduledScaling); err != nil {
-				// If update fails, it might be because the resource is being modified elsewhere.
-				// Returning an error will trigger a requeue, and the next reconciliation will attempt to remove the finalizer again.
-				if apierrors.IsConflict(err) {
-					logger.Info("Conflict detected when removing finalizer, requeueing", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+			// Retry finalizer removal with exponential backoff in case of conflicts
+			maxRetries := 3
+			for attempt := 0; attempt < maxRetries; attempt++ {
+				// Refetch the resource to get the latest version before updating
+				latest := &autoscalingv1alpha1.ScheduledScaling{}
+				if err := r.Get(ctx, client.ObjectKeyFromObject(scheduledScaling), latest); err != nil {
+					if apierrors.IsNotFound(err) {
+						// Resource was already deleted, nothing more to do
+						logger.Info("ScheduledScaling resource was already deleted", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+						return nil
+					}
+					logger.Error(err, "Failed to refetch ScheduledScaling for finalizer removal", "attempt", attempt+1)
+					if attempt == maxRetries-1 {
+						return fmt.Errorf("failed to refetch resource for finalizer removal after %d attempts: %w", maxRetries, err)
+					}
+					time.Sleep(time.Duration(attempt+1) * time.Second)
+					continue
 				}
-				return fmt.Errorf("failed to remove finalizer: %w", err)
+
+				// Remove finalizer from the latest version
+				controllerutil.RemoveFinalizer(latest, scheduledScalingFinalizer)
+
+				if err := r.Update(ctx, latest); err != nil {
+					if apierrors.IsConflict(err) {
+						logger.Info("Conflict detected when removing finalizer, retrying", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace, "attempt", attempt+1)
+						if attempt < maxRetries-1 {
+							time.Sleep(time.Duration(attempt+1) * time.Second)
+							continue
+						}
+					}
+					if apierrors.IsNotFound(err) {
+						// Resource was deleted while we were trying to update it
+						logger.Info("ScheduledScaling was deleted while removing finalizer", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+						return nil
+					}
+					logger.Error(err, "Failed to remove finalizer", "attempt", attempt+1)
+					if attempt == maxRetries-1 {
+						return fmt.Errorf("failed to remove finalizer after %d attempts: %w", maxRetries, err)
+					}
+					time.Sleep(time.Duration(attempt+1) * time.Second)
+					continue
+				}
+
+				// Successfully removed finalizer
+				logger.Info("Successfully removed finalizer from ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+				break
 			}
 
 			logger.Info("Finalizer cleanup completed for ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
@@ -673,6 +738,10 @@ func (r *ScheduledScalingReconciler) handleFinalizer(ctx context.Context, schedu
 		if scheduledScaling.DeletionTimestamp == nil {
 			controllerutil.AddFinalizer(scheduledScaling, scheduledScalingFinalizer)
 			if err := r.Update(ctx, scheduledScaling); err != nil {
+				if apierrors.IsConflict(err) {
+					logger.Info("Conflict detected when adding finalizer, will retry on next reconciliation", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
+					return fmt.Errorf("failed to add finalizer due to conflict: %w", err)
+				}
 				return fmt.Errorf("failed to add finalizer: %w", err)
 			}
 			logger.Info("Added finalizer to ScheduledScaling", "name", scheduledScaling.Name, "namespace", scheduledScaling.Namespace)
