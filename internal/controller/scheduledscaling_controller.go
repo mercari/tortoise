@@ -431,8 +431,10 @@ func (r *ScheduledScalingReconciler) applyScheduledScaling(ctx context.Context, 
 				}
 			}
 
-			// Store the effective minReplicas value (either requested or HPA recommended)
+			// Store the effective minReplicas value in annotation for the Tortoise controller to read
 			t.Annotations[annMinReplicas] = fmt.Sprintf("%d", effectiveMinReplicas)
+			log.FromContext(ctx).Info("Setting HPA minReplicas annotation for Tortoise controller", "tortoise", t.Name, "minReplicas", effectiveMinReplicas)
+
 			updated = true
 		}
 	}
@@ -441,8 +443,48 @@ func (r *ScheduledScalingReconciler) applyScheduledScaling(ctx context.Context, 
 		log.FromContext(ctx).Info("Scheduled scaling made no changes to tortoise spec", "tortoise", t.Name)
 		return nil
 	}
-	if err := r.Update(ctx, t); err != nil {
-		return fmt.Errorf("update tortoise: %w", err)
+
+	// Retry update with conflict resolution
+	maxRetries := 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if err := r.Update(ctx, t); err != nil {
+			if apierrors.IsConflict(err) && attempt < maxRetries-1 {
+				// Refetch the latest version and retry
+				log.FromContext(ctx).Info("Conflict detected when updating tortoise, refetching and retrying", "tortoise", t.Name, "attempt", attempt+1)
+
+				latest := &autoscalingv1beta3.Tortoise{}
+				if err := r.Get(ctx, client.ObjectKeyFromObject(t), latest); err != nil {
+					return fmt.Errorf("failed to refetch tortoise after conflict: %w", err)
+				}
+
+				// Preserve existing HPA reference if present and not already specified in spec
+				if latest.Spec.TargetRefs.HorizontalPodAutoscalerName == nil && latest.Status.Targets.HorizontalPodAutoscaler != "" {
+					latest.Spec.TargetRefs.HorizontalPodAutoscalerName = &latest.Status.Targets.HorizontalPodAutoscaler
+				}
+
+				// Re-apply the changes to the latest version
+				if latest.Annotations == nil {
+					latest.Annotations = map[string]string{}
+				}
+
+				// Copy our changes to the latest version
+				for k, v := range t.Annotations {
+					if k == "autoscaling.mercari.com/scheduledscaling-original-spec" || k == "autoscaling.mercari.com/scheduledscaling-min-replicas" {
+						latest.Annotations[k] = v
+					}
+				}
+
+				// Copy resource policy changes
+				latest.Spec.ResourcePolicy = t.Spec.ResourcePolicy
+
+				t = latest
+				time.Sleep(time.Duration(attempt+1) * time.Second)
+				continue
+			}
+			return fmt.Errorf("update tortoise: %w", err)
+		}
+		// Update succeeded
+		break
 	}
 	return nil
 }
@@ -482,6 +524,9 @@ func (r *ScheduledScalingReconciler) applyNormalScaling(ctx context.Context, sch
 					spec.TargetRefs.HorizontalPodAutoscalerName = t.Spec.TargetRefs.HorizontalPodAutoscalerName
 				}
 
+				// HPA minReplicas restoration is handled by removing the annotation
+				// The Tortoise controller will restore the original HPA minReplicas when the annotation is removed
+
 				logger.Info("applyNormalScaling: restoring tortoise spec", "tortoise", t.Name, "newSpec", spec)
 				t.Spec = spec
 				hasChanges = true
@@ -517,6 +562,9 @@ func (r *ScheduledScalingReconciler) applyNormalScaling(ctx context.Context, sch
 	} else {
 		logger.Info("applyNormalScaling: no changes needed", "tortoise", t.Name)
 	}
+
+	// HPA minReplicas restoration is handled by removing the annotation
+	// The Tortoise controller will restore the original HPA minReplicas when the annotation is removed
 
 	return nil
 }

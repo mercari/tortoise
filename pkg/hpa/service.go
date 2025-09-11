@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"time"
 
 	v2 "k8s.io/api/autoscaling/v2"
@@ -420,12 +421,23 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		recommendMax = *tortoise.Spec.MaxReplicas
 	}
 
+	// ScheduledScaling: ensure max is not below the scheduled min override
+	var ssMinOverride int32
+	if tortoise.Annotations != nil {
+		if v, ok := tortoise.Annotations["autoscaling.mercari.com/scheduledscaling-min-replicas"]; ok && v != "" {
+			if parsed, perr := strconv.ParseInt(v, 10, 32); perr == nil && parsed > 0 {
+				ssMinOverride = int32(parsed)
+			}
+		}
+	}
+	if ssMinOverride > 0 && recommendMax < ssMinOverride {
+		recommendMax = ssMinOverride
+	}
+
 	if recommendMax > c.maximumMaxReplica {
 		c.recorder.Event(tortoise, corev1.EventTypeWarning, event.WarningHittingHardMaxReplicaLimit, fmt.Sprintf("MaxReplica (%v) suggested from Tortoise (%s/%s) hits a cluster-wide maximum replica number (%v). It wouldn't be a problem until the replica number actually grows to %v though, you may want to reach out to your cluster admin.", recommendMax, tortoise.Namespace, tortoise.Name, c.maximumMaxReplica, c.maximumMaxReplica))
 		recommendMax = c.maximumMaxReplica
 	}
-
-	hpa.Spec.MaxReplicas = recommendMax
 
 	recommendMin, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
 	if err != nil {
@@ -463,6 +475,23 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		minToActuallyApply = recommendMin
 	}
 
+	// ScheduledScaling: enforce configured minimum replicas during Active
+	if ssMinOverride > 0 && minToActuallyApply < ssMinOverride {
+		minToActuallyApply = ssMinOverride
+	}
+
+	// Ensure consistency: MaxReplicas >= MinReplicas
+	if recommendMax < minToActuallyApply {
+		recommendMax = minToActuallyApply
+		if recommendMax > c.maximumMaxReplica {
+			recommendMax = c.maximumMaxReplica
+			if minToActuallyApply > recommendMax {
+				minToActuallyApply = recommendMax
+			}
+		}
+	}
+
+	hpa.Spec.MaxReplicas = recommendMax
 	hpa.Spec.MinReplicas = &minToActuallyApply
 	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && recordMetrics {
 		// We don't want to record applied* metric when UpdateMode is Off.
