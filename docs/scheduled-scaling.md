@@ -12,6 +12,14 @@ The Scheduled Scaling feature allows users to proactively scale their applicatio
 
 Instead of waiting for the load to increase and then scaling reactively, Scheduled Scaling enables proactive scaling based on user-defined schedules.
 
+## Schedule Types
+
+### Time-Based Scheduling
+Specify exact start and end times for one-time scaling events.
+
+### Cron-Based Scheduling
+Use cron expressions for recurring scaling patterns with configurable duration and timezone support.
+
 ## Architecture
 
 ### High-Level Flow
@@ -35,41 +43,80 @@ ScheduledScaling Resource → ScheduledScaling Controller → Tortoise Resource 
 
 ## API Reference
 
-### ScheduledScaling Resource
+### Time-Based ScheduledScaling
 
 ```yaml
 apiVersion: autoscaling.mercari.com/v1alpha1
 kind: ScheduledScaling
 metadata:
-  name: example-scheduled-scaling
+  name: example-time-scaling
   namespace: default
 spec:
   schedule:
+    type: time
     startAt: "2024-01-15T10:00:00Z"
     finishAt: "2024-01-15T18:00:00Z"
   targetRefs:
     tortoiseName: "my-tortoise"
   strategy:
     static:
-      minimumMinReplicas: 5
+      minimumMinReplicas: 15
       minAllocatedResources:
         cpu: "500m"
         memory: "1Gi"
+      containerMinAllocatedResources:
+      - containerName: "app"
+        resources:
+          cpu: "800m"
+          memory: "2Gi"
+```
+
+### Cron-Based ScheduledScaling
+
+```yaml
+apiVersion: autoscaling.mercari.com/v1alpha1
+kind: ScheduledScaling
+metadata:
+  name: example-cron-scaling
+  namespace: default
+spec:
+  schedule:
+    type: cron
+    cronExpression: "0 9 * * 1-5"  # 9 AM on weekdays
+    duration: "8h"                 # Active for 8 hours
+    timeZone: "Asia/Tokyo"         # Timezone support
+  targetRefs:
+    tortoiseName: "my-tortoise"
+  strategy:
+    static:
+      minimumMinReplicas: 20
+      minAllocatedResources:
+        cpu: "1000m"
+        memory: "2Gi"
 ```
 
 ### Field Descriptions
 
 #### Schedule
-- **startAt**: ISO 8601 timestamp when scaling should begin
-- **finishAt**: ISO 8601 timestamp when scaling should end and normal configuration restored
+- **type**: `time` or `cron` - Type of scheduling
+- **startAt**: (time only) ISO 8601 timestamp when scaling should begin
+- **finishAt**: (time only) ISO 8601 timestamp when scaling should end
+- **cronExpression**: (cron only) Standard cron expression (e.g., `"0 9 * * 1-5"`)
+- **duration**: (cron only) How long each scaling window lasts (e.g., `"8h"`, `"30m"`)
+- **timeZone**: (cron only) Timezone for cron scheduling (default: `"Asia/Tokyo"`)
 
 #### TargetRefs
 - **tortoiseName**: Name of the Tortoise resource to apply scheduled scaling to
 
 #### Strategy
-- **static**: Static scaling configuration (future versions may support dynamic strategies)
+- **static**: Static scaling configuration
   - **minimumMinReplicas**: Minimum number of replicas during the scheduled period
-  - **minAllocatedResources**: Minimum resource allocation per pod during the scheduled period
+  - **minAllocatedResources**: Global minimum resource allocation per container
+    - **cpu**: CPU request (e.g., `"500m"`)
+    - **memory**: Memory request (e.g., `"1Gi"`)
+  - **containerMinAllocatedResources**: Container-specific resource overrides
+    - **containerName**: Name of the container to override
+    - **resources**: Resource specifications for this container
 
 ### Status Fields
 
@@ -79,24 +126,30 @@ status:
   lastTransitionTime: "2024-01-15T10:00:00Z"
   reason: "Active"
   message: "Scheduled scaling is currently active"
+  humanReadableSchedule: "Every day at 9:00 AM for 8 hours"
+  formattedStartTime: "Today at 9:00 AM"
+  formattedEndTime: "Today at 5:00 PM"
+  formattedNextStartTime: "Tomorrow at 9:00 AM"
 ```
 
 ## Usage Examples
 
-### Basic Scheduled Scaling
+### Cron-Based Recurring Scaling
 
 ```yaml
 apiVersion: autoscaling.mercari.com/v1alpha1
 kind: ScheduledScaling
 metadata:
-  name: black-friday-scaling
-  namespace: ecommerce
+  name: business-hours-scaling
+  namespace: production
 spec:
   schedule:
-    startAt: "2024-11-29T00:00:00Z"    # Black Friday start
-    finishAt: "2024-11-30T23:59:59Z"   # Black Friday end
+    type: cron
+    cronExpression: "0 9 * * 1-5"  # 9 AM on weekdays
+    duration: "8h"                 # Active for 8 hours (9 AM - 5 PM)
+    timeZone: "Asia/Tokyo"
   targetRefs:
-    tortoiseName: "ecommerce-tortoise"
+    tortoiseName: "my-tortoise"
   strategy:
     static:
       minimumMinReplicas: 20
@@ -105,7 +158,7 @@ spec:
         memory: "2Gi"
 ```
 
-### TV Commercial Scaling
+### One-Time Event Scaling
 
 ```yaml
 apiVersion: autoscaling.mercari.com/v1alpha1
@@ -115,6 +168,7 @@ metadata:
   namespace: marketing
 spec:
   schedule:
+    type: time
     startAt: "2024-01-20T19:55:00Z"    # 5 minutes before commercial
     finishAt: "2024-01-20T20:05:00Z"   # 5 minutes after commercial
   targetRefs:
@@ -127,204 +181,161 @@ spec:
         memory: "1.5Gi"
 ```
 
-### Load Testing in Development
+### Container-Specific Scaling
 
 ```yaml
 apiVersion: autoscaling.mercari.com/v1alpha1
 kind: ScheduledScaling
 metadata:
-  name: load-test-scaling
-  namespace: dev
+  name: mixed-container-scaling
+  namespace: production
 spec:
   schedule:
-    startAt: "2024-01-22T14:00:00Z"    # Load test start
-    finishAt: "2024-01-22T16:00:00Z"   # Load test end
+    type: cron
+    cronExpression: "*/10 * * * *"  # Every 10 minutes (for testing)
+    duration: "5m"
+    timeZone: "Asia/Tokyo"
   targetRefs:
-    tortoiseName: "dev-tortoise"
+    tortoiseName: "my-tortoise"
   strategy:
     static:
       minimumMinReplicas: 10
-      minAllocatedResources:
+      minAllocatedResources:        # Global defaults
         cpu: "500m"
         memory: "1Gi"
+      containerMinAllocatedResources:  # Container-specific overrides
+      - containerName: "web-server"
+        resources:
+          cpu: "1000m"
+          memory: "2Gi"
+      - containerName: "sidecar"
+        resources:
+          cpu: "200m"
+          memory: "512Mi"
 ```
 
 ## How It Works
 
-### 1. Pre-Schedule Phase
+### 1. Pending Phase
 - Controller calculates time until scaling should begin
-- Sets status to `Pending`
+- Sets status to `Pending` with next window information
 - Requeues reconciliation at the start time
 
-### 2. Active Scaling Phase
-- Controller applies scheduled scaling configuration to the target Tortoise
+### 2. Active Phase
+- Controller applies scheduled scaling configuration to the target Tortoise:
+  - Sets resource requests (CPU/Memory) on containers
+  - Sets HPA minReplicas through Tortoise annotation
+  - Stores original configuration for restoration
 - Sets status to `Active`
 - Requeues reconciliation at the finish time
 
-### 3. Completion Phase
+### 3. Restoration Phase
 - Controller restores original Tortoise configuration
-- Sets status to `Completed`
+- Removes ScheduledScaling annotations
+- HPA minReplicas returns to original value
+- Sets status to `Pending` (for cron) or `Completed` (for time-based)
 
-### 4. Error Handling
-- If any phase fails, status is set to `Failed`
-- Error details are captured in `reason` and `message` fields
+### 4. Emergency Mode Protection
+- Extended grace period (10 minutes vs 5 minutes) during ScheduledScaling
+- Emergency mode respects ScheduledScaling minReplicas when both are active
+- Prevents false emergency triggers during rapid scaling
 
-## Implementation Details
+### 5. Error Handling
+- Robust conflict resolution with retry logic
+- Finalizer-based cleanup ensures proper restoration on deletion
+- Comprehensive error logging and status updates
 
-### Controller Logic
+## Key Features
 
-The ScheduledScaling controller follows this reconciliation flow:
+### Resource Scaling
+- **Global Resource Requests**: Apply CPU/memory minimums to all containers
+- **Container-Specific Overrides**: Set different resources per container
+- **HPA MinReplicas**: Dynamically adjust minimum replica count
+- **Consistent Scaling**: Ensures maxReplicas ≥ minReplicas
 
-```go
-func (r *ScheduledScalingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-    // 1. Fetch ScheduledScaling resource
-    // 2. Parse schedule times
-    // 3. Determine current phase based on time
-    // 4. Apply appropriate scaling strategy
-    // 5. Update status and requeue if needed
-}
-```
+### Schedule Management
+- **Time-Based**: One-time scaling events with start/end times
+- **Cron-Based**: Recurring scaling with cron expressions
+- **Timezone Support**: Configure schedules in local timezones
+- **Human-Readable Status**: Clear schedule descriptions in status
 
-### Resource Management
+### Emergency Mode Integration
+- **Extended Grace Period**: 10-minute grace period during ScheduledScaling (vs 5 minutes normally)
+- **Metric Failure Protection**: Handles all types of HPA metric failures
+- **Smart Emergency Override**: Emergency mode respects ScheduledScaling minReplicas
+- **Empty Metrics Handling**: Prevents false emergencies during rapid scaling
 
-- **Original Configuration Storage**: Original Tortoise configuration is stored in annotations before applying scheduled scaling
-- **Conflict Resolution**: Scheduled scaling takes precedence over other scaling policies during the active period
-- **Cleanup**: Original configuration is restored when the schedule ends
-
-### RBAC Requirements
-
-The controller requires these permissions:
-- `scheduledscalings`: Full CRUD operations
-- `tortoises`: Read and update operations
-- `scheduledscalings/status`: Status update operations
+### Reliability Features
+- **Finalizer-Based Cleanup**: Ensures proper restoration even if ScheduledScaling is deleted
+- **Conflict Resolution**: Automatic retry with exponential backoff
+- **Original State Preservation**: Stores and restores complete Tortoise configuration
+- **Annotation-Based Communication**: Clean integration with existing Tortoise controller
 
 ## Testing
 
-### Unit Tests
+### Quick Test
 
-Run the controller tests:
+Use the provided test script:
 ```bash
-make test
+# Test cron-based scheduling (default)
+ASSERT=1 ./scripts/test-scheduled-scaling.sh
+
+# Test time-based scheduling
+SCHEDULE_TYPE=time ASSERT=1 ./scripts/test-scheduled-scaling.sh
 ```
 
-### Integration Tests
+### Manual Testing
 
-Deploy to a test cluster and verify:
-1. ScheduledScaling resource creation
-2. Controller reconciliation
-3. Tortoise resource modification
-4. HPA scaling behavior
-5. Configuration restoration
-
-### Test Scripts
-
-Use the provided test scripts:
-- `scripts/test-scheduled-scaling.sh`: Deploy test resources and verify behavior
-- `scripts/monitor-scheduled-scaling.sh`: Monitor resources and controller logs
-
-## Deployment
-
-### Prerequisites
-
-1. Tortoise operator deployed and running
-2. Kubernetes cluster with HPA support
-3. Target applications with Tortoise resources configured
-
-### Installation
-
-1. Apply CRDs:
 ```bash
-kubectl apply -f config/crd/bases/
+# Check ScheduledScaling status
+kubectl get scheduledscalings -A
+
+# Check Tortoise and HPA changes
+kubectl get tortoise <tortoise-name> -o yaml
+kubectl get hpa <hpa-name> -o yaml
+
+# Monitor controller logs
+kubectl logs -n mercari-tortoise-lab deployment/tortoise-controller-manager -f
 ```
 
-2. Deploy the controller:
-```bash
-make deploy
-```
+## Troubleshooting
 
-3. Verify deployment:
-```bash
-kubectl get pods -n tortoise-system
-```
+### Common Issues
 
-## Monitoring and Troubleshooting
+1. **Status Not Updating**: Ensure ScheduledScaling controller is registered in `main.go`
+2. **Emergency Mode Override**: Check HPA conditions for metric failures; ScheduledScaling extends grace period automatically
+3. **Resource Not Restored**: Finalizer ensures cleanup even if ScheduledScaling is force-deleted
+4. **HPA MinReplicas Not Applied**: Verify Tortoise has HPA reference and annotation is set
+5. **Conflict Errors**: Controller automatically retries with latest resource version
 
 ### Controller Logs
 
 ```bash
-kubectl logs -n tortoise-system deployment/tortoise-controller-manager -c manager
+# Check ScheduledScaling controller logs
+kubectl logs -n mercari-tortoise-lab deployment/tortoise-controller-manager -f | grep scheduledscaling
+
+# Check Tortoise controller logs for HPA updates
+kubectl logs -n mercari-tortoise-lab deployment/tortoise-controller-manager -f | grep -i hpa
 ```
 
-### Resource Status
+### Debugging Commands
 
 ```bash
+# Check ScheduledScaling status
 kubectl get scheduledscalings -A
 kubectl describe scheduledscaling <name> -n <namespace>
+
+# Check Tortoise annotations
+kubectl get tortoise <name> -o yaml | grep -A5 -B5 scheduledscaling
+
+# Check HPA current state
+kubectl get hpa <name> -o yaml
 ```
 
-### Common Issues
+## Notes
 
-1. **Invalid Schedule Times**: Ensure startAt is before finishAt and both are valid ISO 8601 timestamps
-2. **Missing Tortoise**: Verify the target Tortoise resource exists
-3. **RBAC Issues**: Check controller permissions for tortoises and scheduledscalings
-4. **Time Zone Confusion**: All times are in UTC, convert local times accordingly
-
-## Future Enhancements
-
-### Planned Features
-
-- **Dynamic Strategies**: CPU/memory-based scaling instead of static values
-- **Recurring Schedules**: Daily, weekly, or monthly recurring scaling patterns
-- **Multi-Resource Targeting**: Scale multiple Tortoise resources simultaneously
-- **Policy Templates**: Reusable scaling configurations
-- **Metrics Integration**: Scale based on historical traffic patterns
-- **Webhook Notifications**: Notify external systems of scaling events
-
-### API Evolution
-
-The feature is currently in `v1alpha1`, indicating it's experimental. Future versions may include:
-- Breaking changes to improve the API design
-- Additional validation rules
-- Enhanced status fields
-- Migration guides between versions
-
-## Contributing
-
-### Development Setup
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Run linting and tests
-6. Submit a pull request
-
-### Code Generation
-
-After modifying API types:
-```bash
-make generate    # Generate deepcopy methods
-make manifests   # Generate CRDs and RBAC
-```
-
-### Testing Guidelines
-
-- Write unit tests for new controller logic
-- Test edge cases (invalid schedules, missing resources)
-- Verify error handling and status updates
-- Test configuration restoration
-
-## Support
-
-For questions or issues:
-- Create a GitHub issue
-- Tag with `area/scheduled-scaling`
-- Provide reproduction steps and logs
-- Include cluster and operator versions
-
-## References
-
-- [Tortoise Documentation](../README.md)
-- [Kubernetes HPA Documentation](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
-- [Kubebuilder Book](https://book.kubebuilder.io/)
-- [Controller Runtime](https://pkg.go.dev/sigs.k8s.io/controller-runtime)
+- **Timezone Default**: All schedules default to `Asia/Tokyo` timezone
+- **Grace Period**: Extended to 10 minutes during ScheduledScaling to prevent false emergency mode triggers
+- **Annotation-Based**: Uses Tortoise annotations for clean integration with existing controller
+- **Conflict Resolution**: Automatic retry logic handles concurrent updates
+- **Emergency Mode**: Respects ScheduledScaling minReplicas even when in emergency mode
