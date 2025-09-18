@@ -535,6 +535,7 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 
 	if c.IsGlobalDisableModeEnabled() {
 		// Global disable mode is enabled - don't update HPA but continue processing
+		log.FromContext(ctx).Info("Skipping HPA autoscaling policy update due to global disable mode", "tortoise", klog.KObj(tortoise))
 		return tortoise, nil
 	}
 
@@ -630,6 +631,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 
 	if c.IsGlobalDisableModeEnabled() {
 		// Global disable mode is enabled - don't update HPA but continue processing
+		log.FromContext(ctx).Info("Skipping HPA recommendation update due to global disable mode", "tortoise", klog.KObj(tortoise))
 		return nil, tortoise, nil
 	}
 

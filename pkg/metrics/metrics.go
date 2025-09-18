@@ -107,7 +107,7 @@ var (
 	}, []string{"tortoise_name", "namespace", "controller_name", "controller_kind", "update_mode", "tortoise_phase"})
 
 	GlobalDisableMode = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "global_disable_mode",
+		Name: "tortoise_global_disable_mode",
 		Help: "indicates if global disable mode is enabled (1=enabled, 0=disabled)",
 	})
 )

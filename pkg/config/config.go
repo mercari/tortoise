@@ -297,7 +297,7 @@ type Config struct {
 	// GlobalDisableMode is a global flag to disable Tortoise from applying any recommendations.
 	// When enabled, Tortoise will continue to calculate recommendations and update status,
 	// but will not apply any changes to HPA, VPA, or Pod resources.
-	// This is useful for scenarios like ScaleOps POC where you want to disable Tortoise
+	// This is useful for testing scenarios where you want to disable Tortoise
 	// without modifying individual Tortoise resources.
 	// Default: false (Tortoise operates normally)
 	GlobalDisableMode bool `yaml:"GlobalDisableMode"`

@@ -751,6 +751,7 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 
 	if c.IsGlobalDisableModeEnabled() {
 		// Global disable mode is enabled - don't apply recommendations but still update status
+		log.FromContext(ctx).Info("Skipping VPA recommendation application due to global disable mode", "tortoise", klog.KObj(tortoise))
 		tortoise = utils.ChangeTortoiseCondition(tortoise,
 			v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
 			corev1.ConditionFalse,

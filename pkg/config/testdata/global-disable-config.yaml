@@ -1,6 +1,6 @@
 # Example configuration with global disable mode enabled
 # This will disable Tortoise from applying any recommendations while still
-# allowing it to calculate and update status. Perfect for ScaleOps POC scenarios.
+# allowing it to calculate and update status. Perfect for testing scenarios.
 
 GlobalDisableMode: true
 

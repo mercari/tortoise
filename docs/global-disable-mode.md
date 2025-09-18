@@ -1,6 +1,6 @@
 # Global Disable Mode
 
-The Global Disable Mode is a feature that allows you to disable Tortoise from applying any recommendations while still allowing it to perform calculations and update its status. This is particularly useful for scenarios like ScaleOps POC where you want to disable Tortoise without modifying individual Tortoise resources.
+The Global Disable Mode is a feature that allows you to disable Tortoise from applying any recommendations while still allowing it to perform calculations and update its status. This is particularly useful for testing scenarios where you want to disable Tortoise without modifying individual Tortoise resources.
 
 ## How it Works
 
@@ -37,9 +37,9 @@ The default value is `false`, meaning Tortoise operates normally unless explicit
 
 ## Use Cases
 
-### ScaleOps POC
+### Testing Scenarios
 
-When running a ScaleOps proof of concept, you might want to:
+When running testing scenarios, you might want to:
 1. Deploy Tortoise to observe its behavior
 2. See what recommendations it would make
 3. Verify that it's working correctly
