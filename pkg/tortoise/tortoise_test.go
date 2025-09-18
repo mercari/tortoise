@@ -4606,6 +4606,37 @@ func TestService_UpdateResourceRequest(t *testing.T) {
 	}
 }
 
+func TestService_IsGlobalDisableModeEnabled(t *testing.T) {
+	tests := []struct {
+		name              string
+		globalDisableMode bool
+		expectedResult    bool
+	}{
+		{
+			name:              "global disable mode enabled",
+			globalDisableMode: true,
+			expectedResult:    true,
+		},
+		{
+			name:              "global disable mode disabled",
+			globalDisableMode: false,
+			expectedResult:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := &Service{
+				globalDisableMode: tt.globalDisableMode,
+			}
+			result := service.IsGlobalDisableModeEnabled()
+			if result != tt.expectedResult {
+				t.Errorf("IsGlobalDisableModeEnabled() = %v, want %v", result, tt.expectedResult)
+			}
+		})
+	}
+}
+
 func TestService_UpdateTortoisePhaseIfHPAIsUnhealthy(t *testing.T) {
 	type args struct {
 		t             *v1beta3.Tortoise

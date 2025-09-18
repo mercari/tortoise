@@ -2754,7 +2754,7 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 50, time.Hour, nil, 1000, 10001, 3, tt.excludeMetricRegex, 5*time.Minute)
+			c, err := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 50, time.Hour, nil, 1000, 10001, 3, tt.excludeMetricRegex, 5*time.Minute, false)
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
@@ -2777,6 +2777,37 @@ func TestClient_UpdateHPAFromTortoiseRecommendation(t *testing.T) {
 
 func ptrInt32(i int32) *int32 {
 	return &i
+}
+
+func TestService_IsGlobalDisableModeEnabled(t *testing.T) {
+	tests := []struct {
+		name              string
+		globalDisableMode bool
+		expectedResult    bool
+	}{
+		{
+			name:              "global disable mode enabled",
+			globalDisableMode: true,
+			expectedResult:    true,
+		},
+		{
+			name:              "global disable mode disabled",
+			globalDisableMode: false,
+			expectedResult:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := &Service{
+				globalDisableMode: tt.globalDisableMode,
+			}
+			result := service.IsGlobalDisableModeEnabled()
+			if result != tt.expectedResult {
+				t.Errorf("IsGlobalDisableModeEnabled() = %v, want %v", result, tt.expectedResult)
+			}
+		})
+	}
 }
 
 func TestService_InitializeHPA(t *testing.T) {
@@ -3067,12 +3098,12 @@ func TestService_InitializeHPA(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "", 5*time.Minute)
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "", 5*time.Minute, false)
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
 			if tt.initialHPA != nil {
-				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "", 5*time.Minute)
+				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "", 5*time.Minute, false)
 				if err != nil {
 					t.Fatalf("New() error = %v", err)
 				}
@@ -4625,12 +4656,12 @@ func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 1000, 10000, 3, "", 5*time.Minute)
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 1000, 10000, 3, "", 5*time.Minute, false)
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
 			if tt.initialHPA != nil {
-				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 1000, 10000, 3, "", 5*time.Minute)
+				c, err = New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 1000, 10000, 3, "", 5*time.Minute, false)
 				if err != nil {
 					t.Fatalf("New() error = %v", err)
 				}
@@ -5254,7 +5285,7 @@ func TestService_IsHpaMetricAvailable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "", 5*time.Minute)
+			c, err := New(fake.NewClientBuilder().Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 100, 1000, 3, "", 5*time.Minute, false)
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
@@ -5507,6 +5538,7 @@ func TestService_IsHpaMetricAvailable_EmergencyModeGracePeriod(t *testing.T) {
 				100, 1000, 3,
 				"",
 				tt.emergencyModeGracePeriod,
+				false,
 			)
 			if err != nil {
 				t.Fatalf("New() error = %v", err)

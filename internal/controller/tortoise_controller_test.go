@@ -255,11 +255,11 @@ func startController(ctx context.Context) func() {
 
 	// We only reconcile once.
 	recorder := mgr.GetEventRecorderFor("tortoise-controller")
-	tortoiseService, err := tortoise.New(mgr.GetClient(), recorder, 24, "Asia/Tokyo", 1000*time.Minute, "daily")
+	tortoiseService, err := tortoise.New(mgr.GetClient(), recorder, 24, "Asia/Tokyo", 1000*time.Minute, "daily", false)
 	Expect(err).ShouldNot(HaveOccurred())
 	cli, err := vpa.New(mgr.GetConfig(), recorder)
 	Expect(err).ShouldNot(HaveOccurred())
-	hpaS, err := hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour, nil, 1000, 10000, 3, ".*-exclude-metric", 5*time.Minute)
+	hpaS, err := hpa.New(mgr.GetClient(), recorder, 0.95, 90, 25, time.Hour, nil, 1000, 10000, 3, ".*-exclude-metric", 5*time.Minute, false)
 	Expect(err).ShouldNot(HaveOccurred())
 	reconciler := &TortoiseReconciler{
 		Scheme:             scheme,
