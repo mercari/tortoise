@@ -42,13 +42,17 @@ type Service struct {
 	// If "day", tortoise will consider all workload behaves very similarly every day.
 	// If your workload may behave differently on, for example, weekdays and weekends, set this to "weekly".
 	gatheringDataDuration string
+	// GlobalDisableMode is a global flag to disable Tortoise from applying any recommendations.
+	// When enabled, Tortoise will continue to calculate recommendations and update status,
+	// but will not apply any changes to HPA, VPA, or Pod resources.
+	globalDisableMode bool
 
 	mu sync.RWMutex
 	// TODO: Instead of here, we should store the last time of each tortoise in the status of the tortoise.
 	lastTimeUpdateTortoise map[client.ObjectKey]time.Time
 }
 
-func New(c client.Client, recorder record.EventRecorder, rangeOfMinMaxReplicasRecommendationHour int, timeZone string, tortoiseUpdateInterval time.Duration, gatheringDataDuration string) (*Service, error) {
+func New(c client.Client, recorder record.EventRecorder, rangeOfMinMaxReplicasRecommendationHour int, timeZone string, tortoiseUpdateInterval time.Duration, gatheringDataDuration string, globalDisableMode bool) (*Service, error) {
 	jst, err := time.LoadLocation(timeZone)
 	if err != nil {
 		return nil, fmt.Errorf("load location: %w", err)
@@ -65,6 +69,7 @@ func New(c client.Client, recorder record.EventRecorder, rangeOfMinMaxReplicasRe
 		gatheringDataDuration:                   gatheringDataDuration,
 		timeZone:                                jst,
 		tortoiseUpdateInterval:                  tortoiseUpdateInterval,
+		globalDisableMode:                       globalDisableMode,
 		lastTimeUpdateTortoise:                  map[client.ObjectKey]time.Time{},
 	}, nil
 }
@@ -515,6 +520,13 @@ func (s *Service) updateLastTimeUpdateTortoise(tortoise *v1beta3.Tortoise, now t
 	s.lastTimeUpdateTortoise[client.ObjectKeyFromObject(tortoise)] = now
 }
 
+// IsGlobalDisableModeEnabled returns true if global disable mode is enabled.
+// When global disable mode is enabled, Tortoise will not apply any recommendations
+// but will continue to calculate and update status.
+func (s *Service) IsGlobalDisableModeEnabled() bool {
+	return s.globalDisableMode
+}
+
 func (s *Service) RecordReconciliationFailure(t *v1beta3.Tortoise, err error, now time.Time) *v1beta3.Tortoise {
 	if err != nil {
 		s.recorder.Event(t, "Warning", "ReconcileError", err.Error())
@@ -732,6 +744,19 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 			corev1.ConditionFalse,
 			"",
 			"The recommendation is not provided because it's Off mode",
+			now,
+		)
+		return tortoise, nil
+	}
+
+	if c.IsGlobalDisableModeEnabled() {
+		// Global disable mode is enabled - don't apply recommendations but still update status
+		log.FromContext(ctx).Info("Skipping VPA recommendation application due to global disable mode", "tortoise", klog.KObj(tortoise))
+		tortoise = utils.ChangeTortoiseCondition(tortoise,
+			v1beta3.TortoiseConditionTypeVerticalRecommendationUpdated,
+			corev1.ConditionFalse,
+			"",
+			"The recommendation is not applied because global disable mode is enabled",
 			now,
 		)
 		return tortoise, nil

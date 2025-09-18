@@ -89,6 +89,7 @@ Please refer to [User guide](./docs/user-guide.md) to learn more about other par
 - [User guide](./docs/user-guide.md): describes a minimum knowledge that the end-users have to know, 
 and how they can configure Tortoise so that they can let tortoises autoscale their workloads.
 - [Admin guide](./docs/admin-guide.md): describes how the cluster admin can configure the global behavior of tortoise. 
+- [Global Disable Mode](./docs/global-disable-mode.md): describes how to use the global disable mode for testing scenarios.
 - [Emergency mode](./docs/emergency.md): describes the emergency mode.
 - [Horizontal scaling](./docs/horizontal.md): describes how the Tortoise does the horizontal autoscaling internally.
 - [Vertical scaling](./docs/vertical.md): describes how the Tortoise does the vertical autoscaling internally.

@@ -1,0 +1,28 @@
+# Example configuration with global disable mode enabled
+# This will disable Tortoise from applying any recommendations while still
+# allowing it to calculate and update status. Perfect for testing scenarios.
+
+GlobalDisableMode: true
+
+# Other configuration options remain the same
+RangeOfMinMaxReplicasRecommendationHours: 1
+GatheringDataPeriodType: "weekly"
+MaxReplicasRecommendationMultiplier: 2.0
+MinReplicasRecommendationMultiplier: 0.5
+ReplicaReductionFactor: 0.95
+MaximumTargetResourceUtilization: 90
+MinimumTargetResourceUtilization: 65
+MinimumMinReplicas: 3
+PreferredMaxReplicas: 30
+MaximumCPURequest: "10"
+MinimumCPURequest: "50m"
+MaximumMemoryRequest: "10Gi"
+MinimumMemoryRequest: "50Mi"
+TimeZone: "Asia/Tokyo"
+TortoiseUpdateInterval: "15s"
+HPATargetUtilizationMaxIncrease: 5
+MaximumMinReplicas: 10
+MaximumMaxReplicas: 100
+MaxAllowedScalingDownRatio: 0.8
+BufferRatioOnVerticalResource: 0.1
+EmergencyModeGracePeriod: "5m"

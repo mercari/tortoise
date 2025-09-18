@@ -575,6 +575,23 @@ func Test_validate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "valid config with global disable mode enabled",
+			config: &Config{
+				RangeOfMinMaxReplicasRecommendationHours: 1,
+				GatheringDataPeriodType:                  "weekly",
+				HPATargetUtilizationMaxIncrease:          5,
+				MinimumTargetResourceUtilization:         65,
+				MaximumTargetResourceUtilization:         90,
+				MinimumMinReplicas:                       3,
+				MaximumMinReplicas:                       10,
+				MaximumMaxReplicas:                       100,
+				PreferredMaxReplicas:                     30,
+				MaxAllowedScalingDownRatio:               0.8,
+				GlobalDisableMode:                        true,
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

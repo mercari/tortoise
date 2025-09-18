@@ -43,6 +43,7 @@ type Service struct {
 	maximumMaxReplica                          int32
 	externalMetricExclusionRegex               *regexp.Regexp
 	emergencyModeGracePeriod                   time.Duration
+	globalDisableMode                          bool
 }
 
 var defaultHPABehaviorValue = &v2.HorizontalPodAutoscalerBehavior{
@@ -78,6 +79,7 @@ func New(
 	minimumMinReplicas int32,
 	externalMetricExclusionRegex string,
 	emergencyModeGracePeriod time.Duration,
+	globalDisableMode bool,
 ) (*Service, error) {
 	var regex *regexp.Regexp
 	if externalMetricExclusionRegex != "" {
@@ -109,6 +111,7 @@ func New(
 		maximumMaxReplica:                          maximumMaxReplica,
 		externalMetricExclusionRegex:               regex,
 		emergencyModeGracePeriod:                   emergencyModeGracePeriod,
+		globalDisableMode:                          globalDisableMode,
 	}, nil
 }
 
@@ -168,6 +171,13 @@ func (c *Service) DeleteHPACreatedByTortoise(ctx context.Context, tortoise *auto
 	}
 
 	return nil
+}
+
+// IsGlobalDisableModeEnabled returns true if global disable mode is enabled.
+// When global disable mode is enabled, Tortoise will not apply any HPA recommendations
+// but will continue to calculate and update status.
+func (c *Service) IsGlobalDisableModeEnabled() bool {
+	return c.globalDisableMode
 }
 
 type resourceNameAndContainerName struct {
@@ -397,7 +407,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 				continue
 			}
 
-			if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
+			if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !c.IsGlobalDisableModeEnabled() {
 				metrics.AppliedHPATargetUtilization.WithLabelValues(tortoise.Name, tortoise.Namespace, t.ContainerName, resourcename.String(), hpa.Name).Set(float64(proposedTarget))
 			}
 
@@ -407,7 +417,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 
 		}
 	}
-	if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
+	if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !c.IsGlobalDisableModeEnabled() {
 		tortoise = c.RecordHPATargetUtilizationUpdate(tortoise, now)
 	}
 
@@ -464,8 +474,8 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	}
 
 	hpa.Spec.MinReplicas = &minToActuallyApply
-	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && recordMetrics {
-		// We don't want to record applied* metric when UpdateMode is Off.
+	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !c.IsGlobalDisableModeEnabled() && recordMetrics {
+		// We don't want to record applied* metric when UpdateMode is Off or global disable mode is enabled.
 		netChangeMaxReplicas := float64(hpa.Spec.MaxReplicas - recommendMax)
 		netChangeMinReplicas := float64(*hpa.Spec.MinReplicas) - float64(recommendMin)
 		if netChangeMaxReplicas > 0 || netChangeMinReplicas < 0 {
@@ -520,6 +530,12 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 ) (*autoscalingv1beta3.Tortoise, error) {
 	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 		// When UpdateMode is Off, we don't update HPA.
+		return tortoise, nil
+	}
+
+	if c.IsGlobalDisableModeEnabled() {
+		// Global disable mode is enabled - don't update HPA but continue processing
+		log.FromContext(ctx).Info("Skipping HPA autoscaling policy update due to global disable mode", "tortoise", klog.KObj(tortoise))
 		return tortoise, nil
 	}
 
@@ -613,6 +629,12 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		return nil, tortoise, nil
 	}
 
+	if c.IsGlobalDisableModeEnabled() {
+		// Global disable mode is enabled - don't update HPA but continue processing
+		log.FromContext(ctx).Info("Skipping HPA recommendation update due to global disable mode", "tortoise", klog.KObj(tortoise))
+		return nil, tortoise, nil
+	}
+
 	retTortoise := &autoscalingv1beta3.Tortoise{}
 	retHPA := &v2.HorizontalPodAutoscaler{}
 
@@ -636,8 +658,8 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 		hpa.Spec.Behavior = behavior // overwrite
 		retTortoise = tortoise
-		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
-			// don't update status if update mode is off. (= dryrun)
+		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff || c.IsGlobalDisableModeEnabled() {
+			// don't update status if update mode is off or global disable mode is enabled. (= dryrun)
 			return nil
 		}
 
@@ -650,7 +672,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		return nil, retTortoise, err
 	}
 
-	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
+	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !c.IsGlobalDisableModeEnabled() {
 		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPAUpdated, fmt.Sprintf("HPA %s/%s is updated by the recommendation", retHPA.Namespace, retHPA.Name))
 	}
 

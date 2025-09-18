@@ -105,6 +105,11 @@ var (
 		Name: "tortoise_number",
 		Help: "the number of tortoise",
 	}, []string{"tortoise_name", "namespace", "controller_name", "controller_kind", "update_mode", "tortoise_phase"})
+
+	GlobalDisableMode = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tortoise_global_disable_mode",
+		Help: "indicates if global disable mode is enabled (1=enabled, 0=disabled)",
+	})
 )
 
 func init() {
@@ -129,5 +134,15 @@ func init() {
 		ProposedCPURequest,
 		ProposedMemoryRequest,
 		TortoiseNumber,
+		GlobalDisableMode,
 	)
+}
+
+// SetGlobalDisableMode sets the global disable mode metric
+func SetGlobalDisableMode(enabled bool) {
+	if enabled {
+		GlobalDisableMode.Set(1)
+	} else {
+		GlobalDisableMode.Set(0)
+	}
 }

@@ -290,7 +290,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	if tortoise.Spec.UpdateMode != v1beta3.UpdateModeOff && !reflect.DeepEqual(oldTortoise.Status.Conditions.ContainerResourceRequests, tortoise.Status.Conditions.ContainerResourceRequests) {
+	if tortoise.Spec.UpdateMode != v1beta3.UpdateModeOff && !r.TortoiseService.IsGlobalDisableModeEnabled() && !reflect.DeepEqual(oldTortoise.Status.Conditions.ContainerResourceRequests, tortoise.Status.Conditions.ContainerResourceRequests) {
 		// The container resource requests are updated, so we need to update the Pods.
 		err = r.DeploymentService.RolloutRestart(ctx, dm, tortoise, now)
 		if err != nil {
