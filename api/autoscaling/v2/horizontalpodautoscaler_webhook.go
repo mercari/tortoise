@@ -92,6 +92,11 @@ func (h *HPAWebhook) Default(ctx context.Context, obj runtime.Object) error {
 		return nil
 	}
 
+	if disabled, _ := h.tortoiseService.IsChangeApplicationDisabled(tortoise); disabled {
+		// Global disable mode or namespace exclusion is enabled - don't update HPA
+		return nil
+	}
+
 	// tortoisePhase may be changed in ChangeHPAFromTortoiseRecommendation, so we need to get it before calling it.
 	tortoisePhase := tortoise.Status.TortoisePhase
 

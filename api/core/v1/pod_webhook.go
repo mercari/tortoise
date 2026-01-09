@@ -118,6 +118,12 @@ func (h *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 		return nil
 	}
 
+	if disabled, reason := h.tortoiseService.IsChangeApplicationDisabled(tortoise); disabled {
+		// Global disable mode or namespace exclusion is enabled - don't update Pod
+		pod.Annotations[annotation.PodMutationAnnotation] = fmt.Sprintf("this pod is not mutated by tortoise (%s) because %s is enabled", tortoise.Name, reason)
+		return nil
+	}
+
 	h.podService.ModifyPodSpecResource(&pod.Spec, tortoise)
 	pod.Annotations[annotation.PodMutationAnnotation] = fmt.Sprintf("this pod is mutated by tortoise (%s)", tortoise.Name)
 
