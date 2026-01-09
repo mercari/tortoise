@@ -52,6 +52,7 @@ import (
 	"github.com/mercari/tortoise/pkg/config"
 	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/hpa"
+	"github.com/mercari/tortoise/pkg/metrics"
 	"github.com/mercari/tortoise/pkg/pod"
 	"github.com/mercari/tortoise/pkg/recommender"
 	"github.com/mercari/tortoise/pkg/tortoise"
@@ -118,6 +119,9 @@ func main() {
 
 	setupLog.Info("config", "config", *config)
 
+	// Set the global disable mode metric
+	metrics.SetGlobalDisableMode(config.GlobalDisableMode)
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		HealthProbeBindAddress: probeAddr,
@@ -140,7 +144,7 @@ func main() {
 		os.Exit(1)
 	}
 	eventRecorder := mgr.GetEventRecorderFor("tortoise-controller")
-	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, config.RangeOfMinMaxReplicasRecommendationHours, config.TimeZone, config.TortoiseUpdateInterval, config.GatheringDataPeriodType)
+	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, config.RangeOfMinMaxReplicasRecommendationHours, config.TimeZone, config.TortoiseUpdateInterval, config.GatheringDataPeriodType, config.GlobalDisableMode, config.ExcludedNamespaces)
 	if err != nil {
 		setupLog.Error(err, "unable to start tortoise service")
 		os.Exit(1)
@@ -152,7 +156,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	hpaService, err := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.MaximumTargetResourceUtilization, config.HPATargetUtilizationMaxIncrease, config.HPATargetUtilizationUpdateInterval, config.DefaultHPABehavior, config.MaximumMinReplicas, config.MaximumMaxReplicas, int32(config.MinimumMinReplicas), config.HPAExternalMetricExclusionRegex)
+	hpaService, err := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.MaximumTargetResourceUtilization, config.HPATargetUtilizationMaxIncrease, config.HPATargetUtilizationUpdateInterval, config.DefaultHPABehavior, config.MaximumMinReplicas, config.MaximumMaxReplicas, int32(config.MinimumMinReplicas), config.HPAExternalMetricExclusionRegex, config.EmergencyModeGracePeriod, config.GlobalDisableMode, config.ExcludedNamespaces)
 	if err != nil {
 		setupLog.Error(err, "unable to start hpa service")
 		os.Exit(1)

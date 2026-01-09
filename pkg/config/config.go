@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -236,6 +237,11 @@ type Config struct {
 	// all the external metric which name matches `datadogmetric.*` regex are removed by Tortoise once Tortoise is in Auto mode.
 	HPAExternalMetricExclusionRegex string `yaml:"HPAExternalMetricExclusionRegex"`
 
+	// EmergencyModeGracePeriod is the grace period before triggering emergency mode when HPA metrics are temporarily unavailable (default: 5m)
+	// This prevents false emergency mode triggers during temporary HPA metric unavailability during HPA updates, deployments, scheduled scaling, etc.
+	// During this grace period, the system will continue normal operation even if HPA metrics are temporarily unavailable.
+	EmergencyModeGracePeriod time.Duration `yaml:"EmergencyModeGracePeriod"`
+
 	// DefaultHPABehavior defines the default behavior for HPAs created and managed by Tortoise.
 	// If not specified, Tortoise will use built-in default values that scale up aggressively and scale down conservatively.
 	// This default behavior will be used when individual Tortoise resources don't specify their own behavior.
@@ -288,6 +294,20 @@ type Config struct {
 	// FeatureFlags is the list of feature flags (default: empty = all alpha features are disabled)
 	// See the list of feature flags in features.go
 	FeatureFlags []features.FeatureFlag `yaml:"FeatureFlags"`
+
+	// GlobalDisableMode is a global flag to disable Tortoise from applying any recommendations.
+	// When enabled, Tortoise will continue to calculate recommendations and update status,
+	// but will not apply any changes to HPA, VPA, or Pod resources.
+	// This is useful for testing scenarios where you want to disable Tortoise
+	// without modifying individual Tortoise resources.
+	// Default: false (Tortoise operates normally)
+	GlobalDisableMode bool `yaml:"GlobalDisableMode"`
+
+	// ExcludedNamespaces is a list of namespaces to exclude from Tortoise reconciliation.
+	// Tortoises in these namespaces will be treated as if they are in "Off" mode.
+	// This takes precedence over individual Tortoise settings but is overridden by GlobalDisableMode (if true).
+	// Default: empty list
+	ExcludedNamespaces []string `yaml:"ExcludedNamespaces"`
 }
 
 func defaultConfig() *Config {
@@ -319,6 +339,8 @@ func defaultConfig() *Config {
 		MinimumCPULimit:                          "0",
 		ResourceLimitMultiplier:                  map[string]int64{},
 		BufferRatioOnVerticalResource:            0.1,
+		EmergencyModeGracePeriod:                 5 * time.Minute,
+		GlobalDisableMode:                        false,
 	}
 }
 
@@ -337,6 +359,23 @@ func ParseConfig(path string) (*Config, error) {
 
 	if err := yaml.Unmarshal(b, config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config file: %w", err)
+	}
+
+	// Override with environment variable if present
+	// This allows users to provide the list of excluded namespaces via an environment variable,
+	// which is useful when deploying with ConfigMap as env var.
+	if envExcluded := os.Getenv("TORTOISE_EXCLUDED_NAMESPACES"); envExcluded != "" {
+		// Split by comma and trim whitespace
+		parts := strings.Split(envExcluded, ",")
+		var cleaned []string
+		for _, p := range parts {
+			if trimmed := strings.TrimSpace(p); trimmed != "" {
+				cleaned = append(cleaned, trimmed)
+			}
+		}
+		if len(cleaned) > 0 {
+			config.ExcludedNamespaces = cleaned
+		}
 	}
 
 	if err := validate(config); err != nil {

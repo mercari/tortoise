@@ -23,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/mercari/tortoise/api/v1beta3"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/event"
 	"github.com/mercari/tortoise/pkg/metrics"
@@ -43,6 +42,9 @@ type Service struct {
 	maximumMinReplica                          int32
 	maximumMaxReplica                          int32
 	externalMetricExclusionRegex               *regexp.Regexp
+	emergencyModeGracePeriod                   time.Duration
+	globalDisableMode                          bool
+	excludedNamespaces                         sets.Set[string]
 }
 
 var defaultHPABehaviorValue = &v2.HorizontalPodAutoscalerBehavior{
@@ -77,6 +79,9 @@ func New(
 	maximumMinReplica, maximumMaxReplica int32,
 	minimumMinReplicas int32,
 	externalMetricExclusionRegex string,
+	emergencyModeGracePeriod time.Duration,
+	globalDisableMode bool,
+	excludedNamespaces []string,
 ) (*Service, error) {
 	var regex *regexp.Regexp
 	if externalMetricExclusionRegex != "" {
@@ -93,6 +98,8 @@ func New(
 		defaultHPABehavior = defaultHPABehaviorValue
 	}
 
+	// This prevents false emergency mode triggers during temporary HPA metric unavailability
+
 	return &Service{
 		c:                                       c,
 		replicaReductionFactor:                  replicaReductionFactor,
@@ -105,6 +112,9 @@ func New(
 		minimumMinReplicas:                         minimumMinReplicas,
 		maximumMaxReplica:                          maximumMaxReplica,
 		externalMetricExclusionRegex:               regex,
+		emergencyModeGracePeriod:                   emergencyModeGracePeriod,
+		globalDisableMode:                          globalDisableMode,
+		excludedNamespaces:                         sets.New(excludedNamespaces...),
 	}, nil
 }
 
@@ -166,6 +176,25 @@ func (c *Service) DeleteHPACreatedByTortoise(ctx context.Context, tortoise *auto
 	return nil
 }
 
+// IsGlobalDisableModeEnabled returns true if global disable mode is enabled.
+// When global disable mode is enabled, Tortoise will not apply any HPA recommendations
+// but will continue to calculate and update status.
+func (c *Service) IsGlobalDisableModeEnabled() bool {
+	return c.globalDisableMode
+}
+
+// IsChangeApplicationDisabled returns true if changes should not be applied to the tortoise.
+// It returns the reason ("GlobalDisableMode" or "NamespaceExclusion") if disabled.
+func (c *Service) IsChangeApplicationDisabled(tortoise *autoscalingv1beta3.Tortoise) (bool, string) {
+	if c.globalDisableMode {
+		return true, "GlobalDisableMode"
+	}
+	if c.excludedNamespaces.Has(tortoise.Namespace) {
+		return true, "NamespaceExclusion"
+	}
+	return false, ""
+}
+
 type resourceNameAndContainerName struct {
 	rn            corev1.ResourceName
 	containerName string
@@ -220,7 +249,7 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 		}
 		currenthpa.Spec.Metrics = append(currenthpa.Spec.Metrics, m)
 		hpaEdited = true
-		tortoise = utils.ChangeTortoiseContainerResourcePhase(tortoise, d.containerName, d.rn, now, v1beta3.ContainerResourcePhaseGatheringData)
+		tortoise = utils.ChangeTortoiseContainerResourcePhase(tortoise, d.containerName, d.rn, now, autoscalingv1beta3.ContainerResourcePhaseGatheringData)
 	}
 
 	// remove metrics
@@ -352,7 +381,7 @@ func (s *Service) RecordHPATargetUtilizationUpdate(tortoise *autoscalingv1beta3.
 }
 
 func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time, recordMetrics bool) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
-	if tortoise.Status.TortoisePhase == v1beta3.TortoisePhaseInitializing || tortoise.Status.TortoisePhase == "" {
+	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseInitializing || tortoise.Status.TortoisePhase == "" {
 		// Tortoise is not ready, don't update HPA
 		return hpa, tortoise, nil
 	}
@@ -379,6 +408,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 
 	var allowed bool
 	tortoise, allowed = c.UpdatingHPATargetUtilizationAllowed(tortoise, now)
+	disabled, _ := c.IsChangeApplicationDisabled(tortoise)
 	for _, t := range tortoise.Status.Recommendations.Horizontal.TargetUtilizations {
 		for resourcename, proposedTarget := range t.TargetUtilization {
 			if !readyHorizontalResourceAndContainer.Has(resourceNameAndContainerName{resourcename, t.ContainerName}) {
@@ -393,7 +423,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 				continue
 			}
 
-			if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
+			if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !disabled {
 				metrics.AppliedHPATargetUtilization.WithLabelValues(tortoise.Name, tortoise.Namespace, t.ContainerName, resourcename.String(), hpa.Name).Set(float64(proposedTarget))
 			}
 
@@ -403,7 +433,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 
 		}
 	}
-	if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
+	if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !disabled {
 		tortoise = c.RecordHPATargetUtilizationUpdate(tortoise, now)
 	}
 
@@ -460,8 +490,8 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	}
 
 	hpa.Spec.MinReplicas = &minToActuallyApply
-	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && recordMetrics {
-		// We don't want to record applied* metric when UpdateMode is Off.
+	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !disabled && recordMetrics {
+		// We don't want to record applied* metric when UpdateMode is Off or global disable mode is enabled.
 		netChangeMaxReplicas := float64(hpa.Spec.MaxReplicas - recommendMax)
 		netChangeMinReplicas := float64(*hpa.Spec.MinReplicas) - float64(recommendMin)
 		if netChangeMaxReplicas > 0 || netChangeMinReplicas < 0 {
@@ -516,6 +546,12 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 ) (*autoscalingv1beta3.Tortoise, error) {
 	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 		// When UpdateMode is Off, we don't update HPA.
+		return tortoise, nil
+	}
+
+	if disabled, reason := c.IsChangeApplicationDisabled(tortoise); disabled {
+		// Global disable mode or namespace exclusion is enabled - don't update HPA but continue processing
+		log.FromContext(ctx).Info("Skipping HPA autoscaling policy update", "tortoise", klog.KObj(tortoise), "reason", reason)
 		return tortoise, nil
 	}
 
@@ -609,6 +645,12 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		return nil, tortoise, nil
 	}
 
+	if disabled, reason := c.IsChangeApplicationDisabled(tortoise); disabled {
+		// Global disable mode or namespace exclusion is enabled - don't update HPA but continue processing
+		log.FromContext(ctx).Info("Skipping HPA recommendation update", "tortoise", klog.KObj(tortoise), "reason", reason)
+		return nil, tortoise, nil
+	}
+
 	retTortoise := &autoscalingv1beta3.Tortoise{}
 	retHPA := &v2.HorizontalPodAutoscaler{}
 
@@ -632,8 +674,9 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 		hpa.Spec.Behavior = behavior // overwrite
 		retTortoise = tortoise
-		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
-			// don't update status if update mode is off. (= dryrun)
+		disabled, _ := c.IsChangeApplicationDisabled(tortoise)
+		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff || disabled {
+			// don't update status if update mode is off or global disable mode is enabled. (= dryrun)
 			return nil
 		}
 
@@ -646,7 +689,8 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		return nil, retTortoise, err
 	}
 
-	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff {
+	disabled, _ := c.IsChangeApplicationDisabled(tortoise)
+	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !disabled {
 		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPAUpdated, fmt.Sprintf("HPA %s/%s is updated by the recommendation", retHPA.Namespace, retHPA.Name))
 	}
 
@@ -704,7 +748,7 @@ func (c *Service) updateHPATargetValue(hpa *v2.HorizontalPodAutoscaler, containe
 	return fmt.Errorf("no corresponding metric found: %s/%s", hpa.Namespace, hpa.Name)
 }
 
-func recordHPAMetric(ctx context.Context, tortoise *v1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) {
+func recordHPAMetric(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler) {
 	for _, policies := range tortoise.Status.AutoscalingPolicy {
 		for k, p := range policies.Policy {
 			if p != autoscalingv1beta3.AutoscalingTypeHorizontal {
@@ -786,6 +830,9 @@ func (c *Service) excludeExternalMetric(ctx context.Context, hpa *v2.HorizontalP
 	return newHPA
 }
 
+// IsHpaMetricAvailable checks if HPA metrics are available for decision making.
+// It includes a configurable grace period before triggering emergency mode to handle
+// temporary metric unavailability during HPA updates, deployments, or other transient issues.
 func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, currenthpa *v2.HorizontalPodAutoscaler) bool {
 	logger := log.FromContext(ctx)
 	if !HasHorizontal(tortoise) {
@@ -804,26 +851,43 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalin
 
 	for _, condition := range conditions {
 		if condition.Type == "ScalingActive" && condition.Status == "False" && condition.Reason == "FailedGetResourceMetric" {
-			// switch to Emergency mode since no metrics
-			logger.Info("HPA failed to get resource metrics, switch to emergency mode")
+			// Always apply grace period before triggering emergency mode to handle temporary
+			// metric unavailability during HPA updates, deployments, scheduled scaling, etc.
+			conditionAge := time.Since(condition.LastTransitionTime.Time)
+			if conditionAge < c.emergencyModeGracePeriod {
+				logger.V(1).Info("HPA metric temporarily unavailable, giving grace time before emergency mode",
+					"gracePeriod", c.emergencyModeGracePeriod,
+					"conditionAge", conditionAge)
+				return true // Give grace period before emergency mode
+			}
+			// Grace period expired, switch to Emergency mode since no metrics
+			logger.Info("HPA failed to get resource metrics after grace period, switch to emergency mode",
+				"gracePeriod", c.emergencyModeGracePeriod,
+				"conditionAge", conditionAge)
 			return false
 		}
 	}
 
+	hasValidMetrics := false
 	for _, currentMetric := range currentMetrics {
 		switch currentMetric.Type {
 		case v2.ContainerResourceMetricSourceType:
 			if currentMetric.ContainerResource != nil && !currentMetric.ContainerResource.Current.Value.IsZero() {
 				// Can still get metrics for some containers, they can scale based on those
-				return true
+				hasValidMetrics = true
 			}
 		case v2.ExternalMetricSourceType:
 			if currentMetric.External != nil && !currentMetric.External.Current.Value.IsZero() {
 				// External metrics are also valid
-				return true
+				hasValidMetrics = true
 			}
 		}
 	}
+
+	if hasValidMetrics {
+		return true
+	}
+
 	logger.Info("HPA looks unready because all the metrics indicate zero", "hpa", currenthpa.Name)
 	return false
 }

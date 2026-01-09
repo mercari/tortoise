@@ -166,7 +166,7 @@ var _ = BeforeSuite(func() {
 	config, err := config.ParseConfig("")
 	Expect(err).NotTo(HaveOccurred())
 	eventRecorder := mgr.GetEventRecorderFor("tortoise-controller")
-	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, config.RangeOfMinMaxReplicasRecommendationHours, config.TimeZone, config.TortoiseUpdateInterval, config.GatheringDataPeriodType)
+	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, config.RangeOfMinMaxReplicasRecommendationHours, config.TimeZone, config.TortoiseUpdateInterval, config.GatheringDataPeriodType, config.GlobalDisableMode, nil)
 	Expect(err).NotTo(HaveOccurred())
 
 	const (
