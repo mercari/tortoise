@@ -44,6 +44,7 @@ type Service struct {
 	externalMetricExclusionRegex               *regexp.Regexp
 	emergencyModeGracePeriod                   time.Duration
 	globalDisableMode                          bool
+	excludedNamespaces                         sets.Set[string]
 }
 
 var defaultHPABehaviorValue = &v2.HorizontalPodAutoscalerBehavior{
@@ -80,6 +81,7 @@ func New(
 	externalMetricExclusionRegex string,
 	emergencyModeGracePeriod time.Duration,
 	globalDisableMode bool,
+	excludedNamespaces []string,
 ) (*Service, error) {
 	var regex *regexp.Regexp
 	if externalMetricExclusionRegex != "" {
@@ -112,6 +114,7 @@ func New(
 		externalMetricExclusionRegex:               regex,
 		emergencyModeGracePeriod:                   emergencyModeGracePeriod,
 		globalDisableMode:                          globalDisableMode,
+		excludedNamespaces:                         sets.New(excludedNamespaces...),
 	}, nil
 }
 
@@ -178,6 +181,18 @@ func (c *Service) DeleteHPACreatedByTortoise(ctx context.Context, tortoise *auto
 // but will continue to calculate and update status.
 func (c *Service) IsGlobalDisableModeEnabled() bool {
 	return c.globalDisableMode
+}
+
+// IsChangeApplicationDisabled returns true if changes should not be applied to the tortoise.
+// It returns the reason ("GlobalDisableMode" or "NamespaceExclusion") if disabled.
+func (c *Service) IsChangeApplicationDisabled(tortoise *autoscalingv1beta3.Tortoise) (bool, string) {
+	if c.globalDisableMode {
+		return true, "GlobalDisableMode"
+	}
+	if c.excludedNamespaces.Has(tortoise.Namespace) {
+		return true, "NamespaceExclusion"
+	}
+	return false, ""
 }
 
 type resourceNameAndContainerName struct {
@@ -393,6 +408,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 
 	var allowed bool
 	tortoise, allowed = c.UpdatingHPATargetUtilizationAllowed(tortoise, now)
+	disabled, _ := c.IsChangeApplicationDisabled(tortoise)
 	for _, t := range tortoise.Status.Recommendations.Horizontal.TargetUtilizations {
 		for resourcename, proposedTarget := range t.TargetUtilization {
 			if !readyHorizontalResourceAndContainer.Has(resourceNameAndContainerName{resourcename, t.ContainerName}) {
@@ -407,7 +423,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 				continue
 			}
 
-			if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !c.IsGlobalDisableModeEnabled() {
+			if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !disabled {
 				metrics.AppliedHPATargetUtilization.WithLabelValues(tortoise.Name, tortoise.Namespace, t.ContainerName, resourcename.String(), hpa.Name).Set(float64(proposedTarget))
 			}
 
@@ -417,7 +433,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 
 		}
 	}
-	if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !c.IsGlobalDisableModeEnabled() {
+	if allowed && tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !disabled {
 		tortoise = c.RecordHPATargetUtilizationUpdate(tortoise, now)
 	}
 
@@ -474,7 +490,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 	}
 
 	hpa.Spec.MinReplicas = &minToActuallyApply
-	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !c.IsGlobalDisableModeEnabled() && recordMetrics {
+	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !disabled && recordMetrics {
 		// We don't want to record applied* metric when UpdateMode is Off or global disable mode is enabled.
 		netChangeMaxReplicas := float64(hpa.Spec.MaxReplicas - recommendMax)
 		netChangeMinReplicas := float64(*hpa.Spec.MinReplicas) - float64(recommendMin)
@@ -533,9 +549,9 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 		return tortoise, nil
 	}
 
-	if c.IsGlobalDisableModeEnabled() {
-		// Global disable mode is enabled - don't update HPA but continue processing
-		log.FromContext(ctx).Info("Skipping HPA autoscaling policy update due to global disable mode", "tortoise", klog.KObj(tortoise))
+	if disabled, reason := c.IsChangeApplicationDisabled(tortoise); disabled {
+		// Global disable mode or namespace exclusion is enabled - don't update HPA but continue processing
+		log.FromContext(ctx).Info("Skipping HPA autoscaling policy update", "tortoise", klog.KObj(tortoise), "reason", reason)
 		return tortoise, nil
 	}
 
@@ -629,9 +645,9 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		return nil, tortoise, nil
 	}
 
-	if c.IsGlobalDisableModeEnabled() {
-		// Global disable mode is enabled - don't update HPA but continue processing
-		log.FromContext(ctx).Info("Skipping HPA recommendation update due to global disable mode", "tortoise", klog.KObj(tortoise))
+	if disabled, reason := c.IsChangeApplicationDisabled(tortoise); disabled {
+		// Global disable mode or namespace exclusion is enabled - don't update HPA but continue processing
+		log.FromContext(ctx).Info("Skipping HPA recommendation update", "tortoise", klog.KObj(tortoise), "reason", reason)
 		return nil, tortoise, nil
 	}
 
@@ -658,7 +674,8 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 		hpa.Spec.Behavior = behavior // overwrite
 		retTortoise = tortoise
-		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff || c.IsGlobalDisableModeEnabled() {
+		disabled, _ := c.IsChangeApplicationDisabled(tortoise)
+		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff || disabled {
 			// don't update status if update mode is off or global disable mode is enabled. (= dryrun)
 			return nil
 		}
@@ -672,7 +689,8 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		return nil, retTortoise, err
 	}
 
-	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !c.IsGlobalDisableModeEnabled() {
+	disabled, _ := c.IsChangeApplicationDisabled(tortoise)
+	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !disabled {
 		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPAUpdated, fmt.Sprintf("HPA %s/%s is updated by the recommendation", retHPA.Namespace, retHPA.Name))
 	}
 
