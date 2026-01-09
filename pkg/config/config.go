@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -301,6 +302,12 @@ type Config struct {
 	// without modifying individual Tortoise resources.
 	// Default: false (Tortoise operates normally)
 	GlobalDisableMode bool `yaml:"GlobalDisableMode"`
+
+	// ExcludedNamespaces is a list of namespaces to exclude from Tortoise reconciliation.
+	// Tortoises in these namespaces will be treated as if they are in "Off" mode.
+	// This takes precedence over individual Tortoise settings but is overridden by GlobalDisableMode (if true).
+	// Default: empty list
+	ExcludedNamespaces []string `yaml:"ExcludedNamespaces"`
 }
 
 func defaultConfig() *Config {
@@ -352,6 +359,23 @@ func ParseConfig(path string) (*Config, error) {
 
 	if err := yaml.Unmarshal(b, config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config file: %w", err)
+	}
+
+	// Override with environment variable if present
+	// This allows users to provide the list of excluded namespaces via an environment variable,
+	// which is useful when deploying with ConfigMap as env var.
+	if envExcluded := os.Getenv("TORTOISE_EXCLUDED_NAMESPACES"); envExcluded != "" {
+		// Split by comma and trim whitespace
+		parts := strings.Split(envExcluded, ",")
+		var cleaned []string
+		for _, p := range parts {
+			if trimmed := strings.TrimSpace(p); trimmed != "" {
+				cleaned = append(cleaned, trimmed)
+			}
+		}
+		if len(cleaned) > 0 {
+			config.ExcludedNamespaces = cleaned
+		}
 	}
 
 	if err := validate(config); err != nil {
