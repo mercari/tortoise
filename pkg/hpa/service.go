@@ -549,12 +549,6 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 		return tortoise, nil
 	}
 
-	if disabled, reason := c.IsChangeApplicationDisabled(tortoise); disabled {
-		// Global disable mode or namespace exclusion is enabled - don't update HPA but continue processing
-		log.FromContext(ctx).Info("Skipping HPA autoscaling policy update", "tortoise", klog.KObj(tortoise), "reason", reason)
-		return tortoise, nil
-	}
-
 	if !HasHorizontal(tortoise) {
 		if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
 			// HPA should be created by Tortoise, which can be deleted.
