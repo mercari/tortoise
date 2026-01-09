@@ -872,12 +872,12 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalin
 	for _, currentMetric := range currentMetrics {
 		switch currentMetric.Type {
 		case v2.ContainerResourceMetricSourceType:
-			if currentMetric.ContainerResource != nil && !currentMetric.ContainerResource.Current.Value.IsZero() {
+			if currentMetric.ContainerResource != nil && currentMetric.ContainerResource.Current.Value != nil && !currentMetric.ContainerResource.Current.Value.IsZero() {
 				// Can still get metrics for some containers, they can scale based on those
 				hasValidMetrics = true
 			}
 		case v2.ExternalMetricSourceType:
-			if currentMetric.External != nil && !currentMetric.External.Current.Value.IsZero() {
+			if currentMetric.External != nil && currentMetric.External.Current.Value != nil && !currentMetric.External.Current.Value.IsZero() {
 				// External metrics are also valid
 				hasValidMetrics = true
 			}
