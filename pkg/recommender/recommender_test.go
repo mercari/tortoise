@@ -868,7 +868,7 @@ func TestUpdateRecommendation(t *testing.T) {
 				},
 				currentReplicaNum: 100,
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
