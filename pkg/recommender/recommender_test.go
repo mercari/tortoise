@@ -869,6 +869,89 @@ func TestUpdateRecommendation(t *testing.T) {
 				currentReplicaNum: 100,
 			},
 			wantErr: false,
+			want: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "istio-proxy",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "nginx",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+					},
+					ContainerResourcePhases: []v1beta3.ContainerResourcePhases{
+						{
+							ContainerName: "nginx",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							ResourcePhases: map[corev1.ResourceName]v1beta3.ResourcePhase{
+								corev1.ResourceCPU: {
+									Phase: v1beta3.ContainerResourcePhaseWorking,
+								},
+							},
+						},
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName: "istio-proxy",
+									TargetUtilization: map[corev1.ResourceName]int32{
+										corev1.ResourceCPU: 90, // UpperUsage = (90/50)*50 = 90
+									},
+								},
+								// nginx is skipped because the metric is missing
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
+							{
+								ContainerName: "istio-proxy",
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("90m"),
+									},
+								},
+							},
+							{
+								ContainerName: "nginx",
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("90m"),
+									},
+								},
+							},
+						},
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "istio-proxy",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU: resource.MustParse("100m"),
+								},
+							},
+							{
+								ContainerName: "nginx",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU: resource.MustParse("100m"),
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
