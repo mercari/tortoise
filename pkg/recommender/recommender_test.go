@@ -923,7 +923,7 @@ func TestUpdateRecommendation(t *testing.T) {
 										Quantity: resource.MustParse("0.6"),
 									},
 									corev1.ResourceMemory: {
-										Quantity: resource.MustParse("600Mi"),
+										Quantity: resource.MustParse("644245094400m"),
 									},
 								},
 							},
