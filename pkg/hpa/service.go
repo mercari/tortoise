@@ -751,7 +751,10 @@ func recordHPAMetric(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise,
 
 			target, err := GetHPATargetValue(ctx, hpa, policies.ContainerName, k)
 			if err != nil {
-				log.FromContext(ctx).Error(err, "failed to get target value of the HPA", "hpa", klog.KObj(hpa))
+				// The metric might be missing because it's not yet synced to the HPA spec/status.
+				// This is expected in some cases (e.g., metrics not yet populated after being added to spec).
+				// Log at debug level instead of error to reduce noise.
+				log.FromContext(ctx).V(4).Info("Cannot get target value of the HPA for metrics recording, skipping", "hpa", klog.KObj(hpa), "container", policies.ContainerName, "resource", k, "error", err)
 				// ignore the error and go through all policies anyway.
 				continue
 			}
