@@ -655,6 +655,9 @@ func TestService_InitializeTortoise(t *testing.T) {
 							},
 						},
 					},
+					Targets: v1beta3.TargetsStatus{
+						VerticalPodAutoscalers: []v1beta3.TargetStatusVerticalPodAutoscaler{},
+					},
 					Recommendations: v1beta3.Recommendations{
 						Horizontal: v1beta3.HorizontalRecommendations{
 							MinReplicas: []v1beta3.ReplicasRecommendation{
@@ -993,6 +996,9 @@ func TestService_InitializeTortoise(t *testing.T) {
 								},
 							},
 						},
+					},
+					Targets: v1beta3.TargetsStatus{
+						VerticalPodAutoscalers: []v1beta3.TargetStatusVerticalPodAutoscaler{},
 					},
 					Recommendations: v1beta3.Recommendations{
 						Horizontal: v1beta3.HorizontalRecommendations{

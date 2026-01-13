@@ -549,12 +549,6 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 		return tortoise, nil
 	}
 
-	if disabled, reason := c.IsChangeApplicationDisabled(tortoise); disabled {
-		// Global disable mode or namespace exclusion is enabled - don't update HPA but continue processing
-		log.FromContext(ctx).Info("Skipping HPA autoscaling policy update", "tortoise", klog.KObj(tortoise), "reason", reason)
-		return tortoise, nil
-	}
-
 	if !HasHorizontal(tortoise) {
 		if tortoise.Spec.TargetRefs.HorizontalPodAutoscalerName == nil {
 			// HPA should be created by Tortoise, which can be deleted.
@@ -757,7 +751,10 @@ func recordHPAMetric(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise,
 
 			target, err := GetHPATargetValue(ctx, hpa, policies.ContainerName, k)
 			if err != nil {
-				log.FromContext(ctx).Error(err, "failed to get target value of the HPA", "hpa", klog.KObj(hpa))
+				// The metric might be missing because it's not yet synced to the HPA spec/status.
+				// This is expected in some cases (e.g., metrics not yet populated after being added to spec).
+				// Log at debug level instead of error to reduce noise.
+				log.FromContext(ctx).V(4).Info("Cannot get target value of the HPA for metrics recording, skipping", "hpa", klog.KObj(hpa), "container", policies.ContainerName, "resource", k, "error", err)
 				// ignore the error and go through all policies anyway.
 				continue
 			}
@@ -872,12 +869,12 @@ func (c *Service) IsHpaMetricAvailable(ctx context.Context, tortoise *autoscalin
 	for _, currentMetric := range currentMetrics {
 		switch currentMetric.Type {
 		case v2.ContainerResourceMetricSourceType:
-			if currentMetric.ContainerResource != nil && !currentMetric.ContainerResource.Current.Value.IsZero() {
+			if currentMetric.ContainerResource != nil && currentMetric.ContainerResource.Current.Value != nil && !currentMetric.ContainerResource.Current.Value.IsZero() {
 				// Can still get metrics for some containers, they can scale based on those
 				hasValidMetrics = true
 			}
 		case v2.ExternalMetricSourceType:
-			if currentMetric.External != nil && !currentMetric.External.Current.Value.IsZero() {
+			if currentMetric.External != nil && currentMetric.External.Current.Value != nil && !currentMetric.External.Current.Value.IsZero() {
 				// External metrics are also valid
 				hasValidMetrics = true
 			}

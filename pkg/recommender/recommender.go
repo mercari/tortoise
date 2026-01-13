@@ -337,7 +337,11 @@ func (s *Service) calculateBestNewSize(
 
 	targetUtilizationValue, err := hpaservice.GetHPATargetValue(ctx, hpa, containerName, k)
 	if err != nil {
-		return 0, "", fmt.Errorf("get the target value from HPA: %w", err)
+		// The metric might be missing because it's not yet synced to the HPA spec/status.
+		// We don't want to error out the whole reconciliation loop in this case.
+		// Just keep the current resource request and log the issue.
+		log.FromContext(ctx).V(4).Info("Cannot get HPA target value for VPA recommendation calculation, keeping current resource request", "container", containerName, "resource", k, "error", err)
+		return s.justifyNewSize(resourceRequest.MilliValue(), resourceRequest.MilliValue(), k, minAllocatedResources, maxAllocatedResources, containerName), fmt.Sprintf("cannot get HPA target value for %v (%v), keeping current resource request", k, containerName), nil
 	}
 
 	upperUtilization := (float64(recommendedResourceRequest.MilliValue()) / float64(resourceRequest.MilliValue())) * 100
@@ -589,7 +593,11 @@ func (s *Service) updateHPATargetUtilizationRecommendations(ctx context.Context,
 
 			currentTargetValue, err := hpaservice.GetHPATargetValue(ctx, hpa, r.ContainerName, k)
 			if err != nil {
-				return tortoise, fmt.Errorf("try to find the metric for the conainter which is configured to be scale by Horizontal: %w", err)
+				// The metric might be missing because it's not yet synced to the HPA status.
+				// We don't want to error out the whole reconciliation loop in this case.
+				// Just skip this metric for now.
+				logger.V(4).Info("try to find the metric for the container which is configured to be scale by Horizontal, but it's not found", "error", err)
+				continue
 			}
 
 			recomMap, ok := recommendationMap[r.ContainerName]

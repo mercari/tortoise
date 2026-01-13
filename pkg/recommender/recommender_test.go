@@ -868,7 +868,85 @@ func TestUpdateRecommendation(t *testing.T) {
 				},
 				currentReplicaNum: 100,
 			},
-			wantErr: true,
+			wantErr: false,
+			want: &v1beta3.Tortoise{
+				Status: v1beta3.TortoiseStatus{
+					AutoscalingPolicy: []v1beta3.ContainerAutoscalingPolicy{
+						{
+							ContainerName: "app",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeHorizontal,
+							},
+						},
+						{
+							ContainerName: "istio-proxy",
+							Policy: map[corev1.ResourceName]v1beta3.AutoscalingType{
+								corev1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+								corev1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+							},
+						},
+					},
+					Recommendations: v1beta3.Recommendations{
+						Horizontal: v1beta3.HorizontalRecommendations{
+							TargetUtilizations: []v1beta3.HPATargetUtilizationRecommendationPerContainer{
+								{
+									ContainerName:     "app",
+									TargetUtilization: map[corev1.ResourceName]int32{},
+								},
+								{
+									ContainerName: "istio-proxy",
+									TargetUtilization: map[corev1.ResourceName]int32{
+										corev1.ResourceCPU: 90,
+									},
+								},
+							},
+						},
+					},
+					Conditions: v1beta3.Conditions{
+						ContainerRecommendationFromVPA: []v1beta3.ContainerRecommendationFromVPA{
+							{
+								ContainerName: "app",
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("4"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("4Gi"),
+									},
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								MaxRecommendation: map[corev1.ResourceName]v1beta3.ResourceQuantity{
+									corev1.ResourceCPU: {
+										Quantity: resource.MustParse("0.6"),
+									},
+									corev1.ResourceMemory: {
+										Quantity: resource.MustParse("644245094400m"),
+									},
+								},
+							},
+						},
+						ContainerResourceRequests: []v1beta3.ContainerResourceRequests{
+							{
+								ContainerName: "app",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("5"),
+									corev1.ResourceMemory: resource.MustParse("5Gi"),
+								},
+							},
+							{
+								ContainerName: "istio-proxy",
+								Resource: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range tests {

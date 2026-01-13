@@ -306,6 +306,8 @@ func (s *Service) initializeTortoise(tortoise *v1beta3.Tortoise, now time.Time) 
 		}
 	}
 	tortoise.Status.Targets.ScaleTargetRef = tortoise.Spec.TargetRefs.ScaleTargetRef
+	// Ensure required fields are initialized
+	ensureRequiredStatusFields(tortoise)
 
 	for _, p := range tortoise.Status.AutoscalingPolicy {
 		for rn, policy := range p.Policy {
@@ -482,6 +484,19 @@ func (s *Service) RemoveFinalizer(ctx context.Context, tortoise *v1beta3.Tortois
 	return nil
 }
 
+// ensureRequiredStatusFields initializes required status fields that must be present for CRD validation.
+// This ensures backward compatibility and prevents validation errors when status is updated.
+func ensureRequiredStatusFields(tortoise *v1beta3.Tortoise) {
+	// Ensure Targets.VerticalPodAutoscalers is initialized (required by CRD validation)
+	if tortoise.Status.Targets.VerticalPodAutoscalers == nil {
+		tortoise.Status.Targets.VerticalPodAutoscalers = []v1beta3.TargetStatusVerticalPodAutoscaler{}
+	}
+	// Ensure ContainerResourcePhases is initialized (required by CRD validation)
+	if tortoise.Status.ContainerResourcePhases == nil {
+		tortoise.Status.ContainerResourcePhases = []v1beta3.ContainerResourcePhases{}
+	}
+}
+
 func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1beta3.Tortoise, now time.Time, timeRecord bool) (*v1beta3.Tortoise, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("update tortoise status", "tortoise", klog.KObj(originalTortoise))
@@ -496,6 +511,8 @@ func (s *Service) UpdateTortoiseStatus(ctx context.Context, originalTortoise *v1
 		}
 		// It should be OK to overwrite the status, because the controller is the only person to update it.
 		retTortoise.Status = originalTortoise.Status
+		// Ensure required fields are initialized before updating to prevent CRD validation errors
+		ensureRequiredStatusFields(retTortoise)
 
 		err = s.c.Status().Update(ctx, retTortoise)
 		if err != nil {
