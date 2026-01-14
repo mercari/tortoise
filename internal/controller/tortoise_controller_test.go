@@ -21,6 +21,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/config"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/yaml"
 
 	"github.com/mercari/tortoise/api/v1beta3"
@@ -246,6 +247,7 @@ func removeUnnecessaryFields(rawdata []byte) ([]byte, error) {
 func startController(ctx context.Context) func() {
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:         scheme,
+		Metrics:        server.Options{BindAddress: "0"},
 		LeaderElection: false,
 		Controller: config.Controller{
 			SkipNameValidation: ptr.To(true),
