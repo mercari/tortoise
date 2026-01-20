@@ -5,7 +5,7 @@ metadata:
     control-plane: controller-manager
     app.kubernetes.io/name: tortoise
     app.kubernetes.io/managed-by: kustomize
-  name: controller-manager-metrics-service
+  name: tortoise-metrics-service
   namespace: system
 spec:
   ports:
