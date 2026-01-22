@@ -442,24 +442,44 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		return nil, tortoise, fmt.Errorf("get maxReplicas recommendation: %w", err)
 	}
 
+	// Apply user-specified maxReplicas limit if set
 	if tortoise.Spec.MaxReplicas != nil && recommendMax > *tortoise.Spec.MaxReplicas {
 		recommendMax = *tortoise.Spec.MaxReplicas
 	}
 
+	// Apply cluster-wide maxReplicas limit
 	if recommendMax > c.maximumMaxReplica {
 		c.recorder.Event(tortoise, corev1.EventTypeWarning, event.WarningHittingHardMaxReplicaLimit, fmt.Sprintf("MaxReplica (%v) suggested from Tortoise (%s/%s) hits a cluster-wide maximum replica number (%v). It wouldn't be a problem until the replica number actually grows to %v though, you may want to reach out to your cluster admin.", recommendMax, tortoise.Namespace, tortoise.Name, c.maximumMaxReplica, c.maximumMaxReplica))
 		recommendMax = c.maximumMaxReplica
 	}
 
-	hpa.Spec.MaxReplicas = recommendMax
+	// Ensure maxReplicas is at least minimumMinReplicas
+	if recommendMax < c.minimumMinReplicas {
+		c.recorder.Event(tortoise, corev1.EventTypeWarning, event.WarningReplicaValidation, fmt.Sprintf("MaxReplica (%v) is below minimum allowed replicas (%v), adjusting to minimum", recommendMax, c.minimumMinReplicas))
+		recommendMax = c.minimumMinReplicas
+	}
 
 	recommendMin, err := GetReplicasRecommendation(tortoise.Status.Recommendations.Horizontal.MinReplicas, now)
 	if err != nil {
 		return nil, tortoise, fmt.Errorf("get minReplicas recommendation: %w", err)
 	}
+
+	// Apply cluster-wide minReplicas limit
 	if recommendMin > c.maximumMinReplica {
+		c.recorder.Event(tortoise, corev1.EventTypeWarning, event.WarningReplicaValidation, fmt.Sprintf("MinReplica (%v) suggested from Tortoise (%s/%s) hits a cluster-wide maximum min replica number (%v), capping to maximum", recommendMin, tortoise.Namespace, tortoise.Name, c.maximumMinReplica))
 		recommendMin = c.maximumMinReplica
-		// We don't change the maxReplica because it's dangerous to limit.
+	}
+
+	// Ensure minReplicas is at least minimumMinReplicas
+	if recommendMin < c.minimumMinReplicas {
+		c.recorder.Event(tortoise, corev1.EventTypeWarning, event.WarningReplicaValidation, fmt.Sprintf("MinReplica (%v) is below minimum allowed replicas (%v), adjusting to minimum", recommendMin, c.minimumMinReplicas))
+		recommendMin = c.minimumMinReplicas
+	}
+
+	// Ensure minReplicas doesn't exceed maxReplicas
+	if recommendMin > recommendMax {
+		c.recorder.Event(tortoise, corev1.EventTypeWarning, event.WarningReplicaValidation, fmt.Sprintf("MinReplica (%v) exceeds MaxReplica (%v), adjusting MaxReplica to MinReplica", recommendMin, recommendMax))
+		recommendMax = recommendMin
 	}
 
 	if recordMetrics {
@@ -489,6 +509,31 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 		minToActuallyApply = recommendMin
 	}
 
+	// Final validation: Ensure minReplicas doesn't exceed maxReplicas after phase-specific adjustments
+	if minToActuallyApply > recommendMax {
+		if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseBackToNormal {
+			// During BackToNormal, temporarily increase maxReplicas to allow safe gradual reduction
+			// This preserves the safety mechanism while ensuring HPA validity
+			originalMaxReplicas := recommendMax
+			recommendMax = minToActuallyApply
+			c.recorder.Event(tortoise, corev1.EventTypeNormal, event.Working,
+				fmt.Sprintf("Temporarily increased MaxReplicas from %v to %v during BackToNormal phase to allow safe gradual MinReplicas reduction",
+					originalMaxReplicas, minToActuallyApply))
+		} else {
+			// For other phases, cap minReplicas to maxReplicas
+			minToActuallyApply = recommendMax
+			c.recorder.Event(tortoise, corev1.EventTypeWarning, event.WarningReplicaValidation,
+				fmt.Sprintf("MinReplicas was capped to MaxReplicas (%v) to prevent HPA validation error", recommendMax))
+		}
+	}
+
+	// Ensure final minReplicas is at least minimumMinReplicas
+	if minToActuallyApply < c.minimumMinReplicas {
+		c.recorder.Event(tortoise, corev1.EventTypeWarning, event.WarningReplicaValidation, fmt.Sprintf("Final MinReplicas (%v) is below minimum allowed replicas (%v), adjusting to minimum", minToActuallyApply, c.minimumMinReplicas))
+		minToActuallyApply = c.minimumMinReplicas
+	}
+
+	hpa.Spec.MaxReplicas = recommendMax
 	hpa.Spec.MinReplicas = &minToActuallyApply
 	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !disabled && recordMetrics {
 		// We don't want to record applied* metric when UpdateMode is Off or global disable mode is enabled.
