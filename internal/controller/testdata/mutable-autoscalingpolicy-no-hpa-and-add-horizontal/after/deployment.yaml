@@ -8,7 +8,6 @@ spec:
   strategy: {}
   template:
     metadata:
-      annotations: null
       creationTimestamp: null
       labels:
         app: mercari

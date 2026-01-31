@@ -7,33 +7,33 @@ spec:
   behavior:
     scaleDown:
       policies:
-        - periodSeconds: 10
-          type: Percent
-          value: 5
+      - periodSeconds: 10
+        type: Percent
+        value: 5
       selectPolicy: Min
     scaleUp:
       policies:
-        - periodSeconds: 20
-          type: Percent
-          value: 60
+      - periodSeconds: 20
+        type: Percent
+        value: 60
       selectPolicy: Min
       stabilizationWindowSeconds: 50
   maxReplicas: 100
   metrics:
-    - external:
-        metric:
-          name: datadogmetric@hoge:hoge
-        target:
-          type: Value
-          value: "90"
-      type: External
-    - containerResource:
-        container: app
-        name: memory
-        target:
-          averageUtilization: 50
-          type: Utilization
-      type: ContainerResource
+  - external:
+      metric:
+        name: datadogmetric@hoge:hoge
+      target:
+        type: Value
+        value: "90"
+    type: External
+  - containerResource:
+      container: app
+      name: memory
+      target:
+        averageUtilization: 50
+        type: Utilization
+    type: ContainerResource
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
@@ -41,15 +41,19 @@ spec:
     name: mercari-app
 status:
   conditions:
-    - status: "True"
-      type: AbleToScale
-      message: "recommended size matches current size"
-    - status: "True"
-      type: ScalingActive
-      message: "the HPA was able to compute the replica count"
+  - lastTransitionTime: null
+    message: recommended size matches current size
+    status: "True"
+    type: AbleToScale
+  - lastTransitionTime: null
+    message: the HPA was able to compute the replica count
+    status: "True"
+    type: ScalingActive
   currentMetrics:
-    - containerResource:
-        container: app
-        name: cpu
-        current:
-          value: 3
+  - containerResource:
+      container: app
+      current:
+        value: "3"
+      name: cpu
+    type: ""
+  desiredReplicas: 0
