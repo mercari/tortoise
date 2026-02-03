@@ -40,17 +40,17 @@ status:
     - containerName: istio-proxy
       maxRecommendation:
         cpu:
-          quantity: "1.5"
+          quantity: 1500m
           updatedAt: "2023-01-01T00:00:00Z"
         memory:
-          quantity: 1.5Gi
+          quantity: 1536Mi
           updatedAt: "2023-01-01T00:00:00Z"
       recommendation:
         cpu:
-          quantity: "1.5"
+          quantity: 1500m
           updatedAt: "2023-01-01T00:00:00Z"
         memory:
-          quantity: 1.5Gi
+          quantity: 1536Mi
           updatedAt: "2023-01-01T00:00:00Z"
     containerResourceRequests:
     - containerName: app
@@ -79,7 +79,8 @@ status:
       type: FailedToReconcile
     - lastTransitionTime: "2023-01-01T00:00:00Z"
       lastUpdateTime: "2023-01-01T00:00:00Z"
-      message: the current number of replicas is not bigger than the preferred max replica number
+      message: the current number of replicas is not bigger than the preferred max
+        replica number
       reason: ScaledUpBasedOnPreferredMaxReplicas
       status: "False"
       type: ScaledUpBasedOnPreferredMaxReplicas
@@ -129,7 +130,7 @@ status:
         containerName: app
       - RecommendedResource:
           cpu: "2"
-          memory: 1.5Gi
+          memory: 1536Mi
         containerName: istio-proxy
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari

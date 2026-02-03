@@ -16,6 +16,9 @@ spec:
       - periodSeconds: 60
         type: Percent
         value: 100
+      - periodSeconds: 60
+        type: Pods
+        value: 4
       selectPolicy: Max
       stabilizationWindowSeconds: 0
   maxReplicas: 8
@@ -41,22 +44,25 @@ spec:
     name: mercari-app
 status:
   conditions:
-    - status: "True"
-      type: AbleToScale
-      message: "recommended size matches current size"
-    - status: "True"
-      type: ScalingActive
-      message: "the HPA was able to compute the replica count"
+  - lastTransitionTime: null
+    message: recommended size matches current size
+    status: "True"
+    type: AbleToScale
+  - lastTransitionTime: null
+    message: the HPA was able to compute the replica count
+    status: "True"
+    type: ScalingActive
   currentMetrics:
-    - containerResource:
-        container: app
-        name: cpu
-        current:
-          value: 4
-      type: ContainerResource
-    - containerResource:
-        container: istio-proxy
-        name: cpu
-        current:
-          value: 1
-      type: ContainerResource
+  - containerResource:
+      container: app
+      current:
+        value: "4"
+      name: cpu
+    type: ContainerResource
+  - containerResource:
+      container: istio-proxy
+      current:
+        value: "1"
+      name: cpu
+    type: ContainerResource
+  desiredReplicas: 0

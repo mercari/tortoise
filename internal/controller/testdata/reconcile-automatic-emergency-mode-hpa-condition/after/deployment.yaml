@@ -10,21 +10,21 @@ spec:
     metadata:
       annotations:
         kubectl.kubernetes.io/restartedAt: "2023-01-01T00:00:00Z"
+        sidecar.istio.io/inject: "true"
+        sidecar.istio.io/proxyCPU: "4"
+        sidecar.istio.io/proxyMemory: 4Gi
       creationTimestamp: null
       labels:
         app: mercari
     spec:
       containers:
+      - image: auto
+        name: istio-proxy
+        resources: {}
       - image: awesome-mercari-app-image
         name: app
         resources:
           requests:
             cpu: "10"
             memory: 10Gi
-      - image: awesome-istio-proxy-image
-        name: istio-proxy
-        resources:
-          requests:
-            cpu: "4"
-            memory: 4Gi
 status: {}

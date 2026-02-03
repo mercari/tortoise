@@ -55,6 +55,11 @@ var defaultHPABehaviorValue = &v2.HorizontalPodAutoscalerBehavior{
 				Value:         100,
 				PeriodSeconds: 60,
 			},
+			{
+				Type:          v2.PodsScalingPolicy,
+				Value:         4,
+				PeriodSeconds: 60,
+			},
 		},
 	},
 	ScaleDown: &v2.HPAScalingRules{

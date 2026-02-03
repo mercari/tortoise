@@ -2905,6 +2905,11 @@ func TestService_InitializeHPA(t *testing.T) {
 									Value:         100,
 									PeriodSeconds: 60,
 								},
+								{
+									Type:          v2.PodsScalingPolicy,
+									Value:         4,
+									PeriodSeconds: 60,
+								},
 							},
 						},
 						ScaleDown: &v2.HPAScalingRules{
