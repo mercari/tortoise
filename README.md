@@ -94,7 +94,6 @@ and how they can configure Tortoise so that they can let tortoises autoscale the
 - [Horizontal scaling](./docs/horizontal.md): describes how the Tortoise does the horizontal autoscaling internally.
 - [Vertical scaling](./docs/vertical.md): describes how the Tortoise does the vertical autoscaling internally.
 - [Technically details](./docs/internal.md): describes the technically details of Tortoise. (mostly for the contributors)
-- [Architecture](./docs/architecture.md): describes the high-level architecture of Tortoise.
 - [Contributor guide](./docs/contributor-guide.md): describes other stuff for the contributor. (testing etc)
 
 ## API definition
