@@ -1,6 +1,7 @@
 package tortoise
 
 import (
+	"context"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,7 +78,7 @@ func TestService_IsChangeApplicationDisabled(t *testing.T) {
 				globalDisableMode:  tt.globalDisableMode,
 				excludedNamespaces: sets.New(tt.excludedNamespaces...),
 			}
-			gotDisabled, gotReason := s.IsChangeApplicationDisabled(tt.tortoise)
+			gotDisabled, gotReason := s.IsChangeApplicationDisabled(context.Background(), tt.tortoise)
 			if gotDisabled != tt.wantDisabled {
 				t.Errorf("IsChangeApplicationDisabled() gotDisabled = %v, want %v", gotDisabled, tt.wantDisabled)
 			}

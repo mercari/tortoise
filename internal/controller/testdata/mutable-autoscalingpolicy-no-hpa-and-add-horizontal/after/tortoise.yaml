@@ -20,20 +20,6 @@ status:
       cpu: Vertical
       memory: Vertical
   conditions:
-    containerResourceRequests:
-    - containerName: app
-      resource:
-        cpu: "10"
-        memory: 10Gi
-    - containerName: istio-proxy
-      resource:
-        cpu: "4"
-        memory: 4Gi
-    tortoiseConditions:
-    - lastTransitionTime: "2023-01-01T00:00:00Z"
-      lastUpdateTime: "2023-01-01T00:00:00Z"
-      status: "False"
-      type: FailedToReconcile
     containerRecommendationFromVPA:
     - containerName: app
       maxRecommendation:
@@ -65,6 +51,43 @@ status:
         memory:
           quantity: 4Gi
           updatedAt: null
+    containerResourceRequests:
+    - containerName: app
+      resource:
+        cpu: "10"
+        memory: 10Gi
+    - containerName: istio-proxy
+      resource:
+        cpu: "4"
+        memory: 4Gi
+    tortoiseConditions:
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      message: Tortoise is operating in the mode specified in spec.updateMode
+      reason: NotOverridden
+      status: "False"
+      type: EffectiveModeOverridden
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      status: "False"
+      type: FailedToReconcile
+  containerResourcePhases:
+  - containerName: app
+    resourcePhases:
+      cpu:
+        lastTransitionTime: "2023-01-01T00:00:00Z"
+        phase: GatheringData
+      memory:
+        lastTransitionTime: "2023-01-01T00:00:00Z"
+        phase: Working
+  - containerName: istio-proxy
+    resourcePhases:
+      cpu:
+        lastTransitionTime: "2023-01-01T00:00:00Z"
+        phase: Working
+      memory:
+        lastTransitionTime: "2023-01-01T00:00:00Z"
+        phase: Working
   recommendations:
     horizontal:
       maxReplicas:
@@ -94,23 +117,6 @@ status:
           cpu: "4"
           memory: 4Gi
         containerName: istio-proxy
-  containerResourcePhases:
-  - containerName: app
-    resourcePhases:
-      cpu:
-        lastTransitionTime: "2023-01-01T00:00:00Z"
-        phase: GatheringData
-      memory:
-        lastTransitionTime: "2023-01-01T00:00:00Z"
-        phase: Working
-  - containerName: istio-proxy
-    resourcePhases:
-      cpu:
-        lastTransitionTime: "2023-01-01T00:00:00Z"
-        phase: Working
-      memory:
-        lastTransitionTime: "2023-01-01T00:00:00Z"
-        phase: Working
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari
     scaleTargetRef:

@@ -381,6 +381,10 @@ const (
 	TortoiseConditionTypeHPATargetUtilizationUpdated         TortoiseConditionType = "HPATargetUtilizationUpdated"
 	TortoiseConditionTypeVerticalRecommendationUpdated       TortoiseConditionType = "VerticalRecommendationUpdated"
 	TortoiseConditionTypeScaledUpBasedOnPreferredMaxReplicas TortoiseConditionType = "ScaledUpBasedOnPreferredMaxReplicas"
+	// TortoiseConditionTypeEffectiveModeOverridden indicates when the effective update mode differs from spec.updateMode
+	// due to exclusion mechanisms (GlobalDisableMode, NamespaceExclusion, or ScaleOpsManaged).
+	// When Status=True, Tortoise operates in effective Off mode (read-only) regardless of spec.updateMode.
+	TortoiseConditionTypeEffectiveModeOverridden TortoiseConditionType = "EffectiveModeOverridden"
 )
 
 type TortoiseCondition struct {

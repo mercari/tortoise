@@ -1,114 +1,119 @@
 metadata:
   finalizers:
-    - tortoise.autoscaling.mercari.com/finalizer
+  - tortoise.autoscaling.mercari.com/finalizer
   name: mercari
   namespace: default
 spec:
+  horizontalPodAutoscalerBehavior:
+    scaleDown:
+      policies:
+      - periodSeconds: 10
+        type: Percent
+        value: 5
+      selectPolicy: Min
+    scaleUp:
+      policies:
+      - periodSeconds: 20
+        type: Percent
+        value: 60
+      selectPolicy: Min
+      stabilizationWindowSeconds: 50
   targetRefs:
     horizontalPodAutoscalerName: tortoise-hpa-mercari
     scaleTargetRef:
       apiVersion: apps/v1
       kind: Deployment
       name: mercari-app
-  horizontalPodAutoscalerBehavior:
-    scaleDown:
-      policies:
-        - periodSeconds: 10
-          type: Percent
-          value: 5
-      selectPolicy: Min
-    scaleUp:
-      policies:
-        - periodSeconds: 20
-          type: Percent
-          value: 60
-      selectPolicy: Min
-      stabilizationWindowSeconds: 50
 status:
   autoscalingPolicy:
-    - containerName: app
-      policy:
-        cpu: Vertical
-        memory: Horizontal
+  - containerName: app
+    policy:
+      cpu: Vertical
+      memory: Horizontal
   conditions:
     containerRecommendationFromVPA:
-      - containerName: app
-        maxRecommendation:
-          cpu:
-            quantity: "3"
-            updatedAt: "2023-01-01T00:00:00Z"
-          memory:
-            quantity: 3Gi
-            updatedAt: "2023-01-01T00:00:00Z"
-        recommendation:
-          cpu:
-            quantity: "3"
-            updatedAt: "2023-01-01T00:00:00Z"
-          memory:
-            quantity: 3Gi
-            updatedAt: "2023-01-01T00:00:00Z"
-    containerResourceRequests:
-      - containerName: app
-        resource:
-          cpu: "3"
-          memory: 4Gi
-    tortoiseConditions:
-      - lastTransitionTime: "2023-01-01T00:00:00Z"
-        lastUpdateTime: "2023-01-01T00:00:00Z"
-        message:
-          the current number of replicas is not bigger than the preferred max
-          replica number
-        reason: ScaledUpBasedOnPreferredMaxReplicas
-        status: "False"
-        type: ScaledUpBasedOnPreferredMaxReplicas
-      - lastTransitionTime: "2023-01-01T00:00:00Z"
-        lastUpdateTime: "2023-01-01T00:00:00Z"
-        message: The recommendation is provided
-        status: "True"
-        type: VerticalRecommendationUpdated
-      - lastTransitionTime: "2023-01-01T00:00:00Z"
-        lastUpdateTime: "2023-01-01T00:00:00Z"
-        status: "False"
-        type: FailedToReconcile
-  containerResourcePhases:
     - containerName: app
-      resourcePhases:
+      maxRecommendation:
         cpu:
-          lastTransitionTime: "2023-01-01T00:00:00Z"
-          phase: Working
+          quantity: "3"
+          updatedAt: "2023-01-01T00:00:00Z"
         memory:
-          lastTransitionTime: "2023-01-01T00:00:00Z"
-          phase: GatheringData
+          quantity: 3Gi
+          updatedAt: "2023-01-01T00:00:00Z"
+      recommendation:
+        cpu:
+          quantity: "3"
+          updatedAt: "2023-01-01T00:00:00Z"
+        memory:
+          quantity: 3Gi
+          updatedAt: "2023-01-01T00:00:00Z"
+    containerResourceRequests:
+    - containerName: app
+      resource:
+        cpu: "3"
+        memory: 4Gi
+    tortoiseConditions:
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      message: Tortoise is operating in the mode specified in spec.updateMode
+      reason: NotOverridden
+      status: "False"
+      type: EffectiveModeOverridden
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      message: the current number of replicas is not bigger than the preferred max
+        replica number
+      reason: ScaledUpBasedOnPreferredMaxReplicas
+      status: "False"
+      type: ScaledUpBasedOnPreferredMaxReplicas
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      message: The recommendation is provided
+      status: "True"
+      type: VerticalRecommendationUpdated
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
+      status: "False"
+      type: FailedToReconcile
+  containerResourcePhases:
+  - containerName: app
+    resourcePhases:
+      cpu:
+        lastTransitionTime: "2023-01-01T00:00:00Z"
+        phase: Working
+      memory:
+        lastTransitionTime: "2023-01-01T00:00:00Z"
+        phase: GatheringData
   recommendations:
     horizontal:
       maxReplicas:
-        - from: 0
-          timezone: Local
-          to: 24
-          updatedAt: "2023-01-01T00:00:00Z"
-          value: 20
+      - from: 0
+        timezone: Local
+        to: 24
+        updatedAt: "2023-01-01T00:00:00Z"
+        value: 20
       minReplicas:
-        - from: 0
-          timezone: Local
-          to: 24
-          updatedAt: "2023-01-01T00:00:00Z"
-          value: 5
+      - from: 0
+        timezone: Local
+        to: 24
+        updatedAt: "2023-01-01T00:00:00Z"
+        value: 5
       targetUtilizations:
-        - containerName: app
-          targetUtilization:
-            memory: 75
+      - containerName: app
+        targetUtilization:
+          memory: 75
     vertical:
       containerResourceRecommendation:
-        - RecommendedResource:
-            cpu: "3"
-            memory: 4Gi
-          containerName: app
+      - RecommendedResource:
+          cpu: "3"
+          memory: 4Gi
+        containerName: app
   targets:
     horizontalPodAutoscaler: tortoise-hpa-mercari
     scaleTargetRef:
       kind: ""
       name: ""
     verticalPodAutoscalers:
-      - name: tortoise-monitor-mercari
-        role: Monitor
+    - name: tortoise-monitor-mercari
+      role: Monitor
   tortoisePhase: PartlyWorking

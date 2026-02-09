@@ -55,6 +55,7 @@ import (
 	"github.com/mercari/tortoise/pkg/metrics"
 	"github.com/mercari/tortoise/pkg/pod"
 	"github.com/mercari/tortoise/pkg/recommender"
+	"github.com/mercari/tortoise/pkg/scaleops"
 	"github.com/mercari/tortoise/pkg/tortoise"
 	"github.com/mercari/tortoise/pkg/vpa"
 
@@ -144,7 +145,11 @@ func main() {
 		os.Exit(1)
 	}
 	eventRecorder := mgr.GetEventRecorderFor("tortoise-controller")
-	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, config.RangeOfMinMaxReplicasRecommendationHours, config.TimeZone, config.TortoiseUpdateInterval, config.GatheringDataPeriodType, config.GlobalDisableMode, config.ExcludedNamespaces)
+
+	// Initialize ScaleOps service for detecting ScaleOps-managed workloads
+	scaleopsService := scaleops.New(mgr.GetClient())
+
+	tortoiseService, err := tortoise.New(mgr.GetClient(), eventRecorder, config.RangeOfMinMaxReplicasRecommendationHours, config.TimeZone, config.TortoiseUpdateInterval, config.GatheringDataPeriodType, config.GlobalDisableMode, config.ExcludedNamespaces, scaleopsService)
 	if err != nil {
 		setupLog.Error(err, "unable to start tortoise service")
 		os.Exit(1)
@@ -156,7 +161,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	hpaService, err := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.MaximumTargetResourceUtilization, config.HPATargetUtilizationMaxIncrease, config.HPATargetUtilizationUpdateInterval, config.DefaultHPABehavior, config.MaximumMinReplicas, config.MaximumMaxReplicas, int32(config.MinimumMinReplicas), config.HPAExternalMetricExclusionRegex, config.EmergencyModeGracePeriod, config.GlobalDisableMode, config.ExcludedNamespaces)
+	hpaService, err := hpa.New(mgr.GetClient(), eventRecorder, config.ReplicaReductionFactor, config.MaximumTargetResourceUtilization, config.HPATargetUtilizationMaxIncrease, config.HPATargetUtilizationUpdateInterval, config.DefaultHPABehavior, config.MaximumMinReplicas, config.MaximumMaxReplicas, int32(config.MinimumMinReplicas), config.HPAExternalMetricExclusionRegex, config.EmergencyModeGracePeriod, config.GlobalDisableMode, config.ExcludedNamespaces, scaleopsService)
 	if err != nil {
 		setupLog.Error(err, "unable to start hpa service")
 		os.Exit(1)

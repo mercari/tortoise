@@ -45,6 +45,12 @@ type Service struct {
 	emergencyModeGracePeriod                   time.Duration
 	globalDisableMode                          bool
 	excludedNamespaces                         sets.Set[string]
+	scaleopsService                            ScaleOpsService
+}
+
+// ScaleOpsService interface for ScaleOps detection
+type ScaleOpsService interface {
+	IsScaleOpsManaged(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (bool, string, error)
 }
 
 var defaultHPABehaviorValue = &v2.HorizontalPodAutoscalerBehavior{
@@ -82,6 +88,7 @@ func New(
 	emergencyModeGracePeriod time.Duration,
 	globalDisableMode bool,
 	excludedNamespaces []string,
+	scaleopsService ScaleOpsService,
 ) (*Service, error) {
 	var regex *regexp.Regexp
 	if externalMetricExclusionRegex != "" {
@@ -115,6 +122,7 @@ func New(
 		emergencyModeGracePeriod:                   emergencyModeGracePeriod,
 		globalDisableMode:                          globalDisableMode,
 		excludedNamespaces:                         sets.New(excludedNamespaces...),
+		scaleopsService:                            scaleopsService,
 	}, nil
 }
 
@@ -185,13 +193,28 @@ func (c *Service) IsGlobalDisableModeEnabled() bool {
 
 // IsChangeApplicationDisabled returns true if changes should not be applied to the tortoise.
 // It returns the reason ("GlobalDisableMode" or "NamespaceExclusion") if disabled.
-func (c *Service) IsChangeApplicationDisabled(tortoise *autoscalingv1beta3.Tortoise) (bool, string) {
+func (c *Service) IsChangeApplicationDisabled(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (bool, string) {
 	if c.globalDisableMode {
 		return true, "GlobalDisableMode"
 	}
 	if c.excludedNamespaces.Has(tortoise.Namespace) {
 		return true, "NamespaceExclusion"
 	}
+
+	// Check if ScaleOps is managing this workload
+	if c.scaleopsService != nil {
+		managed, reason, err := c.scaleopsService.IsScaleOpsManaged(ctx, tortoise)
+		if err != nil {
+			// Log error but fail-open (don't block reconciliation on ScaleOps detection errors)
+			log.FromContext(ctx).Error(err, "failed to check ScaleOps management, allowing Tortoise to proceed",
+				"tortoise", client.ObjectKeyFromObject(tortoise))
+			return false, ""
+		}
+		if managed {
+			return true, reason
+		}
+	}
+
 	return false, ""
 }
 
@@ -380,7 +403,7 @@ func (s *Service) RecordHPATargetUtilizationUpdate(tortoise *autoscalingv1beta3.
 	return tortoise
 }
 
-func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time, recordMetrics bool) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
+func (c *Service) ChangeHPAFromTortoiseRecommendation(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, hpa *v2.HorizontalPodAutoscaler, now time.Time, recordMetrics bool) (*v2.HorizontalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
 	if tortoise.Status.TortoisePhase == autoscalingv1beta3.TortoisePhaseInitializing || tortoise.Status.TortoisePhase == "" {
 		// Tortoise is not ready, don't update HPA
 		return hpa, tortoise, nil
@@ -408,7 +431,7 @@ func (c *Service) ChangeHPAFromTortoiseRecommendation(tortoise *autoscalingv1bet
 
 	var allowed bool
 	tortoise, allowed = c.UpdatingHPATargetUtilizationAllowed(tortoise, now)
-	disabled, _ := c.IsChangeApplicationDisabled(tortoise)
+	disabled, _ := c.IsChangeApplicationDisabled(ctx, tortoise)
 	for _, t := range tortoise.Status.Recommendations.Horizontal.TargetUtilizations {
 		for resourcename, proposedTarget := range t.TargetUtilization {
 			if !readyHorizontalResourceAndContainer.Has(resourceNameAndContainerName{resourcename, t.ContainerName}) {
@@ -639,8 +662,8 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		return nil, tortoise, nil
 	}
 
-	if disabled, reason := c.IsChangeApplicationDisabled(tortoise); disabled {
-		// Global disable mode or namespace exclusion is enabled - don't update HPA but continue processing
+	if disabled, reason := c.IsChangeApplicationDisabled(ctx, tortoise); disabled {
+		// Global disable mode, namespace exclusion, or ScaleOps management - don't update HPA but continue processing
 		log.FromContext(ctx).Info("Skipping HPA recommendation update", "tortoise", klog.KObj(tortoise), "reason", reason)
 		return nil, tortoise, nil
 	}
@@ -657,7 +680,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 		retHPA = hpa.DeepCopy()
 
-		hpa, tortoise, err := c.ChangeHPAFromTortoiseRecommendation(tortoise, hpa, now, !metricsRecorded)
+		hpa, tortoise, err := c.ChangeHPAFromTortoiseRecommendation(ctx, tortoise, hpa, now, !metricsRecorded)
 		if err != nil {
 			return fmt.Errorf("change HPA from tortoise recommendation: %w", err)
 		}
@@ -668,7 +691,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		}
 		hpa.Spec.Behavior = behavior // overwrite
 		retTortoise = tortoise
-		disabled, _ := c.IsChangeApplicationDisabled(tortoise)
+		disabled, _ := c.IsChangeApplicationDisabled(ctx, tortoise)
 		if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff || disabled {
 			// don't update status if update mode is off or global disable mode is enabled. (= dryrun)
 			return nil
@@ -683,7 +706,7 @@ func (c *Service) UpdateHPAFromTortoiseRecommendation(ctx context.Context, torto
 		return nil, retTortoise, err
 	}
 
-	disabled, _ := c.IsChangeApplicationDisabled(tortoise)
+	disabled, _ := c.IsChangeApplicationDisabled(ctx, tortoise)
 	if tortoise.Spec.UpdateMode != autoscalingv1beta3.UpdateModeOff && !disabled {
 		c.recorder.Event(tortoise, corev1.EventTypeNormal, event.HPAUpdated, fmt.Sprintf("HPA %s/%s is updated by the recommendation", retHPA.Namespace, retHPA.Name))
 	}

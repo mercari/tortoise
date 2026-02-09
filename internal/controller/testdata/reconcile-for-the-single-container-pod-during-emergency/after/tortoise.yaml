@@ -47,6 +47,12 @@ status:
       type: HPATargetUtilizationUpdated
     - lastTransitionTime: "2023-01-01T00:00:00Z"
       lastUpdateTime: "2023-01-01T00:00:00Z"
+      message: Tortoise is operating in the mode specified in spec.updateMode
+      reason: NotOverridden
+      status: "False"
+      type: EffectiveModeOverridden
+    - lastTransitionTime: "2023-01-01T00:00:00Z"
+      lastUpdateTime: "2023-01-01T00:00:00Z"
       status: "False"
       type: FailedToReconcile
   containerResourcePhases:
