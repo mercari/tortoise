@@ -569,9 +569,10 @@ func (s *Service) IsChangeApplicationDisabled(ctx context.Context, tortoise *v1b
 	if s.scaleopsService != nil {
 		managed, reason, err := s.scaleopsService.IsScaleOpsManaged(ctx, tortoise)
 		if err != nil {
-			// Log error but fail-open (don't block reconciliation on ScaleOps detection errors)
-			log.FromContext(ctx).Error(err, "failed to check ScaleOps management, allowing Tortoise to proceed",
-				"tortoise", client.ObjectKeyFromObject(tortoise))
+			// Fail-open: proceed with Tortoise reconciliation if we can't check ScaleOps management
+			// This is expected when ScaleOps CRDs exist but RBAC permissions aren't configured
+			log.FromContext(ctx).Info("unable to check ScaleOps management (likely missing RBAC permissions), proceeding with Tortoise reconciliation",
+				"tortoise", client.ObjectKeyFromObject(tortoise), "error", err.Error())
 			return false, ""
 		}
 		if managed {
