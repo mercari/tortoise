@@ -1,6 +1,7 @@
 package scaleops
 
 import (
+	"context"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +38,7 @@ func TestService_IsScaleOpsManaged_CRDNotEnabled(t *testing.T) {
 		},
 	}
 
-	managed, reason, err := s.IsScaleOpsManaged(nil, tortoise)
+	managed, reason, err := s.IsScaleOpsManaged(context.TODO(), tortoise)
 	if err != nil {
 		t.Errorf("IsScaleOpsManaged() unexpected error = %v", err)
 	}

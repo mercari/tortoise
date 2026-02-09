@@ -225,12 +225,8 @@ func checkScaleOpsCRDsInstalled(c client.Client) bool {
 
 	err := c.List(ctx, list, &client.ListOptions{Limit: 1})
 	if err != nil {
-		if meta.IsNoMatchError(err) {
-			// CRD not installed
-			return false
-		}
-		// Other errors (permission denied, etc.) - assume CRDs exist
-		return true
+		// If NoMatchError, CRD not installed; otherwise assume CRDs exist
+		return !meta.IsNoMatchError(err)
 	}
 
 	return true
