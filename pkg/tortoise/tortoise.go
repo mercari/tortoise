@@ -48,13 +48,20 @@ type Service struct {
 	globalDisableMode bool
 	// ExcludedNamespaces is a set of namespaces to exclude from Tortoise reconciliation.
 	excludedNamespaces sets.Set[string]
+	// scaleopsService provides ScaleOps CRD detection functionality
+	scaleopsService ScaleOpsService
 
 	mu sync.RWMutex
 	// TODO: Instead of here, we should store the last time of each tortoise in the status of the tortoise.
 	lastTimeUpdateTortoise map[client.ObjectKey]time.Time
 }
 
-func New(c client.Client, recorder record.EventRecorder, rangeOfMinMaxReplicasRecommendationHour int, timeZone string, tortoiseUpdateInterval time.Duration, gatheringDataDuration string, globalDisableMode bool, excludedNamespaces []string) (*Service, error) {
+// ScaleOpsService interface for ScaleOps detection
+type ScaleOpsService interface {
+	IsScaleOpsManaged(ctx context.Context, tortoise *v1beta3.Tortoise) (bool, string, error)
+}
+
+func New(c client.Client, recorder record.EventRecorder, rangeOfMinMaxReplicasRecommendationHour int, timeZone string, tortoiseUpdateInterval time.Duration, gatheringDataDuration string, globalDisableMode bool, excludedNamespaces []string, scaleopsService ScaleOpsService) (*Service, error) {
 	jst, err := time.LoadLocation(timeZone)
 	if err != nil {
 		return nil, fmt.Errorf("load location: %w", err)
@@ -73,6 +80,7 @@ func New(c client.Client, recorder record.EventRecorder, rangeOfMinMaxReplicasRe
 		tortoiseUpdateInterval:                  tortoiseUpdateInterval,
 		globalDisableMode:                       globalDisableMode,
 		excludedNamespaces:                      sets.New(excludedNamespaces...),
+		scaleopsService:                         scaleopsService,
 		lastTimeUpdateTortoise:                  map[client.ObjectKey]time.Time{},
 	}, nil
 }
@@ -548,14 +556,30 @@ func (s *Service) IsGlobalDisableModeEnabled() bool {
 }
 
 // IsChangeApplicationDisabled returns true if changes should not be applied to the tortoise.
-// It returns the reason ("GlobalDisableMode" or "NamespaceExclusion") if disabled.
-func (s *Service) IsChangeApplicationDisabled(tortoise *v1beta3.Tortoise) (bool, string) {
+// It returns the reason ("GlobalDisableMode", "NamespaceExclusion", or "ScaleOpsManaged") if disabled.
+func (s *Service) IsChangeApplicationDisabled(ctx context.Context, tortoise *v1beta3.Tortoise) (bool, string) {
 	if s.globalDisableMode {
 		return true, "GlobalDisableMode"
 	}
 	if s.excludedNamespaces.Has(tortoise.Namespace) {
 		return true, "NamespaceExclusion"
 	}
+
+	// Check if ScaleOps is managing this workload
+	if s.scaleopsService != nil {
+		managed, reason, err := s.scaleopsService.IsScaleOpsManaged(ctx, tortoise)
+		if err != nil {
+			// Fail-open: proceed with Tortoise reconciliation if we can't check ScaleOps management
+			// This is expected when ScaleOps CRDs exist but RBAC permissions aren't configured
+			log.FromContext(ctx).Info("unable to check ScaleOps management (likely missing RBAC permissions), proceeding with Tortoise reconciliation",
+				"tortoise", client.ObjectKeyFromObject(tortoise), "error", err.Error())
+			return false, ""
+		}
+		if managed {
+			return true, reason
+		}
+	}
+
 	return false, ""
 }
 
@@ -781,8 +805,8 @@ func (c *Service) UpdateResourceRequest(ctx context.Context, tortoise *v1beta3.T
 		return tortoise, nil
 	}
 
-	if disabled, reason := c.IsChangeApplicationDisabled(tortoise); disabled {
-		// Global disable mode or namespace exclusion is enabled - don't apply recommendations but still update status
+	if disabled, reason := c.IsChangeApplicationDisabled(ctx, tortoise); disabled {
+		// Global disable mode, namespace exclusion, or ScaleOps management - don't apply recommendations but still update status
 		msg := fmt.Sprintf("The recommendation is not applied because %s is enabled", reason)
 		log.FromContext(ctx).Info("Skipping VPA recommendation application", "tortoise", klog.KObj(tortoise), "reason", reason)
 		tortoise = utils.ChangeTortoiseCondition(tortoise,

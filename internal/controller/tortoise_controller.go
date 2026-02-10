@@ -29,8 +29,10 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -45,6 +47,7 @@ import (
 	"github.com/mercari/tortoise/pkg/metrics"
 	"github.com/mercari/tortoise/pkg/recommender"
 	tortoiseService "github.com/mercari/tortoise/pkg/tortoise"
+	"github.com/mercari/tortoise/pkg/utils"
 	"github.com/mercari/tortoise/pkg/vpa"
 )
 
@@ -86,6 +89,10 @@ var (
 //+kubebuilder:rbac:groups=core,resources=replicationcontrollers,verbs=get;list;watch
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch
 //+kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch
+
+// ScaleOps CRD permissions for detecting ScaleOps-managed workloads
+//+kubebuilder:rbac:groups=analysis.scaleops.sh,resources=automatednamespaces,verbs=get;list;watch
+//+kubebuilder:rbac:groups=analysis.scaleops.sh,resources=recommendations,verbs=get;list;watch
 
 func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	logger := log.FromContext(ctx)
@@ -145,6 +152,29 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	if !reconcileNow {
 		logger.Info("the reconciliation is skipped because this tortoise is recently updated", "tortoise", req.NamespacedName)
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
+	}
+
+	// Check if tortoise is effectively in Off mode due to exclusions
+	// and set the EffectiveModeOverridden condition accordingly
+	disabled, reason := r.TortoiseService.IsChangeApplicationDisabled(ctx, tortoise)
+	if disabled {
+		tortoise = utils.ChangeTortoiseCondition(
+			tortoise,
+			v1beta3.TortoiseConditionTypeEffectiveModeOverridden,
+			corev1.ConditionTrue,
+			reason,
+			formatExclusionMessage(reason, tortoise),
+			now,
+		)
+	} else {
+		tortoise = utils.ChangeTortoiseCondition(
+			tortoise,
+			v1beta3.TortoiseConditionTypeEffectiveModeOverridden,
+			corev1.ConditionFalse,
+			"NotOverridden",
+			"Tortoise is operating in the mode specified in spec.updateMode",
+			now,
+		)
 	}
 
 	// TODO: stop depending on deployment.
@@ -290,7 +320,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	disabled, reason := r.TortoiseService.IsChangeApplicationDisabled(tortoise)
+	// Reuse disabled and reason from earlier check (no need to call IsChangeApplicationDisabled again)
 	if tortoise.Spec.UpdateMode != v1beta3.UpdateModeOff && !disabled && !reflect.DeepEqual(oldTortoise.Status.Conditions.ContainerResourceRequests, tortoise.Status.Conditions.ContainerResourceRequests) {
 		// The container resource requests are updated, so we need to update the Pods.
 		err = r.DeploymentService.RolloutRestart(ctx, dm, tortoise, now)
@@ -303,6 +333,24 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 
 	return ctrl.Result{RequeueAfter: r.Interval}, nil
+}
+
+// formatExclusionMessage creates a user-friendly message explaining why Tortoise is excluded
+func formatExclusionMessage(reason string, tortoise *autoscalingv1beta3.Tortoise) string {
+	switch {
+	case reason == "GlobalDisableMode":
+		return "Tortoise recommendations are not being applied because Global Disable Mode is enabled cluster-wide"
+	case reason == "NamespaceExclusion":
+		return fmt.Sprintf("Tortoise recommendations are not being applied because namespace %q is in the exclusion list", tortoise.Namespace)
+	case strings.HasPrefix(reason, "ScaleOpsManagedWorkload:"):
+		workloadName := strings.TrimPrefix(reason, "ScaleOpsManagedWorkload:")
+		return fmt.Sprintf("Tortoise recommendations are not being applied because workload %q is managed by ScaleOps", workloadName)
+	case reason == "ScaleOpsManagedNamespace":
+		return fmt.Sprintf("Tortoise recommendations are not being applied because namespace %q is managed by ScaleOps", tortoise.Namespace)
+	default:
+		// Fallback for any unknown reasons
+		return fmt.Sprintf("Tortoise recommendations are not being applied due to: %s", reason)
+	}
 }
 
 func (r *TortoiseReconciler) deleteVPAAndHPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, now time.Time) error {

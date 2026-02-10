@@ -41,20 +41,25 @@ spec:
     name: mercari-app
 status:
   conditions:
-    - status: "True"
-      type: AbleToScale
-      message: "recommended size matches current size"
-    - status: "True"
-      type: ScalingActive
-      message: "the HPA was able to compute the replica count"
+  - lastTransitionTime: null
+    message: recommended size matches current size
+    status: "True"
+    type: AbleToScale
+  - lastTransitionTime: null
+    message: the HPA was able to compute the replica count
+    status: "True"
+    type: ScalingActive
   currentMetrics:
-    - containerResource:
-        container: app
-        name: cpu
-        current:
-          value: 3
-    - containerResource:
-        container: istio-proxy
-        name: cpu
-        current:
-          value: 3
+  - containerResource:
+      container: app
+      current:
+        value: "3"
+      name: cpu
+    type: ""
+  - containerResource:
+      container: istio-proxy
+      current:
+        value: "3"
+      name: cpu
+    type: ""
+  desiredReplicas: 0

@@ -8,21 +8,22 @@ spec:
   strategy: {}
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+        sidecar.istio.io/proxyCPU: "2"
+        sidecar.istio.io/proxyMemory: 2Gi
       creationTimestamp: null
       labels:
         app: mercari
     spec:
       containers:
+      - image: auto
+        name: istio-proxy
+        resources: {}
       - image: awesome-mercari-app-image
         name: app
         resources:
           requests:
             cpu: "6"
-            memory: 5Gi
-      - image: awesome-istio-proxy-image
-        name: istio-proxy
-        resources:
-          requests:
-            cpu: "2"
-            memory: 1.5Gi
+            memory: 6Gi
 status: {}
