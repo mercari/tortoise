@@ -143,7 +143,8 @@ func (s *Service) checkRecommendation(ctx context.Context, tortoise *v1beta3.Tor
 			"recommendation", recName,
 			"rightsizing", optimize,
 			"replicas", scaleOutOptimize)
-		return true, fmt.Sprintf("ScaleOpsManaged(Recommendation:%s)", recName), nil
+		// Return deployment name for user-friendly message
+		return true, fmt.Sprintf("ScaleOpsManagedWorkload:%s", name), nil
 	}
 
 	// Recommendation exists but automation is disabled (implicit opt-out)
@@ -204,7 +205,7 @@ func (s *Service) checkAutomatedNamespace(ctx context.Context, tortoise *v1beta3
 			"namespace", tortoise.Namespace,
 			"rightsizing", rightsizeOn,
 			"replicas", replicasOn)
-		return true, "ScaleOpsManaged(AutomatedNamespace)", nil
+		return true, "ScaleOpsManagedNamespace", nil
 	}
 
 	return false, "", nil

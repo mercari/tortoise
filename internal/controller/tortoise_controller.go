@@ -29,6 +29,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -162,7 +163,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 			v1beta3.TortoiseConditionTypeEffectiveModeOverridden,
 			corev1.ConditionTrue,
 			reason,
-			fmt.Sprintf("Tortoise is operating in Off mode (read-only) due to %s. Recommendations are calculated but not applied.", reason),
+			formatExclusionMessage(reason, tortoise),
 			now,
 		)
 	} else {
@@ -332,6 +333,24 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 
 	return ctrl.Result{RequeueAfter: r.Interval}, nil
+}
+
+// formatExclusionMessage creates a user-friendly message explaining why Tortoise is excluded
+func formatExclusionMessage(reason string, tortoise *autoscalingv1beta3.Tortoise) string {
+	switch {
+	case reason == "GlobalDisableMode":
+		return "Tortoise recommendations are not being applied because Global Disable Mode is enabled cluster-wide"
+	case reason == "NamespaceExclusion":
+		return fmt.Sprintf("Tortoise recommendations are not being applied because namespace %q is in the exclusion list", tortoise.Namespace)
+	case strings.HasPrefix(reason, "ScaleOpsManagedWorkload:"):
+		workloadName := strings.TrimPrefix(reason, "ScaleOpsManagedWorkload:")
+		return fmt.Sprintf("Tortoise recommendations are not being applied because workload %q is managed by ScaleOps", workloadName)
+	case reason == "ScaleOpsManagedNamespace":
+		return fmt.Sprintf("Tortoise recommendations are not being applied because namespace %q is managed by ScaleOps", tortoise.Namespace)
+	default:
+		// Fallback for any unknown reasons
+		return fmt.Sprintf("Tortoise recommendations are not being applied due to: %s", reason)
+	}
 }
 
 func (r *TortoiseReconciler) deleteVPAAndHPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise, now time.Time) error {
