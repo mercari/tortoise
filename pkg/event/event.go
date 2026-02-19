@@ -20,4 +20,5 @@ const (
 	RestartDeployment    = "RestartDeployment"
 
 	WarningHittingHardMaxReplicaLimit = "HitHardMaxReplicaLimit"
+	WarningReplicaValidation          = "ReplicaValidationWarning"
 )
