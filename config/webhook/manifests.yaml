@@ -109,3 +109,23 @@ webhooks:
     resources:
     - horizontalpodautoscalers
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-autoscaling-mercari-com-v1alpha1-scheduledscaling
+  failurePolicy: Fail
+  name: vscheduledscaling.kb.io
+  rules:
+  - apiGroups:
+    - autoscaling.mercari.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - scheduledscalings
+  sideEffects: None

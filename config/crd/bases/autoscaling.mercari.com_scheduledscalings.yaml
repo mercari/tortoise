@@ -1,0 +1,256 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.1
+  name: scheduledscalings.autoscaling.mercari.com
+spec:
+  group: autoscaling.mercari.com
+  names:
+    kind: ScheduledScaling
+    listKind: ScheduledScalingList
+    plural: scheduledscalings
+    singular: scheduledscaling
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Status
+      type: string
+    - jsonPath: .spec.schedule.type
+      name: Type
+      type: string
+    - jsonPath: .status.formattedStartTime
+      name: Start Time
+      type: string
+    - jsonPath: .status.formattedEndTime
+      name: End Time
+      type: string
+    - jsonPath: .status.formattedNextStartTime
+      name: Next Start
+      type: string
+    - jsonPath: .status.humanReadableSchedule
+      name: Schedule
+      type: string
+    - jsonPath: .spec.targetRefs.tortoiseName
+      name: Target Tortoise
+      type: string
+    - jsonPath: .status.message
+      name: Warnings
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ScheduledScaling is the Schema for the scheduledscalings API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ScheduledScalingSpec defines the desired state of ScheduledScaling
+            properties:
+              schedule:
+                description: Schedule defines when the scaling should occur
+                properties:
+                  cronExpression:
+                    description: |-
+                      Cron-based scheduling fields (used when type="cron")
+                      CronExpression defines when scaling periods should start using cron format
+                      Format: "minute hour day month dayofweek" (e.g., "0 9 * * 1-5" for 9 AM weekdays)
+                    type: string
+                  duration:
+                    description: |-
+                      Duration specifies how long each scaling period should last
+                      Format: Go duration (e.g., "8h", "30m", "1h30m")
+                    type: string
+                  finishAt:
+                    description: |-
+                      FinishAt specifies when the scaling should end and return to normal
+                      Format: RFC3339 (e.g., "2024-01-15T18:00:00Z")
+                    type: string
+                  startAt:
+                    description: |-
+                      Time-based scheduling fields (used when type="time")
+                      StartAt specifies when the scaling should begin
+                      Format: RFC3339 (e.g., "2024-01-15T10:00:00Z")
+                    type: string
+                  timeZone:
+                    default: Asia/Tokyo
+                    description: |-
+                      TimeZone specifies the timezone for cron-based scheduling
+                      Format: IANA timezone (e.g., "Asia/Tokyo", "UTC", "America/New_York")
+                    type: string
+                  type:
+                    description: 'Type specifies the scheduling type: "time" or "cron"'
+                    enum:
+                    - time
+                    - cron
+                    type: string
+                required:
+                - type
+                type: object
+              status:
+                default: Inactive
+                description: Status indicates the current state of the scheduled scaling
+                enum:
+                - Inactive
+                - Active
+                type: string
+              strategy:
+                description: Strategy defines how the scaling should be performed
+                properties:
+                  static:
+                    description: Static defines static scaling parameters
+                    properties:
+                      containerMinAllocatedResources:
+                        description: |-
+                          ContainerMinAllocatedResources sets container-specific minimum allocated resources
+                          If specified, this takes precedence over MinAllocatedResources for specific containers
+                        items:
+                          description: ContainerResourceRequirements describes container-specific
+                            resource requirements
+                          properties:
+                            containerName:
+                              description: ContainerName specifies which container
+                                these resources apply to
+                              type: string
+                            resources:
+                              description: Resources specifies the resource requirements
+                                for this container
+                              properties:
+                                cpu:
+                                  description: CPU specifies the CPU resource requirements
+                                  type: string
+                                memory:
+                                  description: Memory specifies the memory resource
+                                    requirements
+                                  type: string
+                              required:
+                              - cpu
+                              - memory
+                              type: object
+                          required:
+                          - containerName
+                          - resources
+                          type: object
+                        type: array
+                      minAllocatedResources:
+                        description: |-
+                          MinAllocatedResources sets the minimum allocated resources during scaling
+                          This can be either global (applied to all containers) or container-specific
+                        properties:
+                          cpu:
+                            description: CPU specifies the CPU resource requirements
+                            type: string
+                          memory:
+                            description: Memory specifies the memory resource requirements
+                            type: string
+                        required:
+                        - cpu
+                        - memory
+                        type: object
+                      minimumMinReplicas:
+                        description: MinimumMinReplicas sets the minimum number of
+                          replicas during scaling
+                        format: int32
+                        minimum: 1
+                        type: integer
+                    type: object
+                required:
+                - static
+                type: object
+              targetRefs:
+                description: TargetRefs specifies which resources this scheduled scaling
+                  should affect
+                properties:
+                  tortoiseName:
+                    description: TortoiseName is the name of the Tortoise resource
+                      to scale
+                    type: string
+                required:
+                - tortoiseName
+                type: object
+            required:
+            - schedule
+            - strategy
+            - targetRefs
+            type: object
+          status:
+            description: ScheduledScalingStatus defines the observed state of ScheduledScaling
+            properties:
+              currentWindowEnd:
+                description: CurrentWindowEnd indicates the end of the current scaling
+                  window (for cron-based scheduling)
+                format: date-time
+                type: string
+              currentWindowStart:
+                description: CurrentWindowStart indicates the start of the current
+                  scaling window (for cron-based scheduling)
+                format: date-time
+                type: string
+              formattedEndTime:
+                description: FormattedEndTime provides a human-readable formatted
+                  end time
+                type: string
+              formattedNextStartTime:
+                description: FormattedNextStartTime provides a human-readable formatted
+                  next start time
+                type: string
+              formattedStartTime:
+                description: FormattedStartTime provides a human-readable formatted
+                  start time
+                type: string
+              humanReadableSchedule:
+                description: HumanReadableSchedule provides a human-readable description
+                  of the schedule
+                type: string
+              lastTransitionTime:
+                description: LastTransitionTime is the last time the status transitioned
+                  from one phase to another
+                format: date-time
+                type: string
+              message:
+                description: Message provides additional information about the current
+                  phase
+                type: string
+              nextWindowStart:
+                description: NextWindowStart indicates when the next scaling window
+                  will start (for cron-based scheduling)
+                format: date-time
+                type: string
+              phase:
+                description: Phase indicates the current phase of the scheduled scaling
+                enum:
+                - Pending
+                - Active
+                - Completed
+                - Failed
+                type: string
+              reason:
+                description: Reason indicates why the scheduled scaling is in the
+                  current phase
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
