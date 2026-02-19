@@ -139,8 +139,15 @@ ifndef ignore-not-found
   ignore-not-found = false
 endif
 
+.PHONY: validate-kustomize
+validate-kustomize: kustomize ## Validate kustomization files syntax
+	@echo "Validating kustomization files..."
+	$(KUSTOMIZE) build config/crd > /dev/null
+	$(KUSTOMIZE) build config/default > /dev/null
+	@echo "Kustomization files are valid"
+
 .PHONY: install
-install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+install: manifests kustomize validate-kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
 
 .PHONY: uninstall
@@ -148,7 +155,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy: manifests kustomize validate-kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 
