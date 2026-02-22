@@ -18,7 +18,7 @@ Currently, Tortoise supports only `type: ContainerResource` metric.
 If HPA has `type: Resource` metrics, Tortoise just removes them because they'd be conflict with `type: ContainerResource` metrics managed by Tortoise.
 If HPA has metrics other than `Resource` or `ContainerResource`, Tortoise just keeps them. 
 
-### How Tortoise 
+### How Tortoise calculates the recommendations
 
 ### MaxReplicas
 
@@ -54,7 +54,7 @@ Supposing your web frontend is down, your backend app Pods would be scaled in be
 But, when your web frontend is back, the huge traffic that the backend app usually handles would come again,
 and if the backend had been scaled in too much, it could be overwhelmed easily.
 
-To prevent this kind of issue like domino, Tortoise sets MinReplicas like above so that it can keep the replica number to some extend, preventing too much scaling in.
+To prevent this kind of issue like domino, Tortoise sets MinReplicas like above so that it can keep the replica number to some extent, preventing too much scaling in.
 
 ### Target utilization
 

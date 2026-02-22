@@ -31,7 +31,7 @@ To address these challenges, the platform team has embarked on developing Tortoi
 an automated solution designed to meet all Kubernetes resource optimization needs.
 
 This approach shifts the optimization responsibility from service owners to the platform team (Tortoises), 
-allowing for comprehensive tuning by the platform team to ensure all Tortoises in the cluster adapts to each workload. 
+allowing for comprehensive tuning by the platform team to ensure all Tortoises in the cluster adapt to each workload. 
 On the other hand, service owners are required to configure only a minimal number of parameters 
 to initiate autoscaling with Tortoise, significantly simplifying their involvement.
 
