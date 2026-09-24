@@ -19,6 +19,7 @@ import (
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/event"
 	"github.com/mercari/tortoise/pkg/utils"
+	"github.com/mercari/tortoise/pkg/workload"
 )
 
 type Service struct {
@@ -87,6 +88,7 @@ func (c *Service) UpdateVPAContainerResourcePolicy(ctx context.Context, tortoise
 
 func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autoscalingv1beta3.Tortoise) (*v1.VerticalPodAutoscaler, *autoscalingv1beta3.Tortoise, error) {
 	off := v1.UpdateModeOff
+	targetKind := tortoise.Spec.TargetRefs.ScaleTargetRef.Kind
 	vpa := &v1.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: tortoise.Namespace,
@@ -94,9 +96,9 @@ func (c *Service) CreateTortoiseMonitorVPA(ctx context.Context, tortoise *autosc
 		},
 		Spec: v1.VerticalPodAutoscalerSpec{
 			TargetRef: &autoscaling.CrossVersionObjectReference{
-				Kind:       "Deployment",
+				Kind:       targetKind,
 				Name:       tortoise.Spec.TargetRefs.ScaleTargetRef.Name,
-				APIVersion: "apps/v1",
+				APIVersion: workload.DefaultAPIVersion(targetKind),
 			},
 			UpdatePolicy: &v1.PodUpdatePolicy{
 				UpdateMode: &off,

@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/mercari/tortoise/pkg/annotation"
+	"github.com/mercari/tortoise/pkg/workload"
 )
 
 // log is for logging in this package.
@@ -70,18 +71,18 @@ func (r *Tortoise) defaultAutoscalingPolicy() {
 	}
 
 	// TODO: support other resources.
-	if r.Spec.TargetRefs.ScaleTargetRef.Kind == "Deployment" {
-		d, err := ClientService.GetDeploymentOnTortoise(ctx, r)
+	if workload.IsSupportedKind(r.Spec.TargetRefs.ScaleTargetRef.Kind) {
+		template, err := ClientService.GetPodTemplateOnTortoise(ctx, r)
 		if err != nil {
-			tortoiselog.Error(err, "failed to get deployment")
+			tortoiselog.Error(err, "failed to get the pod template of the scale target")
 			return
 		}
 
-		containers := d.Spec.Template.Spec.DeepCopy().Containers
-		if d.Spec.Template.Annotations != nil {
-			if v, ok := d.Spec.Template.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
-				// If the deployment has the sidecar injection annotation, the Pods will have the sidecar container in addition.
-				containers = append(d.Spec.Template.Spec.Containers, v1.Container{
+		containers := template.Spec.DeepCopy().Containers
+		if template.Annotations != nil {
+			if v, ok := template.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
+				// If the workload has the sidecar injection annotation, the Pods will have the sidecar container in addition.
+				containers = append(template.Spec.Containers, v1.Container{
 					Name: "istio-proxy",
 				})
 			}
@@ -129,6 +130,10 @@ func (r *Tortoise) Default() {
 	if r.Spec.DeletionPolicy == "" {
 		r.Spec.DeletionPolicy = DeletionPolicyNoDelete
 	}
+	if r.Spec.TargetRefs.ScaleTargetRef.Kind == workload.KindRollout && r.Spec.TargetRefs.ScaleTargetRef.APIVersion == "" {
+		// HPA and VPA need the apiVersion to find the Rollout.
+		r.Spec.TargetRefs.ScaleTargetRef.APIVersion = workload.RolloutAPIVersion
+	}
 
 	r.defaultAutoscalingPolicy()
 }
@@ -154,8 +159,12 @@ func validateTortoise(t *Tortoise) error {
 		return fmt.Errorf("%s: shouldn't be empty", fieldPath.Child("targetRefs", "scaleTargetRef", "kind"))
 	}
 
-	if t.Spec.TargetRefs.ScaleTargetRef.Kind != "Deployment" {
-		return fmt.Errorf("%s: only Deployment is supported now", fieldPath.Child("targetRefs", "scaleTargetRef", "kind"))
+	if !workload.IsSupportedKind(t.Spec.TargetRefs.ScaleTargetRef.Kind) {
+		return fmt.Errorf("%s: only Deployment and Rollout are supported now", fieldPath.Child("targetRefs", "scaleTargetRef", "kind"))
+	}
+
+	if t.Spec.TargetRefs.ScaleTargetRef.Kind == workload.KindRollout && t.Spec.TargetRefs.ScaleTargetRef.APIVersion != workload.RolloutAPIVersion {
+		return fmt.Errorf("%s: should be %s for Rollout", fieldPath.Child("targetRefs", "scaleTargetRef", "apiVersion"), workload.RolloutAPIVersion)
 	}
 
 	if t.Spec.TargetRefs.ScaleTargetRef.Name == "" {
@@ -175,38 +184,35 @@ func (r *Tortoise) ValidateCreate() (admission.Warnings, error) {
 	ctx := context.Background()
 	tortoiselog.Info("validate create", "name", r.Name)
 	fieldPath := field.NewPath("spec")
-	if r.Spec.TargetRefs.ScaleTargetRef.Kind != "Deployment" {
-		return nil, fmt.Errorf("only deployment is supported in %s at the moment", fieldPath.Child("targetRefs", "scaleTargetRef", "kind"))
+	if !workload.IsSupportedKind(r.Spec.TargetRefs.ScaleTargetRef.Kind) {
+		return nil, fmt.Errorf("only Deployment and Rollout are supported in %s at the moment", fieldPath.Child("targetRefs", "scaleTargetRef", "kind"))
 	}
 
-	if r.Spec.TargetRefs.ScaleTargetRef.Kind == "Deployment" {
-		// TODO: do the same validation for other resources.
-		d, err := ClientService.GetDeploymentOnTortoise(ctx, r)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get the deployment defined in %s: %w", fieldPath.Child("targetRefs", "scaleTargetRef"), err)
-		}
+	template, err := ClientService.GetPodTemplateOnTortoise(ctx, r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the %s defined in %s: %w", r.Spec.TargetRefs.ScaleTargetRef.Kind, fieldPath.Child("targetRefs", "scaleTargetRef"), err)
+	}
 
-		containersInDP := sets.New[string]()
-		for _, c := range d.Spec.Template.Spec.Containers {
-			containersInDP.Insert(c.Name)
-		}
+	containersInWorkload := sets.New[string]()
+	for _, c := range template.Spec.Containers {
+		containersInWorkload.Insert(c.Name)
+	}
 
-		if d.Spec.Template.Annotations != nil {
-			if v, ok := d.Spec.Template.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
-				// If the deployment has the sidecar injection annotation, the Pods will have the sidecar container in addition.
-				containersInDP.Insert("istio-proxy")
-			}
+	if template.Annotations != nil {
+		if v, ok := template.Annotations[annotation.IstioSidecarInjectionAnnotation]; ok && v == "true" {
+			// If the workload has the sidecar injection annotation, the Pods will have the sidecar container in addition.
+			containersInWorkload.Insert("istio-proxy")
 		}
+	}
 
-		containerWithPolicy := sets.New[string]()
-		for _, p := range r.Spec.AutoscalingPolicy {
-			containerWithPolicy.Insert(p.ContainerName)
-		}
+	containerWithPolicy := sets.New[string]()
+	for _, p := range r.Spec.AutoscalingPolicy {
+		containerWithPolicy.Insert(p.ContainerName)
+	}
 
-		uselessPolicies := containerWithPolicy.Difference(containersInDP)
-		if uselessPolicies.Len() != 0 {
-			return nil, fmt.Errorf("%s: tortoise should not have the policies for the container(s) which isn't defined in the deployment, but, it have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), uselessPolicies)
-		}
+	uselessPolicies := containerWithPolicy.Difference(containersInWorkload)
+	if uselessPolicies.Len() != 0 {
+		return nil, fmt.Errorf("%s: tortoise should not have the policies for the container(s) which isn't defined in the %s, but, it have the policy for the container(s) %v", fieldPath.Child("resourcePolicy"), r.Spec.TargetRefs.ScaleTargetRef.Kind, uselessPolicies)
 	}
 
 	return nil, validateTortoise(r)

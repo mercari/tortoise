@@ -104,7 +104,7 @@ and how they can configure Tortoise so that they can let tortoises autoscale the
 
 Here's some notes that you may want to pay attention to before starting to use Tortoise.
 
-- Tortoise only supports Deployment at the moment. In the future, [we'll support all resources supporting scale subresources](https://github.com/mercari/tortoise/issues/129).
+- Tortoise only supports Deployment and [Argo Rollouts](https://argoproj.github.io/rollouts/)' Rollout at the moment. In the future, [we'll support all resources supporting scale subresources](https://github.com/mercari/tortoise/issues/129). See [User guide](./docs/user-guide.md#argo-rollouts) for Argo Rollouts.
 - In Mercari, we've evaluated Tortoise with many Golang microservices, while there're a few services implemented in other languages using Tortoise. Any contributions would be welcome for enhance the recommendation for your language's services!
 
 ## Contribution

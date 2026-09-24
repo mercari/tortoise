@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: mercari-app
+  namespace: success-rollout
+spec:
+  restartAt: updated
+  selector:
+    matchLabels:
+      app: mercari
+  strategy:
+    canary: {}
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2023-01-01T00:00:00Z"
+      labels:
+        app: mercari
+    spec:
+      containers:
+      - image: awesome-mercari-app-image
+        name: app
+        resources:
+          requests:
+            cpu: "10"
+            memory: 10Gi
+      - image: awesome-istio-proxy-image
+        name: istio-proxy
+        resources:
+          requests:
+            cpu: "1"
+            memory: 4Gi

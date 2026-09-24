@@ -42,10 +42,10 @@ import (
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
-	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/hpa"
 	"github.com/mercari/tortoise/pkg/metrics"
 	"github.com/mercari/tortoise/pkg/recommender"
+	"github.com/mercari/tortoise/pkg/scaletarget"
 	tortoiseService "github.com/mercari/tortoise/pkg/tortoise"
 	"github.com/mercari/tortoise/pkg/utils"
 	"github.com/mercari/tortoise/pkg/vpa"
@@ -59,7 +59,7 @@ type TortoiseReconciler struct {
 
 	HpaService         *hpa.Service
 	VpaService         *vpa.Service
-	DeploymentService  *deployment.Service
+	ScaleTargetService *scaletarget.Service
 	TortoiseService    *tortoiseService.Service
 	RecommenderService *recommender.Service
 	EventRecorder      record.EventRecorder
@@ -77,10 +77,11 @@ var (
 //+kubebuilder:rbac:groups=autoscaling.k8s.io,resources=verticalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=autoscaling.k8s.io,resources=verticalpodautoscalers/status,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=argoproj.io,resources=rollouts,verbs=get;list;watch;update;patch
 //+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=events,verbs=create;update;patch
 
-// Tortoise only supports the deployment at the moment though, will support them too in the future.
+// Tortoise only supports Deployment and Argo Rollouts' Rollout at the moment though, will support them too in the future.
 // At the moment, we only need a read permission for the below resources to run the controller fetcher.
 
 //+kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch
@@ -89,6 +90,8 @@ var (
 //+kubebuilder:rbac:groups=core,resources=replicationcontrollers,verbs=get;list;watch
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch
 //+kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch
+// The controller fetcher reads the scale subresource to find the Rollout that owns the ReplicaSet.
+//+kubebuilder:rbac:groups=argoproj.io,resources=rollouts/scale,verbs=get
 
 // ScaleOps CRD permissions for detecting ScaleOps-managed workloads
 //+kubebuilder:rbac:groups=analysis.scaleops.sh,resources=automatednamespaces,verbs=get;list;watch
@@ -177,33 +180,38 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		)
 	}
 
-	// TODO: stop depending on deployment.
+	// TODO: stop depending on the scale target workload (Deployment or Rollout).
 	// https://github.com/mercari/tortoise/issues/129
 	//
-	// Currently, we don't depend on the deployment on almost all cases,
+	// Currently, we don't depend on the workload on almost all cases,
 	// but we need to get the number of replicas from it + we need to take resource requests of each container when initializing tortoises.
 	// We should be able to eventually remove this dependency by using the number of replicas from scale subresource.
-	dm, err := r.DeploymentService.GetDeploymentOnTortoise(ctx, tortoise)
+	target, err := r.ScaleTargetService.GetScaleTargetOnTortoise(ctx, tortoise)
 	if err != nil {
-		logger.Error(err, "failed to get deployment", "tortoise", req.NamespacedName)
+		logger.Error(err, "failed to get scale target", "tortoise", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
-	if dm.Spec.Replicas == nil {
-		logger.Error(nil, "the deployment doesn't have the number of replicas and tortoise cannot calculate the recommendation", "tortoise", req.NamespacedName, "deployment", klog.KObj(dm))
+	replicas, err := target.Replicas()
+	if err != nil {
+		logger.Error(err, "failed to get the number of replicas from the scale target", "tortoise", req.NamespacedName, "kind", target.Kind(), "scaleTarget", klog.KObj(target.Object()))
+		return ctrl.Result{}, err
+	}
+	if replicas == nil {
+		logger.Error(nil, "the scale target doesn't have the number of replicas and tortoise cannot calculate the recommendation", "tortoise", req.NamespacedName, "kind", target.Kind(), "scaleTarget", klog.KObj(target.Object()))
 		return ctrl.Result{}, nil
 
 	}
 
-	currentDesiredReplicaNum := *dm.Spec.Replicas // Use the desired replica number.
+	currentDesiredReplicaNum := *replicas // Use the desired replica number.
 
 	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff /* When Off, ContainerResourceRequests should be reset */ ||
 		tortoise.Status.Conditions.ContainerResourceRequests == nil /* The first reconciliation */ {
-		// If the update mode is off, we have to update ContainerResourceRequests from the deployment directly
+		// If the update mode is off, we have to update ContainerResourceRequests from the scale target directly
 		// so that pods will get an original resource request.
 		// If it's not off, ContainerResourceRequests should be updated in UpdateVPAFromTortoiseRecommendation in the last reconciliation.
-		acr, err := r.DeploymentService.GetResourceRequests(dm)
+		acr, err := r.ScaleTargetService.GetResourceRequests(target)
 		if err != nil {
-			logger.Error(err, "failed to get resource requests in deployment", "tortoise", req.NamespacedName, "deployment", klog.KObj(dm))
+			logger.Error(err, "failed to get resource requests in scale target", "tortoise", req.NamespacedName, "kind", target.Kind(), "scaleTarget", klog.KObj(target.Object()))
 			return ctrl.Result{}, err
 		}
 		tortoise.Status.Conditions.ContainerResourceRequests = acr
@@ -323,7 +331,7 @@ func (r *TortoiseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	// Reuse disabled and reason from earlier check (no need to call IsChangeApplicationDisabled again)
 	if tortoise.Spec.UpdateMode != v1beta3.UpdateModeOff && !disabled && !reflect.DeepEqual(oldTortoise.Status.Conditions.ContainerResourceRequests, tortoise.Status.Conditions.ContainerResourceRequests) {
 		// The container resource requests are updated, so we need to update the Pods.
-		err = r.DeploymentService.RolloutRestart(ctx, dm, tortoise, now)
+		err = r.ScaleTargetService.RolloutRestart(ctx, target, tortoise, now)
 		if err != nil {
 			logger.Error(err, "failed to rollout restart", "tortoise", req.NamespacedName)
 			return ctrl.Result{}, err

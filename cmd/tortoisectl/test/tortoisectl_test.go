@@ -18,6 +18,7 @@ import (
 	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/pkg/annotation"
+	"github.com/mercari/tortoise/pkg/workload"
 )
 
 func buildTortoiseCtl(t *testing.T) {
@@ -43,7 +45,7 @@ func prepareCluster(t *testing.T) (*envtest.Environment, *rest.Config) {
 	t.Helper()
 
 	testEnv := &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases"), filepath.Join("testdata", "crd")},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -125,6 +127,20 @@ func Test_TortoiseCtlStop(t *testing.T) {
 			dir: "success-no-lowering-resources-w-istio",
 		},
 		{
+			name: "stop tortoise targeting Rollout successfully",
+			options: []string{
+				"--namespace", "success-rollout", "mercaritortoise",
+			},
+			dir: "success-rollout",
+		},
+		{
+			name: "stop tortoise targeting Rollout successfully with --no-lowering-resources",
+			options: []string{
+				"--namespace", "success-no-lowering-resources-rollout", "--no-lowering-resources", "mercaritortoise",
+			},
+			dir: "success-no-lowering-resources-rollout",
+		},
+		{
 			name: "stop all tortoises in a namespace successfully with --all",
 			options: []string{
 				"--namespace", "success-all-in-namespace", "--all",
@@ -178,6 +194,19 @@ func Test_TortoiseCtlStop(t *testing.T) {
 						err = clientset.AppsV1().Deployments(namespace).Delete(context.Background(), deploy.Name, metav1.DeleteOptions{})
 						if err != nil {
 							t.Fatalf("Failed to delete deployment: %v", err)
+						}
+					}
+
+					rollouts := &unstructured.UnstructuredList{}
+					rollouts.SetGroupVersionKind(workload.RolloutGVK.GroupVersion().WithKind("RolloutList"))
+					err = tortoiseclient.List(context.Background(), rollouts, &client.ListOptions{Namespace: namespace})
+					if err != nil {
+						t.Fatalf("Failed to list rollouts: %v", err)
+					}
+					for _, rollout := range rollouts.Items {
+						err = tortoiseclient.Delete(context.Background(), &rollout)
+						if err != nil {
+							t.Fatalf("Failed to delete rollout: %v", err)
 						}
 					}
 
@@ -284,6 +313,59 @@ func Test_TortoiseCtlStop(t *testing.T) {
 				return nil
 			})
 
+			rolloutNameToFileName := map[client.ObjectKey]string{}
+			rolloutDir := fmt.Sprintf("./testdata/%s/before/rollouts", tt.dir)
+			if _, err := os.Stat(rolloutDir); err == nil {
+				err = filepath.Walk(rolloutDir, func(rolloutYaml string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if info.IsDir() {
+						return nil
+					}
+					y, err := os.ReadFile(rolloutYaml)
+					if err != nil {
+						t.Fatalf("Failed to read rollout yaml: %v", err)
+					}
+					rollout := &unstructured.Unstructured{}
+					err = yaml.Unmarshal(y, rollout)
+					if err != nil {
+						t.Fatalf("Failed to unmarshal rollout yaml: %v", err)
+					}
+
+					namespace := rollout.GetNamespace()
+					if _, ok := namespaces[namespace]; !ok {
+						// Create a namespace
+						_, err = clientset.CoreV1().Namespaces().Create(context.Background(), &v1.Namespace{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: namespace,
+							},
+						}, metav1.CreateOptions{})
+						if err != nil {
+							t.Fatalf("Failed to create namespace: %v", err)
+						}
+
+						namespaces[namespace] = struct{}{}
+					}
+
+					// Create a rollout
+					err = tortoiseclient.Create(context.Background(), rollout)
+					if err != nil {
+						t.Fatalf("Failed to create rollout: %v", err)
+					}
+
+					rolloutNameToFileName[client.ObjectKey{
+						Namespace: rollout.GetNamespace(),
+						Name:      rollout.GetName(),
+					}] = filepath.Base(rolloutYaml)
+
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("Failed to create rollouts: %v", err)
+				}
+			}
+
 			tortoiseNameToFileName := map[client.ObjectKey]string{}
 			tortoiseDir := fmt.Sprintf("./testdata/%s/before/tortoises", tt.dir)
 			err = filepath.Walk(tortoiseDir, func(tortoiseYaml string, info os.FileInfo, err error) error {
@@ -351,6 +433,17 @@ func Test_TortoiseCtlStop(t *testing.T) {
 				gotDeployments[k] = *deploy
 			}
 
+			gotRollouts := map[client.ObjectKey]*unstructured.Unstructured{}
+			for k := range rolloutNameToFileName {
+				rollout := &unstructured.Unstructured{}
+				rollout.SetGroupVersionKind(workload.RolloutGVK)
+				err = tortoiseclient.Get(context.Background(), k, rollout)
+				if err != nil {
+					t.Fatalf("Failed to get rollout: %v", err)
+				}
+				gotRollouts[k] = rollout
+			}
+
 			gotTortoises := map[client.ObjectKey]v1beta3.Tortoise{}
 			for k := range tortoiseNameToFileName {
 				tortoise := &v1beta3.Tortoise{}
@@ -373,6 +466,22 @@ func Test_TortoiseCtlStop(t *testing.T) {
 					err = writeToFile(filepath.Join(deploymentDir, filename), gotDeployments[key])
 					if err != nil {
 						t.Fatalf("Failed to write deployment yaml: %v", err)
+					}
+				}
+
+				rolloutDir := fmt.Sprintf("./testdata/%s/after/rollouts", tt.dir)
+				for key, filename := range rolloutNameToFileName {
+					if _, found, _ := unstructured.NestedString(gotRollouts[key].Object, "spec", "restartAt"); found {
+						// The value of restartAt is the current time, and we only care about its existence.
+						err = unstructured.SetNestedField(gotRollouts[key].Object, "updated", "spec", "restartAt")
+						if err != nil {
+							t.Fatalf("Failed to set restartAt: %v", err)
+						}
+					}
+
+					err = writeToFile(filepath.Join(rolloutDir, filename), gotRollouts[key])
+					if err != nil {
+						t.Fatalf("Failed to write rollout yaml: %v", err)
 					}
 				}
 
@@ -402,6 +511,40 @@ func Test_TortoiseCtlStop(t *testing.T) {
 				diff := cmp.Diff(*wantTortoise, gotTortoises[key], cmpopts.IgnoreFields(v1beta3.Tortoise{}, "ObjectMeta"))
 				if diff != "" {
 					t.Fatalf("Tortoise %v mismatch (-want +got):\n%s", key, diff)
+				}
+			}
+
+			for key, filename := range rolloutNameToFileName {
+				rolloutPath := filepath.Join(fmt.Sprintf("./testdata/%s/after/rollouts", tt.dir), filename)
+				y, err := os.ReadFile(rolloutPath)
+				if err != nil {
+					t.Fatalf("Failed to read rollout yaml: %v", err)
+				}
+				wantRollout := &unstructured.Unstructured{}
+				err = yaml.Unmarshal(y, wantRollout)
+				if err != nil {
+					t.Fatalf("Failed to decode rollout yaml: %v", err)
+				}
+
+				wantRestartAt, _, _ := unstructured.NestedString(wantRollout.Object, "spec", "restartAt")
+				gotRestartAt, _, _ := unstructured.NestedString(gotRollouts[key].Object, "spec", "restartAt")
+				switch wantRestartAt {
+				case "updated":
+					// Check if the rollout is restarted (i.e., .spec.restartAt is set).
+					if gotRestartAt == "" {
+						t.Fatalf("the target rollout %s is not restarted even though it should be", key.Name)
+					}
+					wantRollout.Object["spec"].(map[string]interface{})["restartAt"] = gotRestartAt // Update restartAt for comparison of Diff.
+				default:
+					// Check if the rollout is NOT restarted (i.e., .spec.restartAt is NOT set).
+					if gotRestartAt != "" {
+						t.Fatalf("the target rollout %s is restarted even though it should not be", key.Name)
+					}
+				}
+
+				diff := cmp.Diff(wantRollout.Object["spec"], gotRollouts[key].Object["spec"])
+				if diff != "" {
+					t.Fatalf("Rollout %v mismatch (-want +got):\n%s", key, diff)
 				}
 			}
 

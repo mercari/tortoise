@@ -40,6 +40,7 @@ import (
 	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/pod"
 	"github.com/mercari/tortoise/pkg/tortoise"
+	"github.com/mercari/tortoise/pkg/workload"
 )
 
 // Use FailurePolicy=Ignore deliverately because blocking Pod creation is very critical.
@@ -70,18 +71,18 @@ var _ admission.CustomDefaulter = &PodWebhook{}
 func (h *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	pod := obj.(*v1.Pod)
 
-	deploymentName, err := h.podService.GetDeploymentForPod(pod)
+	targetKind, targetName, err := h.podService.GetScaleTargetForPod(pod)
 	if err != nil {
 		// Block updating HPA may be critical. Just ignore it with error logs.
-		log.FromContext(ctx).Error(err, "failed to get deployment for pod in the Pod mutating webhook", "pod", klog.KObj(pod))
+		log.FromContext(ctx).Error(err, "failed to get the scale target for pod in the Pod mutating webhook", "pod", klog.KObj(pod))
 		return nil
 	}
 	if pod.Annotations == nil {
 		pod.Annotations = map[string]string{}
 	}
-	if deploymentName == "" {
-		// This Pod isn't managed by any deployment.
-		pod.Annotations[annotation.PodMutationAnnotation] = "this pod is not managed by deployment"
+	if targetName == "" {
+		// This Pod isn't managed by any deployment or rollout.
+		pod.Annotations[annotation.PodMutationAnnotation] = "this pod is not managed by deployment or rollout"
 		return nil
 	}
 
@@ -101,7 +102,12 @@ func (h *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 
 	var tortoise *v1beta3.Tortoise
 	for _, t := range tl.Items {
-		if t.Status.Targets.ScaleTargetRef.Name == deploymentName {
+		kind := t.Status.Targets.ScaleTargetRef.Kind
+		if kind == "" {
+			// Tortoise used to support only Deployment.
+			kind = workload.KindDeployment
+		}
+		if kind == targetKind && t.Status.Targets.ScaleTargetRef.Name == targetName {
 			tortoise = t.DeepCopy()
 			break
 		}
