@@ -281,6 +281,7 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 	for _, m := range currenthpa.Spec.Metrics {
 		if m.Type == v2.ResourceMetricSourceType {
 			// resource metrics should be removed.
+			hpaEdited = true
 			continue
 		}
 		if m.Type != v2.ContainerResourceMetricSourceType {
@@ -289,11 +290,11 @@ func (c *Service) syncHPAMetricsWithTortoiseAutoscalingPolicy(ctx context.Contex
 			continue
 		}
 
-		if !needToRemoveFromHPA.Has(resourceNameAndContainerName{m.ContainerResource.Name, m.ContainerResource.Container}) {
-			newMetrics = append(newMetrics, m)
+		if needToRemoveFromHPA.Has(resourceNameAndContainerName{m.ContainerResource.Name, m.ContainerResource.Container}) {
 			hpaEdited = true
 			continue
 		}
+		newMetrics = append(newMetrics, m)
 	}
 	currenthpa.Spec.Metrics = newMetrics
 
@@ -570,6 +571,12 @@ func (c *Service) UpdateHPASpecFromTortoiseAutoscalingPolicy(
 ) (*autoscalingv1beta3.Tortoise, error) {
 	if tortoise.Spec.UpdateMode == autoscalingv1beta3.UpdateModeOff {
 		// When UpdateMode is Off, we don't update HPA.
+		return tortoise, nil
+	}
+
+	if disabled, reason := c.IsChangeApplicationDisabled(ctx, tortoise); disabled {
+		// Global disable mode, namespace exclusion, or ScaleOps management - don't touch HPA spec
+		log.FromContext(ctx).Info("Skipping HPA spec update from autoscaling policy", "tortoise", klog.KObj(tortoise), "reason", reason)
 		return tortoise, nil
 	}
 
