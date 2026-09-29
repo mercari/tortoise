@@ -50,12 +50,12 @@ import (
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
 	"github.com/mercari/tortoise/internal/controller"
 	"github.com/mercari/tortoise/pkg/config"
-	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/hpa"
 	"github.com/mercari/tortoise/pkg/metrics"
 	"github.com/mercari/tortoise/pkg/pod"
 	"github.com/mercari/tortoise/pkg/recommender"
 	"github.com/mercari/tortoise/pkg/scaleops"
+	"github.com/mercari/tortoise/pkg/scaletarget"
 	"github.com/mercari/tortoise/pkg/tortoise"
 	"github.com/mercari/tortoise/pkg/vpa"
 
@@ -168,10 +168,10 @@ func main() {
 	}
 
 	if err = (&controller.TortoiseReconciler{
-		Scheme:            mgr.GetScheme(),
-		HpaService:        hpaService,
-		VpaService:        vpaClient,
-		DeploymentService: deployment.New(mgr.GetClient(), config.IstioSidecarProxyDefaultCPU, config.IstioSidecarProxyDefaultMemory, eventRecorder),
+		Scheme:             mgr.GetScheme(),
+		HpaService:         hpaService,
+		VpaService:         vpaClient,
+		ScaleTargetService: scaletarget.New(mgr.GetClient(), config.IstioSidecarProxyDefaultCPU, config.IstioSidecarProxyDefaultMemory, eventRecorder),
 		RecommenderService: recommender.New(
 			config.MaxReplicasRecommendationMultiplier,
 			config.MinReplicasRecommendationMultiplier,

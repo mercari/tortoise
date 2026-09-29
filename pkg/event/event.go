@@ -18,6 +18,7 @@ const (
 	EmergencyModeEnabled = "EmergencyModeEnabled"
 	EmergencyModeFailed  = "EmergencyModeFailed"
 	RestartDeployment    = "RestartDeployment"
+	RestartRollout       = "RestartRollout"
 
 	WarningHittingHardMaxReplicaLimit = "HitHardMaxReplicaLimit"
 )

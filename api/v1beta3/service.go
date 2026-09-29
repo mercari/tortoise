@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	v1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
-	"k8s.io/apimachinery/pkg/types"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/mercari/tortoise/pkg/workload"
 )
 
 type service struct {
@@ -18,16 +19,13 @@ func newService(c client.Client) *service {
 	return &service{c: c}
 }
 
-func (c *service) GetDeploymentOnTortoise(ctx context.Context, tortoise *Tortoise) (*v1.Deployment, error) {
-	if tortoise.Spec.TargetRefs.ScaleTargetRef.Kind != "Deployment" {
-		return nil, fmt.Errorf("target kind is not deployment: %s", tortoise.Spec.TargetRefs.ScaleTargetRef.Kind)
+// GetPodTemplateOnTortoise returns the Pod template of the scale target (Deployment or Rollout) of the tortoise.
+func (c *service) GetPodTemplateOnTortoise(ctx context.Context, tortoise *Tortoise) (*corev1.PodTemplateSpec, error) {
+	w, err := workload.Get(ctx, c.c, tortoise.Namespace, tortoise.Spec.TargetRefs.ScaleTargetRef.Kind, tortoise.Spec.TargetRefs.ScaleTargetRef.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get scale target on tortoise: %w", err)
 	}
-
-	d := &v1.Deployment{}
-	if err := c.c.Get(ctx, types.NamespacedName{Namespace: tortoise.Namespace, Name: tortoise.Spec.TargetRefs.ScaleTargetRef.Name}, d); err != nil {
-		return nil, fmt.Errorf("failed to get deployment on tortoise: %w", err)
-	}
-	return d, nil
+	return w.PodTemplate(), nil
 }
 
 func (c *service) GetHPAFromUser(ctx context.Context, tortoise *Tortoise) (*v2.HorizontalPodAutoscaler, error) {

@@ -35,7 +35,11 @@ Because of this reason, Tortoise uses the rolling upgrade that is controlled by 
 As long as you define the safer [.spec.strategy](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy),
 Pods are replaced without lacking the number of Pods. 
 
-But, it also made a downside in Tortoise which it cannot support resources other than Deployment.
+For Argo Rollouts' Rollout, Tortoise uses [`.spec.restartAt`](https://argoproj.github.io/argo-rollouts/features/restart/) instead,
+which makes Argo Rollouts restart Pods, following `maxUnavailable` of the Rollout and PDB.
+Tortoise doesn't change the Pod template of the Rollout so that the replacement doesn't start the canary/blue-green steps.
+
+But, it also made a downside in Tortoise which it cannot support resources other than Deployment and Rollout.
 
 #### Conservative scaling down
 

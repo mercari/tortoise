@@ -16,8 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	autoscalingv1beta3 "github.com/mercari/tortoise/api/v1beta3"
-	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/pod"
+	"github.com/mercari/tortoise/pkg/scaletarget"
 	"github.com/mercari/tortoise/pkg/stoper"
 )
 
@@ -27,12 +27,14 @@ var stopCmd = &cobra.Command{
 	Long: `stop is the command to temporarily turn off tortoise(s) easily and safely.
 
 It's intended to be used when your application is facing issues that might be caused by tortoise.
-Specifically, it changes the tortoise updateMode to "Off" and restarts the deployment to bring the pods back to the original resource requests.
+Specifically, it changes the tortoise updateMode to "Off" and restarts the scale target (Deployment or Argo Rollout)
+to bring the pods back to the original resource requests.
 
-Also, with the --no-lowering-resources flag, it patches the deployment directly
+Also, with the --no-lowering-resources flag, it patches the scale target directly
 so that changing tortoise to Off won't result in lowering the resource request(s), damaging the service.
 e.g., if the Deployment declares 1 CPU request, and the current Pods' request is 2 CPU mutated by Tortoise,
 it'd patch the deployment to 2 CPU request to prevent a possible negative impact on the service. 
+Note that, for an Argo Rollout, patching the Pod template creates a new revision and starts the rollout progression (e.g., canary steps).
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// validation
@@ -62,13 +64,13 @@ it'd patch the deployment to 2 CPU request to prevent a possible negative impact
 		}
 
 		recorder := record.NewBroadcaster().NewRecorder(scheme, corev1.EventSource{Component: "tortoisectl"})
-		deploymentService := deployment.New(client, "", "", recorder)
+		scaleTargetService := scaletarget.New(client, "", "", recorder)
 		podService, err := pod.New(map[string]int64{}, "", nil, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create pod service: %v", err)
 		}
 
-		stoperService := stoper.New(client, deploymentService, podService)
+		stoperService := stoper.New(client, scaleTargetService, podService)
 
 		opts := []stoper.StoprOption{}
 		if noLoweringResources {
@@ -90,8 +92,8 @@ var (
 	// stop all tortoises in the specified namespace, or in all namespaces if no namespace is specified.
 	stopAll bool
 	// Stop tortoise without lowering resource requests.
-	// If this flag is specified and the current Deployment's resource request(s) is lower than the current Pods' request mutated by Tortoise,
-	// this CLI patches the deployment so that changing tortoise to Off won't result in lowering the resource request(s), damaging the service.
+	// If this flag is specified and the current scale target's resource request(s) is lower than the current Pods' request mutated by Tortoise,
+	// this CLI patches the scale target so that changing tortoise to Off won't result in lowering the resource request(s), damaging the service.
 	noLoweringResources bool
 
 	// Path to KUBECONFIG
@@ -115,6 +117,6 @@ func init() {
 	stopCmd.Flags().StringVarP(&stopNamespace, "namespace", "n", "", "namespace to stop tortoise(s) in")
 	stopCmd.Flags().BoolVarP(&stopAll, "all", "A", false, "stop all tortoises in the specified namespace, or in all namespaces if no namespace is specified.")
 	stopCmd.Flags().BoolVar(&noLoweringResources, "no-lowering-resources", false, `Stop tortoise without lowering resource requests. 
- If this flag is specified and the current Deployment's resource request(s) is lower than the current Pods' request mutated by Tortoise,
-this CLI patches the deployment so that changing tortoise to Off won't result in lowering the resource request(s), damaging the service.`)
+ If this flag is specified and the current scale target's (Deployment or Argo Rollout) resource request(s) is lower than the current Pods' request mutated by Tortoise,
+this CLI patches the scale target so that changing tortoise to Off won't result in lowering the resource request(s), damaging the service.`)
 }

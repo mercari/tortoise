@@ -15,6 +15,7 @@ import (
 	v2 "k8s.io/api/autoscaling/v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
@@ -24,12 +25,13 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/mercari/tortoise/api/v1beta3"
-	"github.com/mercari/tortoise/pkg/deployment"
 	"github.com/mercari/tortoise/pkg/features"
 	"github.com/mercari/tortoise/pkg/hpa"
 	"github.com/mercari/tortoise/pkg/recommender"
+	"github.com/mercari/tortoise/pkg/scaletarget"
 	"github.com/mercari/tortoise/pkg/tortoise"
 	"github.com/mercari/tortoise/pkg/vpa"
+	"github.com/mercari/tortoise/pkg/workload"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,6 +41,7 @@ func newResource(path string) resources {
 	tortoisePath := fmt.Sprintf("%s/tortoise.yaml", path)
 	hpaPath := fmt.Sprintf("%s/hpa.yaml", path)
 	deploymentPath := fmt.Sprintf("%s/deployment.yaml", path)
+	rolloutPath := fmt.Sprintf("%s/rollout.yaml", path)
 	monitorVPAPath := fmt.Sprintf("%s/vpa-Monitor.yaml", path)
 
 	var tortoise *v1beta3.Tortoise
@@ -65,6 +68,14 @@ func newResource(path string) resources {
 		Expect(err).NotTo(HaveOccurred())
 	}
 
+	var rollout *unstructured.Unstructured
+	y, err = os.ReadFile(rolloutPath)
+	if err == nil {
+		rollout = &unstructured.Unstructured{}
+		err = yaml.Unmarshal(y, rollout)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
 	var hpa *v2.HorizontalPodAutoscaler
 	y, err = os.ReadFile(hpaPath)
 	if err == nil {
@@ -77,6 +88,7 @@ func newResource(path string) resources {
 		tortoise:   tortoise,
 		hpa:        hpa,
 		deployment: deploy,
+		rollout:    rollout,
 		vpa:        vpa,
 	}
 }
@@ -143,7 +155,13 @@ func initializeResourcesFromFiles(ctx context.Context, k8sClient client.Client, 
 		createHPAWithStatus(ctx, k8sClient, resource.hpa)
 	}
 
-	createDeploymentWithStatus(ctx, k8sClient, resource.deployment)
+	if resource.deployment != nil {
+		createDeploymentWithStatus(ctx, k8sClient, resource.deployment)
+	}
+	if resource.rollout != nil {
+		err := k8sClient.Create(ctx, resource.rollout.DeepCopy())
+		Expect(err).NotTo(HaveOccurred())
+	}
 	if resource.vpa != nil {
 		createVPAWithStatus(ctx, k8sClient, resource.vpa)
 	}
@@ -175,9 +193,18 @@ func updateResourcesInTestCaseFile(path string, resource resources) error {
 		return err
 	}
 
-	err = writeToFile(filepath.Join(path, "deployment.yaml"), removeUnnecessaryFieldsFromDeployment(resource.deployment))
-	if err != nil {
-		return err
+	if resource.deployment != nil {
+		err = writeToFile(filepath.Join(path, "deployment.yaml"), removeUnnecessaryFieldsFromDeployment(resource.deployment))
+		if err != nil {
+			return err
+		}
+	}
+
+	if resource.rollout != nil {
+		err = writeToFile(filepath.Join(path, "rollout.yaml"), resource.rollout)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = writeToFile(filepath.Join(path, "vpa-Monitor.yaml"), resource.vpa)
@@ -266,7 +293,7 @@ func startController(ctx context.Context) func() {
 		HpaService:         hpaS,
 		EventRecorder:      record.NewFakeRecorder(10),
 		VpaService:         cli,
-		DeploymentService:  deployment.New(mgr.GetClient(), "100m", "100Mi", recorder),
+		ScaleTargetService: scaletarget.New(mgr.GetClient(), "100m", "100Mi", recorder),
 		TortoiseService:    tortoiseService,
 		RecommenderService: recommender.New(2.0, 0.5, 90, 40, 3, 30, "10m", "10Mi", map[string]string{"istio-proxy": "11m"}, map[string]string{"istio-proxy": "11Mi"}, "10", "10Gi", 10000, 0, 0, []features.FeatureFlag{features.VerticalScalingBasedOnPreferredMaxReplicas}, recorder),
 	}
@@ -293,6 +320,10 @@ var _ = Describe("Test TortoiseController", func() {
 			Expect(apierrors.IsNotFound(err)).To(Equal(true))
 		}
 		err = deleteObj(ctx, &v1.Deployment{}, "mercari-app")
+		if err != nil {
+			Expect(apierrors.IsNotFound(err)).To(Equal(true))
+		}
+		err = deleteObj(ctx, newRolloutObj(), "mercari-app")
 		if err != nil {
 			Expect(apierrors.IsNotFound(err)).To(Equal(true))
 		}
@@ -327,16 +358,26 @@ var _ = Describe("Test TortoiseController", func() {
 			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, gotMonitorVPA)
 			g.Expect(err).ShouldNot(HaveOccurred())
 
-			// get deployment
-			gotDeployment := &v1.Deployment{}
-			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari-app"}, gotDeployment)
-			g.Expect(err).ShouldNot(HaveOccurred())
+			// get deployment and/or rollout
+			var gotDeployment *v1.Deployment
+			if _, err := os.Stat(path + "/deployment.yaml"); err == nil {
+				gotDeployment = &v1.Deployment{}
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari-app"}, gotDeployment)
+				g.Expect(err).ShouldNot(HaveOccurred())
+			}
+			var gotRollout *unstructured.Unstructured
+			if _, err := os.Stat(path + "/rollout.yaml"); err == nil {
+				gotRollout = newRolloutObj()
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari-app"}, gotRollout)
+				g.Expect(err).ShouldNot(HaveOccurred())
+			}
 
 			err = updateResourcesInTestCaseFile(path, resources{
 				tortoise:   gotTortoise,
 				hpa:        gotHPA,
 				vpa:        gotMonitorVPA,
 				deployment: gotDeployment,
+				rollout:    gotRollout,
 			})
 			g.Expect(err).ShouldNot(HaveOccurred())
 		}).Should(Succeed())
@@ -366,16 +407,26 @@ var _ = Describe("Test TortoiseController", func() {
 			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "tortoise-monitor-mercari"}, gotMonitorVPA)
 			g.Expect(err).ShouldNot(HaveOccurred())
 
-			// get deployment
-			gotDeployment := &v1.Deployment{}
-			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari-app"}, gotDeployment)
-			g.Expect(err).ShouldNot(HaveOccurred())
+			// get deployment and/or rollout
+			var gotDeployment *v1.Deployment
+			if tc.want.deployment != nil {
+				gotDeployment = &v1.Deployment{}
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari-app"}, gotDeployment)
+				g.Expect(err).ShouldNot(HaveOccurred())
+			}
+			var gotRollout *unstructured.Unstructured
+			if tc.want.rollout != nil {
+				gotRollout = newRolloutObj()
+				err = k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: "mercari-app"}, gotRollout)
+				g.Expect(err).ShouldNot(HaveOccurred())
+			}
 
 			err = tc.compare(resources{
 				tortoise:   gotTortoise,
 				hpa:        gotHPA,
 				vpa:        gotMonitorVPA,
 				deployment: gotDeployment,
+				rollout:    gotRollout,
 			})
 			g.Expect(err).ShouldNot(HaveOccurred())
 		}).Should(Succeed())
@@ -476,6 +527,17 @@ var _ = Describe("Test TortoiseController", func() {
 			runTest(filepath.Join("testdata", "reconcile-for-the-multiple-containers-pod-during-emergency"))
 		})
 	})
+	Context("reconcile for the Argo Rollouts' Rollout", func() {
+		It("TortoisePhaseInitializing", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-rollout-initializing"))
+		})
+		It("TortoisePhaseWorking", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-rollout-working"))
+		})
+		It("TortoisePhaseWorking (Rollout refers to Deployment via workloadRef)", func() {
+			runTest(filepath.Join("testdata", "reconcile-for-the-rollout-with-workloadref-working"))
+		})
+	})
 	Context("mutable AutoscalingPolicy", func() {
 		It("Tortoise get Horizontal and create HPA", func() {
 			runTest(filepath.Join("testdata", "mutable-autoscalingpolicy-no-hpa-and-add-horizontal"))
@@ -559,6 +621,7 @@ type testCase struct {
 type resources struct {
 	tortoise   *v1beta3.Tortoise
 	deployment *v1.Deployment
+	rollout    *unstructured.Unstructured
 	hpa        *v2.HorizontalPodAutoscaler
 	vpa        *autoscalingv1.VerticalPodAutoscaler
 }
@@ -572,8 +635,14 @@ func (t *testCase) compare(got resources) error {
 	}
 	// Only restartedAt annotation could be modified by the reconciliation
 	// We don't care about the value, but the existence of the annotation.
-	if got.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] != t.want.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] {
+	if t.want.deployment != nil && got.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] != t.want.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] {
 		return fmt.Errorf("restartedAt annotation is not expected: whether each has restartedAt annotation: got = %v, want = %v", got.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"], t.want.deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"])
+	}
+	// Rollout is restarted via .spec.restartAt, and the pod template should be untouched.
+	if t.want.rollout != nil {
+		if d := cmp.Diff(t.want.rollout.Object["spec"], got.rollout.Object["spec"]); d != "" {
+			return fmt.Errorf("unexpected rollout spec: diff = %s", d)
+		}
 	}
 
 	if d := cmp.Diff(t.want.vpa, got.vpa, cmpopts.IgnoreFields(autoscalingv1.VerticalPodAutoscaler{}, "ObjectMeta")); d != "" {
@@ -581,6 +650,12 @@ func (t *testCase) compare(got resources) error {
 	}
 
 	return nil
+}
+
+func newRolloutObj() *unstructured.Unstructured {
+	r := &unstructured.Unstructured{}
+	r.SetGroupVersionKind(workload.RolloutGVK)
+	return r
 }
 
 func deleteObj(ctx context.Context, deleteObj client.Object, name string) error {

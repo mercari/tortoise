@@ -15,6 +15,7 @@ import (
 	"github.com/mercari/tortoise/pkg/annotation"
 	"github.com/mercari/tortoise/pkg/features"
 	"github.com/mercari/tortoise/pkg/utils"
+	"github.com/mercari/tortoise/pkg/workload"
 )
 
 type Service struct {
@@ -254,7 +255,9 @@ func (s *Service) ModifyPodSpecResource(podSpec *v1.PodSpec, t *v1beta3.Tortoise
 	}
 }
 
-func (s *Service) GetDeploymentForPod(pod *v1.Pod) (string, error) {
+// GetScaleTargetForPod returns the kind and the name of the workload (Deployment or Argo Rollouts' Rollout) that manages the Pod.
+// It returns empty strings if the Pod isn't managed by any workload supported by Tortoise.
+func (s *Service) GetScaleTargetForPod(pod *v1.Pod) (string, string, error) {
 	var ownerRefrence *metav1.OwnerReference
 	for i := range pod.OwnerReferences {
 		r := pod.OwnerReferences[i]
@@ -264,12 +267,12 @@ func (s *Service) GetDeploymentForPod(pod *v1.Pod) (string, error) {
 	}
 	if ownerRefrence == nil {
 		// If the pod has no ownerReference, it cannot be under Tortoise.
-		return "", nil
+		return "", "", nil
 	}
 
 	if ownerRefrence.Kind != "ReplicaSet" {
-		// Tortoise only supports Deployment for now, and ReplicaSet is the only controller that can own a pod in this case.
-		return "", nil
+		// Tortoise only supports Deployment and Rollout for now, and ReplicaSet is the only controller that can own a pod in this case.
+		return "", "", nil
 	}
 
 	k := &controllerfetcher.ControllerKeyWithAPIVersion{
@@ -283,15 +286,21 @@ func (s *Service) GetDeploymentForPod(pod *v1.Pod) (string, error) {
 
 	topController, err := s.controllerFetcher.FindTopMostWellKnownOrScalable(k)
 	if err != nil {
-		return "", fmt.Errorf("failed to find top most well known or scalable controller: %v", err)
+		return "", "", fmt.Errorf("failed to find top most well known or scalable controller: %v", err)
+	}
+	if topController == nil {
+		return "", "", nil
 	}
 
-	if topController.Kind != "Deployment" {
-		// Tortoise only supports Deployment for now.
-		return "", nil
+	switch {
+	case topController.Kind == workload.KindDeployment:
+	case topController.Kind == workload.KindRollout && topController.ApiVersion == workload.RolloutAPIVersion:
+	default:
+		// Tortoise only supports Deployment and Rollout for now.
+		return "", "", nil
 	}
 
-	return topController.Name, nil
+	return topController.Kind, topController.Name, nil
 }
 
 type containerNameAndResource struct {

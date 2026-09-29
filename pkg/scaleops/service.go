@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1beta3 "github.com/mercari/tortoise/api/v1beta3"
+	"github.com/mercari/tortoise/pkg/workload"
 )
 
 const (
@@ -84,10 +85,8 @@ func (s *Service) IsScaleOpsManaged(ctx context.Context, tortoise *v1beta3.Torto
 func (s *Service) checkRecommendation(ctx context.Context, tortoise *v1beta3.Tortoise) (bool, string, error) {
 	logger := log.FromContext(ctx)
 
-	// Construct recommendation name: {kind}-{name}
-	kind := strings.ToLower(tortoise.Spec.TargetRefs.ScaleTargetRef.Kind)
 	name := tortoise.Spec.TargetRefs.ScaleTargetRef.Name
-	recName := fmt.Sprintf("%s-%s", kind, name)
+	recName := recommendationName(tortoise.Spec.TargetRefs.ScaleTargetRef.Kind, name)
 
 	// Use Unstructured to fetch the resource
 	rec := &unstructured.Unstructured{}
@@ -151,6 +150,19 @@ func (s *Service) checkRecommendation(ctx context.Context, tortoise *v1beta3.Tor
 	logger.V(4).Info("Recommendation exists but automation is disabled",
 		"recommendation", recName)
 	return false, "WorkloadOptedOut", nil
+}
+
+// recommendationName returns the name of the ScaleOps Recommendation for the workload.
+//
+// ScaleOps names a Recommendation "{kind}-{name}" (e.g., "deployment-app") for most workloads.
+// An Argo Rollouts' Rollout is different: ScaleOps groups it into a "Family" named "scaleops-rollout-{name}"
+// (the Recommendation's .spec.targetRef is {kind: Family, name: scaleops-rollout-{name}}),
+// and names the Recommendation "family-scaleops-rollout-{name}".
+func recommendationName(kind, name string) string {
+	if kind == workload.KindRollout {
+		return fmt.Sprintf("family-scaleops-rollout-%s", name)
+	}
+	return fmt.Sprintf("%s-%s", strings.ToLower(kind), name)
 }
 
 // checkAutomatedNamespace checks if namespace has an AutomatedNamespace CRD with automation enabled

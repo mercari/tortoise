@@ -29,13 +29,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
 
-	v1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
@@ -43,20 +44,43 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func mutateTest(before, after, deployment, hpa string) {
+// createWorkloads creates the workloads (Deployment and/or Rollout) defined in the file, and returns the function to delete them.
+// The file can contain multiple objects separated by "---".
+func createWorkloads(ctx context.Context, path string) func() {
+	y, err := os.ReadFile(path)
+	Expect(err).NotTo(HaveOccurred())
+
+	objs := []*unstructured.Unstructured{}
+	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096)
+	for {
+		obj := &unstructured.Unstructured{}
+		err := decoder.Decode(obj)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		Expect(err).NotTo(HaveOccurred())
+		if len(obj.Object) == 0 {
+			continue
+		}
+		err = k8sClient.Create(ctx, obj)
+		Expect(err).NotTo(HaveOccurred())
+		objs = append(objs, obj)
+	}
+
+	return func() {
+		for _, obj := range objs {
+			err := k8sClient.Delete(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
+}
+
+func mutateTest(before, after, workload, hpa string) {
 	ctx := context.Background()
 
-	y, err := os.ReadFile(deployment)
-	Expect(err).NotTo(HaveOccurred())
-	deploy := &v1.Deployment{}
-	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(deploy)
-	Expect(err).NotTo(HaveOccurred())
-	err = k8sClient.Create(ctx, deploy)
-	Expect(err).NotTo(HaveOccurred())
-	defer func() {
-		err = k8sClient.Delete(ctx, deploy)
-		Expect(err).NotTo(HaveOccurred())
-	}()
+	defer createWorkloads(ctx, workload)()
+	var y []byte
+	var err error
 
 	if hpa != "" {
 		y, err = os.ReadFile(hpa)
@@ -97,20 +121,12 @@ func mutateTest(before, after, deployment, hpa string) {
 	Expect(ret.Spec).Should(Equal(afterTortoise.Spec))
 }
 
-func validateCreationTest(tortoise, hpa, deployment string, valid bool) {
+func validateCreationTest(tortoise, hpa, workload string, valid bool) {
 	ctx := context.Background()
 
-	y, err := os.ReadFile(deployment)
-	Expect(err).NotTo(HaveOccurred())
-	deploy := &v1.Deployment{}
-	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(deploy)
-	Expect(err).NotTo(HaveOccurred())
-	err = k8sClient.Create(ctx, deploy)
-	Expect(err).NotTo(HaveOccurred())
-	defer func() {
-		err = k8sClient.Delete(ctx, deploy)
-		Expect(err).NotTo(HaveOccurred())
-	}()
+	defer createWorkloads(ctx, workload)()
+	var y []byte
+	var err error
 
 	if hpa != "" {
 		y, err = os.ReadFile(hpa)
@@ -148,20 +164,12 @@ func validateCreationTest(tortoise, hpa, deployment string, valid bool) {
 	}
 }
 
-func validateUpdateTest(tortoise, existingTortoise, hpa, deployment string, valid bool) {
+func validateUpdateTest(tortoise, existingTortoise, hpa, workload string, valid bool) {
 	ctx := context.Background()
 
-	y, err := os.ReadFile(deployment)
-	Expect(err).NotTo(HaveOccurred())
-	deploy := &v1.Deployment{}
-	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(deploy)
-	Expect(err).NotTo(HaveOccurred())
-	err = k8sClient.Create(ctx, deploy)
-	Expect(err).NotTo(HaveOccurred())
-	defer func() {
-		err = k8sClient.Delete(ctx, deploy)
-		Expect(err).NotTo(HaveOccurred())
-	}()
+	defer createWorkloads(ctx, workload)()
+	var y []byte
+	var err error
 
 	y, err = os.ReadFile(hpa)
 	Expect(err).NotTo(HaveOccurred())
@@ -231,6 +239,12 @@ var _ = Describe("Tortoise Webhook", func() {
 		It("should mutate a Tortoise which some autoscalingPolicy is specified, but not all", func() {
 			mutateTest(filepath.Join("testdata", "mutating", "some-specified-others-not", "before.yaml"), filepath.Join("testdata", "mutating", "some-specified-others-not", "after.yaml"), filepath.Join("testdata", "mutating", "some-specified-others-not", "deployment.yaml"), "")
 		})
+		It("should mutate a Tortoise targeting Rollout", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "rollout", "before.yaml"), filepath.Join("testdata", "mutating", "rollout", "after.yaml"), filepath.Join("testdata", "mutating", "rollout", "rollout.yaml"), "")
+		})
+		It("should mutate a Tortoise targeting Rollout which refers to Deployment via workloadRef", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "rollout-with-workloadref", "before.yaml"), filepath.Join("testdata", "mutating", "rollout-with-workloadref", "after.yaml"), filepath.Join("testdata", "mutating", "rollout-with-workloadref", "rollout.yaml"), "")
+		})
 	})
 	Context("validating(creation)", func() {
 		It("should create a valid Tortoise", func() {
@@ -245,10 +259,22 @@ var _ = Describe("Tortoise Webhook", func() {
 		It("invalid: Tortoise has resource policy for non-existing container", func() {
 			validateCreationTest(filepath.Join("testdata", "validating", "useless-policy", "tortoise.yaml"), filepath.Join("testdata", "validating", "useless-policy", "hpa.yaml"), filepath.Join("testdata", "validating", "useless-policy", "deployment.yaml"), false)
 		})
+		It("should create a valid Tortoise targeting Rollout", func() {
+			validateCreationTest(filepath.Join("testdata", "validating", "success-rollout", "tortoise.yaml"), filepath.Join("testdata", "validating", "success-rollout", "hpa.yaml"), filepath.Join("testdata", "validating", "success-rollout", "rollout.yaml"), true)
+		})
+		It("invalid: Tortoise targeting Rollout has resource policy for non-existing container", func() {
+			validateCreationTest(filepath.Join("testdata", "validating", "rollout-useless-policy", "tortoise.yaml"), filepath.Join("testdata", "validating", "rollout-useless-policy", "hpa.yaml"), filepath.Join("testdata", "validating", "rollout-useless-policy", "rollout.yaml"), false)
+		})
+		It("invalid: Tortoise targeting Rollout has the wrong apiVersion", func() {
+			validateCreationTest(filepath.Join("testdata", "validating", "rollout-invalid-apiversion", "tortoise.yaml"), filepath.Join("testdata", "validating", "rollout-invalid-apiversion", "hpa.yaml"), filepath.Join("testdata", "validating", "rollout-invalid-apiversion", "rollout.yaml"), false)
+		})
 	})
 	Context("validating(updating)", func() {
 		It("should update a valid Tortoise", func() {
 			validateUpdateTest(filepath.Join("testdata", "validating", "success", "tortoise.yaml"), filepath.Join("testdata", "validating", "success", "tortoise.yaml"), filepath.Join("testdata", "validating", "success", "hpa.yaml"), filepath.Join("testdata", "validating", "success", "deployment.yaml"), true)
+		})
+		It("should update a valid Tortoise targeting Rollout", func() {
+			validateUpdateTest(filepath.Join("testdata", "validating", "success-rollout", "tortoise.yaml"), filepath.Join("testdata", "validating", "success-rollout", "tortoise.yaml"), filepath.Join("testdata", "validating", "success-rollout", "hpa.yaml"), filepath.Join("testdata", "validating", "success-rollout", "rollout.yaml"), true)
 		})
 		It("should update a valid Tortoise for the deployment with istio", func() {
 			validateUpdateTest(filepath.Join("testdata", "validating", "success-with-istio", "tortoise.yaml"), filepath.Join("testdata", "validating", "success-with-istio", "tortoise.yaml"), filepath.Join("testdata", "validating", "success-with-istio", "hpa.yaml"), filepath.Join("testdata", "validating", "success-with-istio", "deployment.yaml"), true)

@@ -1,0 +1,26 @@
+apiVersion: autoscaling.mercari.com/v1beta3
+kind: Tortoise
+metadata:
+  name: tortoise-sample
+  namespace: default
+spec:
+  updateMode: "Off"
+  deletionPolicy: "NoDelete"
+  targetRefs:
+    scaleTargetRef:
+      apiVersion: argoproj.io/v1alpha1
+      kind: Rollout
+      name: sample
+  autoscalingPolicy:
+    - containerName: hoge
+      policy:
+        cpu: Horizontal
+        memory: "Off"
+    - containerName: istio-proxy
+      policy:
+        cpu: "Off"
+        memory: Vertical
+    - containerName: nginx
+      policy:
+        cpu: "Off"
+        memory: "Off"
