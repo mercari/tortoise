@@ -179,7 +179,7 @@ type TargetRefs struct {
 	HorizontalPodAutoscalerName *string `json:"horizontalPodAutoscalerName,omitempty" protobuf:"bytes,2,opt,name=horizontalPodAutoscalerName"`
 }
 
-// CrossVersionObjectReference contains enough information toet identify the referred resource.
+// CrossVersionObjectReference contains enough information to let identify the referred resource.
 type CrossVersionObjectReference struct {
 	// kind is the kind of the referent; More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	Kind string `json:"kind" protobuf:"bytes,1,opt,name=kind"`

@@ -18,7 +18,7 @@ If you didn’t add a test, you didn’t fix the bug.
 - **Do not** test anything manually in your Kubernetes cluster. 
 Instead, you **must** implement all testing in the e2e tests.
 - **Do not** bring any breaking change in Tortoise CRD. 
-However, you **may** bring breaking changes in Golang functions or types within the repository - we're not developping the library and don't have to care much about downstream dependencies.
+However, you **may** bring breaking changes in Golang functions or types within the repository - we're not developing the library and don't have to care much about downstream dependencies.
 
 ### Suggestion
 
