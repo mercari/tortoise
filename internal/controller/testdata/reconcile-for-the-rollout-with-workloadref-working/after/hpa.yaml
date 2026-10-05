@@ -1,0 +1,59 @@
+metadata:
+  annotations:
+    tortoise.autoscaling.mercari.com/managed-by-tortoise: "true"
+  name: tortoise-hpa-mercari
+  namespace: default
+spec:
+  behavior:
+    scaleDown:
+      policies:
+      - periodSeconds: 90
+        type: Percent
+        value: 2
+      selectPolicy: Max
+    scaleUp:
+      policies:
+      - periodSeconds: 60
+        type: Percent
+        value: 100
+      selectPolicy: Max
+      stabilizationWindowSeconds: 0
+  maxReplicas: 20
+  metrics:
+  - external:
+      metric:
+        name: hoge-kept-metric
+      target:
+        type: Value
+        value: "1"
+    type: External
+  - containerResource:
+      container: app
+      name: cpu
+      target:
+        averageUtilization: 75
+        type: Utilization
+    type: ContainerResource
+  minReplicas: 5
+  scaleTargetRef:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
+    name: mercari-app
+status:
+  conditions:
+  - lastTransitionTime: null
+    message: recommended size matches current size
+    status: "True"
+    type: AbleToScale
+  - lastTransitionTime: null
+    message: the HPA was able to compute the replica count
+    status: "True"
+    type: ScalingActive
+  currentMetrics:
+  - containerResource:
+      container: app
+      current:
+        value: "3"
+      name: cpu
+    type: ""
+  desiredReplicas: 0

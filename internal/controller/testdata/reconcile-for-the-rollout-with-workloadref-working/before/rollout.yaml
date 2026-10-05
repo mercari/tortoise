@@ -1,0 +1,16 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: mercari-app
+  namespace: default
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: mercari
+  strategy:
+    canary: {}
+  workloadRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mercari-app

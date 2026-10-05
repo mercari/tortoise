@@ -40,6 +40,22 @@ rules:
   - list
   - watch
 - apiGroups:
+  - argoproj.io
+  resources:
+  - rollouts
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - argoproj.io
+  resources:
+  - rollouts/scale
+  verbs:
+  - get
+- apiGroups:
   - autoscaling
   resources:
   - horizontalpodautoscalers

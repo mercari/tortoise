@@ -35,8 +35,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/mercari/tortoise/api/v1beta3"
 
@@ -50,6 +52,7 @@ func mutateTest(dirPath string) {
 	after := filepath.Join(dirPath, "after.yaml")
 	rs := filepath.Join(dirPath, "replicaset.yaml")
 	dp := filepath.Join(dirPath, "deployment.yaml")
+	ro := filepath.Join(dirPath, "rollout.yaml")
 	ctx := context.Background()
 
 	y, err := os.ReadFile(tortoise)
@@ -67,13 +70,27 @@ func mutateTest(dirPath string) {
 	err = k8sClient.Status().Update(ctx, tor)
 	Expect(err).NotTo(HaveOccurred())
 
-	y, err = os.ReadFile(dp)
-	Expect(err).NotTo(HaveOccurred())
-	deployment := &appv1.Deployment{}
-	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(deployment)
-	Expect(err).NotTo(HaveOccurred())
-	err = k8sClient.Create(ctx, deployment)
-	Expect(err).NotTo(HaveOccurred())
+	// The owner of the ReplicaSet: either Deployment or Argo Rollouts' Rollout.
+	var owner client.Object
+	if _, err := os.Stat(ro); err == nil {
+		y, err = os.ReadFile(ro)
+		Expect(err).NotTo(HaveOccurred())
+		rollout := &unstructured.Unstructured{}
+		err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(rollout)
+		Expect(err).NotTo(HaveOccurred())
+		err = k8sClient.Create(ctx, rollout)
+		Expect(err).NotTo(HaveOccurred())
+		owner = rollout
+	} else {
+		y, err = os.ReadFile(dp)
+		Expect(err).NotTo(HaveOccurred())
+		deployment := &appv1.Deployment{}
+		err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(deployment)
+		Expect(err).NotTo(HaveOccurred())
+		err = k8sClient.Create(ctx, deployment)
+		Expect(err).NotTo(HaveOccurred())
+		owner = deployment
+	}
 
 	y, err = os.ReadFile(rs)
 	Expect(err).NotTo(HaveOccurred())
@@ -81,7 +98,7 @@ func mutateTest(dirPath string) {
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(y), 4096).Decode(replicaset)
 	Expect(err).NotTo(HaveOccurred())
 	if len(replicaset.OwnerReferences) != 0 {
-		replicaset.OwnerReferences[0].UID = deployment.UID
+		replicaset.OwnerReferences[0].UID = owner.GetUID()
 	}
 	err = k8sClient.Create(ctx, replicaset)
 	Expect(err).NotTo(HaveOccurred())
@@ -108,7 +125,7 @@ func mutateTest(dirPath string) {
 		err = k8sClient.Delete(ctx, replicaset)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = k8sClient.Delete(ctx, deployment)
+		err = k8sClient.Delete(ctx, owner)
 		Expect(err).NotTo(HaveOccurred())
 	}()
 
@@ -144,6 +161,12 @@ var _ = Describe("v1.Pod Webhook", func() {
 		})
 		It("Pod with Off Tortoise is not mutated", func() {
 			mutateTest(filepath.Join("testdata", "mutating", "off-tortoise"))
+		})
+		It("Pod managed by Rollout with Auto Tortoise is mutated", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "auto-tortoise-rollout"))
+		})
+		It("Pod managed by Rollout is ignored when Tortoise targets the Deployment with the same name", func() {
+			mutateTest(filepath.Join("testdata", "mutating", "auto-tortoise-rollout-kind-mismatch"))
 		})
 	})
 })

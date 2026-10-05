@@ -25,6 +25,32 @@ spec:
 
 This is the example for a minimum required configuration. 
 
+#### Argo Rollouts
+
+Tortoise also supports [Argo Rollouts](https://argoproj.github.io/rollouts/)' Rollout as the scale target:
+
+```yaml
+apiVersion: autoscaling.mercari.com/v1beta3
+kind: Tortoise
+metadata:
+  name: lovely-tortoise
+  namespace: zoo
+spec:
+  updateMode: Auto
+  targetRefs:
+    scaleTargetRef:
+      apiVersion: argoproj.io/v1alpha1 # can be omitted; Tortoise sets it for Rollout.
+      kind: Rollout
+      name: sample
+```
+
+It works in the same way as Deployment, except:
+- When Tortoise changes the resource requests, it restarts the Pods via [`.spec.restartAt`](https://argoproj.github.io/argo-rollouts/features/restart/) of the Rollout,
+  instead of changing the Pod template. So, the resource change doesn't create a new revision nor start the canary/blue-green steps.
+- If the Rollout refers to a Deployment via [`.spec.workloadRef`](https://argoproj.github.io/argo-rollouts/migrating/#reference-deployment-from-rollout),
+  Tortoise reads the Pod template from the referenced Deployment.
+  Only Deployment is supported as the referenced workload.
+
 ### Configure how each container's each resource is scaled (`.spec.AutoscalingPolicy` / `.spec.TargetRefs.HorizontalPodAutoscalerName`)
 
 There are two options for configuring resource scaling:

@@ -1,0 +1,12 @@
+metadata:
+  name: mercari
+  namespace: default
+  annotations:
+    "skip-status-update": "true"
+spec:
+  targetRefs:
+    horizontalPodAutoscalerName: tortoise-hpa-mercari # Autoscaling policy will be generated from HPA
+    scaleTargetRef:
+      apiVersion: argoproj.io/v1alpha1
+      kind: Rollout
+      name: mercari-app
