@@ -5555,3 +5555,157 @@ func TestService_IsHpaMetricAvailable_EmergencyModeGracePeriod(t *testing.T) {
 		})
 	}
 }
+
+func TestService_UpdateHPASpecFromTortoiseAutoscalingPolicy_SkipAndNoop(t *testing.T) {
+	newHPA := func(metrics ...v2.MetricSpec) *v2.HorizontalPodAutoscaler {
+		return &v2.HorizontalPodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "existing-hpa",
+				Namespace: "excluded",
+			},
+			Spec: v2.HorizontalPodAutoscalerSpec{
+				MinReplicas: ptr.To[int32](2),
+				MaxReplicas: 20,
+				Metrics:     metrics,
+			},
+		}
+	}
+	containerCPU := func(container string) v2.MetricSpec {
+		return v2.MetricSpec{
+			Type: v2.ContainerResourceMetricSourceType,
+			ContainerResource: &v2.ContainerResourceMetricSource{
+				Name:      v1.ResourceCPU,
+				Container: container,
+				Target: v2.MetricTarget{
+					Type:               v2.UtilizationMetricType,
+					AverageUtilization: ptr.To[int32](50),
+				},
+			},
+		}
+	}
+	newTortoise := func(policy ...v1beta3.ContainerAutoscalingPolicy) *v1beta3.Tortoise {
+		return &v1beta3.Tortoise{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "tortoise",
+				Namespace: "excluded",
+			},
+			Spec: v1beta3.TortoiseSpec{
+				UpdateMode: v1beta3.UpdateModeAuto,
+				TargetRefs: v1beta3.TargetRefs{
+					HorizontalPodAutoscalerName: ptr.To("existing-hpa"),
+					ScaleTargetRef: v1beta3.CrossVersionObjectReference{
+						Kind: "Deployment",
+						Name: "deployment",
+					},
+				},
+			},
+			Status: v1beta3.TortoiseStatus{
+				AutoscalingPolicy: policy,
+				Targets: v1beta3.TargetsStatus{
+					HorizontalPodAutoscaler: "existing-hpa",
+				},
+			},
+		}
+	}
+	appHorizontal := v1beta3.ContainerAutoscalingPolicy{
+		ContainerName: "app",
+		Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+			v1.ResourceCPU:    v1beta3.AutoscalingTypeHorizontal,
+			v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+		},
+	}
+	appVertical := v1beta3.ContainerAutoscalingPolicy{
+		ContainerName: "app",
+		Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+			v1.ResourceCPU:    v1beta3.AutoscalingTypeVertical,
+			v1.ResourceMemory: v1beta3.AutoscalingTypeVertical,
+		},
+	}
+	istioOff := v1beta3.ContainerAutoscalingPolicy{
+		ContainerName: "istio-proxy",
+		Policy: map[v1.ResourceName]v1beta3.AutoscalingType{
+			v1.ResourceCPU:    v1beta3.AutoscalingTypeOff,
+			v1.ResourceMemory: v1beta3.AutoscalingTypeOff,
+		},
+	}
+
+	tests := []struct {
+		name               string
+		excludedNamespaces []string
+		globalDisableMode  bool
+		tortoise           *v1beta3.Tortoise
+		initialHPA         *v2.HorizontalPodAutoscaler
+		// wantHPAUpdated is whether the HPA should be written to kube-apiserver.
+		wantHPAUpdated bool
+		wantHPAMetrics []v2.MetricSpec
+	}{
+		{
+			name:               "excluded namespace: metrics not in the autoscaling policy are kept",
+			excludedNamespaces: []string{"excluded"},
+			tortoise:           newTortoise(appHorizontal, istioOff),
+			initialHPA:         newHPA(containerCPU("app"), containerCPU("istio-proxy")),
+			wantHPAUpdated:     false,
+			wantHPAMetrics:     []v2.MetricSpec{containerCPU("app"), containerCPU("istio-proxy")},
+		},
+		{
+			name:               "excluded namespace: HPA is not disabled when there is no horizontal policy",
+			excludedNamespaces: []string{"excluded"},
+			tortoise:           newTortoise(appVertical, istioOff),
+			initialHPA:         newHPA(containerCPU("app")),
+			wantHPAUpdated:     false,
+			wantHPAMetrics:     []v2.MetricSpec{containerCPU("app")},
+		},
+		{
+			name:              "global disable mode: metrics not in the autoscaling policy are kept",
+			globalDisableMode: true,
+			tortoise:          newTortoise(appHorizontal, istioOff),
+			initialHPA:        newHPA(containerCPU("app"), containerCPU("istio-proxy")),
+			wantHPAUpdated:    false,
+			wantHPAMetrics:    []v2.MetricSpec{containerCPU("app"), containerCPU("istio-proxy")},
+		},
+		{
+			name:           "not excluded: HPA already matches the autoscaling policy, so it is not updated",
+			tortoise:       newTortoise(appHorizontal, istioOff),
+			initialHPA:     newHPA(containerCPU("app")),
+			wantHPAUpdated: false,
+			wantHPAMetrics: []v2.MetricSpec{containerCPU("app")},
+		},
+		{
+			name:           "not excluded: metrics not in the autoscaling policy are removed",
+			tortoise:       newTortoise(appHorizontal, istioOff),
+			initialHPA:     newHPA(containerCPU("app"), containerCPU("istio-proxy")),
+			wantHPAUpdated: true,
+			wantHPAMetrics: []v2.MetricSpec{containerCPU("app")},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, err := New(fake.NewClientBuilder().WithRuntimeObjects(tt.initialHPA).Build(), record.NewFakeRecorder(10), 0.95, 90, 100, time.Hour, nil, 1000, 10000, 3, "", 5*time.Minute, tt.globalDisableMode, tt.excludedNamespaces, nil)
+			if err != nil {
+				t.Fatalf("New() error = %v", err)
+			}
+			before := &v2.HorizontalPodAutoscaler{}
+			if err := c.c.Get(context.Background(), client.ObjectKeyFromObject(tt.initialHPA), before); err != nil {
+				t.Fatalf("get hpa error = %v", err)
+			}
+
+			if _, err := c.UpdateHPASpecFromTortoiseAutoscalingPolicy(context.Background(), tt.tortoise, tt.initialHPA, 5, time.Now()); err != nil {
+				t.Fatalf("Service.UpdateHPASpecFromTortoiseAutoscalingPolicy() error = %v", err)
+			}
+
+			after := &v2.HorizontalPodAutoscaler{}
+			if err := c.c.Get(context.Background(), client.ObjectKeyFromObject(tt.initialHPA), after); err != nil {
+				t.Fatalf("get hpa error = %v", err)
+			}
+			if updated := before.ResourceVersion != after.ResourceVersion; updated != tt.wantHPAUpdated {
+				t.Errorf("HPA updated = %v, want %v", updated, tt.wantHPAUpdated)
+			}
+			if d := cmp.Diff(tt.wantHPAMetrics, after.Spec.Metrics); d != "" {
+				t.Errorf("HPA metrics diff = %v", d)
+			}
+			if *after.Spec.MinReplicas != *tt.initialHPA.Spec.MinReplicas || after.Spec.MaxReplicas != tt.initialHPA.Spec.MaxReplicas {
+				t.Errorf("HPA replicas changed: min=%d max=%d, want min=%d max=%d", *after.Spec.MinReplicas, after.Spec.MaxReplicas, *tt.initialHPA.Spec.MinReplicas, tt.initialHPA.Spec.MaxReplicas)
+			}
+		})
+	}
+}
