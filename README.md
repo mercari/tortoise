@@ -1,11 +1,27 @@
 # Tortoise
 
+> [!IMPORTANT]
+> **Tortoise is in maintenance mode now.**
+>
+> We are still running Tortoise in Mercari production. But we are moving our workloads to another autoscaling solution step by step.
+>
+> What this means:
+>
+> 1. We will keep fixing bugs and security issues that affect our clusters.
+> 2. We are not planning any new features.
+> 3. Issues and PRs from outside Mercari get best-effort review only, so replies can be slow.
+> 4. Please don't adopt Tortoise for a new cluster. If you are already running it, please test every upgrade in a non-production cluster first.
+>
+> Please read these two open issues before running it in production:
+>
+> - [#436](https://github.com/mercari/tortoise/issues/436) - Tortoise can change Pod requests before VPA is ready. This can cause OOM.
+> - [#437](https://github.com/mercari/tortoise/issues/437) - the default webhook configuration covers every namespace, including `kube-system`. Please add a `namespaceSelector` for your cluster and use `failurePolicy: Ignore` for the HPA webhooks. Otherwise a Tortoise outage blocks HPA changes in the whole cluster.
+>
+> Once our migration is done, we will archive this repository. It will stay public and read-only.
 
 <img alt="Tortoise" src="docs/images/tortoise_big.jpg" width="400px"/> 
 
 Get cute Tortoises into your Kubernetes garden and say goodbye to the days optimizing your rigid autoscalers. 
-
-_Tortoise is still in the early stage and we recommend evaluating its behaviour with your services in your development environment carefully._
 
 ## Motivation
 
